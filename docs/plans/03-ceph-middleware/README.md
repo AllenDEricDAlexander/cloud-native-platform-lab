@@ -2,7 +2,7 @@
 
 文档版本：V3.0。状态：未执行。步骤数：48。
 
-在 Rocky Linux 上由 cephadm 独立运行 Ceph，通过 Rook External 与 Ceph CSI 向 Kubernetes 提供块、文件和对象能力，再建设数据库与消息中间件。
+在 Rocky Linux 上由 cephadm 独立运行 Ceph，通过 Rook External 与 Ceph CSI 向 Kubernetes 供应 RBD/CephFS 卷，RGW 通过 S3 端点提供对象能力，再建设数据库与消息中间件。
 
 前置条件：Phase 00–02 主线完成，存储节点、物理故障域、原始数据盘、镜像、时间与网络已核实。重要数据有独立备份位置。
 
@@ -12,7 +12,27 @@
 
 技术复核入口：[S01](../../reference/official-sources.md#s01)、[S02](../../reference/official-sources.md#s02)、[S03](../../reference/official-sources.md#s03)、[S04](../../reference/official-sources.md#s04)、[A03](../../reference/official-sources.md#a03)。
 
+## 阶段实施与验收
+
+目标：在不使用 vSAN 的条件下提供持久化与可恢复的数据服务。
+
+| 项目 | 具体要求 |
+| --- | --- |
+| 存储范围 | cephadm、MON/MGR/OSD/MDS/RGW、Rook External、Ceph CSI、StorageClass、RBD/CephFS、PV/PVC/VolumeSnapshot，以及隔离的 Rook 自管理对照。 |
+| 数据与扩展 | PostgreSQL/CloudNativePG、Redis、Kafka/Strimzi、RabbitMQ Operator、NATS/JetStream；扩展 MySQL/ECK，开发一个有调谐/幂等/Finalizer 的 Kubernetes Operator。 |
+| 实际顺序 | 核实独立备份与设备映射 → cephadm/池/文件/对象 → Rook External/CSI → 卷生命周期 → 存储故障 → 数据库/消息与恢复 → 自研 Operator。 |
+| 交付物 | infrastructure/cephadm/；kubernetes/storage/、middleware/、operators/；OSD 映射；StorageClass/PVC/Operator CR；数据库安装/恢复规程与故障报告。 |
+| 验收用例 | PVC 动态供应、扩容和 Pod 重建保留数据；OSD 失效/重平衡、CSI 故障、数据库切换与独立备份恢复、Kafka Broker 失效和消息持久化均有数据校验。 |
+
+实施细节：[打开具体操作、配置位置和检查方法](implementation-details.md)。
+
+阶段交接：至少完成一次 OSD 故障与数据库独立恢复；其他列明数据服务及对照仍需逐项实验记录。
+
+验收结果保存为 `reports/03-ceph-middleware/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../../templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+
 ## 03.01 确认存储硬件与数据保护边界
+
+[本专题具体操作、配置与检查](implementation-details.md#03-01)
 
 ### 03.01.01 复核 OSD 设备与物理故障域
 
@@ -49,6 +69,8 @@
 本节行为核对：[S03](../../reference/official-sources.md#s03)。
 
 ## 03.02 部署独立 cephadm 集群
+
+[本专题具体操作、配置与检查](implementation-details.md#03-02)
 
 ### 03.02.01 准备宿主机容器和 Ceph 依赖
 
@@ -102,6 +124,8 @@
 
 ## 03.03 提供 RBD、CephFS 与 RGW
 
+[本专题具体操作、配置与检查](implementation-details.md#03-03)
+
 ### 03.03.01 建立 RBD 块存储池
 
 实施内容：为数据库和通用块卷规划专用池、RBD 功能和配额，核对内核客户端支持。
@@ -135,6 +159,8 @@
 完成判定：整个 Ceph 不可用时，恢复必需文件仍可取得。
 
 ## 03.04 接入 Rook External 与 Ceph CSI
+
+[本专题具体操作、配置与检查](implementation-details.md#03-04)
 
 ### 03.04.01 准备外部集群最小权限连接
 
@@ -179,6 +205,8 @@
 本节行为核对：[S03](../../reference/official-sources.md#s03)、[S04](../../reference/official-sources.md#s04)。
 
 ## 03.05 完整验证 PV、PVC 与快照生命周期
+
+[本专题具体操作、配置与检查](implementation-details.md#03-05)
 
 ### 03.05.01 比较静态 PV 与动态供应
 
@@ -229,6 +257,8 @@
 完成判定：每个序号的业务数据可追踪，StatefulSet 删除后存储去留符合已配置策略。
 
 ## 03.06 实施存储故障与 Rook 自管理对照
+
+[本专题具体操作、配置与检查](implementation-details.md#03-06)
 
 ### 03.06.01 演练单 OSD 和存储 VM 故障
 
@@ -282,6 +312,8 @@
 
 ## 03.07 建设 PostgreSQL 与关系型数据库实验
 
+[本专题具体操作、配置与检查](implementation-details.md#03-07)
+
 ### 03.07.01 部署单实例 PostgreSQL 基准
 
 实施内容：先用独立 PVC 建立轻量 PostgreSQL，定义用户、数据库、连接参数和测试数据。
@@ -323,6 +355,8 @@
 完成判定：获得可复用的关系型数据库对照结果，测试后按规则回收资源。
 
 ## 03.08 建设 Redis、Kafka、RabbitMQ 与 NATS
+
+[本专题具体操作、配置与检查](implementation-details.md#03-08)
 
 ### 03.08.01 部署 Redis 并验证持久化
 
@@ -381,6 +415,8 @@
 完成判定：同一个简单业务场景可以在三种消息系统上重放并比较。
 
 ## 03.09 开发 Operator 并完成数据平台交接
+
+[本专题具体操作、配置与检查](implementation-details.md#03-09)
 
 ### 03.09.01 设计自定义 DemoApp API
 

@@ -12,7 +12,27 @@
 
 技术复核入口：[K07](../../reference/official-sources.md#k07)、[N01](../../reference/official-sources.md#n01)、[N02](../../reference/official-sources.md#n02)、[N03](../../reference/official-sources.md#n03)。
 
+## 阶段实施与验收
+
+目标：完成应用通信、统一入口、调度隔离与服务治理。
+
+| 项目 | 具体要求 |
+| --- | --- |
+| 建设范围 | Service/CoreDNS/EndpointSlice、MetalLB、Ingress 对照、Envoy Gateway/Gateway API、Cilium NetworkPolicy/Hubble、cert-manager。 |
+| 调度与进阶 | Taint/Toleration、Node/Pod Affinity、Topology Spread、QoS/Eviction/PDB、ResourceQuota/LimitRange/PriorityClass；Cilium kube-proxy replacement/L2/BGP/Egress Gateway、Istio Sidecar/Ambient、SPIFFE/SPIRE。 |
+| 实际顺序 | 固定通信基准 → Service/DNS → MetalLB 与入口 → TLS/网络策略 → 调度与资源治理 → 隔离数据面及网格对照 → 清理并复验主线。 |
+| 交付物 | 网络拓扑与地址台账；kubernetes/networking/ 的 Cilium values、Gateway/HTTPRoute、NetworkPolicy、TLS 和调度策略；labs/cilium-ebpf/ 场景与 tests/integration/ 网络用例。 |
+| 验收用例 | 跨节点 Pod、域名、HTTPS/gRPC、允许/拒绝流量、节点约束和物理故障域分布通过；每种高级模式有前后对照与回退证据，缺少 BGP 前置则单独阻塞该项。 |
+
+实施细节：[打开具体操作、配置位置和检查方法](implementation-details.md)。
+
+阶段交接：主线通信先交接给 03；尚未完成的进阶项仍计入本阶段，不能因可交接而把全部范围标成完成。
+
+验收结果保存为 `reports/02-networking/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../../templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+
 ## 02.01 核对网络路径与诊断基准
+
+[本专题具体操作、配置与检查](implementation-details.md#02-01)
 
 ### 02.01.01 绘制实际通信与信任路径
 
@@ -39,6 +59,8 @@
 完成判定：可用 Hubble 识别源、目标和拒绝原因，不把空白观测直接认定为没有流量。
 
 ## 02.02 完整验证 Service 与服务发现
+
+[本专题具体操作、配置与检查](implementation-details.md#02-02)
 
 ### 02.02.01 验证 ClusterIP 与端点选择
 
@@ -92,6 +114,8 @@
 
 ## 02.03 建立 MetalLB 主负载均衡与 VIP 规则
 
+[本专题具体操作、配置与检查](implementation-details.md#02-03)
+
 ### 02.03.01 部署 MetalLB L2 主方案
 
 实施内容：从 .201–.220 预留池中先启用 .201–.210，保留其他地址给不重叠的对比实验。
@@ -117,6 +141,8 @@
 完成判定：地址台账与实际 Service 一致，没有失去归属的对外入口。
 
 ## 02.04 建立 Gateway API 与传统 Ingress 对照
+
+[本专题具体操作、配置与检查](implementation-details.md#02-04)
 
 ### 02.04.01 锁定 Gateway API 与实现兼容性
 
@@ -178,6 +204,8 @@
 
 ## 02.05 接入证书自动化与公网发布边界
 
+[本专题具体操作、配置与检查](implementation-details.md#02-05)
+
 ### 02.05.01 部署 cert-manager 与内部签发器
 
 实施内容：连接阶段 00 建立的内部 PKI，使用受限的中间签发能力为 internal.egon.top 下的实际入口主机名签发证书。
@@ -203,6 +231,8 @@
 完成判定：真正公网客户端可访问被批准应用，管理服务和 internal.egon.top 内部入口没有被意外公开。
 
 ## 02.06 建立网络隔离与出站策略
+
+[本专题具体操作、配置与检查](implementation-details.md#02-06)
 
 ### 02.06.01 实施 Namespace 默认拒绝策略
 
@@ -237,6 +267,8 @@
 完成判定：目标应用确实使用指定出口；VPN 故障时内网服务不中断，出口单点和会话变化被记录。
 
 ## 02.07 建立调度约束与物理故障域
+
+[本专题具体操作、配置与检查](implementation-details.md#02-07)
 
 ### 02.07.01 建立节点角色与物理宿主机标签
 
@@ -280,6 +312,8 @@
 
 ## 02.08 实施资源配额、QoS 与可用性预算
 
+[本专题具体操作、配置与检查](implementation-details.md#02-08)
+
 ### 02.08.01 设置 Requests、Limits、LimitRange 与 Quota
 
 实施内容：为应用、构建和实验 Namespace 分别设置 CPU、内存、临时存储和对象数量预算。
@@ -322,6 +356,8 @@
 
 ## 02.09 对比 Cilium 数据面和负载均衡能力
 
+[本专题具体操作、配置与检查](implementation-details.md#02-09)
+
 本节在主线稳定并具备回退记录后执行；优先使用临时集群验证再考虑主集群变更。
 
 ### 02.09.01 比较 kube-proxy 与 eBPF 替代
@@ -359,6 +395,8 @@
 本节行为核对：[N01](../../reference/official-sources.md#n01)、[N02](../../reference/official-sources.md#n02)。
 
 ## 02.10 实验 Istio 与工作负载身份
+
+[本专题具体操作、配置与检查](implementation-details.md#02-10)
 
 本节基础 mTLS 可独立测试；完整 Trace、SLO 和发布联动在 Phase 04、05 完成后回访。
 

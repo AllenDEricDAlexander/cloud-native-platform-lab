@@ -1,0 +1,198 @@
+# 草案结构，禁止据此部署。候选版本不是最终锁定或兼容性实测结果。
+schema_version: 1
+status: draft
+reviewed_at: null
+validated_at: null
+policy:
+  exact_versions_required: true
+  artifact_checksums_required: true
+  internal_sources_required_for_offline: true
+  require_phase_specific_validation: true
+components:
+  rocky_linux:
+    phase: "00"
+    candidate: "10.x"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  openwrt:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  opentofu:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  ansible:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  containerd:
+    phase: "00"
+    candidate: "2.x"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  runc:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  cri_tools:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  kubeadm:
+    phase: "00"
+    candidate: "1.36.5"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  kubelet:
+    phase: "00"
+    candidate: "1.36.5"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  kubectl:
+    phase: "00"
+    candidate: "1.36.5"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  harbor:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  nexus:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  gitlab:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  cilium:
+    phase: "01"
+    candidate: "1.20.x"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  kube_vip:
+    phase: "01"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  metallb:
+    phase: "02"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  gateway_api:
+    phase: "02"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  envoy_gateway:
+    phase: "02"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  cert_manager:
+    phase: "02"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  ceph:
+    phase: "03"
+    candidate: "Tentacle"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  rook:
+    phase: "03"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  ceph_csi:
+    phase: "03"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+# 每个 artifact 在执行前补 name/type/architecture/source/internal_source/
+# digest 或 sha256；Chart 同时记录 Chart 版本和实际镜像；包记录完整版本及依赖。
+# 以下组件按首次使用阶段逐一提升为上方的完整锁定记录，不允许仅锁核心组件就部署扩展。
+pending_by_phase:
+  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, ansible_collections, registry_runtime]
+  "01": [etcd, coredns, pause, cni_plugins, metrics_server]
+  "02": [istio, spire, ingress_comparison_controller]
+  "03": [cloudnativepg, postgresql, redis, strimzi, kafka, rabbitmq_operator, rabbitmq, nats, mysql, eck, elasticsearch, operator_toolchain]
+  "04": [gitlab_runner, jenkins, jenkins_plugins, buildkit, argocd, argo_rollouts, helm, kustomize, cosign, kyverno, backstage, crossplane, tekton, flux, dragonfly, prometheus_minimal]
+  "05": [prometheus, grafana, alertmanager, fluent_bit, logstash, kibana, otel_collector, otel_sdks, loki, tempo, pyroscope, opencost, k6_or_locust]
+  "06": [keycloak, falco, tetragon, vpa, keda, chaos_mesh, sops, age, external_secrets, vault, knative, dapr, argo_workflows, argo_events, capi, capv, kubevirt, cdi, kueue, dra_driver, kubeflow, kserve, gpu_operator, vllm, llm_d, velero]

@@ -1,0 +1,182 @@
+# 设计台账，尚未现场核实；不是可直接执行的 Ansible Inventory。
+schema_version: 1
+status: planned_unverified
+verified_at: null
+hypervisors:
+  - id: esxi01
+    fqdn: esxi01.mgmt.internal.egon.top
+    management_ip: 192.168.9.61
+    bmc_ip: 192.168.9.51
+    datastore: null
+    port_group: null
+  - id: esxi02
+    fqdn: esxi02.mgmt.internal.egon.top
+    management_ip: 192.168.9.62
+    bmc_ip: 192.168.9.52
+    datastore: null
+    port_group: null
+  - id: esxi03
+    fqdn: esxi03.mgmt.internal.egon.top
+    management_ip: 192.168.9.63
+    bmc_ip: 192.168.9.53
+    datastore: null
+    port_group: null
+kubernetes_nodes:
+  - id: cp01
+    fqdn: cp01.k8s.internal.egon.top
+    ip: 192.168.9.101
+    role: control_plane
+    resource_profile: control_plane
+    planned_hypervisor: esxi01
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: cp02
+    fqdn: cp02.k8s.internal.egon.top
+    ip: 192.168.9.102
+    role: control_plane
+    resource_profile: control_plane
+    planned_hypervisor: esxi02
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: cp03
+    fqdn: cp03.k8s.internal.egon.top
+    ip: 192.168.9.103
+    role: control_plane
+    resource_profile: control_plane
+    planned_hypervisor: esxi03
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: infra01
+    fqdn: infra01.k8s.internal.egon.top
+    ip: 192.168.9.104
+    role: infra
+    resource_profile: infra
+    planned_hypervisor: esxi01
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: infra02
+    fqdn: infra02.k8s.internal.egon.top
+    ip: 192.168.9.105
+    role: infra
+    resource_profile: infra
+    planned_hypervisor: esxi02
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: storage01
+    fqdn: storage01.k8s.internal.egon.top
+    ip: 192.168.9.106
+    role: storage
+    resource_profile: storage
+    planned_hypervisor: esxi01
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: storage02
+    fqdn: storage02.k8s.internal.egon.top
+    ip: 192.168.9.107
+    role: storage
+    resource_profile: storage
+    planned_hypervisor: esxi02
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: storage03
+    fqdn: storage03.k8s.internal.egon.top
+    ip: 192.168.9.108
+    role: storage
+    resource_profile: storage
+    planned_hypervisor: esxi03
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: worker01
+    fqdn: worker01.k8s.internal.egon.top
+    ip: 192.168.9.109
+    role: worker
+    resource_profile: worker
+    planned_hypervisor: esxi01
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+  - id: worker02
+    fqdn: worker02.k8s.internal.egon.top
+    ip: 192.168.9.110
+    role: worker
+    resource_profile: worker
+    planned_hypervisor: esxi03
+    actual_hypervisor: null
+    network_connection: null
+    runtime_disk_uuid: null
+    osd_device_ids: []
+    node_bootstrap_status: not_started
+bootstrap_services:
+  - id: openwrt
+    fqdn: openwrt.mgmt.internal.egon.top
+    ip: 192.168.9.10
+    planned_hypervisor: null
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+  - id: dns
+    fqdn: dns.mgmt.internal.egon.top
+    ip: 192.168.9.11
+    planned_hypervisor: null
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+  - id: harbor
+    fqdn: harbor.k8s.internal.egon.top
+    ip: 192.168.9.12
+    planned_hypervisor: null
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+  - id: gitlab
+    fqdn: gitlab.svc.internal.egon.top
+    ip: 192.168.9.13
+    planned_hypervisor: null
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+  - id: nexus
+    fqdn: nexus.svc.internal.egon.top
+    ip: 192.168.9.14
+    planned_hypervisor: null
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+  - id: admin
+    fqdn: admin.mgmt.internal.egon.top
+    ip: 192.168.9.15
+    planned_hypervisor: null
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+reserved_endpoints:
+  - id: independent_backup
+    ip: 192.168.9.16
+    device_verified: false
+  - id: second_dns
+    ip: 192.168.9.17
+    deployed: false
+vcenter:
+  fqdn: vcsa.mgmt.internal.egon.top
+  ip: null
+  api_access_verified: false

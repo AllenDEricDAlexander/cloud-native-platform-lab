@@ -1,6 +1,6 @@
 # 官方资料与版本复核入口
 
-核对日期：2026-10-13。本文件集中列出本次编写时查阅的官方资料。后续执行应切换到锁定版本对应的文档，而不是无条件照用 latest、main 或 stable 指向的未来内容。
+资料维护日期：2026-10-13。本文件保留官方资料入口。本轮复核了 kubeadm 高可用/安装/升级、运行时与 containerd 配置、Rocky 10 CPU 前置、Cilium 兼容/L2、Rook External 和 Velero 数据搬运，以及原版本候选页面；其余条目保留为实施前复核入口。后续执行应切换到锁定版本的文档，不无条件照用 latest、main 或 stable。
 
 以下资料支持技术语义与能力边界；本项目的 IP、资源预算、步骤顺序和验收目标是针对本实验室的工程设计，不是厂商对该硬件的认证。未逐项锁定的高级模块在执行时仍需复核。
 
@@ -207,3 +207,39 @@ Serving、Eventing、网络依赖与 Serverless 实验。
 [vLLM GPU Installation](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/)
 
 模型框架硬件和软件前置；老架构 GPU 必须单独核对。
+
+## K08
+
+[Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+
+运行时、cgroup 与 CRI 前置。项目将系统/CRI 安装配置安排在 00，01 仅复验并创建集群；阶段划分是本项目设计。
+
+## K09
+
+[Installing kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+
+Swap、包仓库、系统前置和 SELinux 示例的核对入口；自定义 Enforcing 方案仍需验证具体策略，不能假定任意 Rocky/containerd 组合都受支持。
+
+## K10
+
+[containerd CRI configuration](https://github.com/containerd/containerd/blob/main/docs/cri/config.md)
+
+2.x 的配置 v3、runtime/images 插件路径、SystemdCgroup、pinned sandbox image 和 registry 配置；实施时对应锁定 tag 复核。
+
+## K11
+
+[cri-tools crictl](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md)
+
+CRI socket、镜像和 sandbox/container 操作。00 的 host-network smoke 只验证 CRI，不能替代 01 的 CNI/Pod 网络验收。
+
+## K12
+
+[Creating Highly Available Clusters with kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
+
+三控制平面、负载均衡入口及 join/健康检查前置；实际 kube-vip 引导需按其锁定版本确认凭据顺序。
+
+## R02
+
+[Rocky Linux 10 Release Notes](https://docs.rockylinux.org/latest/releases/release_notes/10_0/)
+
+x86_64 平台的 x86-64-v3 要求；客体实际可见 CPU 能力/EVC 必须现场检查，不能只凭物理 CPU 名称判断。

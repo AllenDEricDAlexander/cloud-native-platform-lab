@@ -6,7 +6,7 @@
 
 ### 1.1 从空环境开始
 
-先有 ESXi/iDRAC 管理和本地恢复工具，再有局域网与 DNS/CA，再有 GitLab、Harbor、Nexus，随后建立 Kubernetes。Ceph 由宿主机独立管理，在 Kubernetes 内只通过 Rook External/CSI 消费。业务和有状态平台必须等到存储、证书与网络实际通过验证。
+先用已校验种子建立 ESXi/iDRAC 管理和本地工具，再有局域网与 DNS/CA、GitLab/Harbor/Nexus；00 实际完成十节点 Linux/CRI 初始化及重启复验，01 复验后才建立 Kubernetes。Ceph 由 Rocky 存储主机上的 cephadm 独立管理，Kubernetes 通过 Rook External/CSI 消费卷，通过 RGW 端点消费对象存储。业务和有状态平台必须等到存储、证书与网络实际通过验证。
 
 ### 1.2 必须提前做的最低能力
 
@@ -14,7 +14,7 @@
 
 ### 1.3 合理回访而不是卡住主线
 
-01 的 StatefulSet 无持久化实验在 03 补齐；02 的 Service Mesh 与身份可在 04–06 回访；04 的自动指标发布分析在 05 回访；06 的 GPU/KubeVirt/BGP/第二集群在前置满足时开展。不能为了等一块 GPU 而停止全部基础建设。
+01 的 StatefulSet 身份实验在 03 增加持久化验证；02 完成基础网格/身份，04–06 扩展联动；04 用最小真实指标源独立验收自动发布，05 完善 SLO；06 的 GPU/KubeVirt/第二集群与 02 的 BGP 在前置满足时开展。不能为了等一块 GPU 而停止全部基础建设；但可交接不代表未做的高级实验已经通过，阶段完整完成仍需关闭这些条目。
 
 ## 2. 一项资源一个主控制者
 

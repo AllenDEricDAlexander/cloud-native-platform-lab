@@ -1,105 +1,137 @@
-# 七阶段实施文档总目录
+# 七阶段总体实施计划
 
-执行顺序为 00 → 01 → 02 主线 → 03 → 04 → 05 → 06。跨阶段依赖的高级实验按文档约定回访，不因 GPU 或第二集群未准备而阻塞基础平台。
+本轮优化把目录、架构、实际任务、交付物和验收连接起来。固定七个阶段，保留原 363 个稳定步骤编号；各阶段 README 是步骤入口，具体操作文件补充配置位置、执行顺序、检查和失败处理。当前全部未执行。
 
-共 363 个步骤。当前所有步骤状态为未执行。每个步骤的编号固定，便于后续在项目里补充配置、操作和证据。
+[项目入口](../../README.md) · [总体架构](../architecture/overview.md) · [步骤索引](step-index.md) · [覆盖索引](coverage.md)
 
-[项目文档入口](../../V3.0-DOCUMENTS.md) · [统一架构](../architecture/v3.0-baseline.md) · [全部步骤索引](step-index.md) · [技术覆盖索引](coverage.md)
+## 执行与交接规则
 
-## Phase 00｜基础设施、域名、网络与软件供应准备
+00 → 01 → 02 主线 → 03 → 04 → 05 → 06。每阶段必须交付可复用配置/脚本、文档、测试入口和真实报告；仅有清单、安装界面或目录不算完成。
 
-[打开完整阶段文档](00-preparation/README.md)。本阶段 10 个专题、43 个步骤。
+00 必须实际部署基础服务、创建十台服务器、配置 Linux 并安装验证 CRI。01 从节点基线复验开始，只负责 kubeadm/CNI/控制平面和资源实验。发现系统问题返回 00 的角色配置修复，不能把服务器初始化留给 01。
 
-在 Kubernetes 和 Ceph 尚未建立时，先让管理入口、DNS、证书、网络出口、源码与软件仓库独立工作。本阶段交付可重复使用的虚拟机基线和离线恢复起点。
+| 状态 | 判定 |
+| --- | --- |
+| 未执行 / 进行中 | 尚无全部运行证据，不计为通过 |
+| 主线可交接 | 本阶段的交接用例已通过；条件实验仍逐项跟踪 |
+| 阻塞 / 失败待修复 | 分别记录缺失前置或真实失败及恢复动作 |
+| 阶段完整完成 | 该阶段全部要求、交付物与验收有证据，回访项已关闭 |
 
-### 执行前提
+“主线可交接”不等于“阶段完整完成”。硬件受限模块不能静默删除或标成通过。阶段独立验收允许依赖先前阶段，但不能依赖尚未实施的后续阶段才能证明自己的基本成果。
 
-能够从 Mac 访问三台 ESXi 与 iDRAC；拥有虚拟机创建权限。公网域名 egon.top 的 DNS 管理权限、上游网关、DHCP 范围和 VPN 服务端参数都须通过实际环境核实。
+| 容易形成的依赖 | 本轮安排 |
+| --- | --- |
+| 仓库依赖待建仓库中的自身物料 | 00 使用经校验的离线种子启动管理机与集群外仓库，随后转内网源 |
+| CRI 到 01 才部署 | 安装、配置、运行、重启与幂等均纳入 00；01 复验 |
+| 无 CNI 无法验收 CRI | 00 host-network sandbox 验证 RuntimeReady；01 验证 CNI 和普通 Pod 网络 |
+| 04 自动回退等待 05 | 04 实施最小真实指标源并验收；05 扩展完整 SLO |
+| 01 StatefulSet 与持久化 | 01 验证身份和控制器；03 独立验证真实 PVC 与恢复 |
+| 02 网格等待未来统一身份/观测 | 02 验证基础 mTLS/授权；05/06 扩展追踪和信任联动 |
+| 05 跨集群观测没有第二集群 | 05 完成标签/路由和主集群验证；06C 新集群接入后补实测，不提前声称跨集群已通过 |
 
-### 边界与后续衔接
+## 每阶段要交什么
 
-本阶段不安装完整 Kubernetes、不初始化 Ceph OSD、不改动已有 RAID 或格式化未知磁盘。基础服务暂用 ESXi 本地 Datastore，不能依赖未来的 Ceph PVC。
+### Phase 00｜基础设施与服务器初始化
 
-## Phase 01｜Kubernetes 高可用、核心资源与生命周期
+目标：独立于 Kubernetes 完成基础设施部署与恢复，十台 Rocky 节点具备入群条件。
 
-[打开完整阶段文档](01-kubernetes/README.md)。本阶段 10 个专题、47 个步骤。
+[阶段正文与 43 个步骤](00-preparation/README.md) · [具体实施](00-preparation/node-bootstrap.md)
 
-先建立三控制平面、七 Worker 的可维护集群，再以小型测试应用逐项验证控制器、探针、配置、更新和删除行为。每个实验使用独立标签或命名空间。
+- **建设范围**：ESXi 模板/批量 VM、Rocky Linux 10、VMXNET3、Linux 基线与 containerd/runc/crictl、OpenWrt/VPN、IP/DNS/CA/NTP、Harbor/Nexus/GitLab、Ansible/OpenTofu、离线镜像和依赖。
+- **实际顺序**：资产与版本核实 → 集群外管理工具/种子 → 模板和基础 VM → 网络/DNS/CA/仓库 → 十节点 Linux/CRI 初始化 → 重启/幂等/离线/备份验收。00.10.01 的工具准备在创建 VM 前执行，编号用于追溯而非强制逐号执行。
+- **重点实验**：批量克隆唯一身份、VMXNET3、VPN 分流与断链、代理缓存、CRI 容器运行、重启保持配置、离线安装/构建、基础服务恢复。
+- **交付物**：inventory 三份台账；OpenTofu 模块；Ansible Inventory/角色/Playbook；模板制作记录；OpenWrt/DNS/PKI/仓库配置；物料同步和预热入口；十节点 Linux/CRI 检查结果。
+- **验收用例**：十台节点通过 node-readiness 和 host-network CRI smoke；关键服务不依赖 K8s/Ceph；VPN 故障下内网可用；干净客户端断网后完成指定物料的安装及七类最小构建；独立备份恢复一个基础服务。
 
-### 执行前提
+交接要求：基础服务与十台服务器已实际就绪；OS/CRI 初始化不能延后到 01。
 
-Phase 00 已通过验收；内部 DNS、CA、Harbor 和节点初始化可用；准确版本已锁定。
+### Phase 01｜Kubernetes 高可用与核心资源
 
-### 边界与后续衔接
+目标：理解并验证资源控制器、生命周期和控制平面高可用。
 
-本阶段只建立 Cilium 基础网络与必要的 Service，不依赖 Ceph、完整监控或正式 CI。StatefulSet 先验证身份，持久化与数据库故障实验在 Phase 03 完成。
+[阶段正文与 47 个步骤](01-kubernetes/README.md) · [具体实施](01-kubernetes/implementation-details.md)
 
-## Phase 02｜云原生网络、调度与服务治理
+- **建设范围**：复验 00 节点基线，配置 kubeadm/kubelet，建立三控制平面 stacked etcd、kube-vip、Cilium 基础 CNI，加入十节点。
+- **核心资源**：Pod、RC、ReplicaSet、Deployment、StatefulSet、DaemonSet、Job/CronJob、三种 Probe、PreStop、ConfigMap/Secret、更新/扩缩容/回滚、级联删除和垃圾回收。
+- **实际顺序**：只读入群检查 → kubeadm/kubelet 与 VIP 引导配置 → cp01 init → Cilium → cp02/03 join → 七 Worker join → DNS/HA/etcd 备份 → 核心资源实验。
+- **交付物**：kubernetes/bootstrap/ 初始化/Join/Cilium 基础配置；kubernetes/core-resources/ YAML；labs/kubernetes-core/ 场景；etcd 备份入口、测试和故障记录。
+- **验收用例**：10 节点 Ready；单控制平面故障时 etcd Quorum 和 API 仍可用；Pod 异常、Readiness 端点摘除、DaemonSet 回滚、ReplicaSet 接管、StatefulSet 身份保持及全部基础实验通过。
 
-[打开完整阶段文档](02-networking/README.md)。本阶段 10 个专题、45 个步骤。
+交接要求：交接可用集群、核心实验集和恢复材料；持久化数据验收归 03，01 不宣称 PVC 数据恢复已通过。
 
-从可观测的基础通信开始，建立 Service、网关、证书、网络隔离和调度规则，再逐项比较 eBPF、负载均衡、出站治理与服务网格。
+### Phase 02｜网络、调度与服务治理
 
-### 执行前提
+目标：完成应用通信、统一入口、调度隔离与服务治理。
 
-Phase 01 的十节点、Cilium、CoreDNS 和基础应用已健康。高级网格身份、自动灰度指标和跨集群网络分别在 Phase 04–06 具备依赖后回访。
+[阶段正文与 45 个步骤](02-networking/README.md) · [具体实施](02-networking/implementation-details.md)
 
-### 边界与后续衔接
+- **建设范围**：Service/CoreDNS/EndpointSlice、MetalLB、Ingress 对照、Envoy Gateway/Gateway API、Cilium NetworkPolicy/Hubble、cert-manager。
+- **调度与进阶**：Taint/Toleration、Node/Pod Affinity、Topology Spread、QoS/Eviction/PDB、ResourceQuota/LimitRange/PriorityClass；Cilium kube-proxy replacement/L2/BGP/Egress Gateway、Istio Sidecar/Ambient、SPIFFE/SPIRE。
+- **实际顺序**：固定通信基准 → Service/DNS → MetalLB 与入口 → TLS/网络策略 → 调度与资源治理 → 隔离数据面及网格对照 → 清理并复验主线。
+- **交付物**：网络拓扑与地址台账；kubernetes/networking/ 的 Cilium values、Gateway/HTTPRoute、NetworkPolicy、TLS 和调度策略；labs/cilium-ebpf/ 场景与 tests/integration/ 网络用例。
+- **验收用例**：跨节点 Pod、域名、HTTPS/gRPC、允许/拒绝流量、节点约束和物理故障域分布通过；每种高级模式有前后对照与回退证据，缺少 BGP 前置则单独阻塞该项。
 
-先完成主网络与调度，再进入 Phase 03；高级对比实验不阻塞主线。不得同时让两个控制器宣告相同 VIP，也不得在无回退通道时更换主集群 CNI 模式。
+交接要求：主线通信先交接给 03；尚未完成的进阶项仍计入本阶段，不能因可交接而把全部范围标成完成。
 
-## Phase 03｜Ceph、Kubernetes 存储与有状态数据平台
+### Phase 03｜Ceph、存储与中间件
 
-[打开完整阶段文档](03-ceph-middleware/README.md)。本阶段 9 个专题、48 个步骤。
+目标：在不使用 vSAN 的条件下提供持久化与可恢复的数据服务。
 
-在 Rocky Linux 上由 cephadm 独立运行 Ceph，通过 Rook External 与 Ceph CSI 向 Kubernetes 提供块、文件和对象能力，再建设数据库与消息中间件。
+[阶段正文与 48 个步骤](03-ceph-middleware/README.md) · [具体实施](03-ceph-middleware/implementation-details.md)
 
-### 执行前提
+- **存储范围**：cephadm、MON/MGR/OSD/MDS/RGW、Rook External、Ceph CSI、StorageClass、RBD/CephFS、PV/PVC/VolumeSnapshot，以及隔离的 Rook 自管理对照。
+- **数据与扩展**：PostgreSQL/CloudNativePG、Redis、Kafka/Strimzi、RabbitMQ Operator、NATS/JetStream；扩展 MySQL/ECK，开发一个有调谐/幂等/Finalizer 的 Kubernetes Operator。
+- **实际顺序**：核实独立备份与设备映射 → cephadm/池/文件/对象 → Rook External/CSI → 卷生命周期 → 存储故障 → 数据库/消息与恢复 → 自研 Operator。
+- **交付物**：infrastructure/cephadm/；kubernetes/storage/、middleware/、operators/；OSD 映射；StorageClass/PVC/Operator CR；数据库安装/恢复规程与故障报告。
+- **验收用例**：PVC 动态供应、扩容和 Pod 重建保留数据；OSD 失效/重平衡、CSI 故障、数据库切换与独立备份恢复、Kafka Broker 失效和消息持久化均有数据校验。
 
-Phase 00–02 主线完成，存储节点、物理故障域、原始数据盘、镜像、时间与网络已核实。重要数据有独立备份位置。
+交接要求：至少完成一次 OSD 故障与数据库独立恢复；其他列明数据服务及对照仍需逐项实验记录。
 
-### 边界与后续衔接
+### Phase 04｜双 CI、GitOps 与平台工程
 
-不使用 vSAN。三个 Ceph VM 兼任受限 Worker 只是实验资源复用，不构成完全独立的物理存储集群；Ceph 的停止、维护和升级不由 kubelet 负责。
+目标：建立可审计、支持七类语言的自动交付和研发自助平台。
 
-## Phase 04｜双 CI、GitOps、IaC 与开发者平台工程
+[阶段正文与 55 个步骤](04-devops-platform/README.md) · [具体实施](04-devops-platform/implementation-details.md)
 
-[打开完整阶段文档](04-devops-platform/README.md)。本阶段 10 个专题、55 个步骤。
+- **建设范围**：GitLab CI、Jenkins、BuildKit、Harbor/Nexus 缓存、Argo CD/Rollouts、Helm/Kustomize、双 IaC、SBOM/Trivy/Cosign/准入、Backstage/Crossplane/ApplicationSet、Tekton/Flux/Dragonfly。
+- **语言范围**：Java、Rust、C、C++、C#、JS/TS、Python；两个 CI 各自构建、推送、部署并验收全部七类，同一 Digest 跨环境晋级。
+- **实际顺序**：应用与制品契约 → Builder/缓存 → 两套 CI → 14 组交付 → 双 IaC → GitOps → 灰度/签名/拒绝发布 → 自助平台 → 隔离对照。
+- **交付物**：ci/gitlab/、jenkins/、builders/、shared/、tekton/；七语言 labs/devsecops/ 示例；gitops/ 环境声明；Backstage Template、Crossplane Composition；IaC 与恢复执行器。
+- **验收用例**：14 组“语言 × CI”完整构建部署记录；两套 IaC 均完成 Plan/受控 Apply/幂等/失败补偿；真实指标驱动灰度中止和回退；Backstage 创建并交付一个完整服务。
 
-建设 GitLab CI 与 Jenkins 两条完整、对等的流水线，统一多语言构建、制品、安全检查和交付，再用 Backstage 与 Crossplane 提供可审计的研发自助服务。
+交接要求：本阶段部署最小真实指标源完成 Rollouts 验收，不依赖 05。05 负责全面观测和 SLO 扩展。
 
-### 执行前提
+### Phase 05｜可观测性、性能与成本
 
-Phase 00–03 主线完成；GitLab、Harbor、Nexus、内部 CA、网关和 Ceph PVC 可用。自动 SLO 发布分析在 Phase 05 提供指标后回访。
+目标：为多语言应用和跨集群组件建立完整遥测、故障定位与容量依据。
 
-### 边界与后续衔接
+[阶段正文与 42 个步骤](05-observability/README.md) · [具体实施](05-observability/implementation-details.md)
 
-CI 不直接与 GitOps 竞争写同一业务资源。主集群故障时依靠集群外管理入口和受控恢复执行器，不能要求运行在故障集群中的 Jenkins Controller 或 Runner 自我修复。
+- **建设范围**：Prometheus/Grafana/Alertmanager、ELK/Fluent Bit、OpenTelemetry Collector、Loki/Tempo/Pyroscope/OpenCost。
+- **研究内容**：Metrics/Logs/Traces/Profiles、采样/高基数、日志解析与索引、Retention、SLI/SLO/错误预算、资源成本与容量。
+- **实际顺序**：统一遥测标签/预算 → 指标/告警 → Ceph/中间件/基础设施采集 → OTel → ELK 与 Loki/Trace/Profile → SLO 发布分析 → 压测/成本对照。
+- **交付物**：kubernetes/observability/ 配置、Dashboard、Kibana 查询、OTel 配置、告警与 SLO；labs/observability/ 场景、tests/performance/ 用例及性能/成本报告。
+- **验收用例**：跨语言同步/异步请求串联日志、指标和 Trace；Ceph I/O、Kafka Lag、Java Profiling 与压力案例可定位；ELK/Loki 同负载比较；SLO 驱动灰度分析和资源成本核算。
 
-## Phase 05｜可观测性、日志、性能、SLO 与成本治理
+交接要求：保留最低监控和集群外探测，向 06 提供可复用故障指标；第二集群真实观测在 06C 接入后补充实测。
 
-[打开完整阶段文档](05-observability/README.md)。本阶段 9 个专题、42 个步骤。
+### Phase 06｜安全、进阶技术与升级容灾
 
-用统一的遥测契约连接指标、日志、追踪与性能剖析，保留 ELK 与 Loki 两条日志实验路线，为发布、扩缩容和故障恢复提供可验证的数据。
+目标：按五个内部专题验证平台可靠性和高级能力，完成完整重建。
 
-### 执行前提
+[阶段正文与 83 个步骤](06-advanced-security-dr/README.md) · [具体实施](06-advanced-security-dr/implementation-details.md)
 
-Phase 03 数据与存储平台、Phase 04 多语言样例和发布流水线可用；基础网关、证书与身份边界已建立。
+- **06A 安全与弹性**：RBAC/ServiceAccount/PSA、Kyverno/Trivy/Cosign、Keycloak、Falco/Tetragon、HPA/VPA/KEDA、Chaos Mesh。
+- **06B Serverless 与事件平台**：Knative、Dapr、Argo Workflows/Events、NATS、事件驱动扩缩容和重放/幂等。
+- **06C 多集群**：Cluster API Provider vSphere、Cilium Cluster Mesh、ApplicationSet/Flux、多集群隔离、流量故障切换和观测接入。
+- **06D 高级计算**：KubeVirt、Kueue、DRA、Kubeflow、KServe、GPU Operator、vLLM、llm-d；先验证虚拟化、设备、驱动与容量。
+- **06E 升级与容灾**：相邻 kubeadm 次版本升级、etcd/Ceph 恢复、Velero、独立数据备份、完整集群重建与 RTO/RPO。
+- **交付与验收**：安全策略、故障注入用例、升级与恢复规程、跨集群测试、RTO/RPO 报告；完成一次安全可控升级和约定恢复测试，每个高级模块有可重复实验或明确阻塞记录。
 
-### 边界与后续衔接
+交接要求：硬件缺失不伪装成功。五个专题分别报告状态，所有要求闭环后才标记第 06 阶段完整完成。
 
-全量日志不默认同时写入两套后端。观测组件按预算部署，日志和对象存储可使用 Ceph，但关键基础设施故障探测必须保留集群外的独立路径。
+## 实施记录与最终验收
 
-## Phase 06｜安全、弹性、Serverless、多集群、高级计算与灾难恢复
+每个任务先确认输入和作用域，再写配置、执行、核对正常/失败路径、清理并归档。实际参数、命令、退出码、对象状态、请求/数据校验及回退记录使用 [执行记录模板](../templates/execution-record.md)；阶段收尾使用 [阶段验收模板](../templates/phase-acceptance.md)。
 
-[打开完整阶段文档](06-advanced-security-dr/README.md)。本阶段 17 个专题、83 个步骤。
-
-在已稳定运行的平台上逐个开启进阶模块，检验安全边界、弹性、事件交付、跨集群能力和高级计算，最后完成版本升级与可复现灾难重建。
-
-### 执行前提
-
-Phase 00–05 主线验收完成；独立备份和观测可用。GPU、嵌套虚拟化、BGP 与临时集群须先满足对应硬件、许可证和资源条件。
-
-### 边界与后续衔接
-
-本阶段分专题顺序实施，不同时运行全部大型组件。未满足条件的专题保留完整计划并标记阻塞；不编造测试结果，不在仅有数据副本上进行不可恢复实验。
+报告统一放 `reports/<阶段目录>/<执行批次>/`；稳定 Runbook 从实际成功的步骤提炼到 `docs/runbooks/`，故障案例到 `docs/troubleshooting/`。高级实验保留资源、硬件、版本和未执行原因。完整项目完成要求七阶段的范围和证据都闭环，不用步骤数量或组件安装数量替代验收。

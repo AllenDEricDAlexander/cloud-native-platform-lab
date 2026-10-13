@@ -4,15 +4,35 @@
 
 先建立三控制平面、七 Worker 的可维护集群，再以小型测试应用逐项验证控制器、探针、配置、更新和删除行为。每个实验使用独立标签或命名空间。
 
-前置条件：Phase 00 已通过验收；内部 DNS、CA、Harbor 和节点初始化可用；准确版本已锁定。
+前置条件：Phase 00 已通过验收；内部 DNS、CA、Harbor 与十节点 Linux/CRI 初始化、重启复验均已通过；准确版本已锁定。
 
-实施边界：本阶段只建立 Cilium 基础网络与必要的 Service，不依赖 Ceph、完整监控或正式 CI。StatefulSet 先验证身份，持久化与数据库故障实验在 Phase 03 完成。
+实施边界：本阶段先复验 00 交付，随后建立 Kubernetes、Cilium 基础网络与必要的 Service，不依赖 Ceph、完整监控或正式 CI。StatefulSet 先验证身份，持久化与数据库故障实验在 Phase 03 完成。
 
 [返回七阶段目录](../README.md) · [统一架构与域名约定](../../architecture/v3.0-baseline.md) · [执行记录模板](../../templates/execution-record.md)
 
 技术复核入口：[K02](../../reference/official-sources.md#k02)、[K04](../../reference/official-sources.md#k04)、[K05](../../reference/official-sources.md#k05)、[K06](../../reference/official-sources.md#k06)、[K07](../../reference/official-sources.md#k07)、[N01](../../reference/official-sources.md#n01)。
 
+## 阶段实施与验收
+
+目标：理解并验证资源控制器、生命周期和控制平面高可用。
+
+| 项目 | 具体要求 |
+| --- | --- |
+| 建设范围 | 复验 00 节点基线，配置 kubeadm/kubelet，建立三控制平面 stacked etcd、kube-vip、Cilium 基础 CNI，加入十节点。 |
+| 核心资源 | Pod、RC、ReplicaSet、Deployment、StatefulSet、DaemonSet、Job/CronJob、三种 Probe、PreStop、ConfigMap/Secret、更新/扩缩容/回滚、级联删除和垃圾回收。 |
+| 实际顺序 | 只读入群检查 → kubeadm/kubelet 与 VIP 引导配置 → cp01 init → Cilium → cp02/03 join → 七 Worker join → DNS/HA/etcd 备份 → 核心资源实验。 |
+| 交付物 | kubernetes/bootstrap/ 初始化/Join/Cilium 基础配置；kubernetes/core-resources/ YAML；labs/kubernetes-core/ 场景；etcd 备份入口、测试和故障记录。 |
+| 验收用例 | 10 节点 Ready；单控制平面故障时 etcd Quorum 和 API 仍可用；Pod 异常、Readiness 端点摘除、DaemonSet 回滚、ReplicaSet 接管、StatefulSet 身份保持及全部基础实验通过。 |
+
+实施细节：[打开具体操作、配置位置和检查方法](implementation-details.md)。
+
+阶段交接：交接可用集群、核心实验集和恢复材料；持久化数据验收归 03，01 不宣称 PVC 数据恢复已通过。
+
+验收结果保存为 `reports/01-kubernetes/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../../templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+
 ## 01.01 核验节点与运行时
+
+[本专题具体操作、配置与检查](implementation-details.md#01-01)
 
 ### 01.01.01 复核十节点的基础状态
 
@@ -22,33 +42,39 @@
 
 完成判定：所有节点基础检查一致；没有因为克隆产生重复身份或不兼容的虚拟 CPU。
 
-### 01.01.02 规划 cgroup、资源预留和 Swap
+<a id="010102-规划-cgroup资源预留和-swap"></a>
 
-实施内容：采用与 containerd 对齐的 systemd cgroup 和 cgroup v2；初始集群保持明确、统一的 Swap 策略。
+### 01.01.02 复核 cgroup、资源预留和 Swap
 
-过程安排：为操作系统、kubelet 和存储节点的 Ceph 守护进程预留资源；后续 Swap 和 Memory QoS 作为隔离实验，不混入初装变量。
+实施内容：复核 00 已落实的 cgroup v2、containerd systemd cgroup、关闭 Swap 和角色资源预算；只读检查不重复执行系统初始化。
 
-完成判定：节点 Allocatable 反映预留量；16GB 存储节点不会把全部内存同时许诺给 Ceph 与 Pod。
+过程安排：检查 stat -fc %T /sys/fs/cgroup、swapon --show、containerd config dump 和 00 重启记录；将预留参数作为 01.02.01 的 kubelet 输入。出现漂移回到 00 修复角色配置。
 
-### 01.01.03 配置内核、主机防火墙和 SELinux
+完成判定：主机状态与 00 交接一致，kubelet 配置可使用同一 cgroup 驱动；集群建立后再核验 Allocatable，storage 节点为 cephadm 留有预算。
 
-实施内容：根据当前 CNI、CRI、Ceph 客户端要求配置模块、转发与访问规则，保留 SELinux 基线。
+<a id="010103-配置内核主机防火墙和-selinux"></a>
 
-过程安排：核对控制平面、节点互联、Overlay 和管理端访问；仅对确定的问题增加明确例外，不长期无差别关闭安全机制。
+### 01.01.03 复核内核、防火墙和 SELinux 基线
 
-完成判定：所需通信可达，未授权访问仍受限制；所有主机例外均有用途说明。
+实施内容：复验 00 已写入的模块、转发、访问规则、SELinux 模式与必要策略，不在本阶段首次修改 Linux 基线。
 
-### 01.01.04 部署和验证 containerd
+过程安排：对照节点初始化手册检查 sysctl、规则持久性和未处理 AVC；建立 API/CNI 后再执行相应通信检查。发现主机缺陷修改 00 的 Ansible 配置并重新验收。
 
-实施内容：安装锁定的 containerd 2.x 与匹配组件，配置 CRI、systemd cgroup、镜像证书和数据目录。
+完成判定：入群前主机前置符合约定；入群后真实 API、Overlay 与拒绝访问用例通过，没有为通过安装而无差别关闭安全机制。
 
-过程安排：验证内网拉取、容器启动、日志、回收与重启；CRI 插件配置路径按当前版本确认，不照搬旧版本字段。
+<a id="010104-部署和验证-containerd"></a>
 
-完成判定：kubelet 可用的 CRI 端点明确；镜像从 harbor.k8s.internal.egon.top 获取，运行时不需要 Docker Socket。
+### 01.01.04 复验 containerd 与 CRI 交接
+
+实施内容：核验 00 已安装并启动的 containerd/runc/crictl、systemd cgroup、registry 信任、数据挂载和 CRI 端点。
+
+过程安排：检查 systemctl is-active containerd、crictl info、版本与 00 的 CRI smoke 结果；验证引导镜像可取回。运行时漂移回到 00 修复，禁止在 01 再维护另一份安装流程。
+
+完成判定：RuntimeReady、镜像及凭据路径符合交接；此时允许 CNI 未安装导致 NetworkReady=false，安装 Cilium 后必须再次验证普通 Pod 网络。
 
 ### 01.01.05 处理引导镜像和仓库认证
 
-实施内容：核对 pause、API Server、Controller、Scheduler、etcd、CoreDNS、kube-vip 与 Cilium 镜像。
+实施内容：复核 00 已同步的 pause、API Server、Controller、Scheduler、etcd、CoreDNS、kube-vip 与 Cilium 镜像及 Digest，不在 init 过程中临时补下载。
 
 过程安排：区分静态 Pod 引导拉取和普通 Pod 的 imagePullSecrets；使用受控只读权限或经验证的节点认证，不能假定静态 Pod 能引用普通 Secret。
 
@@ -56,11 +82,13 @@
 
 ## 01.02 建立控制平面与基础网络
 
+[本专题具体操作、配置与检查](implementation-details.md#01-02)
+
 ### 01.02.01 确定 kubeadm 集群配置
 
 实施内容：固定 API 入口 api.k8s.internal.egon.top:6443、VIP .100、Pod CIDR、Service CIDR，保留默认 cluster.local 集群域，kubeadm networking.dnsDomain 与 kubelet clusterDomain 保持一致。
 
-过程安排：把 API DNS、VIP、必要节点地址纳入证书 SAN；核对 kubelet DNS 指向 192.168.20.10，Service .1 不被业务占用。
+过程安排：把 API DNS、VIP、必要节点地址纳入证书 SAN；核对 kubelet DNS 指向 192.168.20.10，Service .1 不被业务占用；写入与 00 一致的 systemd cgroup、按角色的 systemReserved/kubeReserved/驱逐预算，入群后核验 Allocatable。
 
 完成判定：初始化参数形成唯一来源；后续节点不会各用不同 Service 网段或集群域。
 
@@ -124,6 +152,8 @@
 
 ## 01.03 验证集群 DNS、高可用与基础备份
 
+[本专题具体操作、配置与检查](implementation-details.md#01-03)
+
 ### 01.03.01 验证服务发现和集群外解析
 
 实施内容：分别解析测试 Service、service.namespace.svc.cluster.local 名称、kubernetes.default.svc.cluster.local 以及 harbor.k8s.internal.egon.top。
@@ -149,6 +179,8 @@
 完成判定：备份材料完整可读取；不把对多个运行中的 etcd VM 分别拍快照当作一致恢复方案。
 
 ## 01.04 建立核心实验空间与 Pod 生命周期
+
+[本专题具体操作、配置与检查](implementation-details.md#01-04)
 
 ### 01.04.01 建立实验命名空间与应用基准
 
@@ -194,6 +226,8 @@
 
 ## 01.05 配置 Startup、Liveness、Readiness 与 PreStop
 
+[本专题具体操作、配置与检查](implementation-details.md#01-05)
+
 ### 01.05.01 验证 Startup Probe 的启动保护
 
 实施内容：为慢启动应用设置 Startup Probe，与运行期探针使用不同判定目标。
@@ -237,6 +271,8 @@
 本节行为核对：[K05](../../reference/official-sources.md#k05)、[K04](../../reference/official-sources.md#k04)。
 
 ## 01.06 研究 RC、ReplicaSet 与 Deployment
+
+[本专题具体操作、配置与检查](implementation-details.md#01-06)
 
 ### 01.06.01 比较 RC 与 ReplicaSet
 
@@ -288,6 +324,8 @@
 
 ## 01.07 验证 StatefulSet 与 DaemonSet
 
+[本专题具体操作、配置与检查](implementation-details.md#01-07)
+
 ### 01.07.01 建立 StatefulSet 稳定身份
 
 实施内容：部署带 Headless Service 的小型 StatefulSet，验证序号、主机名、DNS 和有序启动。
@@ -322,6 +360,8 @@
 
 ## 01.08 研究删除传播、所有权与 Finalizer
 
+[本专题具体操作、配置与检查](implementation-details.md#01-08)
+
 ### 01.08.01 比较 Foreground 与 Background 删除
 
 实施内容：建立 Deployment、ReplicaSet、Pod 的清晰所有权链，并分别执行两种级联策略。
@@ -349,6 +389,8 @@
 本节行为核对：[K06](../../reference/official-sources.md#k06)。
 
 ## 01.09 实现 Job、CronJob 与基础 HPA
+
+[本专题具体操作、配置与检查](implementation-details.md#01-09)
 
 ### 01.09.01 部署批处理 Job
 
@@ -383,6 +425,8 @@
 完成判定：扩缩容有数据支持，不发生无界扩容；高级指标、KEDA 与缩零留待 Phase 06。
 
 ## 01.10 管理配置、身份与阶段交接
+
+[本专题具体操作、配置与检查](implementation-details.md#01-10)
 
 ### 01.10.01 比较 ConfigMap 注入与刷新
 

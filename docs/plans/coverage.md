@@ -50,7 +50,9 @@
 
 ### containerd 与 CRI
 
-实施位置：[01.01.04 部署和验证 containerd](01-kubernetes/README.md#010104-部署和验证-containerd)；[01.01.03 配置内核、主机防火墙和 SELinux](01-kubernetes/README.md#010103-配置内核主机防火墙和-selinux)。
+00 安装与配置：[节点初始化实施手册](00-preparation/node-bootstrap.md)；包括 Linux 基线、镜像信任、CRI 自测、重启和幂等。01 只复验后入群。
+
+实施位置：[01.01.04 复验 containerd 与 CRI 交接](01-kubernetes/README.md#010104-部署和验证-containerd)；[01.01.03 复核内核、防火墙和 SELinux 基线](01-kubernetes/README.md#010103-配置内核主机防火墙和-selinux)。
 
 ### Pod 生命周期、Init 与 Sidecar
 

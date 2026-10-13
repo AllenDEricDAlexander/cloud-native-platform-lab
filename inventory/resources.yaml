@@ -1,0 +1,60 @@
+# 起步预算来自现有规划；null 表示未知，不代表零占用。
+schema_version: 1
+status: planned_unverified
+verified_at: null
+hypervisor_budgets:
+  esxi01:
+    planned_memory_gib: 128
+    existing_usage_gib: null
+    system_and_vcenter_gib: null
+    free_datastore_gib: null
+    physical_cpu_cores: null
+  esxi02:
+    planned_memory_gib: 64
+    existing_usage_gib: null
+    system_and_vcenter_gib: null
+    free_datastore_gib: null
+    physical_cpu_cores: null
+  esxi03:
+    planned_memory_gib: 64
+    existing_usage_gib: null
+    system_and_vcenter_gib: null
+    free_datastore_gib: null
+    physical_cpu_cores: null
+node_profiles:
+  control_plane: {count: 3, vcpu: 4, memory_gib: 8}
+  infra: {count: 2, vcpu: 6, memory_gib: 12}
+  storage: {count: 3, vcpu: 8, memory_gib: 16}
+  worker: {count: 2, vcpu: 8, memory_gib: 16}
+node_totals: {count: 10, vcpu: 64, memory_gib: 128}
+expanded_node_target: {count: 10, vcpu_each: 8, memory_gib_each: 16}
+bootstrap_memory_gib:
+  openwrt: 2
+  dns: 2
+  harbor: 8
+  gitlab: 16
+  nexus: 8
+  admin: 4
+bootstrap_memory_total_gib: 40
+storage:
+  original_virtual_disk_target_tb_per_node: 1
+  verified_osd_raw_capacity_gib: null
+  estimated_ceph_usable_capacity_gib: null
+  independent_backup_capacity_gib: null
+  osd_initialization_allowed: false
+node_reservations:
+  system_reserved: null
+  kube_reserved: null
+  ceph_reserved_on_storage_nodes: null
+  eviction_thresholds: null
+capacity_gates:
+  service_ip_review_threshold: 180
+  simultaneous_heavy_modules: false
+  n_plus_one_capacity_verified: false
+hardware_prerequisites:
+  rocky10_guest_cpu_verified: false
+  nested_virtualization_verified: false
+  gpu_model: null
+  gpu_vram_gib: null
+  vsphere_api_and_license_verified: false
+  bgp_peer_verified: false

@@ -12,7 +12,27 @@
 
 技术复核入口：[O01](../../reference/official-sources.md#o01)、[O02](../../reference/official-sources.md#o02)、[D07](../../reference/official-sources.md#d07)。
 
+## 阶段实施与验收
+
+目标：为多语言应用和跨集群组件建立完整遥测、故障定位与容量依据。
+
+| 项目 | 具体要求 |
+| --- | --- |
+| 建设范围 | Prometheus/Grafana/Alertmanager、ELK/Fluent Bit、OpenTelemetry Collector、Loki/Tempo/Pyroscope/OpenCost。 |
+| 研究内容 | Metrics/Logs/Traces/Profiles、采样/高基数、日志解析与索引、Retention、SLI/SLO/错误预算、资源成本与容量。 |
+| 实际顺序 | 统一遥测标签/预算 → 指标/告警 → Ceph/中间件/基础设施采集 → OTel → ELK 与 Loki/Trace/Profile → SLO 发布分析 → 压测/成本对照。 |
+| 交付物 | kubernetes/observability/ 配置、Dashboard、Kibana 查询、OTel 配置、告警与 SLO；labs/observability/ 场景、tests/performance/ 用例及性能/成本报告。 |
+| 验收用例 | 跨语言同步/异步请求串联日志、指标和 Trace；Ceph I/O、Kafka Lag、Java Profiling 与压力案例可定位；ELK/Loki 同负载比较；SLO 驱动灰度分析和资源成本核算。 |
+
+实施细节：[打开具体操作、配置位置和检查方法](implementation-details.md)。
+
+阶段交接：保留最低监控和集群外探测，向 06 提供可复用故障指标；第二集群真实观测在 06C 接入后补充实测。
+
+验收结果保存为 `reports/05-observability/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../../templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+
 ## 05.01 建立遥测契约和容量计划
+
+[本专题具体操作、配置与检查](implementation-details.md#05-01)
 
 ### 05.01.01 定义服务、环境和版本标识
 
@@ -47,6 +67,8 @@
 完成判定：不会因整个观测平台与业务同时下线而误以为没有故障。
 
 ## 05.02 建设 Prometheus、Grafana 与 Alertmanager
+
+[本专题具体操作、配置与检查](implementation-details.md#05-02)
 
 ### 05.02.01 部署指标平台与持久化
 
@@ -98,6 +120,8 @@
 
 ## 05.03 覆盖 Ceph、基础设施和中间件监控
 
+[本专题具体操作、配置与检查](implementation-details.md#05-03)
+
 ### 05.03.01 接入 Ceph 指标和容量告警
 
 实施内容：观察 MON 多数派、OSD、PG、慢请求、容量、恢复流量和客户端延迟。
@@ -140,6 +164,8 @@
 
 ## 05.04 建立 OpenTelemetry 统一入口
 
+[本专题具体操作、配置与检查](implementation-details.md#05-04)
+
 ### 05.04.01 部署 Collector 采集与汇聚层
 
 实施内容：按实际需要划分节点 Agent 和集群 Gateway Collector，配置接收、批处理、队列、内存限制和导出。
@@ -175,6 +201,8 @@
 本节行为核对：[O01](../../reference/official-sources.md#o01)。
 
 ## 05.05 实现 ELK 日志平台
+
+[本专题具体操作、配置与检查](implementation-details.md#05-05)
 
 ### 05.05.01 部署 ECK 与小规模 Elasticsearch
 
@@ -220,6 +248,8 @@
 
 ## 05.06 实现 Loki、Tempo 与 Pyroscope
 
+[本专题具体操作、配置与检查](implementation-details.md#05-06)
+
 ### 05.06.01 部署 Loki 并规划对象存储
 
 实施内容：在资源许可下建立 Loki 路线，使用 Ceph RGW 的独立 Bucket、受限凭据和保留策略。
@@ -262,6 +292,8 @@
 
 ## 05.07 建立 SLI、SLO 与发布分析
 
+[本专题具体操作、配置与检查](implementation-details.md#05-07)
+
 ### 05.07.01 为参考业务定义 SLI 与 SLO
 
 实施内容：选择真实用户成功率、请求延迟和消息处理时效，不只以 Pod Ready 作为服务可用性。
@@ -297,6 +329,8 @@
 本节行为核对：[D07](../../reference/official-sources.md#d07)。
 
 ## 05.08 开展压测、容量和成本实验
+
+[本专题具体操作、配置与检查](implementation-details.md#05-08)
 
 ### 05.08.01 建立 k6/Locust 压测基准
 
@@ -347,6 +381,8 @@
 完成判定：优化后性能与可靠性未明显退化，节约量有数据支撑。
 
 ## 05.09 完成观测平台交接
+
+[本专题具体操作、配置与检查](implementation-details.md#05-09)
 
 ### 05.09.01 归档配置、面板和告警回归
 

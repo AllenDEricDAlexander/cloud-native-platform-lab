@@ -1,10 +1,10 @@
 # 全部实施步骤索引
 
-本索引包含 363 个步骤，链接跳转到对应阶段的三级标题。正文仍以七份阶段文档为准。
+本索引保留 363 个稳定步骤编号，链接跳转到具体步骤。00 的 Linux/CRI 操作详见节点初始化手册；06 按 06A–06E 分组，原编号不变。
 
 [返回七阶段目录](README.md) · [按技术主题查找](coverage.md)
 
-## Phase 00｜基础设施、域名、网络与软件供应准备
+## Phase 00｜基础设施、服务器初始化与软件供应准备
 
 ### 00.01 确认建设边界与资产
 
@@ -118,11 +118,11 @@
 
 [01.01.01 复核十节点的基础状态](01-kubernetes/README.md#010101-复核十节点的基础状态)
 
-[01.01.02 规划 cgroup、资源预留和 Swap](01-kubernetes/README.md#010102-规划-cgroup资源预留和-swap)
+[01.01.02 复核 cgroup、资源预留和 Swap](01-kubernetes/README.md#010102-复核-cgroup资源预留和-swap)
 
-[01.01.03 配置内核、主机防火墙和 SELinux](01-kubernetes/README.md#010103-配置内核主机防火墙和-selinux)
+[01.01.03 复核内核、防火墙和 SELinux 基线](01-kubernetes/README.md#010103-复核内核防火墙和-selinux-基线)
 
-[01.01.04 部署和验证 containerd](01-kubernetes/README.md#010104-部署和验证-containerd)
+[01.01.04 复验 containerd 与 CRI 交接](01-kubernetes/README.md#010104-复验-containerd-与-cri-交接)
 
 [01.01.05 处理引导镜像和仓库认证](01-kubernetes/README.md#010105-处理引导镜像和仓库认证)
 
@@ -694,7 +694,9 @@
 
 ## Phase 06｜安全、弹性、Serverless、多集群、高级计算与灾难恢复
 
-### 06.01 建立安全验证范围和统一身份
+### 06A · 安全与弹性
+
+#### 06.01 建立安全验证范围和统一身份
 
 [06.01.01 建立授权实验与恢复边界](06-advanced-security-dr/README.md#060101-建立授权实验与恢复边界)
 
@@ -704,7 +706,7 @@
 
 [06.01.04 轮换 ServiceAccount 和机器人凭据](06-advanced-security-dr/README.md#060104-轮换-serviceaccount-和机器人凭据)
 
-### 06.02 落实 Pod 安全与准入策略
+#### 06.02 落实 Pod 安全与准入策略
 
 [06.02.01 实施 Pod Security Admission 基线](06-advanced-security-dr/README.md#060201-实施-pod-security-admission-基线)
 
@@ -714,7 +716,7 @@
 
 [06.02.04 演练供应链和准入恢复](06-advanced-security-dr/README.md#060204-演练供应链和准入恢复)
 
-### 06.03 管理密钥、审计和工作负载信任
+#### 06.03 管理密钥、审计和工作负载信任
 
 [06.03.01 使用 SOPS 与 age 管理 GitOps 敏感配置](06-advanced-security-dr/README.md#060301-使用-sops-与-age-管理-gitops-敏感配置)
 
@@ -728,7 +730,7 @@
 
 [06.03.06 回访 SPIFFE/SPIRE 与跨服务信任](06-advanced-security-dr/README.md#060306-回访-spiffespire-与跨服务信任)
 
-### 06.04 实验运行时安全
+#### 06.04 实验运行时安全
 
 [06.04.01 部署 Falco 并建立检测基准](06-advanced-security-dr/README.md#060401-部署-falco-并建立检测基准)
 
@@ -736,7 +738,7 @@
 
 [06.04.03 将运行时事件接入调查流程](06-advanced-security-dr/README.md#060403-将运行时事件接入调查流程)
 
-### 06.05 完善 HPA、VPA 与事件扩缩容
+#### 06.05 完善 HPA、VPA 与事件扩缩容
 
 [06.05.01 回访 HPA 多指标与稳定窗口](06-advanced-security-dr/README.md#060501-回访-hpa-多指标与稳定窗口)
 
@@ -750,7 +752,21 @@
 
 [06.05.06 结合 PDB、优先级与伸缩做压力实验](06-advanced-security-dr/README.md#060506-结合-pdb优先级与伸缩做压力实验)
 
-### 06.06 建设 Knative 与 Serverless 实验
+#### 06.14 实施 Chaos Mesh 与故障工程
+
+[06.14.01 建立故障实验假设和安全中止](06-advanced-security-dr/README.md#061401-建立故障实验假设和安全中止)
+
+[06.14.02 部署 Chaos Mesh 并限制权限](06-advanced-security-dr/README.md#061402-部署-chaos-mesh-并限制权限)
+
+[06.14.03 执行网络、Pod 和压力故障](06-advanced-security-dr/README.md#061403-执行网络pod-和压力故障)
+
+[06.14.04 执行仓库、DNS 和 VPN 故障](06-advanced-security-dr/README.md#061404-执行仓库dns-和-vpn-故障)
+
+[06.14.05 执行 ESXi 与存储域故障](06-advanced-security-dr/README.md#061405-执行-esxi-与存储域故障)
+
+### 06B · Serverless 与事件平台
+
+#### 06.06 建设 Knative 与 Serverless 实验
 
 [06.06.01 部署 Knative Serving 基础](06-advanced-security-dr/README.md#060601-部署-knative-serving-基础)
 
@@ -760,7 +776,7 @@
 
 [06.06.04 比较常驻与 Serverless 模式](06-advanced-security-dr/README.md#060604-比较常驻与-serverless-模式)
 
-### 06.07 建设 Dapr 与多语言事件应用
+#### 06.07 建设 Dapr 与多语言事件应用
 
 [06.07.01 部署 Dapr 控制面与组件](06-advanced-security-dr/README.md#060701-部署-dapr-控制面与组件)
 
@@ -768,7 +784,7 @@
 
 [06.07.03 实验 Dapr Workflow 与恢复](06-advanced-security-dr/README.md#060703-实验-dapr-workflow-与恢复)
 
-### 06.08 建设 Argo Workflows、Events 与批处理
+#### 06.08 建设 Argo Workflows、Events 与批处理
 
 [06.08.01 部署 Argo Workflows 与受控制品存储](06-advanced-security-dr/README.md#060801-部署-argo-workflows-与受控制品存储)
 
@@ -776,9 +792,9 @@
 
 [06.08.03 比较 Workflow、Tekton 与应用 CI](06-advanced-security-dr/README.md#060803-比较-workflowtekton-与应用-ci)
 
-[06.08.04 部署 Kueue 队列准入](06-advanced-security-dr/README.md#060804-部署-kueue-队列准入)
+### 06C · 多集群
 
-### 06.09 建立第二集群与 Cluster API
+#### 06.09 建立第二集群与 Cluster API
 
 [06.09.01 核算临时集群资源与地址](06-advanced-security-dr/README.md#060901-核算临时集群资源与地址)
 
@@ -790,7 +806,7 @@
 
 [06.09.05 备份管理状态并测试销毁](06-advanced-security-dr/README.md#060905-备份管理状态并测试销毁)
 
-### 06.10 实现多集群交付与网络
+#### 06.10 实现多集群交付与网络
 
 [06.10.01 接入多集群 Argo CD/ApplicationSet](06-advanced-security-dr/README.md#061001-接入多集群-argo-cdapplicationset)
 
@@ -802,7 +818,9 @@
 
 [06.10.05 实施跨集群流量恢复实验](06-advanced-security-dr/README.md#061005-实施跨集群流量恢复实验)
 
-### 06.11 实验 KubeVirt 与嵌套虚拟化
+### 06D · 高级计算
+
+#### 06.11 实验 KubeVirt 与嵌套虚拟化
 
 [06.11.01 检查嵌套虚拟化和 KVM 前置](06-advanced-security-dr/README.md#061101-检查嵌套虚拟化和-kvm-前置)
 
@@ -812,7 +830,11 @@
 
 [06.11.04 验证网络、迁移与存储限制](06-advanced-security-dr/README.md#061104-验证网络迁移与存储限制)
 
-### 06.12 检查 GPU、驱动与设备调度
+#### Kueue 队列准入前置（原 06.08.04）
+
+[06.08.04 部署 Kueue 队列准入](06-advanced-security-dr/README.md#060804-部署-kueue-队列准入)
+
+#### 06.12 检查 GPU、驱动与设备调度
 
 [06.12.01 核实实际 GPU 硬件与接入方式](06-advanced-security-dr/README.md#061201-核实实际-gpu-硬件与接入方式)
 
@@ -822,7 +844,7 @@
 
 [06.12.04 比较 Device Plugin 与 DRA](06-advanced-security-dr/README.md#061204-比较-device-plugin-与-dra)
 
-### 06.13 建设 AI、推理与训练实验
+#### 06.13 建设 AI、推理与训练实验
 
 [06.13.01 部署 KServe 的 CPU 模型服务](06-advanced-security-dr/README.md#061301-部署-kserve-的-cpu-模型服务)
 
@@ -836,19 +858,9 @@
 
 [06.13.06 评估 GPU 与模型服务成本](06-advanced-security-dr/README.md#061306-评估-gpu-与模型服务成本)
 
-### 06.14 实施 Chaos Mesh 与故障工程
+### 06E · 升级与容灾
 
-[06.14.01 建立故障实验假设和安全中止](06-advanced-security-dr/README.md#061401-建立故障实验假设和安全中止)
-
-[06.14.02 部署 Chaos Mesh 并限制权限](06-advanced-security-dr/README.md#061402-部署-chaos-mesh-并限制权限)
-
-[06.14.03 执行网络、Pod 和压力故障](06-advanced-security-dr/README.md#061403-执行网络pod-和压力故障)
-
-[06.14.04 执行仓库、DNS 和 VPN 故障](06-advanced-security-dr/README.md#061404-执行仓库dns-和-vpn-故障)
-
-[06.14.05 执行 ESXi 与存储域故障](06-advanced-security-dr/README.md#061405-执行-esxi-与存储域故障)
-
-### 06.15 完成 kubeadm、CNI、CSI 与系统升级
+#### 06.15 完成 kubeadm、CNI、CSI 与系统升级
 
 [06.15.01 准备升级兼容矩阵与隔离预演](06-advanced-security-dr/README.md#061501-准备升级兼容矩阵与隔离预演)
 
@@ -868,7 +880,7 @@
 
 [06.15.09 验证升级失败恢复而非任意降级](06-advanced-security-dr/README.md#061509-验证升级失败恢复而非任意降级)
 
-### 06.16 建设分层备份和实际数据搬运
+#### 06.16 建设分层备份和实际数据搬运
 
 [06.16.01 建立配置、身份、数据备份目录](06-advanced-security-dr/README.md#061601-建立配置身份数据备份目录)
 
@@ -878,7 +890,7 @@
 
 [06.16.04 测试备份介质和密钥丢失边界](06-advanced-security-dr/README.md#061604-测试备份介质和密钥丢失边界)
 
-### 06.17 实施灾难重建与项目交付
+#### 06.17 实施灾难重建与项目交付
 
 [06.17.01 选择两条不同的集群恢复路线](06-advanced-security-dr/README.md#061701-选择两条不同的集群恢复路线)
 

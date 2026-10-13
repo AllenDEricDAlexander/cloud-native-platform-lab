@@ -18,13 +18,13 @@
 
 实施位置：[00.06.01 建立 VPN 隧道与凭据管理](00-preparation/README.md#000601-建立-vpn-隧道与凭据管理)；[06.14.04 执行仓库、DNS 和 VPN 故障](06-advanced-security-dr/README.md#061404-执行仓库dns-和-vpn-故障)；[00.06.02 部署受控的显式 HTTP/HTTPS 代理](00-preparation/README.md#000602-部署受控的显式-httphttps-代理)；[00.06.04 设计代理绕行清单](00-preparation/README.md#000604-设计代理绕行清单)。
 
-### egon.local、egon.top 与 .local 兼容
+### internal.egon.top、egon.top 与 cluster.local
 
-实施位置：[00.07.02 处理 macOS 的 .local 解析路径](00-preparation/README.md#000702-处理-macos-的-local-解析路径)；[00.03.03 建立公网发布白名单](00-preparation/README.md#000303-建立公网发布白名单)；[00.03.04 确定内部 DNS 与集群 DNS 的职责](00-preparation/README.md#000304-确定内部-dns-与集群-dns-的职责)。
+实施位置：[00.03.02 确定域名层级和 Kubernetes 集群域](00-preparation/README.md#000302-确定域名层级和-kubernetes-集群域)；[00.07.02 配置 macOS 的内网域名解析路径](00-preparation/README.md#000702-配置-macos-的内网域名解析路径)；[00.03.03 建立公网发布白名单](00-preparation/README.md#000303-建立公网发布白名单)；[00.03.04 确定内部 DNS 与集群 DNS 的职责](00-preparation/README.md#000304-确定内部-dns-与集群-dns-的职责)。
 
 ### 内部 CA、证书与信任链
 
-实施位置：[00.07.02 处理 macOS 的 .local 解析路径](00-preparation/README.md#000702-处理-macos-的-local-解析路径)；[00.08.02 分发各语言和系统的 CA 信任](00-preparation/README.md#000802-分发各语言和系统的-ca-信任)；[00.08.01 建立内部 PKI 信任链](00-preparation/README.md#000801-建立内部-pki-信任链)。
+实施位置：[00.07.02 配置 macOS 的内网域名解析路径](00-preparation/README.md#000702-配置-macos-的内网域名解析路径)；[00.08.02 分发各语言和系统的 CA 信任](00-preparation/README.md#000802-分发各语言和系统的-ca-信任)；[00.08.01 建立内部 PKI 信任链](00-preparation/README.md#000801-建立内部-pki-信任链)。
 
 ### Harbor 与镜像缓存
 

@@ -6,9 +6,9 @@
 
 ## R01
 
-[RFC 6762 — Multicast DNS](https://datatracker.ietf.org/doc/html/rfc6762)
+[RFC 9499 — DNS Terminology](https://datatracker.ietf.org/doc/html/rfc9499)
 
-egon.local 的 mDNS 特殊语义与客户端分域解析风险。保留用户域名，但必须进行系统解析器级验收。
+内部 DNS、权威区、转发与分视图的语义。用于核对 internal.egon.top 的内部解析职责及客户端查询路径。
 
 ## K01
 
@@ -20,7 +20,7 @@ egon.local 的 mDNS 特殊语义与客户端分域解析风险。保留用户域
 
 [kubeadm 配置 API](https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/)
 
-核对 API 入口、集群网络、dnsDomain 和控制平面配置字段。
+核对 API 入口、集群网络、networking.dnsDomain 和控制平面配置字段；Service DNS 默认域为 cluster.local。
 
 ## K03
 
@@ -50,7 +50,7 @@ Foreground、Background、Orphan 及资源所有权语义。
 
 [DNS for Services and Pods](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/)
 
-Service/Pod DNS、Headless 与集群域配置的核对入口。
+Service/Pod DNS、Headless 与集群域配置的核对入口；本方案保留 cluster.local，例如 kubernetes.default.svc.cluster.local。
 
 ## N01
 

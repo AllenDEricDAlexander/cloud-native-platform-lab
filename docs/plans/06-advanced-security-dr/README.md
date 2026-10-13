@@ -24,7 +24,7 @@
 
 ### 06.01.02 部署 Keycloak 与 OIDC 集成
 
-实施内容：使用 keycloak.egon.local 建立平台用户、团队和客户端，接入 GitLab、Jenkins、Argo CD、Grafana、Backstage 的适用身份接口。
+实施内容：使用 keycloak.k8s.internal.egon.top 建立平台用户、团队和客户端，接入 GitLab、Jenkins、Argo CD、Grafana、Backstage 的适用身份接口。
 
 过程安排：核对每个产品版本与许可支持的集成方式，验证回调地址、CA、Token 受众和登出；保留受控本地紧急账户。
 
@@ -218,7 +218,7 @@
 
 过程安排：避免与现有 Envoy/Istio 无意叠加多层网关；先验证一次请求、Revision 和内部访问，再开启伸缩。
 
-完成判定：服务可从内部 egon.local 域访问，实际使用的网关路径清楚。
+完成判定：服务可从 internal.egon.top 下的受控内部入口访问，实际使用的网关路径清楚。
 
 ### 06.06.02 实验 Revision、灰度与冷启动
 

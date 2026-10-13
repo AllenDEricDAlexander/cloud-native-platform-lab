@@ -82,11 +82,11 @@
 
 ### 02.02.06 验证集群域、搜索域和 DNS 缓存
 
-实施内容：检查 cluster.egon.local、命名空间短名、FQDN、搜索域和应用解析行为。
+实施内容：检查 cluster.local、命名空间短名、FQDN、搜索域和应用解析行为，并验证 internal.egon.top 内网入口的上游解析。
 
 过程安排：测量重复查询、负缓存和外部 DNS 延迟；NodeLocal DNSCache 作为可选对比，在基本路径稳定后部署。
 
-完成判定：Chart 和 SDK 未硬编码默认 cluster.local；引入 DNS 缓存前后效果有实测依据。
+完成判定：Chart 和 SDK 的服务发现与默认 cluster.local 一致，企业内网域名经基础 DNS 解析；引入 DNS 缓存前后效果有实测依据。
 
 本节行为核对：[K07](../../reference/official-sources.md#k07)。
 
@@ -136,7 +136,7 @@
 
 ### 02.04.03 配置内部 HTTP 与 HTTPS 路由
 
-实施内容：将测试应用发布为 demo.apps.egon.local，设置 Host、Path、重定向、超时和必要的后端 TLS。
+实施内容：将测试应用发布为 demo.svc.internal.egon.top，设置 Host、Path、重定向、超时和必要的后端 TLS。
 
 过程安排：通过内部 DNS 和 CA 访问；区分外部终止 TLS 与网关到后端重新加密，不默认认为整条链路都已加密。
 
@@ -180,7 +180,7 @@
 
 ### 02.05.01 部署 cert-manager 与内部签发器
 
-实施内容：连接阶段 00 建立的内部 PKI，使用受限的中间签发能力为 egon.local 签发证书。
+实施内容：连接阶段 00 建立的内部 PKI，使用受限的中间签发能力为 internal.egon.top 下的实际入口主机名签发证书。
 
 过程安排：核对 Issuer/ClusterIssuer 权限、续期和 Secret 管理；根私钥继续离线，不作为普通集群 Secret 保存。
 
@@ -200,7 +200,7 @@
 
 过程安排：核实 DNS 验证、NAT/隧道、安全策略和回源；没有公网能力时先记录阻塞，不将 LAN 内访问记成公网验收。
 
-完成判定：真正公网客户端可访问被批准应用，管理服务和内部 egon.local 名称没有被意外公开。
+完成判定：真正公网客户端可访问被批准应用，管理服务和 internal.egon.top 内部入口没有被意外公开。
 
 ## 02.06 建立网络隔离与出站策略
 
@@ -222,7 +222,7 @@
 
 ### 02.06.03 验证出站访问与代理绕行
 
-实施内容：测试 Pod 到 registry.egon.local、Ceph 节点和必要互联网目标的路径。
+实施内容：测试 Pod 到 harbor.k8s.internal.egon.top、Ceph 节点和必要互联网目标的路径。
 
 过程安排：观察 SNAT、实际源地址及回程路由；Ceph 和仓库策略按真实可见源配置，不假设外部服务能直接回到 Overlay Pod IP。
 
@@ -390,7 +390,7 @@
 
 实施内容：用隔离域和工作负载注册规则测试 SVID 签发、续期、信任和撤销。
 
-过程安排：SPIFFE 信任域规划为 egon.local 并核对实现支持；不要将域名解析、Kubernetes RBAC 与工作负载身份视为同一权限体系。
+过程安排：SPIFFE 信任域规划为 internal.egon.top 并核对实现支持；不要将域名解析、Kubernetes RBAC 与工作负载身份视为同一权限体系。
 
 完成判定：服务获得短期身份并可完成授权通信；联合或网格集成只有在完成适配验证后才启用。
 

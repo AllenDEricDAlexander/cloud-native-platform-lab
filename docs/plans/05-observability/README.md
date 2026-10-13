@@ -74,7 +74,7 @@
 
 ### 05.02.04 建立 Grafana 数据源和基础面板
 
-实施内容：配置 Prometheus 等受控数据源，建立集群、节点、Namespace、应用与构建的分层面板。
+实施内容：通过 grafana.k8s.internal.egon.top 内网入口配置 Prometheus 等受控数据源，建立集群、节点、Namespace、应用与构建的分层面板。
 
 过程安排：面板和告警定义纳入 Git，必要的凭据通过受控 Secret 注入；记录单位与聚合口径。
 

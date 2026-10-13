@@ -44,7 +44,7 @@
 
 过程安排：验证内网拉取、容器启动、日志、回收与重启；CRI 插件配置路径按当前版本确认，不照搬旧版本字段。
 
-完成判定：kubelet 可用的 CRI 端点明确；镜像从 registry.egon.local 获取，运行时不需要 Docker Socket。
+完成判定：kubelet 可用的 CRI 端点明确；镜像从 harbor.k8s.internal.egon.top 获取，运行时不需要 Docker Socket。
 
 ### 01.01.05 处理引导镜像和仓库认证
 
@@ -58,7 +58,7 @@
 
 ### 01.02.01 确定 kubeadm 集群配置
 
-实施内容：固定 API 入口 api.k8s.egon.local:6443、VIP .100、Pod CIDR、Service CIDR 和 cluster.egon.local 集群域。
+实施内容：固定 API 入口 api.k8s.internal.egon.top:6443、VIP .100、Pod CIDR、Service CIDR，保留默认 cluster.local 集群域，kubeadm networking.dnsDomain 与 kubelet clusterDomain 保持一致。
 
 过程安排：把 API DNS、VIP、必要节点地址纳入证书 SAN；核对 kubelet DNS 指向 192.168.20.10，Service .1 不被业务占用。
 
@@ -126,9 +126,9 @@
 
 ### 01.03.01 验证服务发现和集群外解析
 
-实施内容：分别解析测试 Service、完整 svc.cluster.egon.local 名称以及 registry.egon.local。
+实施内容：分别解析测试 Service、service.namespace.svc.cluster.local 名称、kubernetes.default.svc.cluster.local 以及 harbor.k8s.internal.egon.top。
 
-过程安排：从不同节点上的 Pod 发起访问，检查 CoreDNS 到基础 DNS 的转发；测试非默认集群域与当前插件配置。
+过程安排：从不同节点上的 Pod 发起访问，检查 CoreDNS 到基础 DNS 的转发；核对默认 cluster.local 与当前插件配置，验证 internal.egon.top 内网入口解析。
 
 完成判定：服务发现、内部基础域与外部域各走正确解析路径，没有转发环路。
 
@@ -294,7 +294,7 @@
 
 过程安排：本阶段使用可丢弃数据，只验证身份和调度；明确暂未获得业务级持久化保证。
 
-完成判定：Pod 重建后身份符合 StatefulSet 设计；DNS 使用 cluster.egon.local。
+完成判定：Pod 重建后身份符合 StatefulSet 设计；DNS 使用 cluster.local。
 
 ### 01.07.02 比较 StatefulSet 更新与扩缩策略
 

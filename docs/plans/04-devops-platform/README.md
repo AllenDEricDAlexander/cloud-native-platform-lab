@@ -136,7 +136,7 @@
 
 ### 04.04.01 部署 Jenkins Controller 与持久化
 
-实施内容：将 Jenkins Controller 部署于受控平台空间，使用 Ceph PVC 和 jenkins.egon.local 的内部 TLS 入口。
+实施内容：将 Jenkins Controller 部署于受控平台空间，使用 Ceph PVC 和 jenkins.k8s.internal.egon.top 的内部 TLS 入口。
 
 过程安排：固定核心与插件版本，限制 Controller 不承担普通构建；保存配置、凭据加密材料和备份。
 
@@ -312,7 +312,7 @@
 
 ### 04.07.02 部署 Argo CD 与最小权限项目
 
-实施内容：通过内网入口、受限仓库凭据和 AppProject 管理目标命名空间与资源类型。
+实施内容：通过 argocd.k8s.internal.egon.top 内网入口、受限仓库凭据和 AppProject 管理目标命名空间与资源类型。
 
 过程安排：先导入非关键应用，验证同步、漂移、健康判定与审查；对基础系统和有状态资源谨慎启用自动 Prune。
 
@@ -400,7 +400,7 @@
 
 ### 04.09.01 部署 Backstage 并建立服务目录
 
-实施内容：使用 backstage.egon.local 建立目录，登记负责人、系统、应用、API、仓库与文档。
+实施内容：使用 backstage.k8s.internal.egon.top 建立目录，登记负责人、系统、应用、API、仓库与文档。
 
 过程安排：配置受限仓库集成和身份入口；先使用少量服务验证目录同步，再导入全部语言样例。
 

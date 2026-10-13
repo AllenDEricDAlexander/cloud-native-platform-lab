@@ -68,11 +68,11 @@
 
 [00.06.05 演练网络出口故障](00-preparation/README.md#000605-演练网络出口故障)
 
-### 00.07 建立内部 DNS 与 .local 客户端兼容
+### 00.07 建立内部 DNS 与客户端解析
 
 [00.07.01 部署集群外 DNS 服务](00-preparation/README.md#000701-部署集群外-dns-服务)
 
-[00.07.02 处理 macOS 的 .local 解析路径](00-preparation/README.md#000702-处理-macos-的-local-解析路径)
+[00.07.02 配置 macOS 的内网域名解析路径](00-preparation/README.md#000702-配置-macos-的内网域名解析路径)
 
 [00.07.03 处理 Rocky、构建镜像和浏览器的 DNS 差异](00-preparation/README.md#000703-处理-rocky构建镜像和浏览器的-dns-差异)
 

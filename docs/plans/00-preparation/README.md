@@ -78,7 +78,7 @@
 
 ## 00.03 规划网络、内部域名与公网域名
 
-内部服务使用 egon.local，公网服务使用 egon.top；完整约定见架构基线。
+企业内部根域名使用 internal.egon.top，公网服务使用 egon.top；基础设施、云原生平台与内部服务分别使用 mgmt、k8s、svc 子域，完整约定见架构基线。
 
 ### 00.03.01 固定节点、Pod、Service 与 VIP 地址
 
@@ -90,11 +90,11 @@
 
 ### 00.03.02 确定域名层级和 Kubernetes 集群域
 
-实施内容：基础服务使用 git.egon.local、registry.egon.local、repo.egon.local；集群入口使用 api.k8s.egon.local；应用入口使用各服务.apps.egon.local。
+实施内容：基础设施使用 esxi01.mgmt.internal.egon.top、vcsa.mgmt.internal.egon.top、idrac01.mgmt.internal.egon.top 等管理入口；平台使用 argocd.k8s.internal.egon.top、grafana.k8s.internal.egon.top、harbor.k8s.internal.egon.top；内部服务使用 gitlab.svc.internal.egon.top、mysql.svc.internal.egon.top、nexus.svc.internal.egon.top。主集群 API 使用 api.k8s.internal.egon.top，内部业务使用各服务.svc.internal.egon.top。
 
-过程安排：为使集群内部服务名称也以 egon.local 结尾，初始化时将 clusterDomain 规划为 cluster.egon.local，服务全名采用 service.namespace.svc.cluster.egon.local。
+过程安排：Kubernetes 保留默认 cluster.local，kubeadm networking.dnsDomain 与 kubelet clusterDomain 保持一致；服务全名采用 service.namespace.svc.cluster.local，例如 kubernetes.default.svc.cluster.local。企业内网域名只用于节点、管理与应用入口。
 
-完成判定：记录集群域、上游 DNS 和名称模板；后续所有 Chart、Istio、Operator 和客户端均检查非默认 clusterDomain，不能硬编码 svc.cluster.local。
+完成判定：记录内部域名层级、集群域、上游 DNS 和名称模板；所有 Chart、Istio、Operator 和客户端与 cluster.local 一致，企业域名调整不改变集群内部 Service DNS。
 
 ### 00.03.03 建立公网发布白名单
 
@@ -106,11 +106,11 @@
 
 ### 00.03.04 确定内部 DNS 与集群 DNS 的职责
 
-实施内容：外部于 Kubernetes 的 DNS VM 管理 egon.local；CoreDNS 只对 cluster.egon.local 的集群服务记录负责，其余请求转交基础 DNS。
+实施内容：外部于 Kubernetes 的 DNS VM 管理 internal.egon.top 及其子域；CoreDNS 只对 cluster.local 的集群服务记录负责，其余请求转交基础 DNS。
 
-过程安排：规划单向转发和负缓存，避免基础 DNS 把整个 egon.local 再转回 CoreDNS；公网同名应用确有需要时采用明确的分视图记录。
+过程安排：规划单向转发和负缓存，避免基础 DNS 把 internal.egon.top 再转回 CoreDNS；egon.top 的其他公网名称使用正常上游解析，同名应用确有需要时采用明确的分视图记录。
 
-完成判定：基础 DNS 不依赖集群 API；不存在递归转发环路，也不把公网证书当作内部域名证书。
+完成判定：基础 DNS 不依赖集群 API，不接管整个 egon.top；不存在递归转发环路，证书 SAN 与实际访问主机名匹配。
 
 本节行为核对：[R01](../../reference/official-sources.md#r01)、[K02](../../reference/official-sources.md#k02)、[K07](../../reference/official-sources.md#k07)。
 
@@ -218,7 +218,7 @@
 
 ### 00.06.04 设计代理绕行清单
 
-实施内容：将 egon.local、内部仓库、节点网络、Pod CIDR、Service CIDR、回环地址和集群服务域加入绕行设计。
+实施内容：将 internal.egon.top 及其子域、cluster.local 及其集群服务名称、内部仓库、节点网络、Pod CIDR、Service CIDR 和回环地址加入绕行设计。
 
 过程安排：逐种语言和运行时检查代理变量及 CIDR 支持差异；无法识别 CIDR 的客户端使用域名规则或明确地址排除。
 
@@ -232,29 +232,29 @@
 
 完成判定：确认网络出口故障只影响需要外网的请求；形成故障现象与恢复顺序记录。
 
-## 00.07 建立内部 DNS 与 .local 客户端兼容
+## 00.07 建立内部 DNS 与客户端解析
 
 ### 00.07.01 部署集群外 DNS 服务
 
-实施内容：在 192.168.9.11 建立内部权威记录与上游递归能力，记录节点、仓库、API 和应用入口主机名。
+实施内容：在 192.168.9.11 建立 internal.egon.top 内部权威记录与上游递归能力，记录 mgmt、k8s、svc 下的节点、管理、仓库、API 和应用入口主机名。
 
-过程安排：先建立精确记录，再按需要建立 apps.egon.local 通配记录；为第二 DNS 保留 192.168.9.17 地址，不预设已经部署。
+过程安排：先建立精确记录，再按需为统一应用网关建立 svc.internal.egon.top 下的通配记录，数据库和其他独立服务保留精确记录；为第二 DNS 保留 192.168.9.17 地址，不预设已经部署。
 
 完成判定：从节点能够解析内部服务；Kubernetes 和 OpenWrt 停止时，基础服务域名仍可解析。
 
-### 00.07.02 处理 macOS 的 .local 解析路径
+### 00.07.02 配置 macOS 的内网域名解析路径
 
-实施内容：保留用户选定的 egon.local，同时将它作为必须验证的客户端兼容项，因为 .local 有 mDNS 特殊语义。
+实施内容：使 Mac 在 LAN 或授权 VPN 中通过内部 DNS 解析 internal.egon.top 及其 mgmt、k8s、svc 子域。
 
-过程安排：为 egon.local 建立明确的单播 DNS 分域解析；测试系统解析器、浏览器、Git、IDE 与 VPN 客户端，不只测试直接指定 DNS 的查询。
+过程安排：通过网络/VPN DNS 设置或分域解析配置建立内部查询路径；测试系统解析器、浏览器、Git、IDE 与 VPN 客户端，不只测试直接指定 DNS 的查询，并验证其他 egon.top 公网名称仍正常解析。
 
-完成判定：Mac 的实际应用均命中内部 DNS；没有长时间等待、误走组播或仅部分软件能解析的情况。
+完成判定：Mac 的实际应用均通过内部 DNS 访问内网入口，公网解析正常；没有长时间等待或仅部分软件能解析的情况。
 
 ### 00.07.03 处理 Rocky、构建镜像和浏览器的 DNS 差异
 
 实施内容：检查 NetworkManager、解析顺序、容器内 DNS、浏览器安全 DNS和客户端缓存。
 
-过程安排：逐类验证 .egon.local 域名；对 DoH 或 VPN 覆盖 DNS 的客户端设置内部域例外，不能靠永久 hosts 列表代替 DNS 管理。
+过程安排：逐类验证 internal.egon.top 及其子域；对 DoH 或 VPN 覆盖 DNS 的客户端设置内部域例外，不能靠永久 hosts 列表代替 DNS 管理。
 
 完成判定：不同系统和语言运行时的名称解析结果一致；客户端设置能够随模板或文档重复应用。
 
@@ -272,7 +272,7 @@
 
 ### 00.08.01 建立内部 PKI 信任链
 
-实施内容：内部 egon.local 使用私有 CA；根私钥离线保存，签发权限与日常管理权限分离。
+实施内容：内部 internal.egon.top 及其子域使用私有 CA；根私钥离线保存，签发权限与日常管理权限分离。
 
 过程安排：定义证书主体、SAN、有效期、吊销或替换流程；为基础服务签发各自证书，不共享一个无范围限制的私钥。
 
@@ -288,9 +288,9 @@
 
 ### 00.08.03 规划公网证书与内部证书隔离
 
-实施内容：egon.top 使用公有 CA 或适用的 ACME 流程；egon.local 不申请公网受信任证书。
+实施内容：egon.top 下批准公开的应用使用公有 CA 或适用的 ACME 流程；internal.egon.top 内部入口按本方案使用私有 CA。
 
-过程安排：通配证书使用受支持的 DNS 验证方式；限定 DNS API 凭据权限，注意单层通配证书不覆盖任意多层域名。
+过程安排：通配证书使用受支持的 DNS 验证方式；限定 DNS API 凭据权限，按 mgmt、k8s、svc 的实际主机名检查 SAN，*.egon.top 不覆盖这些多层内部入口。
 
 完成判定：内外证书签发来源、使用范围和续期方法清楚；一个域名的证书不会误用于另一个域名。
 
@@ -298,7 +298,7 @@
 
 ### 00.09.01 部署集群外 GitLab CE
 
-实施内容：在 git.egon.local 建立源码仓库、管理员、团队和项目空间，配置备份、存储保留及外部访问地址。
+实施内容：在 gitlab.svc.internal.egon.top 建立源码仓库、管理员、团队和项目空间，配置备份、存储保留及外部访问地址。
 
 过程安排：先使用内置或同 VM 的受控数据库方案，不依赖阶段 03 的数据库；后续 Keycloak 接入前保留本地恢复管理员。
 
@@ -306,7 +306,7 @@
 
 ### 00.09.02 部署 Harbor 与项目权限
 
-实施内容：在 registry.egon.local 建立基础镜像、平台、构建器、中间件、业务和代理缓存项目。
+实施内容：在 harbor.k8s.internal.egon.top 建立基础镜像、平台、构建器、中间件、业务和代理缓存项目。
 
 过程安排：启用 TLS、机器人账号、推拉权限、保留策略和容量管理；基础平台镜像与随时可回收的缓存分开。
 
@@ -322,7 +322,7 @@
 
 ### 00.09.04 部署 Nexus 和语言依赖代理
 
-实施内容：在 repo.egon.local 规划 Maven、npm、PyPI、NuGet、Cargo、RPM 和通用制品。
+实施内容：在 nexus.svc.internal.egon.top 规划 Maven、npm、PyPI、NuGet、Cargo、RPM 和通用制品。
 
 过程安排：核对选定 Nexus 版本、版本授权与各仓库格式实际支持；不支持的生态使用对应独立缓存，不把 Raw 当通用协议转换器。
 

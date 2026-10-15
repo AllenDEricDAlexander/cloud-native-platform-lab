@@ -143,7 +143,7 @@ Harbor `/v2/` 未认证返回 `401` 可用于证明 TLS 和 Registry 端点可�
 4. 安装锁定 kubeadm、kubelet、kubectl 工具包并防止未经计划的次版本升级；00 不执行 init/join。kubelet 在配置生成前不作为健康服务验收，具体启动由 01 的 kubeadm 流程接管。
 5. `containerd config dump` 检查最终配置；启动后检查 `systemctl is-enabled containerd`、`systemctl is-active containerd`、`journalctl -u containerd -b` 和 CRI 插件状态。不要在已有业务节点上无条件覆盖配置/重启。
 
-containerd 2.x 配置 v3 的关键项如下，实施时合并到该版本生成的完整配置；`<PAUSE_DIGEST>` 必须替换为已同步镜像的实际 Digest：
+containerd 2.x 配置 v3 的关键项如下，实施时合并到该版本生成的完整配置。下面的 `pinned_images.sandbox` 与 `certs.d` 是 Harbor（00.09.02）和内部 DNS（00.07.01）就绪后的目标形态，`<PAUSE_DIGEST>` 必须替换为已同步镜像的实际 Digest：
 
 ```toml
 version = 3
@@ -163,9 +163,11 @@ state = "/run/containerd"
 
 不能继续写 1.x 的 `io.containerd.grpc.v1.cri` 配置路径，也不能让 CRI 留在禁用插件列表。字段以锁定发行版配置为准。[containerd CRI 配置](https://github.com/containerd/containerd/blob/main/docs/cri/config.md)
 
+**Harbor 与 DNS 就绪前不要写入上面的 `pinned_images.sandbox`。** 指向一个不存在的仓库会让 `RunPodSandbox` 在拉取阶段直接失败，并且无法通过 `--noproxy` 或信任配置绕过。此时保留锁定版本生成的默认 sandbox 引用，按第 10.1 节把该引用的镜像以种子物料导入本地；`certs.d` 目录可以先建立但保持为空，不预写任何主机条目。Harbor 投产后再改为固定 Digest，并重新执行一次第 10 节自测确认引用切换成功。配置里出现内部域名不代表该域名已可解析。
+
 ## 9. Registry、CA 与 crictl 配置
 
-计划交付 `roles/container_runtime/templates/config.toml.j2`、`hosts.toml.j2`、`crictl.yaml.j2`。Harbor 示例 hosts 文件保存到 `/etc/containerd/certs.d/harbor.k8s.internal.egon.top/hosts.toml`：
+计划交付 `roles/container_runtime/templates/config.toml.j2`、`hosts.toml.j2`、`crictl.yaml.j2`。本节的 `/etc/crictl.yaml` 在母机阶段即可写入；`hosts.toml` 属于 Harbor 就绪后的交付物，Harbor 未部署时不写该文件。Harbor 示例 hosts 文件保存到 `/etc/containerd/certs.d/harbor.k8s.internal.egon.top/hosts.toml`：
 
 ```toml
 server = "https://harbor.k8s.internal.egon.top"
@@ -185,11 +187,59 @@ timeout: 20
 debug: false
 ```
 
-分别通过系统 HTTPS 客户端和 CRI 拉取验证；`ctr images pull` 成功不能替代 CRI 配置验收。`NO_PROXY` 覆盖内部域、回环、节点/Pod/Service 网段，逐个客户端核对匹配行为。
+分别通过系统 HTTPS 客户端和 CRI 拉取验证；`ctr images pull` 成功不能替代 CRI 配置验收。`NO_PROXY` 覆盖内部域、回环、节点/Pod/Service 网段，逐个客户端核对匹配行为。上述拉取验证以 Harbor 可达为前提；Harbor 之前的镜像供应按第 10.1 节的种子导入路线执行，此时没有 registry 拉取结果可供验收，也不能因为缺少仓库就改用未核实的公共镜像源。
+
+crictl 属于 cri-tools，与 containerd 分开发布，版本锁中 `cri_tools` 仍为 `null`。执行第 10 节前先按 00.02.02 锁定与锁定 Kubernetes 次版本对应的 cri-tools 版本、架构、来源和 SHA256，再按第 1 节批次 A 的种子物料路线安装；`policy.exact_versions_required` 不允许凭 latest 或系统仓库顺带提供的版本进入节点。[cri-tools 发布与版本对应说明](https://github.com/kubernetes-sigs/cri-tools/blob/master/README.md)
 
 ## 10. 无 Kubernetes、无 CNI 的 CRI 自测
 
 先验证 `sudo crictl info` 的 RuntimeReady。00 尚未安装 Cilium，NetworkReady 可因 CNI 未安装为 false，这是明确的阶段边界；不能把它说成 Pod 网络已经通过。用 host-network sandbox 测试 runtime，01 再验收普通 Pod 网络。
+
+本节有两条镜像来源路线，验收标准相同，前置不同。Harbor（00.09.02）和内部 DNS（00.07.01）尚未部署时执行 10.1；两者投产后按 10.2 重做一次，确认引用切换成功。两条路线都不改变 SELinux Enforcing 与 firewalld 启用的要求。
+
+| 路线 | 适用时机 | 镜像来源 | 本阶段能证明什么 |
+| --- | --- | --- | --- |
+| 10.1 种子导入 | Harbor/DNS 之前，含母机 | 管理端已校验归档，scp 后导入本地 | runtime、cgroup、SELinux 标签和容器执行链路可用 |
+| 10.2 内网仓库 | Harbor/DNS 就绪后 | Harbor 引导项目的固定 Digest | 追加证明 CRI 的 registry 配置、CA 信任和只读认证可用 |
+
+10.1 通过不代表仓库拉取路径已验收；10.2 未执行前，第 12 节的「CRI」行只能记为部分通过。
+
+### 10.1 种子导入路线（Harbor 之前）
+
+沿用第 1 节批次 A 的自举方式：管理端取得并校验镜像归档，scp 到目标机，再导入 containerd。关键点是 **CRI 只查看 `k8s.io` 命名空间**，导入时必须显式指定，否则 `crictl images` 看不到镜像，而 `ctr images ls` 却显示存在。
+
+先在管理端确定要导入哪个 sandbox 引用——不要假定具体 tag，从目标机实际生效的配置读取：
+
+```bash
+sudo containerd config dump | grep -A3 'pinned_images'
+sudo crictl info | jq -r '.config.sandboxImage'
+```
+
+按该引用和一个含 `/bin/sh` 的测试镜像（busybox 一类）在管理端导出归档。Mac 多为 arm64，必须强制 `linux/amd64`，否则导入后容器以 `exec format error` 失败：
+
+```bash
+# 管理端；<SANDBOX_REF> 用上一步的实际输出，<SMOKE_REF> 为已在版本锁登记的测试镜像
+crane pull --platform linux/amd64 <SANDBOX_REF> sandbox-image.tar
+crane pull --platform linux/amd64 <SMOKE_REF>  cri-smoke.tar
+shasum -a 256 sandbox-image.tar cri-smoke.tar
+```
+
+两份归档的来源、Digest 和 SHA256 按 00.02.03 登记后再传输；`crane`/`skopeo` 自身也是需要锁定的工具。导入与核对：
+
+```bash
+# 目标机
+sudo ctr -n k8s.io images import --platform linux/amd64 sandbox-image.tar
+sudo ctr -n k8s.io images import --platform linux/amd64 cri-smoke.tar
+sudo crictl images
+```
+
+镜像必须出现在 `crictl images` 中才算导入成功。此路线下 **不执行 `crictl pull`**，第 10.3 节的 `LAB_SMOKE_IMAGE` 直接使用已导入的本地引用。
+
+### 10.2 内网仓库路线（Harbor 之后）
+
+Harbor、DNS 和 CA 就绪后，把同两个镜像按 Digest 复制到只读引导项目，按第 8 节写入 `pinned_images.sandbox`、按第 9 节写入 `hosts.toml`，重启 containerd，再执行 10.3 并在其中保留 `crictl pull` 一步。此时才产生 registry 配置、CA 信任与只读认证的验收证据。
+
+### 10.3 共用的自测流程
 
 在专用临时工作目录准备 `sandbox.json`（CRI 的 namespace enum 中 NODE 为 2，实施前对照锁定 cri-tools 版本）：
 
@@ -201,26 +251,28 @@ debug: false
 }
 ```
 
-准备 `container.json`，镜像须含 `/bin/sh`，使用已固定的内网测试镜像 Digest：
+准备 `container.json`，镜像须含 `/bin/sh`。`<SMOKE_REF>` 在 10.1 下是已导入的本地引用，在 10.2 下是 Harbor 引导项目的固定 Digest：
 
 ```json
 {
   "metadata": {"name": "smoke", "attempt": 1},
-  "image": {"image": "harbor.k8s.internal.egon.top/bootstrap/cri-smoke@sha256:<SMOKE_DIGEST>"},
+  "image": {"image": "<SMOKE_REF>"},
   "command": ["/bin/sh", "-c", "echo phase00-cri-ok"],
   "log_path": "smoke.log",
   "linux": {}
 }
 ```
 
-替换占位值、创建日志目录、确认仅针对新建实验节点后执行：
+替换占位值、创建日志目录、确认仅针对新建实验节点后执行。先只读确认 RuntimeReady 和镜像已就位，再创建对象：
 
 ```bash
 set -euo pipefail
 sudo install -d -m 0755 /var/log/phase00-cri
 sudo crictl info
 LAB_SMOKE_IMAGE=$(jq -r '.image.image' container.json)
-sudo crictl pull "$LAB_SMOKE_IMAGE"
+# 10.2 内网仓库路线才执行下一行；10.1 的镜像已由 ctr 导入，pull 会因无仓库而失败
+# sudo crictl pull "$LAB_SMOKE_IMAGE"
+sudo crictl images | grep -F "${LAB_SMOKE_IMAGE%@*}"
 LAB_SANDBOX_ID=$(sudo crictl runp sandbox.json)
 LAB_CONTAINER_ID=$(sudo crictl create "$LAB_SANDBOX_ID" container.json sandbox.json)
 sudo crictl start "$LAB_CONTAINER_ID"
@@ -229,6 +281,8 @@ sudo crictl inspect "$LAB_CONTAINER_ID"
 ```
 
 等待容器终止，检查日志含 `phase00-cri-ok`、退出码为 0，再对本次记录的 ID 执行 `crictl rm`、`crictl stopp`、`crictl rmp`。失败时先保存 CRI/containerd/SELinux 证据，清理仅限本次对象；禁止清空整个 runtime 数据目录。
+
+`runp` 阶段失败时先区分三类原因，不要先改安全配置：sandbox 镜像不在 `k8s.io` 命名空间（`crictl images` 为空而 `ctr -n default images ls` 有内容）、配置里的 `pinned_images.sandbox` 指向不可达仓库、或 Enforcing 下的真实拒绝。第三类用 `sudo ausearch -m AVC -ts recent` 取证并按策略处理，不通过 permissive 或停防火墙绕过。架构不符会表现为容器启动后立即以 `exec format error` 退出，属于导入时未锁定 `linux/amd64`，不是 runtime 缺陷。
 
 随后将 kubeadm 控制面、etcd、CoreDNS、kube-vip、Cilium 镜像与 Chart 缓存到内网。使用 `kubeadm config images list --kubernetes-version <锁定版本>` 核对列表；镜像映射、认证和 Digest 落入物料清单。00 能取回引导镜像，01 才实际启动它们。
 
@@ -254,7 +308,7 @@ Check mode 不能代替实际安装验收。完成一台后检查本手册各项
 | 网络/DNS/时间 | 静态配置持久、系统解析正确、时间源有效 | 通过控制台恢复原网络，修复角色任务 |
 | 软件源/CA/仓库 | 指定物料可内网获取，TLS 无绕过 | 补同步缺失包/证书链，不能转用不可信源 |
 | OS/cgroup/Swap/安全 | 配置与预算一致，重启仍生效 | 修复持久配置与策略，记录明确例外 |
-| CRI | containerd 自启，RuntimeReady，拉取/运行/日志/清理通过 | 排查版本、socket、cgroup、证书、mount、AVC |
+| CRI | containerd 自启，RuntimeReady，运行/日志/清理通过；镜像来源按 10.2 完成仓库拉取，仅完成 10.1 时标注为种子导入、仓库拉取待验 | 排查版本、socket、cgroup、证书、mount、AVC |
 | 幂等 | 第二次执行无非预期变更 | 修复 Playbook，禁止用手工结果掩盖重复破坏 |
 | 保护范围 | OSD 候选盘未被初始化，既有 VM/数据未受影响 | 阻止后续步骤并处理偏差 |
 | 离线/备份 | 新客户端可完成指定安装/构建，基础服务可从独立备份恢复 | 补齐物料和恢复材料后重测 |

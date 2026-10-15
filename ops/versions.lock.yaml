@@ -218,8 +218,10 @@ components:
 # digest 或 sha256；Chart 同时记录 Chart 版本和实际镜像；包记录完整版本及依赖。
 # 以下组件按首次使用阶段逐一提升为上方的完整锁定记录，不允许仅锁核心组件就部署扩展。
 pending_by_phase:
-  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, ansible_collections, registry_runtime]
-  "01": [etcd, coredns, pause, cni_plugins, metrics_server]
+  # pause 与 cri_smoke_image 由 00.10.02 的 host-network CRI 自测首次使用，
+  # 不能留到 01；image_export_tool 用于 Harbor 之前的种子导入路线。
+  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, ansible_collections, registry_runtime, pause, cri_smoke_image, image_export_tool]
+  "01": [etcd, coredns, cni_plugins, metrics_server]
   "02": [istio, spire, ingress_comparison_controller]
   "03": [cloudnativepg, postgresql, redis, strimzi, kafka, rabbitmq_operator, rabbitmq, nats, mysql, eck, elasticsearch, operator_toolchain]
   "04": [gitlab_runner, jenkins, jenkins_plugins, buildkit, argocd, argo_rollouts, helm, kustomize, cosign, kyverno, backstage, crossplane, tekton, flux, dragonfly, prometheus_minimal]

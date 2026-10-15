@@ -1,2 +1,98 @@
-.idea
+# 本文件机械执行既有文档约定，不新增策略：
+#   ops/README.md「不要提交私钥、Token、完整 kubeconfig、State、原始数据库备份或敏感日志」
+#   ops/00-preparation/README.md「State 单独安全备份，Git 不提交 State 和含秘密的 Plan 文件」
+#   plan/00-preparation.md 00.08.01「根密钥未进入 Git」
+# 需要入库的来源与校验清单写进 versions.lock.yaml 或批次记录，二进制本身留在受控种子目录。
 
+# 编辑器与操作系统
+.idea
+.DS_Store
+._*
+*.swp
+
+# IaC State 与计划文件（含明文敏感值）
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+*.tfplan.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.auto.tfvars
+*.auto.tfvars.json
+terraform.tfvars
+terraform.tfvars.json
+
+# 私钥、证书私有材料与内部 CA
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.gpg
+!*.pub.gpg
+id_rsa*
+id_ecdsa*
+id_ed25519*
+!*.pub
+ops/**/pki/**/private/
+ops/**/pki/**/*-key.*
+
+# Kubernetes / Ceph / 云凭据
+kubeconfig
+kubeconfig-*
+*.kubeconfig
+admin.conf
+ops/**/.kube/
+ceph.client.*.keyring
+*.keyring
+
+# Ansible 受控引用与秘密
+vault-password*
+.vault_pass*
+*vault.yml
+!*vault.example.yml
+ops/**/ansible/**/secrets.yml
+ops/**/ansible/**/host_vars/**/secrets*
+*.retry
+
+# 安装介质与归档物料（只入库来源和校验值）
+*.iso
+*.rpm
+*.deb
+*.img
+*.qcow2
+*.vmdk
+*.ova
+*.ovf
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.whl
+
+# 原始备份与数据库导出
+*.dump
+*.sql
+*.sql.gz
+backup/
+backups/
+
+# 环境变量与代理凭据
+.env
+.env.*
+!.env.example
+
+# 本地运行产物
+*.log
+!ops/**/records/**/*.log
+tmp/
+.cache/

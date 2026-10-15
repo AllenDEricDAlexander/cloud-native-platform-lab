@@ -1,0 +1,24 @@
+Source: user-provided terminal output, relevant excerpts.
+Execution timestamp: 2026-10-14T22:53:43+08:00
+
+SELinux: Enforcing
+firewalld: running
+/var/lib/containerd UUID: 1b36c022-c96c-4b0f-9570-d8e291ba03c0
+systemd-escape --path --suffix=mount /var/lib/containerd
+var-lib-containerd.mount
+systemctl show --value -p LoadState var-lib-containerd.mount
+loaded
+systemctl is-active var-lib-containerd.mount
+active
+
+Failed command:
+systemd-analyze --generators=yes verify /usr/lib/systemd/system/containerd.service
+Output:
+/usr/lib/systemd/system-generators/systemd-ssh-generator failed with exit status 1.
+/usr/lib/systemd/system-generators/systemd-fstab-generator failed with exit status 1.
+containerd.service: Failed to create containerd.service/start: Unit var-lib-containerd.mount not found.
+step_exit=1
+
+Scope: Runtime manager mount unit exists and is active; offline generator validation failed.
+Unknown: Exact cause of generator subprocess failure.
+Startup boundary: systemctl enable --now containerd was not reached in this attempt.

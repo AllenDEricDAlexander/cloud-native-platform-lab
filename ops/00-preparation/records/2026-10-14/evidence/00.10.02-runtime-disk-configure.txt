@@ -1,0 +1,122 @@
+[root@rocky10-base ~]# bash /root/lab-artifacts/00.10.02-runtime-disk-configure.sh
++ trap 'LAB_STEP_RC=$?; printf "step_exit=%s\n" "$LAB_STEP_RC"' EXIT
++ date -Is
+2026-10-14T22:41:41+08:00
++ dnf install -y parted xfsprogs
+Last metadata expiration check: 0:38:27 ago on Wed 14 Oct 2026 10:03:16 PM CST.
+Package parted-3.6-7.el10.x86_64 is already installed.
+Package xfsprogs-6.16.0-1.el10.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+++ hostnamectl --static
++ test rocky10-base = rocky10-base
+++ systemctl is-enabled containerd
+++ true
++ test masked = masked
+++ blockdev --getsize64 /dev/sdb
++ test 107374182400 -eq 107374182400
+++ lsblk -nrpo NAME /dev/sdb
+++ wc -l
++ test 1 -eq 1
+++ wipefs --no-act --noheadings --output TYPE /dev/sdb
++ LAB_DISK_SIGNATURES=
++ test -z ''
+++ lsblk -nro MOUNTPOINTS /dev/sdb
+++ tr -d '[:space:]'
++ test -z ''
++ test '!' -L /var/lib/containerd
++ mkdir -p /var/lib/containerd
++ mountpoint -q /var/lib/containerd
+++ find /var/lib/containerd -mindepth 1 -maxdepth 1 -print -quit
++ test -z ''
+++ awk '$0 !~ /^[[:space:]]*#/ && $2 == "/var/lib/containerd" {print}' /etc/fstab
++ test -z ''
++ parted -s -a optimal /dev/sdb mklabel gpt mkpart containerd xfs 1MiB 100%
++ partprobe /dev/sdb
++ udevadm settle
++ mkfs.xfs -L containerd /dev/sdb1
+meta-data=/dev/sdb1              isize=512    agcount=4, agsize=6553472 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=1, sparse=1, rmapbt=1
+         =                       reflink=1    bigtime=1 inobtcount=1 nrext64=1
+         =                       exchange=0   metadir=0
+data     =                       bsize=4096   blocks=26213888, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0, ftype=1, parent=0
+log      =internal log           bsize=4096   blocks=16384, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+         =                       rgcount=0    rgsize=0 extents
+         =                       zoned=0      start=0 reserved=0
+++ blkid -s UUID -o value /dev/sdb1
++ LAB_CONTAINERD_UUID=1b36c022-c96c-4b0f-9570-d8e291ba03c0
++ test -n 1b36c022-c96c-4b0f-9570-d8e291ba03c0
+++ date +%Y%m%d%H%M%S
++ cp -a /etc/fstab /etc/fstab.phase00.20261014224144.bak
++ printf 'UUID=%s /var/lib/containerd xfs defaults,nodev,nosuid 0 0\n' 1b36c022-c96c-4b0f-9570-d8e291ba03c0
++ systemctl daemon-reload
++ mount /var/lib/containerd
+++ findmnt -rn -M /var/lib/containerd -o UUID
++ test 1b36c022-c96c-4b0f-9570-d8e291ba03c0 = 1b36c022-c96c-4b0f-9570-d8e291ba03c0
++ chmod 0700 /var/lib/containerd
++ restorecon -RFv /var/lib/containerd
+Relabeled /var/lib/containerd from system_u:object_r:unlabeled_t:s0 to system_u:object_r:container_var_lib_t:s0
++ findmnt --verify --verbose
+/
+   [ ] target exists
+   [ ] UUID=9668364e-871d-4d56-8221-e0925185c165 translated to /dev/mapper/rlm-root
+   [ ] source /dev/mapper/rlm-root exists
+   [ ] FS type is xfs
+/boot
+   [ ] target exists
+   [ ] UUID=d249963a-7828-411d-a44e-c0d8ad6d858d translated to /dev/sda2
+   [ ] source /dev/sda2 exists
+   [ ] FS type is xfs
+/boot/efi
+   [ ] target exists
+   [ ] FS options: umask=0077,shortname=winnt
+   [ ] UUID=E6F2-D3BD translated to /dev/sda1
+   [ ] source /dev/sda1 exists
+   [ ] FS type is vfat
+/home
+   [ ] target exists
+   [ ] UUID=40be729f-1edf-4828-a77d-aeff9a4e4b0a translated to /dev/mapper/rlm-home
+   [ ] source /dev/mapper/rlm-home exists
+   [ ] FS type is xfs
+/var/lib/containerd
+   [ ] target exists
+   [ ] VFS options: nodev,nosuid
+   [ ] UUID=1b36c022-c96c-4b0f-9570-d8e291ba03c0 translated to /dev/sdb1
+   [ ] source /dev/sdb1 exists
+   [ ] FS type is xfs
+Success, no errors or warnings detected
++ findmnt -M /var/lib/containerd
+TARGET              SOURCE    FSTYPE OPTIONS
+/var/lib/containerd /dev/sdb1 xfs    rw,nosuid,nodev,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
++ xfs_info /var/lib/containerd
+meta-data=/dev/sdb1              isize=512    agcount=4, agsize=6553472 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=1, sparse=1, rmapbt=1
+         =                       reflink=1    bigtime=1 inobtcount=1 nrext64=1
+         =                       exchange=0   metadir=0
+data     =                       bsize=4096   blocks=26213888, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0, ftype=1, parent=0
+log      =internal log           bsize=4096   blocks=16384, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+         =                       rgcount=0    rgsize=0 extents
+         =                       zoned=0      start=0 reserved=0
++ ls -Zd /var/lib/containerd
+system_u:object_r:container_var_lib_t:s0 /var/lib/containerd
++ blkid /dev/sdb1
+/dev/sdb1: LABEL="containerd" UUID="1b36c022-c96c-4b0f-9570-d8e291ba03c0" BLOCK_SIZE="512" TYPE="xfs" PARTLABEL="containerd" PARTUUID="74232beb-f101-4f23-94c0-cba200c0023e"
++ getenforce
+Enforcing
++ firewall-cmd --state
+running
+++ LAB_STEP_RC=0
+++ printf 'step_exit=%s\n' 0
+step_exit=0
+[root@rocky10-base ~]# 

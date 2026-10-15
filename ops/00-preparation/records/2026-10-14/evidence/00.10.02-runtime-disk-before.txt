@@ -1,0 +1,35 @@
+Source: user-provided terminal output; spacing normalized.
+Recorded execution timestamp: 2026-10-14T22:15:18+08:00
+Host: rocky10-base
+Exit codes: not provided
+
+lsblk -e7 -o NAME,PATH,SIZE,TYPE,FSTYPE,UUID,MOUNTPOINTS,MODEL,SERIAL
+sda /dev/sda 100G disk (system disk)
+sda1 /dev/sda1 600M part vfat E6F2-D3BD /boot/efi
+sda2 /dev/sda2 2G part xfs d249963a-7828-411d-a44e-c0d8ad6d858d /boot
+sda3 /dev/sda3 97.4G part LVM2_member dQmMQP-mZP3-k9fF-mdmh-hTj7-2Wr7-uddpLl
+rlm-root /dev/mapper/rlm-root 62.8G lvm xfs 9668364e-871d-4d56-8221-e0925185c165 /
+rlm-swap /dev/mapper/rlm-swap 3.9G lvm swap c6540efc-aae4-48a9-acc0-c4b21f7ce15c (not mounted)
+rlm-home /dev/mapper/rlm-home 30.7G lvm xfs 40be729f-1edf-4828-a77d-aeff9a4e4b0a /home
+sdb /dev/sdb 100G disk; no child partition, filesystem, UUID or mountpoint reported
+User-confirmed virtual SCSI address: 0:1
+
+rpm -q containerd.io container-selinux
+containerd.io-2.4.2-2.el10.x86_64
+container-selinux-2.246.0-1.el10.noarch
+
+rpmkeys --checksig /root/lab-artifacts/containerd.io-2.4.2-2.el10.x86_64.rpm
+/root/lab-artifacts/containerd.io-2.4.2-2.el10.x86_64.rpm: digests signatures OK
+
+ls -lZ /usr/bin/containerd /usr/bin/runc
+Both executables: system_u:object_r:container_runtime_exec_t:s0
+
+matchpathcon /var/lib/containerd
+/var/lib/containerd system_u:object_r:container_var_lib_t:s0
+
+systemctl is-enabled containerd
+masked
+getenforce
+Enforcing
+firewall-cmd --state
+running

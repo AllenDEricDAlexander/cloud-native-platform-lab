@@ -1,0 +1,34 @@
+Source: user-provided terminal output, relevant excerpts.
+Execution timestamp: 2026-10-14T22:48:13+08:00
+Host: rocky10-base
+
+Passed preconditions:
+containerd initially masked
+SELinux Enforcing
+firewalld running
+/var/lib/containerd UUID 1b36c022-c96c-4b0f-9570-d8e291ba03c0
+python3 /usr/bin/python3
+
+Original configuration backup:
+/etc/containerd/config.toml.phase00.20261014224814.bak
+
+CRI TOML configuration checks passed
+containerd config dump emitted warning:
+Configuration migrated from version 3, use `containerd config migrate` to avoid migration
+
+restorecon result:
+10-runtime-mount.conf relabeled from systemd_unit_file_t to container_unit_file_t
+
+systemctl unmask containerd.service
+Removed '/etc/systemd/system/containerd.service'.
+systemctl daemon-reload
+
+Failed command:
+systemd-analyze verify /usr/lib/systemd/system/containerd.service
+Output:
+containerd.service: Failed to create containerd.service/start: Unit var-lib-containerd.mount not found.
+step_exit=1
+
+Boundary: Failed before systemctl enable --now containerd; startup was not executed by this script.
+Correction to verification command: systemd-analyze --generators=yes verify /usr/lib/systemd/system/containerd.service
+Runtime mount state still requires target-side confirmation.

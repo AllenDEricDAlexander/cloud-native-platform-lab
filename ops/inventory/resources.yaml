@@ -1,0 +1,126 @@
+# 起步预算来自现有规划；null 表示未知，不代表零占用。
+schema_version: 1
+status: planned_unverified
+verified_at: null
+reported_at: '2026-10-14'
+evidence: ops/00-preparation/records/2026-10-14/assets.md
+hypervisor_budgets:
+  esxi01:
+    reported_hardware:
+      cpu_model: Intel Xeon E5-2673 v4
+      cpu_sockets: 2
+      cores_per_socket: 20
+      threads_per_socket: 40
+      cpu_frequency_ghz: 2.3
+      memory_modules: 4
+      memory_module_gib: 32
+      memory_speed_mt_s: 2400
+      hdd: {interface: SAS, count: 3, capacity_tb_each: 6}
+      ssd: {interface: SAS, count: 1, capacity_gb_each: 480}
+      raid_controller: PERC H730P
+      raid_cache_gb: 2
+      power_supplies: {count: 1, watts_each: 1100}
+    planned_memory_gib: 128
+    existing_usage_gib: null
+    system_and_vcenter_gib: null
+    free_datastore_gib: null
+    reported_free_datastore_capacity: '9.9 TB'
+    physical_cpu_cores: null
+  esxi02:
+    reported_hardware:
+      cpu_model: Intel Xeon E5-2686 v4
+      cpu_sockets: 2
+      cores_per_socket: 14
+      threads_per_socket: 28
+      cpu_frequency_ghz: 2.4
+      memory_modules: 2
+      memory_module_gib: 32
+      memory_speed_mt_s: 2133
+      hdd: {interface: SAS, count: 3, capacity_tb_each: 4}
+      ssd: {interface: SAS, count: 1, capacity_gb_each: 480}
+      raid_controller: PERC H730
+      raid_cache_gb: 1
+      power_supplies: {count: 1, watts_each: 750}
+    planned_memory_gib: 64
+    existing_usage_gib: null
+    system_and_vcenter_gib: null
+    free_datastore_gib: null
+    physical_cpu_cores: null
+  esxi03:
+    reported_hardware:
+      cpu_model: Intel Xeon E5-2686 v4
+      cpu_sockets: 2
+      cores_per_socket: 14
+      threads_per_socket: 28
+      cpu_frequency_ghz: 2.4
+      memory_modules: 2
+      memory_module_gib: 32
+      memory_speed_mt_s: 2133
+      hdd: {interface: SAS, count: 3, capacity_tb_each: 4}
+      ssd: {interface: SAS, count: 1, capacity_gb_each: 480}
+      raid_controller: PERC H730
+      raid_cache_gb: 1
+      power_supplies: {count: 1, watts_each: 750}
+    planned_memory_gib: 64
+    existing_usage_gib: null
+    system_and_vcenter_gib: null
+    free_datastore_gib: null
+    physical_cpu_cores: null
+node_profiles:
+  control_plane: {count: 3, vcpu: 4, memory_gib: 8}
+  infra: {count: 2, vcpu: 6, memory_gib: 12}
+  storage: {count: 3, vcpu: 8, memory_gib: 16}
+  worker: {count: 2, vcpu: 8, memory_gib: 16}
+node_totals: {count: 10, vcpu: 64, memory_gib: 128}
+expanded_node_target: {count: 10, vcpu_each: 8, memory_gib_each: 16}
+planned_template_profile:
+  name: rocky10-base
+  hypervisor: esxi01
+  vcpu: 2
+  memory_gib: 4
+  os_disk_gib: 100
+  planned_runtime_disk_gib: 100
+  disk_provisioning: thin
+  network_adapter: VMXNET3
+  firmware: EFI
+  bootstrap_network: static
+  bootstrap_ip: 192.168.9.9
+  reported_root_gib: 62.8
+  reported_home_gib: 30.7
+  reported_swap_gib: 3.9
+  status: installed_user_reported
+bootstrap_memory_gib:
+  openwrt: 2
+  dns: 2
+  harbor: 8
+  gitlab: 16
+  nexus: 8
+  admin: 4
+bootstrap_memory_total_gib: 40
+node_security_policy:
+  selinux_mode: enforcing
+  firewalld_enabled: true
+  disabling_security_controls_allowed: false
+  firewall_rules: role_and_source_scoped
+storage:
+  original_virtual_disk_target_tb_per_node: 1
+  verified_osd_raw_capacity_gib: null
+  estimated_ceph_usable_capacity_gib: null
+  independent_backup_capacity_gib: null
+  osd_initialization_allowed: false
+node_reservations:
+  system_reserved: null
+  kube_reserved: null
+  ceph_reserved_on_storage_nodes: null
+  eviction_thresholds: null
+capacity_gates:
+  service_ip_review_threshold: 180
+  simultaneous_heavy_modules: false
+  n_plus_one_capacity_verified: false
+hardware_prerequisites:
+  rocky10_guest_cpu_verified: false
+  nested_virtualization_verified: false
+  gpu_model: null
+  gpu_vram_gib: null
+  vsphere_api_and_license_verified: false
+  bgp_peer_verified: false

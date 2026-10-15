@@ -1,0 +1,88 @@
+# 地址规划与用户提供的信息；现场占用、默认路由及 DHCP 配置未复验前不得批量分配。
+schema_version: 1
+status: planned_unverified
+verified_at: null
+reported_at: '2026-10-14'
+evidence: ops/00-preparation/records/2026-10-14/assets.md
+lan:
+  cidr: 192.168.9.0/24
+  reported_router_ip: 192.168.9.1
+  default_gateway: 192.168.9.1
+  default_gateway_source: user_provided_template_ip_route
+  planned_default_gateway: 192.168.9.1
+  dhcp_ranges:
+    - start: 192.168.9.30
+      end: 192.168.9.49
+      purpose: router_wifi_clients
+      source: user_reported
+  dhcp_ranges_verified: false
+  planned_dns_servers: [192.168.9.11]
+  planned_time_servers: []
+  vpn_remote_cidrs: []
+  overlap_check_completed: false
+  address_allocations:
+    - {start: 192.168.9.1, end: 192.168.9.1, purpose: physical_router}
+    - {start: 192.168.9.2, end: 192.168.9.4, purpose: switch_and_access_point_management}
+    - {start: 192.168.9.5, end: 192.168.9.5, purpose: vcenter}
+    - {start: 192.168.9.6, end: 192.168.9.8, purpose: virtualization_management_reserved}
+    - {start: 192.168.9.9, end: 192.168.9.9, purpose: bootstrap_template}
+    - {start: 192.168.9.10, end: 192.168.9.19, purpose: bootstrap_services}
+    - {start: 192.168.9.20, end: 192.168.9.29, purpose: static_management_clients}
+    - {start: 192.168.9.30, end: 192.168.9.49, purpose: router_wifi_dhcp}
+    - {start: 192.168.9.50, end: 192.168.9.50, purpose: reserved}
+    - {start: 192.168.9.51, end: 192.168.9.60, purpose: idrac}
+    - {start: 192.168.9.61, end: 192.168.9.70, purpose: esxi}
+    - {start: 192.168.9.71, end: 192.168.9.89, purpose: additional_physical_management}
+    - {start: 192.168.9.90, end: 192.168.9.99, purpose: temporary_diagnostics}
+    - {start: 192.168.9.100, end: 192.168.9.100, purpose: primary_api_vip}
+    - {start: 192.168.9.101, end: 192.168.9.119, purpose: primary_cluster_nodes}
+    - {start: 192.168.9.120, end: 192.168.9.139, purpose: secondary_cluster_reserved}
+    - {start: 192.168.9.140, end: 192.168.9.159, purpose: standalone_data_service_vms}
+    - {start: 192.168.9.160, end: 192.168.9.179, purpose: ci_and_build_vms}
+    - {start: 192.168.9.180, end: 192.168.9.199, purpose: advanced_lab_vms}
+    - {start: 192.168.9.200, end: 192.168.9.200, purpose: reserved}
+    - {start: 192.168.9.201, end: 192.168.9.210, purpose: metallb_primary_vips}
+    - {start: 192.168.9.211, end: 192.168.9.220, purpose: comparison_vips}
+    - {start: 192.168.9.221, end: 192.168.9.239, purpose: future_vips_reserved}
+    - {start: 192.168.9.240, end: 192.168.9.254, purpose: recovery_and_expansion_reserved}
+reported_switch:
+  ports: 24
+  port_speed_mbps: 1000
+  model: null
+  vlan_management_verified: false
+domains:
+  public: egon.top
+  internal: internal.egon.top
+  management: mgmt.internal.egon.top
+  platform: k8s.internal.egon.top
+  services: svc.internal.egon.top
+  kubernetes_service_domain: cluster.local
+primary_cluster:
+  name: lab-primary
+  pod_cidr: 10.244.0.0/16
+  pod_mask_per_node: 24
+  service_cidr: 192.168.20.0/24
+  kubernetes_service_ip: 192.168.20.1
+  dns_service_ip: 192.168.20.10
+  api_fqdn: api.k8s.internal.egon.top
+  api_vip: 192.168.9.100
+  api_vip_owner: kube-vip
+  cni: cilium
+  initial_mode: overlay_with_kube_proxy
+business_vip_pools:
+  - name: primary
+    start: 192.168.9.201
+    end: 192.168.9.210
+    owner: metallb
+  - name: comparison
+    start: 192.168.9.211
+    end: 192.168.9.220
+    owner: pending_experiment
+    enabled: false
+secondary_cluster:
+  enabled: false
+  pod_cidr: 10.245.0.0/16
+  service_cidr: 10.96.0.0/16
+  node_ips: []
+  api_vip: null
+public_exposure_allowlist: []

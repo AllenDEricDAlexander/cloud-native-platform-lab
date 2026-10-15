@@ -1,0 +1,20 @@
+Source: user-provided terminal output, relevant excerpts.
+Execution timestamp: 2026-10-14T22:37:43+08:00
+Host: rocky10-base
+parted: 3.6-7.el10.x86_64, already installed
+xfsprogs: 6.16.0-1.el10.x86_64, already installed
+
+Passed checks:
+hostname = rocky10-base
+containerd enablement state = masked
+/dev/sdb size = 107374182400 bytes
+lsblk /dev/sdb device count = 1
+
+Failed command:
+wipefs -n --noheadings -o TYPE /dev/sdb
+Output:
+wipefs: invalid offset argument: 'TYPE': Invalid argument
+step_exit=1
+
+Boundary: Stopped before parted, mkfs, fstab modification and mount.
+Correction: wipefs --no-act --noheadings --output TYPE /dev/sdb

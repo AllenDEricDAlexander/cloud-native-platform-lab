@@ -16,6 +16,7 @@ lan:
       purpose: router_wifi_clients
       source: user_reported
   dhcp_ranges_verified: false
+  dhcp_range_user_confirmed: {start: 192.168.9.30, end: 192.168.9.49, at: '2026-10-16'}  # 用户查看路由器后确认；不与节点、VIP、基础服务地址重叠
   planned_dns_servers: [192.168.9.11]
   planned_time_servers: []
   vpn_remote_cidrs: []
@@ -40,7 +41,7 @@ lan:
     - {start: 192.168.9.140, end: 192.168.9.159, purpose: standalone_data_service_vms}
     - {start: 192.168.9.160, end: 192.168.9.179, purpose: ci_and_build_vms}
     - {start: 192.168.9.180, end: 192.168.9.199, purpose: advanced_lab_vms}
-    - {start: 192.168.9.200, end: 192.168.9.200, purpose: reserved}
+    - {start: 192.168.9.200, end: 192.168.9.200, purpose: reserved, observed_use: management_mac_en5, observed_at: '2026-10-16', assignment: dhcp_user_reported}  # 在 DHCP 池 .30–.49 之外，推测为路由器绑定；用户决定不再追踪。若变化，改 lab_mgmt_sources 并重跑 node_base
     - {start: 192.168.9.201, end: 192.168.9.210, purpose: metallb_primary_vips}
     - {start: 192.168.9.211, end: 192.168.9.220, purpose: comparison_vips}
     - {start: 192.168.9.221, end: 192.168.9.239, purpose: future_vips_reserved}

@@ -1,0 +1,98 @@
+# 防火墙允许/拒绝验证（手册第 7 节「允许与拒绝用例都通过」）。
+#
+# 在目标节点临时监听被测端口（最长 120 秒，结束时清理），再分别从另一台控制平面、一台非控制平面
+# 节点和管理端（本机）探测，与下面独立写出的期望比较。期望按端口表手写，不从角色变量推导，
+# 以免角色写错时测试跟着一起错。只读验证：不修改防火墙。
+#
+# 用法（在 ops/00-preparation/ansible/ 下）：
+#   ansible-playbook playbooks/verify-firewall.yml -e target=cp01
+#   ansible-playbook playbooks/verify-firewall.yml -e target=k8s_nodes
+# 未覆盖：8472/udp（UDP 无连接，需抓包验证）与 4240/tcp（与 10250 同规则来源），留待 01 数据面验证。
+- name: 防火墙允许/拒绝验证
+  hosts: "{{ target | default('cp01') }}"
+  gather_facts: false
+  vars:
+    probe_ports: ["6443", "10250", "2379", "9090"]
+    target_ip: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
+    is_control_plane: "{{ 'control_plane' in group_names }}"
+    # 探测来源：不能用目标自身（本机访问本机走回环，不经过区域规则）。
+    probe_from_control_plane: "{{ (groups['control_plane'] | difference([inventory_hostname]))[0] }}"
+    probe_from_node: >-
+      {{ (groups['k8s_nodes'] | difference(groups['control_plane']) | difference([inventory_hostname]))[0] }}
+    expected:
+      control_plane_target:
+        from_control_plane: ["6443=open", "10250=open", "2379=open", "9090=blocked"]
+        from_node: ["6443=open", "10250=open", "2379=blocked", "9090=blocked"]
+        from_mgmt: ["6443=open", "10250=blocked", "2379=blocked", "9090=blocked"]
+      other_target:
+        from_control_plane: ["6443=blocked", "10250=open", "2379=blocked", "9090=blocked"]
+        from_node: ["6443=blocked", "10250=open", "2379=blocked", "9090=blocked"]
+        from_mgmt: ["6443=blocked", "10250=blocked", "2379=blocked", "9090=blocked"]
+  tasks:
+    - name: 验证与清理
+      block:
+        - name: 临时监听被测端口（120 秒后自动退出）
+          ansible.builtin.shell: |
+            for p in {{ probe_ports | join(' ') }}; do timeout 120 ncat -lk "$p" >/dev/null 2>&1 & done
+            wait
+          async: 150
+          poll: 0
+          changed_when: false
+
+        - name: 等待监听就绪
+          ansible.builtin.shell: >-
+            ss -lntH | awk '{n = split($4, a, ":"); print a[n]}' | sort -u
+            | grep -cxE '{{ probe_ports | join("|") }}'
+          register: listening
+          until: listening.stdout | int == probe_ports | length
+          retries: 10
+          delay: 1
+          changed_when: false
+          failed_when: false
+
+        - name: 被测端口必须全部在监听，否则探测结果没有意义
+          ansible.builtin.assert:
+            that: listening.stdout | int == probe_ports | length
+            fail_msg: "只有 {{ listening.stdout }} 个被测端口在监听"
+
+        - name: 从另一台控制平面探测（{{ probe_from_control_plane }}）
+          ansible.builtin.shell: &probe |
+            for p in {{ probe_ports | join(' ') }}; do
+              if timeout 5 ncat -z -w 3 {{ target_ip }} "$p" >/dev/null 2>&1; then echo "$p=open"; else echo "$p=blocked"; fi
+            done
+          delegate_to: "{{ probe_from_control_plane }}"
+          register: from_control_plane
+          changed_when: false
+
+        - name: 从非控制平面节点探测（{{ probe_from_node }}）
+          ansible.builtin.shell: *probe
+          delegate_to: "{{ probe_from_node }}"
+          register: from_node
+          changed_when: false
+
+        - name: 从管理端（本机）探测
+          ansible.builtin.shell: |
+            for p in {{ probe_ports | join(' ') }}; do
+              if nc -z -G 3 {{ target_ip }} "$p" >/dev/null 2>&1; then echo "$p=open"; else echo "$p=blocked"; fi
+            done
+          delegate_to: localhost
+          register: from_mgmt
+          changed_when: false
+
+        - name: 与期望比较
+          ansible.builtin.assert:
+            that: actual == want
+            fail_msg: "期望 {{ want }}，实际 {{ actual }}"
+            success_msg: "符合期望：{{ actual }}"
+          vars:
+            want: "{{ expected['control_plane_target' if is_control_plane else 'other_target'] }}"
+            actual:
+              from_control_plane: "{{ from_control_plane.stdout_lines }}"
+              from_node: "{{ from_node.stdout_lines }}"
+              from_mgmt: "{{ from_mgmt.stdout_lines }}"
+      always:
+        - name: 停止临时监听
+          ansible.builtin.command: pkill -f '^ncat -lk ({{ probe_ports | join("|") }})$'
+          register: stop_listeners
+          changed_when: false
+          failed_when: stop_listeners.rc not in [0, 1]

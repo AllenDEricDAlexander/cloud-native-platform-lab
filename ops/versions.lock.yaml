@@ -46,12 +46,48 @@ components:
     status: pending
   ansible:
     phase: "00"
-    candidate: null
-    version: null
-    artifacts: []
+    candidate: "ansible-core 2.21.5"
+    version: "2.21.5"
+    runs_on: 管理 Mac（Homebrew Python 3.14.6，独立 venv ~/.venvs/cnpl-ansible）；以后迁到管理 VM .15
+    requirements: ops/00-preparation/ansible/requirements.txt
+    artifacts:
+      - name: ansible_core-2.21.5-py3-none-any.whl
+        type: python_wheel
+        source: https://pypi.org/project/ansible-core/2.21.5/
+        sha256: 08886f9f3e23d129aa98a01271c4a47833516e1cb7c737a246788cb474f41222
+        requires_python: '>=3.12'
+        supported_controller_python: ['3.12', '3.13', '3.14']
+        metadata_verified_at: '2026-10-16'
+        dependencies_resolved_at_install:  # 2026-10-16 pip freeze（venv ~/.venvs/cnpl-ansible，Python 3.14.6）
+          cffi: 2.1.1
+          cryptography: 50.0.2
+          Jinja2: 3.1.6
+          MarkupSafe: 3.0.4
+          packaging: 26.3
+          pycparser: 3.11
+          PyYAML: 6.0.3  # with libyaml 0.2.5
+          resolvelib: 1.2.1
+    target_python_observed: /usr/bin/python3.12 (3.12.13) on all ten nodes
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.01-ansible-control-node.txt
+    status: installed_management_side
+  ansible_collections:
+    phase: "00"
+    candidate: "ansible.posix 2.2.2"
+    version: "2.2.2"
+    requirements: ops/00-preparation/ansible/requirements.yml
+    artifacts:
+      - name: ansible-posix-2.2.2.tar.gz
+        type: ansible_collection
+        source: https://galaxy.ansible.com/api/v3/plugin/ansible/content/published/collections/artifacts/ansible-posix-2.2.2.tar.gz
+        sha256: 00a58c5d804c9adc99c3c3dc1b9f2246f4bb5f7337941440e0956f0e31c3b82b
+        requires_ansible: '>=2.16.0'
+        metadata_verified_at: '2026-10-16'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.01-ansible-control-node.txt
+    status: installed_management_side
   containerd:
     phase: "00"
     candidate: "2.4.2"
@@ -420,7 +456,7 @@ components:
 pending_by_phase:
   # pause 与 cri_smoke_image 已于 2026-10-16 提升为上方 components 记录；
   # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。
-  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, ansible_collections, registry_runtime]
+  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, registry_runtime]
   # cni_plugins 因 kubelet RPM 依赖于 2026-10-16 提升到 00 的 components 记录。
   "01": [etcd, coredns, metrics_server]
   "02": [istio, spire, ingress_comparison_controller]

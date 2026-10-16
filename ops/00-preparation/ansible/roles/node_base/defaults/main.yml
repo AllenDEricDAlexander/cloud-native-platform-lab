@@ -1,0 +1,25 @@
+# node_base 防火墙部分：落实 ops/00-preparation/README.md 第 7 节端口表。
+# 来源一律用 ipset 限定为节点或管理端，不对整个网段开放；SSH 维持现状，收紧前须先固定管理端地址。
+node_firewall_zone: public
+node_firewall_interface: "{{ node_network_connection }}"
+node_firewall_backup_dir: /root/firewalld.before-phase00-node-base
+
+# 节点未安装 Cockpit（2026-10-16 监听检查无 9090），基线不保留其放行。
+node_firewall_removed_services: [cockpit]
+
+node_firewall_ipsets:
+  k8s-nodes: "{{ groups['k8s_nodes'] | map('extract', hostvars, 'ansible_host') | list }}"
+  k8s-control-plane: "{{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | list }}"
+  lab-mgmt: "{{ lab_mgmt_sources }}"
+
+# 所有节点。Cilium 基础 Overlay 采用 VXLAN（8472/udp），未选用的 Geneve 6081 不开放。
+node_firewall_rules_all:
+  - {source: k8s-nodes, port: "10250", proto: tcp, purpose: kubelet API}
+  - {source: k8s-nodes, port: "8472", proto: udp, purpose: Cilium VXLAN}
+  - {source: k8s-nodes, port: "4240", proto: tcp, purpose: Cilium 健康检查}
+
+# 仅控制平面。kube-controller-manager(10257)、kube-scheduler(10259) 由 kubeadm 绑定在 127.0.0.1，不开放。
+node_firewall_rules_control_plane:
+  - {source: k8s-nodes, port: "6443", proto: tcp, purpose: kube-apiserver（节点与 VIP）}
+  - {source: lab-mgmt, port: "6443", proto: tcp, purpose: kube-apiserver（管理端）}
+  - {source: k8s-control-plane, port: "2379-2380", proto: tcp, purpose: etcd 客户端与成员}

@@ -1,0 +1,333 @@
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [cp02]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [cp02]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [cp02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [cp02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [cp02] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [cp02]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [cp02] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [cp02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [cp02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [cp02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+changed: [cp02] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+changed: [cp02] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+changed: [cp02] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [cp02]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [cp03]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [cp03]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [cp03] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [cp03] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [cp03] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [cp03]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [cp03] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [cp03] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [cp03] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [cp03] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+changed: [cp03] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+changed: [cp03] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+changed: [cp03] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [cp03]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [infra01]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [infra01]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [infra01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [infra01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [infra01] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [infra01]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [infra01] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [infra01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [infra01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [infra01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [infra01]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [infra02]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [infra02]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [infra02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [infra02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [infra02] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [infra02]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [infra02] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [infra02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [infra02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [infra02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [infra02]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [storage01]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [storage01]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [storage01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [storage01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [storage01] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [storage01]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [storage01] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [storage01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [storage01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [storage01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [storage01]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [storage02]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [storage02]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [storage02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [storage02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [storage02] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [storage02]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [storage02] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [storage02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [storage02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [storage02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [storage02]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [storage03]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [storage03]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [storage03] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [storage03] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [storage03] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [storage03]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [storage03] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [storage03] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [storage03] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [storage03] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [storage03]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [worker01]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [worker01]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [worker01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [worker01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [worker01] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [worker01]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [worker01] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [worker01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [worker01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [worker01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [worker01]
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [worker02]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [worker02]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [worker02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [worker02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [worker02] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [worker02]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [worker02] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [worker02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [worker02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [worker02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [worker02]
+
+PLAY RECAP *********************************************************************
+cp02                       : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage02                  : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage03                  : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker01                   : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

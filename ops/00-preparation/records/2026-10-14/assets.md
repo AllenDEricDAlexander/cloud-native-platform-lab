@@ -1117,3 +1117,98 @@ cd ~/SelfProject/cloud-native-platform-lab && ops/00-preparation/scripts/collect
 据此，计划 00 验收用例中「十台节点通过 node-readiness 和 host-network CRI smoke」有了实测证据。台账十台状态更新为 node_readiness_and_cri_smoke_passed；版本锁中 containerd、runc、cri_tools、pause、cri_smoke_image 更新为 validated_ten_nodes_host_network，入群工具与 cni_plugins 追加执行证据，状态仍为 installed_unvalidated（00 只验证安装与版本，功能在 01 验收）。
 
 本结果不代表以下事项已完成：10.2 仓库拉取、registry 配置与 CA 信任（需 Harbor/DNS/CA）；手册第 7 节按角色与来源配置 firewalld 规则；journald 持久化与容量上限；Ansible node_base/container_runtime 角色、bootstrap-nodes.yml 与第二次执行无变更的幂等验收；storage 节点候选 OSD 盘的附加与稳定 ID 登记；十台虚拟光驱仍连接安装 ISO。整个 Phase 00 中的 DNS/CA、GitLab/Harbor/Nexus、OpenWrt/VPN/代理、离线验收与独立备份恢复仍未开始。
+
+## 56. 2026-10-16 开始节点收尾：建立 Ansible 控制端（00.10.01）
+
+用户确认按「先节点收尾、后基础服务」推进。第一步按 00.10.01 在管理 Mac 准备不依赖 Kubernetes 的 Ansible 控制端，后续防火墙、journald 与幂等验收都通过它执行。
+
+本助手只读核对：Mac 未安装 ansible/pipx，有 Homebrew Python 3.14.6（系统 Python 3.9.6 不满足要求）。PyPI 上 ansible-core 最新为 2.21.5（2026-10-05），requires_python >=3.12，分类声明支持 3.12–3.14，wheel SHA256 08886f9f…1222。Galaxy 上 ansible.posix 最新为 2.2.2（2026-07-13，requires_ansible >=2.16.0），归档 SHA256 00a58c5d…b82b。只用 ansible-core 加 ansible.posix（firewalld、sysctl、mount、selinux 模块），不安装体积大、版本难锁的 ansible 社区全集。版本锁的 ansible 填入候选与 wheel 校验值，ansible_collections 从 pending_by_phase 提升为组件；依赖的实际解析版本待安装后用 pip freeze 记录。Mac 在实验网段的有线地址为 192.168.9.200（en5），与 networks.yaml 中 .200「reserved」重合，已在台账标注实际用途；后续防火墙「管理来源」规则以此为准，地址固定方式待确认。
+
+新增文件（均在 ops/00-preparation/ansible/，按手册第 2 节）：
+
+- requirements.txt：ansible-core==2.21.5；requirements.yml：ansible.posix 2.2.2，安装到本目录 collections/（已加入 .gitignore）。
+- ansible.cfg：在该目录运行时生效；inventory 指向 inventories/lab/hosts.yml，只扫描本地 collections，host_key_checking 开启，forks 10，pipelining。
+- inventories/lab/group_vars/all.yml：root + 第 49 节的专用密钥，IdentitiesOnly；改为专用管理账户由 node_base 实施。
+- inventories/lab/hosts.yml：由新增的 [generate-ansible-inventory.rb](../../scripts/generate-ansible-inventory.rb) 从 hosts.yaml 生成，不手改；组为 k8s_nodes 下的 control_plane/infra/storage/worker，主机变量带 FQDN、计划宿主、连接名、运行时盘 UUID 与 SCSI 位置。生成时发现 Psych 不给 `2:0:1:0` 这类值加引号，而 Ansible 使用的 PyYAML（YAML 1.1）会把它解析为六十进制整数，生成脚本已强制加单引号；本地确认十台分组正确、infra02 的值为字符串。
+
+以下待用户在 Mac 执行，尚无输出：
+
+```bash
+python3 -m venv ~/.venvs/cnpl-ansible
+~/.venvs/cnpl-ansible/bin/pip install -r ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/requirements.txt
+source ~/.venvs/cnpl-ansible/bin/activate && cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible
+ansible-galaxy collection install -r requirements.yml -p collections
+ansible --version; pip freeze; ansible-galaxy collection list -p collections
+ansible-inventory --graph
+ansible k8s_nodes -m ping
+ansible k8s_nodes -m command -a 'python3 --version'
+```
+
+预期 ansible-core 2.21.5、Python 3.14.6、config file 指向本目录 ansible.cfg；ansible.posix 2.2.2；inventory 为 4 组 10 台；十台 ping 返回 pong；节点 Python 版本作为目标解释器记录。
+
+## 57. 2026-10-16 通过：Ansible 控制端可用，十台 ping 通
+
+用户执行第 56 节命令，验证输出由 tee 直接写入 [Ansible 控制端证据](evidence/00.10.01-ansible-control-node.txt)（venv 创建、pip 安装与集合安装的输出未保存）。ansible [core 2.21.5]，config file 为本目录 ansible.cfg，collection location 为本目录 collections，Python 3.14.6，jinja 3.1.6，PyYAML 6.0.3 带 libyaml 0.2.5；pip freeze 的依赖解析为 cffi 2.1.1、cryptography 50.0.2、Jinja2 3.1.6、MarkupSafe 3.0.4、packaging 26.3、pycparser 3.11、PyYAML 6.0.3、resolvelib 1.2.1；集合 ansible.posix 2.2.2。`ansible-inventory --graph` 为 k8s_nodes 下 control_plane 3、infra 2、storage 3、worker 2。十台 `ping` 均 SUCCESS/pong，发现的解释器均为 /usr/bin/python3.12，`python3 --version` 均为 3.12.13（command 模块总报告 CHANGED，属正常）。版本锁 ansible 与 ansible_collections 更新为已安装版本、installed_management_side，并登记依赖与目标解释器。
+
+00.10.01 的「独立管理工具环境」现有 Ansible 一项可用，OpenTofu 与凭据分离尚未开始。下一步按手册第 7 节配置角色化 firewalld 规则；先只读收集十台当前的 firewalld 状态与监听端口，作为设计输入和回退依据。管理 Mac 地址是否固定（第 56 节提问）用户尚未答复。
+
+## 58. 2026-10-16 继续：firewalld 现状与 node_base 防火墙角色
+
+用户执行第 57 节后的只读收集，输出已由 tee 写入 [firewalld 现状证据](evidence/00.10.02-firewalld-before.txt)，并答复管理 Mac 的地址为自动获取。
+
+十台在去除 pid、fd、临时端口和链路本地地址后完全一致：firewalld 2.4.0，默认区域 public，ens33 在运行时属于 public（永久配置中的 interfaces 为空，由 NetworkManager 归入默认区域）；服务为 cockpit、dhcpv6-client、ssh；无自定义端口、ipset 与富规则；forward yes、masquerade no；存在发行版默认 policy。监听端口：sshd 0.0.0.0:22 与 [::]:22，chronyd 127.0.0.1:323，NetworkManager 在链路本地地址 546/udp，containerd 只在 127.0.0.1 的临时端口。节点未安装 Cockpit，9090 无监听。
+
+Mac 经 DHCP 取得 .200，而 networks.yaml 登记的 DHCP 池是 .30–.49（dhcp_ranges_verified: false）。这说明路由器的实际地址池或绑定与台账不同。若实际池覆盖 .101–.110 或 .201–.220，路由器可能把节点地址或 VIP 分配给其他设备，违反 00.01.02「节点、基础服务和 VIP 不与 DHCP 冲突」。需要用户查看路由器的 DHCP 池、排除范围与已有绑定，并为 Mac 做地址绑定。台账已标注 .200 为 DHCP 获得、待核实。
+
+本次编写 node_base 的防火墙部分（[角色目录](../../ansible/roles/node_base/)）与 [bootstrap-nodes.yml](../../ansible/playbooks/bootstrap-nodes.yml)，落实手册第 7 节：
+
+- ipset 以模板写入 /etc/firewalld/ipsets/：k8s-nodes（十台）、k8s-control-plane（三台 cp）、lab-mgmt（group_vars 中的 lab_mgmt_sources，暂为 .200）；变化时 reload，并在添加规则前 flush_handlers。
+- public 区域富规则：所有节点放行来自 k8s-nodes 的 10250/tcp、8472/udp、4240/tcp；控制平面另放行来自 k8s-nodes 与 lab-mgmt 的 6443/tcp，以及只来自 k8s-control-plane 的 2379–2380/tcp。10257/10259 由 kubeadm 绑定回环，不开放；NodePort、Ceph、Hubble 留待 02/03。
+- 移除未使用的 cockpit 放行；ssh 与 dhcpv6-client 不动。SSH 收紧要等管理端地址固定、并确认网页控制台可用后再做。
+- 保护措施：网卡区域与预期不符时 assert 停止；首次运行前把 /etc/firewalld 备份到 /root/firewalld.before-phase00-node-base；结束时运行 `firewall-cmd --check-config`。playbook 默认 serial 1，gather_facts 关闭。
+
+本地验证（未连接节点）：`--syntax-check` 通过；以本地连接渲染 cp01 与 worker01 的三个 ipset 模板，内容符合预期且 XML 格式正确，两台的 ipset 相同；规则列表 cp01 为 6 条、worker01 为 3 条。ansible.posix.firewalld 的检查模式只比较规则字符串，不校验 ipset 是否已存在，因此首次 check 不会因 ipset 尚未创建而报错；这一判断待首次 check 输出确认。
+
+Cilium 与 firewalld 的数据面配合（cilium_* 接口归属区域、转发策略）属于 01 部署 CNI 后的验证项，本角色只处理主机入口规则。
+
+下一步：用户核实路由器 DHCP 与 Mac 绑定；在 cp01 上执行检查模式。待执行：
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --check --diff --limit cp01 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-node-base-firewall-check-cp01.txt
+```
+
+## 59. 2026-10-16 继续：DHCP 范围确认；cp01 检查模式通过；允许/拒绝验证剧本
+
+用户确认路由器 DHCP 池为 .30–.49，不与节点 .101–.110、API VIP .100、业务 VIP .201–.220 或基础服务 .10–.17 重叠，00.01.02 的这一冲突风险据此关闭（用户查看，未导出路由器配置）。管理 Mac 的 .200 在池外，推测为路由器已有绑定；用户决定不再追踪。影响仅限 lab-mgmt 来源：地址变化时修改 lab_mgmt_sources 并重跑 node_base 即可，SSH 不受影响。
+
+cp01 检查模式输出见 [检查证据](evidence/00.10.02-node-base-firewall-check-cp01.txt)：区域断言通过；备份、三个 ipset（diff 与本地渲染一致）、移除 cockpit、6 条富规则均显示将变更；reload handler 在检查模式下跳过；`firewall-cmd --check-config` 正常；ok=7 changed=4 failed=0。第 58 节关于「检查模式不因 ipset 尚未存在而报错」的判断得到证实。
+
+新增 [verify-firewall.yml](../../ansible/playbooks/verify-firewall.yml)，用于手册第 7 节「允许与拒绝用例都通过」：在目标节点用 ncat 临时监听 6443、10250、2379、9090（最长 120 秒，always 中按命令行精确清理），分别从另一台控制平面、一台非控制平面节点（排除目标自身，因为回环访问不经过区域规则）和管理端（本机 nc）探测，再与按端口表手写的期望比较。期望不从角色变量推导，避免角色写错时测试跟着一起错。8472/udp 与 4240/tcp 未覆盖，前者留待 01 数据面验证。本地语法检查通过，十台的探测来源选择正确（storage02 作为目标时改用 worker01）。
+
+下一步只在 cp01 实际执行并验证。回退方式：若规则导致异常，在 cp01 上用 `/root/firewalld.before-phase00-node-base` 恢复 /etc/firewalld 后 `firewall-cmd --reload`，必要时经网页控制台操作。待执行：
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --diff --limit cp01 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-node-base-firewall-apply-cp01.txt
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/verify-firewall.yml -e target=cp01 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-firewall-verify-cp01.txt
+```
+
+## 60. 2026-10-16 通过：cp01 防火墙实际执行与允许/拒绝验证
+
+用户在 cp01 实际执行 node_base，输出见 [执行证据](evidence/00.10.02-node-base-firewall-apply-cp01.txt)：区域断言通过；备份 /etc/firewalld 到 /root/firewalld.before-phase00-node-base；写入三个 ipset 后 reload handler 实际执行；移除 cockpit；添加 6 条富规则；`--check-config` 正常；ok=8 changed=5 failed=0。剧本经 SSH 完整结束，说明 SSH 放行未受影响。
+
+验证输出见 [验证证据](evidence/00.10.02-firewall-verify-cp01.txt)：四个被测端口经一次重试后全部处于监听状态；从 cp02 探测 6443/10250/2379 open、9090 blocked；从 infra02 探测 6443/10250 open、2379/9090 blocked；从管理 Mac 探测 6443 open、10250/2379/9090 blocked。与手写期望完全一致，failed=0，临时监听已清理。由此在 cp01 上证明：etcd 只对控制平面开放；kubelet 不对管理端开放；即使 9090 有程序监听，移除 cockpit 后也被拒绝。本次非控制平面的探测来源为 infra02 而不是第 59 节示例中的 storage02，因为 difference 结果不保证顺序；脚本只保证不选目标自身，不影响结论。
+
+下一步按手册第 11 节推广到其余九台（serial 1），对十台运行允许/拒绝验证，再以第二次执行 changed=0 证明幂等，最后重跑 node-readiness 与 CRI 自测，确认基线没有退化。
+
+## 61. 2026-10-16 通过：十台防火墙推广、允许/拒绝验证、幂等与基线复验
+
+用户按第 60 节依次执行四组命令，输出均由 tee 或收集脚本直接写入仓库：
+
+1. [其余九台执行](evidence/00.10.02-node-base-firewall-apply-rest.txt)：serial 1 逐台执行，九台均 ok=8 changed=5 failed=0，无 fatal。
+2. [十台允许/拒绝验证](evidence/00.10.02-firewall-verify-all.txt)：十台均「符合期望」，failed=0。cp01–03 的结果为控制平面期望：来自控制平面 6443/10250/2379 open、9090 blocked；来自普通节点 2379 blocked；来自管理端仅 6443 open。其余七台为普通节点期望：6443、2379、9090 对所有来源 blocked，10250 只对节点 open。本次探测来源分别为 cp03 与 worker01（cp03 作为目标时改用其他控制平面）。
+3. [幂等](evidence/00.10.02-node-base-firewall-idempotency.txt)：十台同批（bootstrap_serial=10）再次执行，均 ok=7 changed=0 failed=0。备份不重复、ipset 不改写、handler 未触发、规则无变化，满足手册第 11 节「第二次真实执行应无非预期变更」。
+4. [node-readiness 与 CRI 自测复验](evidence/00.10.02-node-readiness-20261016-105750/matrix.md)：十台 25/25，CRI 自测 10/10 PASS，无 .err，加入防火墙规则后基线没有退化。
+
+台账十台增加 node_base_firewall: applied_verified_idempotent，node_readiness_evidence 指向本次矩阵。
+
+手册第 7 节的「firewalld/nftables：按表配置来源受限规则，保存原规则与回退入口；允许与拒绝用例都通过」在十台上有了证据。仍未完成：SSH 来源收紧（维持现状）；8472/udp 与 4240/tcp 的实际流量验证（01 数据面）；Ceph/Hubble/NodePort 规则（02/03）；Cilium 接口与 firewalld 区域、转发的配合（01）。node_base 目前只覆盖防火墙；第 11 节的完整幂等验收要求把已手工完成的基线（sysctl、模块、Swap、chrony、journald、运行时盘挂载）与 container_runtime（containerd 配置、crictl.yaml、systemd 挂载依赖）也纳入 Ansible，并在现有节点上做到第二次执行无变更。

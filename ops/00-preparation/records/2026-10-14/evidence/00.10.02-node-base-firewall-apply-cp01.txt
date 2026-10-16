@@ -1,0 +1,83 @@
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [cp01]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [cp01]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-660958r6ajoaq/tmp0msmyqjs/ipset.xml.j2
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>k8s-nodes</short>
++  <entry>192.168.9.101</entry>
++  <entry>192.168.9.102</entry>
++  <entry>192.168.9.103</entry>
++  <entry>192.168.9.104</entry>
++  <entry>192.168.9.105</entry>
++  <entry>192.168.9.106</entry>
++  <entry>192.168.9.107</entry>
++  <entry>192.168.9.108</entry>
++  <entry>192.168.9.109</entry>
++  <entry>192.168.9.110</entry>
++</ipset>
+
+changed: [cp01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-660958r6ajoaq/tmpwa0w9bye/ipset.xml.j2
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>k8s-control-plane</short>
++  <entry>192.168.9.101</entry>
++  <entry>192.168.9.102</entry>
++  <entry>192.168.9.103</entry>
++</ipset>
+
+changed: [cp01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-660958r6ajoaq/tmpqg72x682/ipset.xml.j2
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>lab-mgmt</short>
++  <entry>192.168.9.200</entry>
++</ipset>
+
+changed: [cp01] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [cp01]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [cp01] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+changed: [cp01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+changed: [cp01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+changed: [cp01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+changed: [cp01] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+changed: [cp01] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+changed: [cp01] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=8    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

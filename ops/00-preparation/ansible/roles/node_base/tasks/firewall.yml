@@ -1,0 +1,59 @@
+- name: 确认业务网卡位于预期区域
+  ansible.builtin.command: firewall-cmd --get-zone-of-interface={{ node_firewall_interface }}
+  register: node_firewall_current_zone
+  changed_when: false
+  check_mode: false
+
+- name: 区域不符时停止，不在未知区域上改规则
+  ansible.builtin.assert:
+    that: node_firewall_current_zone.stdout == node_firewall_zone
+    fail_msg: "{{ node_firewall_interface }} 位于 {{ node_firewall_current_zone.stdout }}，预期 {{ node_firewall_zone }}"
+
+- name: 首次运行前备份原 firewalld 配置（保留回退入口）
+  ansible.builtin.command: cp -a /etc/firewalld {{ node_firewall_backup_dir }}
+  args:
+    creates: "{{ node_firewall_backup_dir }}"
+
+- name: 写入 ipset 定义
+  ansible.builtin.template:
+    src: ipset.xml.j2
+    dest: /etc/firewalld/ipsets/{{ item.key }}.xml
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ node_firewall_ipsets | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}: {{ item.value | join(' ') }}"
+  notify: 重新加载 firewalld
+
+- name: 让新的 ipset 在添加规则前生效
+  ansible.builtin.meta: flush_handlers
+
+- name: 移除不使用的服务放行
+  ansible.posix.firewalld:
+    zone: "{{ node_firewall_zone }}"
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ node_firewall_removed_services }}"
+
+- name: 按来源放行端口
+  ansible.posix.firewalld:
+    zone: "{{ node_firewall_zone }}"
+    rich_rule: >-
+      rule family="ipv4" source ipset="{{ item.source }}"
+      port port="{{ item.port }}" protocol="{{ item.proto }}" accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: >-
+    {{ node_firewall_rules_all
+       + (node_firewall_rules_control_plane if 'control_plane' in group_names else []) }}
+  loop_control:
+    label: "{{ item.port }}/{{ item.proto }} ← {{ item.source }}（{{ item.purpose }}）"
+
+- name: 校验永久配置
+  ansible.builtin.command: firewall-cmd --check-config
+  changed_when: false
+  check_mode: false

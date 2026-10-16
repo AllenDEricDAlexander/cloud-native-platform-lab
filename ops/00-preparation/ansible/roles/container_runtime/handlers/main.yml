@@ -1,0 +1,9 @@
+- name: 重新加载 systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+# 重启 containerd 不会停止已运行的容器（由 shim 托管），但 01 之后仍应在维护窗口执行。
+- name: 重启 containerd
+  ansible.builtin.systemd_service:
+    name: containerd
+    state: restarted

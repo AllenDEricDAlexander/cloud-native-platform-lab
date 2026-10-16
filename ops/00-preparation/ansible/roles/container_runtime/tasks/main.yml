@@ -1,0 +1,57 @@
+# 手册第 8–9 节。只应用于十个 Kubernetes 节点。
+# kubelet 的启用状态不在这里管理：00 保持 disabled，01 由 kubeadm 引导时启用，本角色不得把它改回去。
+- name: 收集已安装软件包
+  ansible.builtin.package_facts:
+    manager: rpm
+
+- name: 运行时与入群工具版本与版本锁一致（首次安装路线尚未编码，缺失时停止）
+  ansible.builtin.assert:
+    that: item.value in have
+    fail_msg: "{{ item.key }} 期望 {{ item.value }}，实际 {{ have | join(',') or '未安装' }}"
+    quiet: true
+  vars:
+    pkg: "{{ ansible_facts.packages.get(item.key, []) }}"
+    have: "{{ pkg | map(attribute='version') | zip(pkg | map(attribute='release')) | map('join', '-') | list }}"
+  loop: "{{ container_runtime_packages | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+
+- name: 运行时盘按 UUID 挂载到 /var/lib/containerd（只挂载，从不格式化）
+  ansible.posix.mount:
+    path: /var/lib/containerd
+    src: "UUID={{ container_runtime_disk_uuid }}"
+    fstype: xfs
+    opts: defaults,nodev,nosuid
+    dump: "0"
+    passno: "0"
+    state: mounted
+
+- name: containerd 配置目录
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: [/etc/containerd/certs.d, /etc/systemd/system/containerd.service.d]
+
+- name: containerd 配置（version 3、SystemdCgroup、enable_selinux）
+  ansible.builtin.copy:
+    src: config.toml
+    dest: /etc/containerd/config.toml
+  notify: 重启 containerd
+
+- name: containerd 依赖运行时盘挂载（盘缺失时不启动，避免写入根盘）
+  ansible.builtin.copy:
+    src: 10-runtime-mount.conf
+    dest: /etc/systemd/system/containerd.service.d/10-runtime-mount.conf
+  notify: [重新加载 systemd, 重启 containerd]
+
+- name: crictl 端点
+  ansible.builtin.copy:
+    src: crictl.yaml
+    dest: /etc/crictl.yaml
+
+- name: containerd 开机启动并运行
+  ansible.builtin.systemd_service:
+    name: containerd
+    enabled: true
+    state: started

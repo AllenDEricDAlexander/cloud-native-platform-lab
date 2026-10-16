@@ -1,0 +1,82 @@
+- name: 收集已安装软件包
+  ansible.builtin.package_facts:
+    manager: rpm
+
+- name: 基础工具已安装（缺失时停止，不在这里联网安装）
+  ansible.builtin.assert:
+    that: missing | length == 0
+    fail_msg: "缺少软件包：{{ missing | join(' ') }}"
+    quiet: true
+  vars:
+    missing: "{{ node_base_packages | reject('in', ansible_facts.packages) | list }}"
+
+- name: SELinux 保持 Enforcing（本实验硬性要求，不得降级）
+  ansible.posix.selinux:
+    policy: targeted
+    state: enforcing
+
+- name: 基础服务开机启动并运行
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ node_base_services }}"
+
+- name: fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(\s*[^#\s]\S*\s+\S+\s+swap\s.*)$'
+    replace: '# \1'
+
+- name: 读取当前启用的 swap
+  ansible.builtin.command: swapon --show --noheadings
+  register: node_base_swap
+  changed_when: false
+  check_mode: false
+
+- name: 关闭当前启用的 swap
+  ansible.builtin.command: swapoff -a
+  when: node_base_swap.stdout | length > 0
+
+- name: 开机加载 overlay
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/90-kubernetes.conf
+    content: "overlay\n"
+
+- name: 读取 overlay 是否已加载
+  ansible.builtin.command: grep -q '^overlay ' /proc/modules
+  register: node_base_overlay
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: 加载 overlay
+  ansible.builtin.command: modprobe overlay
+  when: node_base_overlay.rc != 0
+
+- name: 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-kubernetes.conf
+    content: "net.ipv4.ip_forward = 1\n"
+  notify: 应用 sysctl 配置
+
+- name: 读取运行时 IPv4 转发
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: node_base_ip_forward
+  changed_when: false
+  check_mode: false
+
+- name: 运行时值不符时重新应用
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-kubernetes.conf
+  when: node_base_ip_forward.stdout != "1"
+
+- name: 读取 VMware 周期时间同步状态
+  ansible.builtin.command: vmware-toolbox-cmd timesync status
+  register: node_base_vmware_timesync
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）
+  ansible.builtin.command: vmware-toolbox-cmd timesync disable
+  when: "'Disabled' not in node_base_vmware_timesync.stdout"

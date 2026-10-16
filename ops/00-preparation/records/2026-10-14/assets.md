@@ -1258,3 +1258,29 @@ cd ~/SelfProject/cloud-native-platform-lab && ops/00-preparation/scripts/collect
 手册第 6 节「journald 明确的占用上限和保留」在十台上有了证据：配置、幂等、跨重启保留与矩阵复验均已通过。台账十台增加 node_base_journald，node_readiness_evidence 指向 111359；模板 rocky10-base 未改动，其易失日志状态如实保留，下次重新封装时应纳入。
 
 第 63 节要求的 cp01 残留检查，用户未回传输出。11:13 的自测在 cp01 上 PASS，但这只说明新建对象正常，不能证明 11:09 中断时创建的 sandbox 已被清理。下一步对十台只读检查 CRI 残留，与基线配置收集一并进行。
+
+## 65. 2026-10-16 基线配置编码为 Ansible（node_base system + container_runtime）
+
+用户回传第 64 节两组只读收集，分别存于 [校验和证据](evidence/00.10.02-baseline-files-checksums.txt) 与 [cp01 文件内容](evidence/00.10.02-baseline-files-cp01.txt)。十台 pods=0、containers=0、tmpdirs=0，11:09 的中断没有留下 CRI 残留。config.toml、10-runtime-mount.conf、crictl.yaml、90-kubernetes 模块与 sysctl 文件、chrony.conf、fstab 七个文件在十台上的 SHA256 完全一致。chrony.conf 为发行版默认（2.rocky.pool.ntp.org）；fstab 中 swap 行已注释，rlm/swap LV 保留且未激活；无 dnf exclude；七个关键包版本与版本锁一致。
+
+用户提出最近推进太慢，本助手承认验证与记录过多，且工具缺陷造成多轮返工。随后让用户在「先用预置镜像跑起集群」与「按计划先做 DNS/CA/Harbor」之间选择，用户选择按计划进行：先完成基线编码，再依次建设 DNS、CA、Harbor，最后进入 01。
+
+本次编码原则是把已手工完成的状态原样写成代码，用检查模式证明代码与十台现状一致：
+
+- node_base 新增 system 部分（标签 system）：用 package_facts 断言 25 个基础包已安装，缺失时停止而不联网安装；SELinux targeted/enforcing；vmtoolsd、chronyd、firewalld 开机启动并运行；fstab 中未注释的 swap 行改为注释，若有激活的 swap 则执行 swapoff，LV 保留；写入 overlay 模块文件，未加载时 modprobe；写入 sysctl 文件，运行时值不符时重新应用；VMware 周期时间同步保持关闭。chrony.conf 暂不管理，待内部时间源就绪。
+- 新增 container_runtime 角色（标签 runtime）：版本从 versions.lock.yaml 读取（经 inventory_dir 定位；最初用 playbook_dir，本地 ad-hoc 测试时路径错误，已改），逐包断言版本与 release；运行时盘用 ansible.posix.mount 按 UUID 挂载，从不格式化；写入 config.toml、挂载依赖 drop-in 与 crictl.yaml，变更时 daemon-reload 并重启 containerd；containerd 开机启动并运行。kubelet 的启用状态有意不管理：01 由 kubeadm 启用，本角色不得把它改回 disabled。首次安装路线（从种子物料安装 RPM）尚未编码，新节点缺包时断言会停止。
+- bootstrap-nodes.yml 改为 node_base → container_runtime。已有文件不指定 mode/owner，沿用现状，不产生无关差异；权限未纳入强制范围，这是有意的取舍。
+
+本地验证：角色中三个文件与 sysctl、模块文件的内容 SHA256 与十台一致（5/5 MATCH）；syntax-check 通过；list-tasks 共 35 个任务；版本解析为 containerd.io 2.4.2-2.el10、cri-tools 1.36.0-150500.1.1、kubeadm/kubelet/kubectl 1.36.5-150500.1.1、kubernetes-cni 1.9.1-150500.1.1。待用户执行检查模式，预期十台 changed=0：
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --check --diff -e bootstrap_serial=10 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-baseline-as-code-check.txt
+```
+
+## 66. 2026-10-16 通过：基线即代码，十台检查模式 changed=0
+
+用户执行第 65 节命令，输出见 [基线检查证据](evidence/00.10.02-baseline-as-code-check.txt)：完整 playbook（node_base 的 system/firewall/journald 与 container_runtime）对十台同批以检查模式执行，均 ok=29 changed=0 failed=0 skipped=4，无 diff。跳过的四个任务恰好是只在状态不符时执行的修复动作：关闭激活的 swap、加载 overlay、重新应用 sysctl、关闭 VMware 时间同步；它们被跳过，说明十台这四项本已正确。软件包、SELinux、服务、fstab、模块与 sysctl 文件、运行时盘挂载、containerd 配置/drop-in/crictl.yaml 均与代码一致，防火墙与 journald 保持第 61、63 节的结果。
+
+由此，手册第 11 节「以已编写并语法验证的 Playbook 为前提……第二次真实执行应无非预期变更」在十台上有了证据：手工建立的母机基线、克隆后的节点状态与仓库中的 node_base、container_runtime 一致。台账十台状态更新为 baseline_as_code_verified。仍未覆盖：权限与属主的强制；从种子物料首次安装软件包的路线；chrony 内部时间源；SSH 收紧；Harbor 就绪后的 10.2 仓库拉取。
+
+节点主线到此告一段落。按用户选择，下一步建设集群外基础服务，顺序为 DNS（.11）、CA、Harbor（.12）。

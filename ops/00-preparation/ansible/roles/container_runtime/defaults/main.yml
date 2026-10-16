@@ -1,0 +1,10 @@
+# 版本以 ops/versions.lock.yaml 为唯一来源（控制端按 inventory 目录定位读取），这里不重复写版本号。
+container_runtime_lock: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../../../../versions.lock.yaml') | from_yaml }}"
+container_runtime_packages:
+  containerd.io: "{{ container_runtime_lock.components.containerd.artifacts[0].package_version }}"
+  cri-tools: "{{ container_runtime_lock.components.cri_tools.artifacts[0].package_version }}"
+  kubeadm: "{{ container_runtime_lock.components.kubeadm.artifacts[0].package_version }}"
+  kubelet: "{{ container_runtime_lock.components.kubelet.artifacts[0].package_version }}"
+  kubectl: "{{ container_runtime_lock.components.kubectl.artifacts[0].package_version }}"
+  kubernetes-cni: "{{ container_runtime_lock.components.cni_plugins.artifacts[0].package_version }}"
+container_runtime_disk_uuid: "{{ node_runtime_disk_uuid }}"

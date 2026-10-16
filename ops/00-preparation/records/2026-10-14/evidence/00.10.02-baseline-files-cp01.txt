@@ -1,0 +1,118 @@
+cp01 | CHANGED | rc=0 >>
+===== /etc/containerd/config.toml
+version = 3
+root = "/var/lib/containerd"
+state = "/run/containerd"
+disabled_plugins = []
+
+[plugins."io.containerd.cri.v1.runtime"]
+  enable_selinux = true
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "runc"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+  runtime_type = "io.containerd.runc.v2"
+  sandboxer = "podsandbox"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+  SystemdCgroup = true
+
+[plugins."io.containerd.cri.v1.images".registry]
+  config_path = "/etc/containerd/certs.d"
+===== /etc/systemd/system/containerd.service.d/10-runtime-mount.conf
+[Unit]
+RequiresMountsFor=/var/lib/containerd
+BindsTo=var-lib-containerd.mount
+After=var-lib-containerd.mount
+AssertPathIsMountPoint=/var/lib/containerd
+===== /etc/crictl.yaml
+runtime-endpoint: unix:///run/containerd/containerd.sock
+image-endpoint: unix:///run/containerd/containerd.sock
+timeout: 20
+debug: false
+===== /etc/modules-load.d/90-kubernetes.conf
+overlay
+===== /etc/sysctl.d/90-kubernetes.conf
+net.ipv4.ip_forward = 1
+===== /etc/chrony.conf
+# Use public servers from the pool.ntp.org project.
+# Please consider joining the pool (https://www.pool.ntp.org/join.html).
+pool 2.rocky.pool.ntp.org iburst
+
+# Use NTP servers from DHCP.
+sourcedir /run/chrony-dhcp
+
+# Record the rate at which the system clock gains/losses time.
+driftfile /var/lib/chrony/drift
+
+# Allow the system clock to be stepped in the first three updates
+# if its offset is larger than 1 second.
+makestep 1.0 3
+
+# Enable kernel synchronization of the real-time clock (RTC).
+rtcsync
+
+# Enable hardware timestamping on all interfaces that support it.
+#hwtimestamp *
+
+# Increase the minimum number of selectable sources required to adjust
+# the system clock.
+#minsources 2
+
+# Allow NTP client access from local network.
+#allow 192.168.0.0/16
+
+# Serve time even if not synchronized to a time source.
+#local stratum 10
+
+# Require authentication (nts or key option) for all NTP sources.
+#authselectmode require
+
+# Specify file containing keys for NTP authentication.
+#keyfile /etc/chrony.keys
+
+# Save NTS keys and cookies.
+ntsdumpdir /var/lib/chrony
+
+# Insert/delete leap seconds by slewing instead of stepping.
+#leapsecmode slew
+
+# Set the TAI-UTC offset of the system clock.
+#leapseclist /usr/share/zoneinfo/leap-seconds.list
+
+# Specify directory for log files.
+logdir /var/log/chrony
+
+# Select which information is logged.
+#log measurements statistics tracking
+===== /etc/fstab
+
+#
+# /etc/fstab
+# Created by anaconda on Wed Oct 14 13:07:03 2026
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk/'.
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info.
+#
+# After editing this file, run 'systemctl daemon-reload' to update systemd
+# units generated from this file.
+#
+UUID=9668364e-871d-4d56-8221-e0925185c165 /                       xfs     defaults        0 0
+UUID=d249963a-7828-411d-a44e-c0d8ad6d858d /boot                   xfs     defaults        0 0
+UUID=E6F2-D3BD          /boot/efi               vfat    umask=0077,shortname=winnt 0 2
+UUID=40be729f-1edf-4828-a77d-aeff9a4e4b0a /home                   xfs     defaults        0 0
+# UUID=c6540efc-aae4-48a9-acc0-c4b21f7ce15c none                    swap    defaults        0 0
+UUID=1b36c022-c96c-4b0f-9570-d8e291ba03c0 /var/lib/containerd xfs defaults,nodev,nosuid 0 0
+===== swap
+  LV   VG  Attr       LSize  Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  home rlm -wi-ao---- 30.66g                                                    
+  root rlm -wi-ao---- 62.80g                                                    
+  swap rlm -wi-a----- <3.95g                                                    
+===== dnf excludes
+none
+===== packages
+containerd.io-2.4.2-2.el10.x86_64
+cri-tools-1.36.0-150500.1.1.x86_64
+kubeadm-1.36.5-150500.1.1.x86_64
+kubelet-1.36.5-150500.1.1.x86_64
+kubectl-1.36.5-150500.1.1.x86_64
+kubernetes-cni-1.9.1-150500.1.1.x86_64
+container-selinux-2.246.0-1.el10.noarch

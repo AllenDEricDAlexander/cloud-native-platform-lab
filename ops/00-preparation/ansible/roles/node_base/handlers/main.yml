@@ -4,3 +4,6 @@
 # journald 把服务的标准输出连接保存在 systemd 的 fd store 中，重启不会断开正在运行的服务。
 - name: 重启 journald 并转存运行时日志
   ansible.builtin.shell: systemctl restart systemd-journald && journalctl --flush
+
+- name: 应用 sysctl 配置
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-kubernetes.conf

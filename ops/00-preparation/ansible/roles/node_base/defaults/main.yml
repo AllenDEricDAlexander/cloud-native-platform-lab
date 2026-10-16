@@ -30,3 +30,12 @@ node_firewall_rules_control_plane:
 node_journald_system_max_use: 2G
 node_journald_system_keep_free: 10G
 node_journald_max_retention: 30day
+
+# 系统基线（执行记录第 9、11、13、18 节在母机安装的集合）。缺失时停止，本角色不联网安装：
+# 节点访问外部镜像源不稳定（第 51 节），首次安装路线待内网源就绪后编码。
+node_base_packages:
+  [open-vm-tools, chrony, curl, jq, tar, bind-utils, ethtool, iproute, iputils, vim-enhanced, wget,
+   bash-completion, lsof, sysstat, tcpdump, nmap-ncat, rsync, conntrack-tools, socat, container-selinux,
+   policycoreutils-python-utils, audit, gnupg2, parted, xfsprogs]
+node_base_services: [vmtoolsd, chronyd, firewalld]
+# chrony.conf 保持发行版默认（2.rocky.pool.ntp.org），内部时间源（networks.yaml planned_time_servers）就绪后再由本角色管理。

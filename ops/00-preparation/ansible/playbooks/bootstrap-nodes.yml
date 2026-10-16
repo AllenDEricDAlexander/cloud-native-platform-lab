@@ -1,9 +1,11 @@
-# Phase 00 节点基线。按手册第 11 节：先 --check --diff --limit cp01，再实际执行 cp01，
-# 验证后按批次扩展（默认每批 1 台，可用 -e bootstrap_serial=N 调整）；check 模式不能代替实际验收。
-# container_runtime 角色尚未编写，后续按手册第 2 节补入。
+# Phase 00 节点基线：node_base → container_runtime（手册第 2、11 节）。
+# 先 --check --diff --limit cp01，再实际执行 cp01，验证后按批次扩展（默认每批 1 台，-e bootstrap_serial=N）；
+# check 模式不能代替实际验收。
 - name: Phase 00 节点基线
   hosts: k8s_nodes
   serial: "{{ bootstrap_serial | default(1) }}"
   gather_facts: false
   roles:
-    - node_base
+    - role: node_base
+    - role: container_runtime
+      tags: [runtime]

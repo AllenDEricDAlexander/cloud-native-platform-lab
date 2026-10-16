@@ -10,6 +10,10 @@
 #
 # 对应：ops/00-preparation/README.md 第 2、4–10 节；汇总入口
 #   ops/00-preparation/scripts/collect-node-readiness.sh
+#
+# 主体放在 { ... } </dev/null 中：经 `bash -s` 执行时，块内命令不会把脚本剩余部分当作
+# 标准输入读走（见 cri-smoke.sh 中 ausearch 的同类问题）。新增检查项保持在块内。
+{
 set -u
 export LC_ALL=C
 NIC=${NIC:-ens33}
@@ -78,3 +82,4 @@ kv kubelet_version "$(kubelet --version 2>/dev/null | awk '{print $2}')"
 kv kubectl_version "$(kubectl version --client -o json 2>/dev/null | jq -r '.clientVersion.gitVersion' 2>/dev/null)"
 kv kubelet_enabled "$(systemctl is-enabled kubelet 2>/dev/null)"
 kv cni_netd_files "$(find /etc/cni/net.d -mindepth 1 -maxdepth 1 2>/dev/null | grep -c .)"
+} </dev/null

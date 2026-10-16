@@ -1,29 +1,37 @@
 #!/usr/bin/env bash
 # 从管理端对 hosts.yaml 中的 Kubernetes 节点执行只读 node-readiness 检查，并汇总为矩阵。
 #
-# 节点侧：只经 SSH 推送运行 ops/00-preparation/tests/smoke/node-readiness.sh（只读）。
+# 节点侧：默认只经 SSH 推送运行 ops/00-preparation/tests/smoke/node-readiness.sh（只读）。
+#   加 --with-cri-smoke 时，再运行 tests/smoke/cri-smoke.sh：创建并删除一个 host-network
+#   sandbox 与容器，不拉取镜像、不改配置；结果追加到同一节点文件，汇总增加「CRI 自测」一项。
 # 管理端：只写输出目录（每节点 <id>.expect / <id>.txt，以及 matrix.md）。
 # 期望值来自 ops/inventory/hosts.yaml、resources.yaml 与 ops/versions.lock.yaml；
 # 台账变更后重跑即可，脚本内不复制节点清单。
 #
 # 依赖：OpenSSH（密钥登录，BatchMode，不会提示输入密码）、ruby 标准库 YAML（macOS 自带）、python3。
-# 用法：ops/00-preparation/scripts/collect-node-readiness.sh [输出目录]
+# 用法：ops/00-preparation/scripts/collect-node-readiness.sh [--with-cri-smoke] [输出目录]
 #   LAB_SSH_KEY   私钥路径，默认 ~/.ssh/cnpl_lab_ed25519
 #   LAB_SSH_USER  远程用户，默认 root
 # 退出码：0 全部通过；1 有未通过项或采集失败；2 前置条件缺失。
 set -euo pipefail
+
+WITH_SMOKE=no
+if [ "${1:-}" = --with-cri-smoke ]; then WITH_SMOKE=yes; shift; fi
 
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 KEY=${LAB_SSH_KEY:-$HOME/.ssh/cnpl_lab_ed25519}
 USER_NAME=${LAB_SSH_USER:-root}
 OUT=${1:-$ROOT/ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-$(date +%Y%m%d-%H%M%S)}
 NODE_SCRIPT=$ROOT/ops/00-preparation/tests/smoke/node-readiness.sh
+SMOKE_SCRIPT=$ROOT/ops/00-preparation/tests/smoke/cri-smoke.sh
 SUMMARIZER=$ROOT/ops/00-preparation/scripts/summarize-node-readiness.py
 
 for need in ssh ruby python3; do
   command -v "$need" >/dev/null || { echo "缺少命令：$need" >&2; exit 2; }
 done
-[ -r "$KEY" ] || { echo "找不到私钥：$KEY（可用 LAB_SSH_KEY 指定）" >&2; exit 2; }
+# 紧邻中文的变量一律写成 ${var}：macOS 自带 bash 3.2 在 UTF-8 环境下会把全角标点的首字节
+# 当成变量名的一部分（例如 "$ssh_rc，" 报 ssh_rc?: unbound variable）。
+[ -r "$KEY" ] || { echo "找不到私钥：${KEY}（可用 LAB_SSH_KEY 指定）" >&2; exit 2; }
 mkdir -p "$OUT"
 
 # 为每个节点写 <id>.expect，并输出 "id ip" 列表。
@@ -60,7 +68,21 @@ while read -r id ip; do
     "$USER_NAME@$ip" 'bash -s' < "$NODE_SCRIPT" > "$OUT/$id.txt" 2> "$OUT/$id.err" || ssh_rc=$?
   # 管理端元数据：SSH 中途断开时输出可能不完整，汇总据此判定采集失败。
   echo "collect_exit=$ssh_rc" >> "$OUT/$id.txt"
-  if [ "$ssh_rc" -eq 0 ]; then echo "已采集"; else echo "采集失败（ssh 退出码 $ssh_rc，见 $id.err）"; fi
+  if [ "$ssh_rc" -eq 0 ]; then printf '已采集'; else printf '采集失败（ssh 退出码 %s，见 %s.err）' "$ssh_rc" "$id"; fi
+  if [ "$WITH_SMOKE" = yes ]; then
+    echo "expect_cri_smoke=yes" >> "$OUT/$id.expect"
+    smoke_rc=0
+    if [ "$ssh_rc" -eq 0 ]; then
+      ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=5 \
+        "$USER_NAME@$ip" 'CRI_SMOKE_CONFIRM=yes bash -s' < "$SMOKE_SCRIPT" >> "$OUT/$id.txt" 2>> "$OUT/$id.err" || smoke_rc=$?
+    else
+      smoke_rc=255
+    fi
+    echo "smoke_collect_exit=$smoke_rc" >> "$OUT/$id.txt"
+    smoke_result=$(sed -n 's/^smoke_result=//p' "$OUT/$id.txt" | tail -n1)
+    printf '，CRI 自测 %s' "${smoke_result:-未执行}"
+  fi
+  echo
   [ -s "$OUT/$id.err" ] || rm -f "$OUT/$id.err"
 done <<< "$NODES"
 

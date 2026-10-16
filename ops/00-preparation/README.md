@@ -2,7 +2,7 @@
 
 本手册展开 00.04.03、00.04.05、00.10.01、00.10.02，属于 **00 阶段必做实施**。完成后交付十台具备入群条件的服务器。01 只复验并执行 kubeadm init/join，不再承担 Linux 和 containerd 的首次安装。
 
-当前阶段进行中，部分母机操作已有[执行记录](records/2026-10-14/README.md)，十节点尚未交付验收。下面的路径是实施时应编写的交付文件，命令在具体操作时由管理机或目标 Rocky 节点执行；本手册本身不表示已经连接服务器或完成部署。`LAB_*` 参数必须来自已核实台账和版本锁，示例中的占位值不得直接上线。
+当前阶段进行中，[执行记录](records/2026-10-14/README.md)已有母机、封装、十台克隆及 node-readiness/CRI 自测证据，十节点尚未完成交付验收。下面的路径是实施时应编写的交付文件，命令在具体操作时由管理机或目标 Rocky 节点执行；本手册本身不表示已经连接服务器或完成部署。`LAB_*` 参数必须来自已核实台账和版本锁，示例中的占位值不得直接上线。
 
 [阶段计划与验收](../../plan/00-preparation.md) · [共用输入与记录规范](../README.md)
 
@@ -32,6 +32,7 @@
 | `playbooks/bootstrap-nodes.yml` | 按 node_base → container_runtime 执行，串行批次和重启检查 |
 | `ops/00-preparation/tests/smoke/node-readiness.sh`（仓库根目录下） | 只读主机检查，逐项输出 key=value；经 SSH 推送执行，节点上不存放文件；CRI 运行测试不在其中 |
 | `ops/00-preparation/scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 管理端按 hosts/resources/networks 台账与版本锁生成期望值，密钥登录批量采集，输出十节点矩阵（身份唯一性、规格、网络、安全、运行时、版本）到批次 evidence |
+| `ops/00-preparation/tests/smoke/cri-smoke.sh` | 第 10.3 节 host-network 自测的脚本化版本：需 `CRI_SMOKE_CONFIRM=yes`，只用本地镜像，创建并清理本次 sandbox/容器；由收集脚本 `--with-cri-smoke` 批量执行并计入矩阵 |
 
 Rocky 基础服务 VM 同样复用 `node_base`；`container_runtime` 只应用于十个 Kubernetes 节点。OpenWrt 使用自己的配置流程，Harbor 所需专用运行环境由仓库角色负责，不把它们混入节点 CRI 角色。
 

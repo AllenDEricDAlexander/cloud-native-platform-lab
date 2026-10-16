@@ -1060,3 +1060,60 @@ cd ~/SelfProject/cloud-native-platform-lab && ops/00-preparation/scripts/collect
 **观察**：运行时盘在八台为 sdb、cp03 为 sda、infra02 的 SCSI host 号为 2，但十台的 SCSI 目标号/LUN 均为 1:0；挂载按 UUID 始终正确。台账为每台登记 runtime_disk_scsi_hctl 与 MAC，设备名不作为标识。十台都带有 1.9G 的 sr0，即模板安装时挂载的 ISO 仍连接在虚拟光驱上；调整规格时可一并改为客户端设备并取消「打开电源时连接」。
 
 台账十台状态更新为 identity_verified_resize_pending，clone_status 为 ten_nodes_cloned_identity_verified。规格调整并排查 worker01 后重跑收集脚本，以新的输出目录作为验收证据；本目录作为首次实测与失败记录保留。
+
+## 51. 2026-10-16 合并与 worker01 dnf-makecache 失败分析
+
+用户要求合并到 main：本助手将 phase00/template-seal-ten-nodes 以 fast-forward 合并，main 指向 78b3fe3，未推送（比 origin/main 领先 1 个提交），分支保留。
+
+用户按第 50 节在关机前取回 worker01 的服务状态与本次开机日志，已归档 [worker01 失败证据](evidence/00.10.02-worker01-dnf-makecache-failure.txt)。dnf-makecache.timer 在克隆机首次开机后不久触发；由于封装时执行过 `dnf clean all`，每台克隆都要在首次开机时完整下载元数据。Rocky 的 mirrorlist 选中两个国内镜像：mirror.nyist.edu.cn 对当前 repomd 指向的 primary.xml.gz 返回 404（该镜像的 repodata 与期望不同步），mirrors.ustc.edu.cn 速度低于 1000 B/s 超过 30 秒；BaseOS 只以 3.3 kB/s 下载了 533 kB，最终失败。
+
+结论：这是一次外部镜像可用性失败，不是节点配置缺陷。十台的源定义、签名和网络配置相同，其余九台没有失败；但同样的镜像是否会再次失败，未证实。失败状态不持久，重启或下一次成功运行即清除。节点仍直接依赖公网镜像，这正是手册第 6 节与计划 00.09.04 要求改为受控内网源的原因；在此之前不批量替换软件源（第 10 节已决定不采用参考笔记中的换源操作），也不为通过检查而禁用定时器。是否在节点上保留 dnf-makecache.timer，在内网源就绪后由 node_base 决定。
+
+下一步不变：关机、按角色调整 vCPU/内存并断开 ISO、开机后重跑收集脚本。若重跑时 worker01 或其他节点再出现 dnf-makecache 失败，先看对应日志确认仍是镜像问题，再记录为已知外部问题，不把它当成节点规格或运行时问题。本节为工作区改动，尚未提交。
+
+## 52. 2026-10-16 失败与修正：收集脚本在 UTF-8 终端报 unbound variable；cp01 连接超时
+
+用户关机调整规格后重跑收集脚本，在 cp01 一行报 `line 63: ssh_rc?: unbound variable` 并中止。输出目录 [00.10.02-node-readiness-20261016-100443](evidence/00.10.02-node-readiness-20261016-100443/) 只有十份 .expect、cp01.txt（collect_exit=255）与 cp01.err，作为失败记录保留，不作为验收证据。
+
+原因有两层。第一层是 cp01 的 SSH 失败：cp01.err 为 `ssh: connect to host 192.168.9.101 port 22: Operation timed out`。第二层是脚本缺陷，由此暴露：失败分支的提示 `"…退出码 $ssh_rc，见…"` 中，变量后紧跟全角逗号。macOS 自带 bash 3.2 在 UTF-8 locale 下会把多字节字符的首字节当作变量名字符，于是查找 `ssh_rc` 加一个字节的变量，`set -u` 报错退出。本助手已在本机复现：C locale 正常，en_US.UTF-8 与 zh_CN.UTF-8 均报错。第 49 节的本地测试在未设置 LANG 的环境中运行，因而没有发现。用户终端为 en_US/zh-Hans 的 UTF-8 环境。
+
+修正：第 26 与第 63 行改为 `${KEY}`、`${ssh_rc}`、`${id}`，并在脚本中注明这一约束；扫描两个 shell 脚本，已无变量紧接非 ASCII 字符的写法。在 en_US.UTF-8 下用模拟 ssh 让 cp01、infra02 失败重测，失败提示正常输出、其余节点继续采集、矩阵正常生成；缺少私钥的提示也正常，退出码 2。
+
+cp01 超时的原因未查明：可能是虚拟机尚未开机或仍在启动，也可能是编辑设置时网卡未连接。下一步先从 Mac 对十个地址做连通检查，确认全部在线后再重跑收集脚本。尚无输出。
+
+## 53. 2026-10-16 通过：十节点 node-readiness 重跑 24/24；交付批量 CRI 自测
+
+用户按角色调整规格并开机后重跑收集脚本（ping 检查与调整过程的输出未回传）。本助手读取 [00.10.02-node-readiness-20261016-101221](evidence/00.10.02-node-readiness-20261016-101221/matrix.md)：十台均为 24/24，六项身份全部唯一，总体「全部通过」。vCPU/MemTotal 为 cp 4/7934 MiB、infra 6/11953 MiB、storage 与 worker 8/15985 MiB，符合 resources.yaml；worker01 无失败单元，与第 51 节的外部镜像判断一致，但不证明 dnf-makecache 此后每次都会成功。
+
+与第 50 节首次实测对比：十台 machine-id、SSH ED25519 指纹与 MAC 在关机调整和重启后完全不变，说明身份只在克隆后的首次开机生成一次，后续开机保持稳定（手册第 11 节要求不得重建身份）。运行时盘设备名在同一台虚拟机的两次开机之间也发生变化（如 cp01 由 sdb1 变为 sda1、cp03 由 sda1 变为 sdb1），按 UUID 的挂载始终正确；台账备注改为「sda/sdb 在重启间会变化」。十台仍带有 1.9G 的 sr0，安装 ISO 未从虚拟光驱断开，不影响检查项，属于待清理项。由于规格调整需要关机，本次结果同时是十台重启后的基线复验。
+
+台账十台状态更新为 node_readiness_passed_cri_smoke_pending，node_readiness_evidence 指向本目录；版本锁中运行时与入群工具组件追加该矩阵作为十节点执行证据。
+
+计划验收要求十台通过 node-readiness 与 host-network CRI smoke，后者此前只在母机做过。本次交付：
+
+- [cri-smoke.sh](../../tests/smoke/cri-smoke.sh)：第 10.3 节流程的脚本化版本。必须设置 CRI_SMOKE_CONFIRM=yes；只使用本地镜像，不拉取；sandbox 带 `cgroup_parent: phase00.slice` 与主机网络；每次用时间戳作 uid/attempt，工作目录在 /run 下；通过 trap 只清理本次创建的对象；输出 smoke_* 键值，日志为 phase00-cri-ok、退出码 0、状态 EXITED 且近期 AVC 为 0 才判 PASS。
+- 收集脚本新增 `--with-cri-smoke`：在只读检查之后逐台执行自测，结果追加到同一节点文件；汇总增加第 25 项「CRI 自测」与自测明细表。不加该参数时行为不变，仍为只读。
+
+本地验证（未连接节点）：未确认时脚本拒绝运行并退出 2；在 en_US.UTF-8 下用模拟 ssh 复用本次十台真实数据，注入 cp03 自测失败与 infra02 不可达，两者都被正确判定，其余八台 25/25；不加参数时仍为 24/24 且不产生 smoke 字段。cri-smoke.sh 在 Rocky 上的首次真实运行即为其验证。下一步待用户执行：
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab && ops/00-preparation/scripts/collect-node-readiness.sh --with-cri-smoke
+```
+
+## 54. 2026-10-16 失败与修正：批量 CRI 自测被 ausearch 读走脚本
+
+用户运行 `collect-node-readiness.sh --with-cri-smoke`，输出目录 [00.10.02-node-readiness-20261016-101955](evidence/00.10.02-node-readiness-20261016-101955/matrix.md) 中十台只读检查仍全部通过、身份唯一，但「CRI 自测」十台均 FAIL。十台的现象完全一致：sandbox 已创建（SANDBOX_READY、network NODE，pause 为 container_t 且各有独立 MCS 类别，例如 cp01 c120,c968），清理 yes，退出码 1，但 smoke_container_* 全部缺失，smoke_reason 为空，也没有 stderr。
+
+原因是本助手脚本的缺陷，而不是节点问题。收集脚本以 `ssh … 'bash -s' < cri-smoke.sh` 推送执行，bash 边从标准输入读取边执行脚本。`ausearch` 在标准输入不是终端时会改为从标准输入读取审计事件，于是把脚本中尚未执行的部分（记录容器状态与判定 PASS 的代码）当作输入读走。bash 随即读到 EOF 而结束，退出码取自最后的 `grep -c`（无匹配为 1），trap 照常清理并输出 FAIL 和空原因。母机上手动执行时 ausearch 在终端中运行，第 53 节的本地测试则以文件方式执行，均未触发该问题。
+
+修正：ausearch 改为 `--input-logs`，明确读取审计日志；cri-smoke.sh 与 node-readiness.sh 的主体包入 `{ … } </dev/null`，bash 先读完整个块，块内任何命令的标准输入都是 /dev/null。本地按真实方式（`bash -s <` 加一个与 ausearch 一样在非终端下读取标准输入的模拟命令）对比：修复前复现「FAIL、原因为空、无容器字段」，修复后得到 CONTAINER_EXITED、phase00-cri-ok、AVC 0、PASS；node-readiness 经 `bash -s` 仍输出全部 45 项。
+
+推论：十台的容器很可能都已运行成功，但这次没有可用记录，不能据此判为通过。因为 CID 已赋值且 cleanup 为 yes，本次创建的容器和 sandbox 均已删除，没有遗留。本目录作为失败记录保留。下一步由用户重跑同一命令。尚无输出。
+
+## 55. 2026-10-16 通过：十节点 node-readiness 与 host-network CRI 自测
+
+用户按第 54 节重跑 `collect-node-readiness.sh --with-cri-smoke`。本助手读取 [00.10.02-node-readiness-20261016-102410](evidence/00.10.02-node-readiness-20261016-102410/matrix.md)：十台均 25/25，总体「全部通过」，无 .err 文件。六项身份全部唯一。CRI 自测十台 PASS：sandbox SANDBOX_READY、network NODE，容器 CONTAINER_EXITED、退出码 0、日志 phase00-cri-ok，近期 AVC 0，cleanup yes；pause 均为 container_t，十台的 MCS 类别各不相同（如 cp01 c84,c829、storage01 c15,c31）。这也是修正后 cri-smoke.sh 在 Rocky 上的首次成功运行。
+
+据此，计划 00 验收用例中「十台节点通过 node-readiness 和 host-network CRI smoke」有了实测证据。台账十台状态更新为 node_readiness_and_cri_smoke_passed；版本锁中 containerd、runc、cri_tools、pause、cri_smoke_image 更新为 validated_ten_nodes_host_network，入群工具与 cni_plugins 追加执行证据，状态仍为 installed_unvalidated（00 只验证安装与版本，功能在 01 验收）。
+
+本结果不代表以下事项已完成：10.2 仓库拉取、registry 配置与 CA 信任（需 Harbor/DNS/CA）；手册第 7 节按角色与来源配置 firewalld 规则；journald 持久化与容量上限；Ansible node_base/container_runtime 角色、bootstrap-nodes.yml 与第二次执行无变更的幂等验收；storage 节点候选 OSD 盘的附加与稳定 ID 登记；十台虚拟光驱仍连接安装 ISO。整个 Phase 00 中的 DNS/CA、GitLab/Harbor/Nexus、OpenWrt/VPN/代理、离线验收与独立备份恢复仍未开始。

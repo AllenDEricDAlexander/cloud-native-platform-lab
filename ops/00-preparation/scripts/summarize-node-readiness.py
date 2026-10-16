@@ -55,7 +55,7 @@ def checks(e, f):
         for name, got, want in versions
         if bare(f.get(got, "")) != bare(e.get(want, ""))
     ]
-    return [
+    results = [
         ("采集", f.get("schema") == "node-readiness/v1" and f.get("collect_exit") == "0",
          f'schema={f.get("schema", "无输出")} ssh_exit={f.get("collect_exit", "无")}'),
         ("主机名", f.get("hostname") == e.get("expect_fqdn"), f.get("hostname", "")),
@@ -87,6 +87,17 @@ def checks(e, f):
         ("无 CNI 配置", f.get("cni_netd_files") == "0", f.get("cni_netd_files", "")),
         ("无失败单元", f.get("failed_units") == "0", f.get("failed_unit_names") or f.get("failed_units", "")),
     ]
+    if e.get("expect_cri_smoke") == "yes":
+        # 由 --with-cri-smoke 请求；结果 PASS 已包含日志、退出码与无 AVC 的判断。
+        results.append((
+            "CRI 自测",
+            f.get("smoke_schema") == "cri-smoke/v1" and f.get("smoke_result") == "PASS"
+            and f.get("smoke_cleanup") == "yes" and f.get("smoke_sandbox_network") == "NODE",
+            f'result={f.get("smoke_result", "无")} network={f.get("smoke_sandbox_network", "")} '
+            f'cleanup={f.get("smoke_cleanup", "")} ssh_exit={f.get("smoke_collect_exit", "无")} '
+            f'{f.get("smoke_reason", "")}'.strip(),
+        ))
+    return results
 
 
 def main():
@@ -165,6 +176,23 @@ def main():
             f'| {f.get("mem_mib", "")} | {f.get("disks", "")} | {f.get("runtime_mount_source", "")} '
             f'| {f.get("collected_at", "")} |'
         )
+    smoked = {n: f for n, f in facts.items() if f.get("smoke_schema")}
+    if smoked:
+        out += [
+            "",
+            "## CRI 自测明细",
+            "",
+            "| 节点 | 结果 | sandbox | 网络 | pause 进程标签 | 容器状态 | 退出码 | 日志 | 近期 AVC | 清理 | 开始时间 |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        for node, f in smoked.items():
+            out.append(
+                f'| {node} | {f.get("smoke_result", "")} | {f.get("smoke_sandbox_state", "")} '
+                f'| {f.get("smoke_sandbox_network", "")} | {f.get("smoke_pause_label", "")} '
+                f'| {f.get("smoke_container_state", "")} | {f.get("smoke_container_exit_code", "")} '
+                f'| {f.get("smoke_container_log", "")} | {f.get("smoke_avc_recent", "")} '
+                f'| {f.get("smoke_cleanup", "")} | {f.get("smoke_started_at", "")} |'
+            )
     out += ["", f'总体：{"未通过" if failed else "全部通过"}', ""]
     print("\n".join(out))
     return 1 if failed else 0

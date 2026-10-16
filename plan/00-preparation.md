@@ -1,6 +1,6 @@
 # Phase 00｜基础设施、服务器初始化与软件供应准备
 
-文档版本：V3.0。状态：进行中（母机准备，整体阶段尚未验收）。步骤数：43。当前批次：[2026-10-14 执行记录](../ops/00-preparation/records/2026-10-14/README.md)。
+文档版本：V3.0。状态：进行中（十节点 Linux/CRI 基线已通过检查，整体阶段尚未验收）。步骤数：43。当前批次：[2026-10-14 执行记录](../ops/00-preparation/records/2026-10-14/README.md)。
 
 本阶段实际创建 VM、部署基础服务，并完成十台 Rocky Linux 的系统初始化、containerd/runc/crictl 安装、镜像预热、CRI 自测和重启复验，交付可以直接进入 kubeadm init/join 的节点。资产统计只是开头，不是阶段成果。
 

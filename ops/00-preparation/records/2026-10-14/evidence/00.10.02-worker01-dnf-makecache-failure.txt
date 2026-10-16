@@ -1,0 +1,34 @@
+recorded_date: 2026-10-16
+step: 00.10.02 (node-readiness follow-up, assets.md section 51)
+host: worker01 (192.168.9.109)
+source: user-provided terminal output (Mac, key-based SSH); the journal is volatile (/run/log/journal), so this paste is the only copy once the node is powered off
+exit_codes: not provided
+
+command: ssh -i ~/.ssh/cnpl_lab_ed25519 -o IdentitiesOnly=yes root@192.168.9.109 'systemctl status dnf-makecache.service --no-pager -l | head -15; journalctl -u dnf-makecache.service -b --no-pager | tail -25'
+output:
+× dnf-makecache.service - dnf makecache
+     Loaded: loaded (/usr/lib/systemd/system/dnf-makecache.service; static)
+     Active: failed (Result: exit-code) since Fri 2026-10-16 21:39:19 CST; 15min ago
+ Invocation: 3ac191764c0d44cfb263eb09c171f6be
+TriggeredBy: ● dnf-makecache.timer
+    Process: 1139 ExecStart=/usr/bin/dnf makecache --timer (code=exited, status=1/FAILURE)
+   Main PID: 1139 (code=exited, status=1/FAILURE)
+   Mem peak: 80.2M
+        CPU: 2.705s
+
+Oct 16 21:36:34 rocky10-base systemd[1]: Starting dnf-makecache.service - dnf makecache...
+Oct 16 21:39:19 worker01.k8s.internal.egon.top dnf[1139]: Rocky Linux 10 - BaseOS                         3.3 kB/s | 533 kB     02:42
+Oct 16 21:39:19 worker01.k8s.internal.egon.top dnf[1139]: Errors during downloading metadata for repository 'baseos':
+Oct 16 21:39:19 worker01.k8s.internal.egon.top dnf[1139]:   - Status code: 404 for https://mirror.nyist.edu.cn/rocky/10.2/BaseOS/x86_64/os/repodata/dde284044ed3037c7c36b6c6830aaee2fa69a683b777d1489be738ccde8dcaa1-primary.xml.gz (IP: 59.69.128.21)
+Oct 16 21:39:19 worker01.k8s.internal.egon.top dnf[1139]:   - Curl error (28): Timeout was reached for https://mirrors.ustc.edu.cn/rocky/10.2/BaseOS/x86_64/os/repodata/dde284044ed3037c7c36b6c6830aaee2fa69a683b777d1489be738ccde8dcaa1-primary.xml.gz [Operation too slow. Less than 1000 bytes/sec transferred the last 30 seconds]
+Oct 16 21:39:19 worker01.k8s.internal.egon.top dnf[1139]: Error: Failed to download metadata for repo 'baseos': Yum repo downloading error: Downloading error(s): repodata/dde284044ed3037c7c36b6c6830aaee2fa69a683b777d1489be738ccde8dcaa1-primary.xml.gz - Download failed: Status code: 404 for https://mirror.nyist.edu.cn/rocky/10.2/BaseOS/x86_64/os/repodata/dde284044ed3037c7c36b6c6830aaee2fa69a683b777d1489be738ccde8dcaa1-primary.xml.gz (IP: 59.69.128.21)
+Oct 16 21:39:19 worker01.k8s.internal.egon.top systemd[1]: dnf-makecache.service: Main process exited, code=exited, status=1/FAILURE
+Oct 16 21:39:19 worker01.k8s.internal.egon.top systemd[1]: dnf-makecache.service: Failed with result 'exit-code'.
+Oct 16 21:39:19 worker01.k8s.internal.egon.top systemd[1]: Failed to start dnf-makecache.service - dnf makecache.
+Oct 16 21:39:19 worker01.k8s.internal.egon.top systemd[1]: dnf-makecache.service: Consumed 2.705s CPU time, 80.2M memory peak.
+
+interpretation:
+- dnf-makecache.timer fired soon after the clone's first boot (the start line still carries the template hostname rocky10-base; by 21:39 the node had been renamed). The template had run `dnf clean all` during sealing, so every clone has an empty metadata cache and does this full download on first boot.
+- Mirror selection by Rocky's mirrorlist picked two domestic mirrors. mirror.nyist.edu.cn returned 404 for the primary.xml.gz named in the current repomd (that mirror's repodata was out of step with the metadata dnf expected); mirrors.ustc.edu.cn was too slow (<1000 B/s for 30 s). BaseOS downloaded at 3.3 kB/s.
+- This is an external mirror-availability failure on one run, not a node configuration defect: package signing, repo definitions and network settings are identical on all ten nodes and the other nine did not fail. Not proven: whether the same mirrors would fail again.
+- The failed state is not persistent; it clears on reboot or on the next successful run. The timer will run again after boot, so a repeat is possible until nodes use the controlled internal repository planned in manual section 6 / plan 00.09.04.

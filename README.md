@@ -14,8 +14,8 @@
 
 ## 当前进度
 
-截至 2026-10-14 的[执行记录](ops/00-preparation/records/2026-10-14/README.md)，Phase 00 进行中：母机已安装并运行 containerd，尚未封装为最终模板；正式十节点克隆和交付验收均为 0/10，整体阶段尚未验收。客体结果来自用户回传。
+截至 2026-10-16 的[执行记录](ops/00-preparation/records/2026-10-14/README.md)，Phase 00 进行中：母机已封装，十台节点已克隆、配置独立身份与静态地址，并以 [node-readiness 矩阵](ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md) 通过 25 项检查与 host-network CRI 自测（10/10）。整体阶段尚未验收。
 
-下一步：按 [Phase 00 计划](plan/00-preparation.md) 和[节点操作手册](ops/00-preparation/README.md)，继续 CRI 自测、入群工具与物料锁定、母机复验和身份封装，再克隆及验收十节点。DNS/CA、仓库、网络、离线供应和独立备份等剩余任务见阶段计划。
+下一步：节点侧还需按角色配置防火墙规则、持久化日志，并用 Ansible 完成幂等验收；01 之前还须建成内部 DNS/CA 与 Harbor，用于提供控制面镜像。GitLab/Nexus、OpenWrt/VPN、离线供应和独立备份等剩余任务见 [Phase 00 计划](plan/00-preparation.md)。
 
 配置与脚本路径表示对应阶段的交付位置，未产生的文件不预建占位；[版本锁](ops/versions.lock.yaml) 和[台账](ops/inventory/README.md) 仍含待核实项，不能据此直接部署。每阶段通过验收后再交接，操作时按[模板](ops/templates/execution-record.md)留存实际证据。

@@ -23,3 +23,10 @@ node_firewall_rules_control_plane:
   - {source: k8s-nodes, port: "6443", proto: tcp, purpose: kube-apiserver（节点与 VIP）}
   - {source: lab-mgmt, port: "6443", proto: tcp, purpose: kube-apiserver（管理端）}
   - {source: k8s-control-plane, port: "2379-2380", proto: tcp, purpose: etcd 客户端与成员}
+
+# journald：持久化并按容量预算设上限（手册第 6 节，不使用无限保留）。
+# 依据 2026-10-16 实测：根分区约 63G、已用约 2.5G；运行时数据在独立盘，但 kubelet 的
+# 容器日志（/var/log/pods）将写在根分区，因此保留足够空闲。
+node_journald_system_max_use: 2G
+node_journald_system_keep_free: 10G
+node_journald_max_retention: 30day

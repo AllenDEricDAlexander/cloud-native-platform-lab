@@ -74,6 +74,10 @@ def checks(e, f):
         ("内核参数", f.get("ip_forward") == "1" and to_int(f.get("overlay_loaded")) >= 1,
          f'ip_forward={f.get("ip_forward", "")} overlay={f.get("overlay_loaded", "")}'),
         ("时间同步", f.get("chrony_leap") == "Normal", f.get("chrony_leap", "")),
+        # 手册第 6 节：日志持久化且有明确上限；boots 只作记录，持久化后的首次开机为 1。
+        ("持久化日志", f.get("journal_storage") == "persistent" and bool(f.get("journal_system_max_use")),
+         f'{f.get("journal_storage", "")} SystemMaxUse={f.get("journal_system_max_use", "")} '
+         f'boots={f.get("journal_boots", "")}'),
         ("运行时盘", f.get("runtime_mount_uuid") == e.get("expect_runtime_uuid")
          and f.get("runtime_mount_fstype") == "xfs",
          f'{f.get("runtime_mount_source", "")} {f.get("runtime_mount_fstype", "")}'),

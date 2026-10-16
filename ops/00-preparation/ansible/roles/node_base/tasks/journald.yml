@@ -1,0 +1,27 @@
+- name: 准备 journald drop-in 目录
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: journald 持久化与容量上限
+  ansible.builtin.template:
+    src: journald.conf.j2
+    dest: /etc/systemd/journald.conf.d/50-phase00.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: 重启 journald 并转存运行时日志
+
+- name: 让 journald 配置立即生效
+  ansible.builtin.meta: flush_handlers
+
+- name: 确认日志已写入持久目录
+  ansible.builtin.shell: test -d "/var/log/journal/$(cat /etc/machine-id)" && journalctl --disk-usage
+  register: node_journald_usage
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    node_journald_usage.rc != 0 and not ansible_check_mode

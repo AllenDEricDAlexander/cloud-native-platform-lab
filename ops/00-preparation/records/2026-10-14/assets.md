@@ -1212,3 +1212,49 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 台账十台增加 node_base_firewall: applied_verified_idempotent，node_readiness_evidence 指向本次矩阵。
 
 手册第 7 节的「firewalld/nftables：按表配置来源受限规则，保存原规则与回退入口；允许与拒绝用例都通过」在十台上有了证据。仍未完成：SSH 来源收紧（维持现状）；8472/udp 与 4240/tcp 的实际流量验证（01 数据面）；Ceph/Hubble/NodePort 规则（02/03）；Cilium 接口与 firewalld 区域、转发的配合（01）。node_base 目前只覆盖防火墙；第 11 节的完整幂等验收要求把已手工完成的基线（sysctl、模块、Swap、chrony、journald、运行时盘挂载）与 container_runtime（containerd 配置、crictl.yaml、systemd 挂载依赖）也纳入 Ansible，并在现有节点上做到第二次执行无变更。
+
+## 62. 2026-10-16 提交与 journald 持久化角色
+
+用户要求提交：本助手在分支 phase00/node-base-firewall 提交 a76326c（47 个文件，§56–§61 与 Ansible 全套），fast-forward 合并到 main，未推送（比 origin/main 领先 3 个提交）；提交前确认无私钥、collections/ 与 .pyc 均未进入。
+
+下一项按手册第 6 节处理 journald。第 42 节已观察到日志在 /run/log/journal，属易失存储；第 51 节 worker01 的失败日志正是因此只能在关机前人工取回。node_base 新增 journald 任务（标签 journald）：
+
+- 在 /etc/systemd/journald.conf.d/50-phase00.conf 写入 Storage=persistent、SystemMaxUse=2G、SystemKeepFree=10G、MaxRetentionSec=30day，不修改发行版自带的 journald.conf。取值依据实测：根分区约 63G、已用约 2.5G；运行时数据在独立盘，但 01 之后 kubelet 的容器日志 /var/log/pods 在根分区，因此保留 10G 空闲。
+- 配置变化时，handler 执行 `systemctl restart systemd-journald && journalctl --flush`（服务的 stdout 连接保存在 systemd fd store 中，重启 journald 不会断开），随后 flush_handlers，并确认 /var/log/journal/<machine-id> 存在。检查模式下目录尚不存在，不判为失败。
+- node-readiness 增加 journal_storage、journal_system_max_use（取 `systemd-analyze cat-config` 合并后的最终值）与 journal_boots；汇总增加第 25 项「持久化日志」，只读检查共 25 项，加 CRI 自测为 26 项。boots 只作记录。
+
+本地验证：syntax-check 与 list-tasks 正常，journald 四个任务带 journald 标签。用第 61 节的真实矩阵数据重算，只有新项不通过（25/26）；补入持久化键后为 26/26。node-readiness.sh 新增三项在 Rocky 上的首次运行即为其验证。
+
+持久化是否跨重启生效，需要重启后 `journalctl --list-boots` 至少出现两次开机，计划用 worker02 验证。以下待用户执行，尚无输出：
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --tags journald --check --diff --limit cp01 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-node-base-journald-check-cp01.txt
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --tags journald 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-node-base-journald-apply.txt
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml -e bootstrap_serial=10 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-node-base-idempotency-2.txt
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && { ~/.venvs/cnpl-ansible/bin/ansible worker02 -m ansible.builtin.reboot; ~/.venvs/cnpl-ansible/bin/ansible worker02 -m command -a 'journalctl --list-boots --no-pager'; } 2>&1 | tee ../records/2026-10-14/evidence/00.10.02-journald-reboot-worker02.txt
+cd ~/SelfProject/cloud-native-platform-lab && ops/00-preparation/scripts/collect-node-readiness.sh --with-cri-smoke
+```
+
+## 63. 2026-10-16 journald 推广、幂等与重启验证通过；收集脚本一次中断
+
+用户按第 62 节执行五组命令。
+
+1. [cp01 检查模式](evidence/00.10.02-node-base-journald-check-cp01.txt)：将创建 drop-in 目录并写入 Storage=persistent、SystemMaxUse=2G、SystemKeepFree=10G、MaxRetentionSec=30day；flush_handlers 跳过；持久目录检查在检查模式下不判失败；ok=3 changed=2 failed=0。
+2. [十台实际执行](evidence/00.10.02-node-base-journald-apply.txt)：serial 1，十台均 ok=4 changed=3（目录、配置、handler）failed=0。持久目录确认任务通过，说明十台都已存在 /var/log/journal/<machine-id>。第 62 节说「会显示每台日志占用」不准确：默认输出不显示成功任务的 stdout，占用量未进入证据。
+3. [第二次幂等](evidence/00.10.02-node-base-idempotency-2.txt)：不带标签执行防火墙与 journald，十台同批 ok=10 changed=0 failed=0。
+4. [worker02 重启](evidence/00.10.02-journald-reboot-worker02.txt)：reboot 模块 rebooted true、耗时 51 秒；`journalctl --list-boots` 列出 -1（22:09:49–23:07:04 CST）与 0（23:07:20 起）两次开机，证明日志已跨重启保留。持久化之前只能看到当前一次开机（第 42、51 节）。
+5. [node-readiness 与 CRI 自测](evidence/00.10.02-node-readiness-20261016-110931/matrix.md) **采集中断，结果无效**：整轮只用 6 秒（11:09:35–11:09:41，Mac 时间）。cp01 的只读检查完整，新增三项为 journal_storage=persistent、journal_system_max_use=2G、journal_boots=1；cp01 的 CRI 自测在 sandbox 创建并记录 pause 标签后断开，smoke_collect_exit=255；其余九台两次 ssh 均立即以 255 退出，且没有 stderr（.err 为空已删除）。
+
+第 5 项的原因未查明。可排除的：用户 ~/.ssh/config 只有一个无关的 rocky-pi 条目，没有 LogLevel 或 ControlMaster 设置；ssh-agent 中仍有实验密钥；第 1–4 项刚用同一密钥成功连接十台。本助手在本机用 ProxyCommand 模拟发送信号，SIGINT 时有报错输出，SIGHUP/SIGTERM 的退出码为 129/143，都不能复现「无输出的 255」，因此不下结论。比较可能的是本次运行在终端中被中断，但未证实。本目录作为中断记录保留。
+
+由于 cp01 的自测在 sandbox 创建后中断，trap 清理是否执行无法从记录判断。下一步先只读检查 cp01 是否残留名为 phase00-cri-smoke 的 sandbox、容器或 /run 下的临时目录，有残留则只清理这些对象，然后重跑收集脚本。尚无输出。
+
+## 64. 2026-10-16 更正：第五项实际已通过；中断的是紧接着的第二次运行
+
+用户重跑收集脚本后，本助手列出全部结果目录，发现 11:08:13 还有一次运行：[00.10.02-node-readiness-20261016-110813](evidence/00.10.02-node-readiness-20261016-110813/matrix.md)。这次运行逐台完整执行，11:09:20 结束，十台 26/26、总体通过。第 63 节只读取了最新的目录（11:09:31），因此误把紧随其后、6 秒后中断的第二次运行当作第五项的结果。第五项应以 11:08 的目录为准，结果为通过；11:09:31 的目录是同一命令的重复运行在中途被中断（很可能为手动停止，未证实），保留为记录。第 63 节的事实陈述保留不改，结论以本节为准。教训：读取结果时应按时间列出本轮全部目录，不能只取最新一个。
+
+用户之后再次重跑：[00.10.02-node-readiness-20261016-111359](evidence/00.10.02-node-readiness-20261016-111359/matrix.md)，11:14–11:15，十台 26/26、总体通过，无 .err；十台 journal_storage=persistent、SystemMaxUse=2G，worker02 的 journal_boots=2、其余为 1，与只有 worker02 在配置后重启过一致；CRI 自测 10/10 PASS；六项身份唯一。
+
+手册第 6 节「journald 明确的占用上限和保留」在十台上有了证据：配置、幂等、跨重启保留与矩阵复验均已通过。台账十台增加 node_base_journald，node_readiness_evidence 指向 111359；模板 rocky10-base 未改动，其易失日志状态如实保留，下次重新封装时应纳入。
+
+第 63 节要求的 cp01 残留检查，用户未回传输出。11:13 的自测在 cp01 上 PASS，但这只说明新建对象正常，不能证明 11:09 中断时创建的 sandbox 已被清理。下一步对十台只读检查 CRI 残留，与基线配置收集一并进行。

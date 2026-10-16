@@ -1,0 +1,40 @@
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/systemd/journald.conf.d",
+-    "state": "absent"
++    "state": "directory"
+ }
+
+changed: [cp01]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-68751pdb1h5vi/tmpwzxiqp56/journald.conf.j2
+@@ -0,0 +1,7 @@
++# 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改。
++# 持久化到 /var/log/journal，并按容量预算限制占用与保留时间（手册第 6 节）。
++[Journal]
++Storage=persistent
++SystemMaxUse=2G
++SystemKeepFree=10G
++MaxRetentionSec=30day
+
+changed: [cp01]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+RUNNING HANDLER [node_base : 重启 journald 并转存运行时日志] *******************
+skipping: [cp01]
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=3    changed=2    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

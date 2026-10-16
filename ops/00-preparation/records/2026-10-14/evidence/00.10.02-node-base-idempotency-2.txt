@@ -1,0 +1,254 @@
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [storage01]
+ok: [worker01]
+ok: [worker02]
+ok: [storage02]
+ok: [infra02]
+ok: [storage03]
+ok: [infra01]
+ok: [cp02]
+ok: [cp03]
+ok: [cp01]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+ok: [cp03]
+ok: [cp02]
+ok: [storage01]
+ok: [infra02]
+ok: [cp01]
+ok: [worker01]
+ok: [storage03]
+ok: [infra01]
+ok: [worker02]
+ok: [storage02]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+ok: [storage02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [cp02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [worker02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage03] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [worker01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [cp03] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [infra02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [cp01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [infra01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage03] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [cp02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [cp03] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [worker01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [storage01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [storage02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [infra01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [infra02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [worker02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [cp01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [worker01] => (item=lab-mgmt: 192.168.9.200)
+ok: [cp03] => (item=lab-mgmt: 192.168.9.200)
+ok: [storage01] => (item=lab-mgmt: 192.168.9.200)
+ok: [storage03] => (item=lab-mgmt: 192.168.9.200)
+ok: [storage02] => (item=lab-mgmt: 192.168.9.200)
+ok: [infra01] => (item=lab-mgmt: 192.168.9.200)
+ok: [cp02] => (item=lab-mgmt: 192.168.9.200)
+ok: [cp01] => (item=lab-mgmt: 192.168.9.200)
+ok: [infra02] => (item=lab-mgmt: 192.168.9.200)
+ok: [worker02] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+ok: [cp03] => (item=cockpit)
+ok: [storage02] => (item=cockpit)
+ok: [worker01] => (item=cockpit)
+ok: [cp02] => (item=cockpit)
+ok: [infra02] => (item=cockpit)
+ok: [infra01] => (item=cockpit)
+ok: [worker02] => (item=cockpit)
+ok: [cp01] => (item=cockpit)
+ok: [storage01] => (item=cockpit)
+ok: [storage03] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+ok: [storage02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [infra01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [cp01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [infra02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [worker01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [cp02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [storage01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [cp03] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [storage03] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [worker02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [cp02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [cp01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [worker01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [storage02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [infra02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [infra01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [storage01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [cp03] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [worker02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [storage03] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [cp01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp03] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [infra02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [storage02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [storage01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [worker01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [storage03] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [infra01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [worker02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp01] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+ok: [cp03] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+ok: [cp02] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+ok: [cp01] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+ok: [cp02] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+ok: [cp03] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+ok: [cp02] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+ok: [cp01] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+ok: [cp03] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [storage02]
+ok: [infra02]
+ok: [worker01]
+ok: [infra01]
+ok: [cp02]
+ok: [storage01]
+ok: [cp01]
+ok: [storage03]
+ok: [cp03]
+ok: [worker02]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+ok: [cp03]
+ok: [cp02]
+ok: [infra02]
+ok: [infra01]
+ok: [cp01]
+ok: [worker01]
+ok: [storage01]
+ok: [storage02]
+ok: [worker02]
+ok: [storage03]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+ok: [worker02]
+ok: [cp01]
+ok: [cp02]
+ok: [worker01]
+ok: [storage01]
+ok: [cp03]
+ok: [infra01]
+ok: [storage03]
+ok: [storage02]
+ok: [infra02]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [cp01]
+ok: [cp02]
+ok: [infra01]
+ok: [cp03]
+ok: [storage02]
+ok: [storage01]
+ok: [infra02]
+ok: [worker02]
+ok: [storage03]
+ok: [worker01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage02                  : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage03                  : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker01                   : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

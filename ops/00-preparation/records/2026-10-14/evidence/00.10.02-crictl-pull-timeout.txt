@@ -1,0 +1,23 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output (rid query value already shown as [REDACTED] by crictl)
+guest_log_time: E1016 19:29:30 / 19:30:01 (guest clock)
+exit_codes: not provided; both pulls ended with FATA
+
+command: crictl pull registry.k8s.io/pause:3.10.2
+output:
+E1016 19:29:30.602164    2258 remote_image.go:250] "PullImage from image service failed" err="rpc error: code = DeadlineExceeded desc = failed to pull and unpack image \"registry.k8s.io/pause:3.10.2\": failed to resolve image: failed to do request: Head \"https://europe-west3-docker.pkg.dev/v2/k8s-artifacts-prod/images/pause/manifests/3.10.2?rid=%5BREDACTED%5D\": dial tcp 74.125.204.82:443: i/o timeout" image="registry.k8s.io/pause:3.10.2"
+FATA[0093] pulling image: rpc error: code = DeadlineExceeded desc = failed to pull and unpack image "registry.k8s.io/pause:3.10.2": failed to resolve image: failed to do request: Head "https://europe-west3-docker.pkg.dev/v2/k8s-artifacts-prod/images/pause/manifests/3.10.2?rid=%5BREDACTED%5D": dial tcp 74.125.204.82:443: i/o timeout
+
+command: crictl pull registry.k8s.io/e2e-test-images/busybox:1.38.0-1
+output:
+E1016 19:30:01.542435    2268 remote_image.go:250] "PullImage from image service failed" err="rpc error: code = DeadlineExceeded desc = failed to pull and unpack image \"registry.k8s.io/e2e-test-images/busybox:1.38.0-1\": failed to resolve image: failed to do request: Head \"https://europe-west3-docker.pkg.dev/v2/k8s-artifacts-prod/images/e2e-test-images/busybox/manifests/1.38.0-1?rid=%5BREDACTED%5D\": dial tcp 74.125.204.82:443: i/o timeout" image="registry.k8s.io/e2e-test-images/busybox:1.38.0-1"
+FATA[0030] pulling image: rpc error: code = DeadlineExceeded desc = failed to pull and unpack image "registry.k8s.io/e2e-test-images/busybox:1.38.0-1": failed to resolve image: failed to do request: Head "https://europe-west3-docker.pkg.dev/v2/k8s-artifacts-prod/images/e2e-test-images/busybox/manifests/1.38.0-1?rid=%5BREDACTED%5D": dial tcp 74.125.204.82:443: i/o timeout
+
+command: crictl images --digests
+output:
+IMAGE               TAG                 DIGEST              IMAGE ID            SIZE
+
+scope: registry.k8s.io redirected the manifest request to Google Artifact Registry (europe-west3-docker.pkg.dev, 74.125.204.82); TCP connect to 443 timed out. No image was stored.
+not_proven: Which upstream device or policy drops the traffic. Mac reaches the same registry through a local proxy (127.0.0.1:7897), so the Mac result is not evidence for the guest path.

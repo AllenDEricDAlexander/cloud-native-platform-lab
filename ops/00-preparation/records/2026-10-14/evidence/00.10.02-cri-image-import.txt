@@ -1,0 +1,34 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+route: ops/00-preparation/README.md 10.1 seed import (Mac crane -> scp -> ctr -n k8s.io images import)
+
+## Management side (Mac), run by assistant read-only after user's download
+command: crane version
+output:
+0.22.1
+note: Homebrew package crane 0.22.1
+
+command: shasum -a 256 ~/Downloads/cloud-native-lab-seed-2026-10-14/*-amd64.tar
+output:
+2f116433c938819176fbbcb1996987a29b9f1aa0785bcbf134a51f8abf4f70a0  busybox-1.38.0-1-amd64.tar   (2215936 bytes)
+a7061466662a39698d769c0a523904539c7e48499df38d98c9a4f2ec33469db6  pause-3.10.2-amd64.tar       (321024 bytes)
+
+command: tar -xOf <tar> manifest.json | jq -c '.[] | {Config, RepoTags}'
+output:
+busybox: {"Config":"sha256:45a1d298552b4ed95d21af416e729f4340ef42a54050de7e0aebb37c1bee9606","RepoTags":["registry.k8s.io/e2e-test-images/busybox:1.38.0-1"]}
+pause:   {"Config":"sha256:4a83b15d3ecfe0d916b2d0a7991bc2854a629b8097017c2ee1ff65b30ae4c07c","RepoTags":["registry.k8s.io/pause:3.10.2"]}
+
+## Guest side (rocky10-base 192.168.9.9), user-provided output
+execution_time: not provided
+exit_codes: not provided
+not_returned: guest sha256sum of the two tar files, ctr import output
+
+command: crictl images
+output:
+IMAGE                                     TAG                 IMAGE ID            SIZE
+registry.k8s.io/e2e-test-images/busybox   1.38.0-1            45a1d298552b4       2.21MB
+registry.k8s.io/pause                     3.10.2              4a83b15d3ecfe       318kB
+
+result: Both images visible through CRI in namespace k8s.io; IMAGE ID prefixes match the config digests locked from registry.k8s.io (amd64 manifests self-verified on 2026-10-16).
+scope: Image presence and identity only. Transfer hash on guest not returned; content identity is shown by matching config digest.
+pending: host-network sandbox, container run/log/exit code, cleanup.

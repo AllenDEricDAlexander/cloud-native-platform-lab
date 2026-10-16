@@ -1,0 +1,48 @@
+recorded_date: 2026-10-16
+step: 00.10.02 (manual section 8 item 4)
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output
+execution_time: not provided
+exit_codes: not provided
+not_returned: Mac shasum -c, guest sha256sum -c and rpmkeys --checksig output (assets.md section 39 step 3); the dnf command line itself. Install was instructed with --setopt=localpkg_gpgcheck=1.
+
+command: dnf install -y --setopt=localpkg_gpgcheck=1 ./kubeadm-... ./kubelet-... ./kubectl-... ./kubernetes-cni-...
+output (tail only):
+Complete!
+
+command: kubeadm version -o short; kubelet --version; kubectl version --client
+output:
+v1.36.5
+Kubernetes v1.36.5
+Client Version: v1.36.5
+Kustomize Version: v5.8.1
+
+command: rpm -q kubeadm kubelet kubectl kubernetes-cni
+output:
+kubeadm-1.36.5-150500.1.1.x86_64
+kubelet-1.36.5-150500.1.1.x86_64
+kubectl-1.36.5-150500.1.1.x86_64
+kubernetes-cni-1.9.1-150500.1.1.x86_64
+
+command: systemctl is-enabled kubelet; ls /etc/cni/net.d; ls /opt/cni/bin | head -5
+output:
+disabled
+(ls /etc/cni/net.d: no output, directory empty)
+bandwidth
+bridge
+dhcp
+dummy
+firewall
+
+command: kubeadm config images list --kubernetes-version v1.36.5
+output:
+registry.k8s.io/kube-apiserver:v1.36.5
+registry.k8s.io/kube-controller-manager:v1.36.5
+registry.k8s.io/kube-scheduler:v1.36.5
+registry.k8s.io/kube-proxy:v1.36.5
+registry.k8s.io/coredns/coredns:v1.14.2
+registry.k8s.io/pause:3.10.2
+registry.k8s.io/etcd:3.6.8-0
+
+result: Installed versions match the lock. kubelet left disabled by design (Phase 00 does not start it). /etc/cni/net.d empty, so NetworkReady stays false. kubeadm's expected pause (3.10.2) equals containerd's pinned sandbox, so no sandbox-image mismatch warning is expected at kubeadm init.
+pending: Explicit package signature output; control-plane images not present on the host.

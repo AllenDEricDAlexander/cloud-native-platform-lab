@@ -1,0 +1,69 @@
+recorded_date: 2026-10-16
+step: 00.04.03 (template sealing preparation) / 00.10.02
+host: rocky10-base (192.168.9.9) and management Mac
+source: user-provided terminal output
+exit_codes: not provided
+
+## Guest read-only checks
+command: rpm -qi containerd.io cri-tools kubeadm kubelet kubectl kubernetes-cni | grep -E '^(Name|Signature)'
+output:
+Name        : containerd.io
+Signature   :
+Name        : cri-tools
+Signature   :
+Name        : kubeadm
+Signature   :
+Name        : kubelet
+Signature   :
+Name        : kubectl
+Signature   :
+Name        : kubernetes-cni
+Signature   :
+interpretation: Empty for all six packages from two different signers. containerd.io's file previously passed rpmkeys --checksig "digests signatures OK" (00.10.02-runtime-disk-before.txt), so this display is not treated as proof of unsigned packages; the cause of the empty field is not determined. Signature evidence is to be taken from rpmkeys --checksig -v on the files before they are removed.
+
+command: nmcli -g connection.uuid,connection.interface-name,802-3-ethernet.mac-address,ipv4.method,ipv4.addresses connection show ens33
+output:
+814f210c-2d0f-31d7-9910-95404003ea49
+ens33
+(mac-address: empty)
+manual
+192.168.9.9/24
+interpretation: Profile is bound by interface name only, not MAC; it will still match ens33 on vCenter clones with new MACs.
+
+command: ls -l /etc/machine-id /var/lib/dbus/machine-id; systemctl list-unit-files 'sshd-keygen@.service'
+output:
+ls: cannot access '/var/lib/dbus/machine-id': No such file or directory
+-r--r--r--. 1 root root 33 Oct 14 21:08 /etc/machine-id
+UNIT FILE            STATE    PRESET
+sshd-keygen@.service disabled disabled
+1 unit files listed.
+interpretation: No separate dbus machine-id to reset. sshd-keygen@ instances are normally pulled in through sshd-keygen.target rather than enabled; the wiring is checked before host keys are removed.
+
+command: ls /root/lab-artifacts /root/lab-evidence/phase00
+output:
+/root/lab-artifacts:
+00.10.02-containerd-configure.sh        k8s-v1.36-rpm.key
+00.10.02-runtime-disk-configure.sh      kubeadm-1.36.5-150500.1.1.x86_64.rpm
+busybox-1.38.0-1-amd64.tar              kubectl-1.36.5-150500.1.1.x86_64.rpm
+containerd.io-2.4.2-2.el10.x86_64.rpm   kubelet-1.36.5-150500.1.1.x86_64.rpm
+cri-tools-1.36.0-150500.1.1.x86_64.rpm  kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+docker.gpg                              pause-3.10.2-amd64.tar
+k8s-1.36.5-rpms.sha256
+/root/lab-evidence/phase00:
+00.10.02-containerd-configure.txt   00.10.02-containerd-start.txt     00.10.02-runtime-disk-configure.txt
+00.10.02-containerd-effective.toml  00.10.02-runtime-disk-before.txt
+
+## Mac backups (user terminal)
+scp kube RPMs + k8s-1.36.5-rpms.sha256 -> guest: kubeadm 12MB, kubelet 13MB, kubectl 11MB, kubernetes-cni 9038KB, sha256 file 418 bytes, all 100%
+scp guest -> Mac: containerd.io-2.4.2-2.el10.x86_64.rpm 35MB 100%; docker.gpg 1627 bytes 100%
+scp -r guest /root/lab-evidence -> ~/Downloads/cloud-native-lab-seed-2026-10-14/guest-lab-evidence-rocky10-base: 5 files 100%
+command: echo '323346eb...ebd11e  containerd.io-2.4.2-2.el10.x86_64.rpm' | shasum -a 256 -c -
+output: containerd.io-2.4.2-2.el10.x86_64.rpm: OK
+command: gpg --show-keys --with-fingerprint docker.gpg
+output:
+pub   rsa4096 2017-02-22 [SCEA]
+      060A 61C5 1B55 8A7F 742B  77AA C52F EB6B 621E 9F35
+uid                      Docker Release (CE rpm) <docker@docker.com>
+
+## vSphere
+user_reported: snapshot of running rocky10-base taken before sealing (name as instructed: pre-seal-2026-10-16, without memory). Task result not provided.

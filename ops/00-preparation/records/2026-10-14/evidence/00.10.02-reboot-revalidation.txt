@@ -1,0 +1,38 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output
+execution_time: not provided
+exit_codes: not provided
+context: User reported completing assets.md section 37 (cleanup, reboot, post-reboot checks). Cleanup output and an explicit boot timestamp were not returned; both are re-checked at the start of section 38.
+
+command: systemctl is-enabled containerd; systemctl is-active containerd
+output:
+enabled
+active
+
+command: findmnt -M /var/lib/containerd -o SOURCE,UUID,FSTYPE
+output:
+SOURCE    UUID                                 FSTYPE
+/dev/sdb1 1b36c022-c96c-4b0f-9570-d8e291ba03c0 xfs
+
+command: crictl info | jq -c '.status.conditions[] | {type, status}'
+output:
+{"type":"RuntimeReady","status":true}
+{"type":"NetworkReady","status":false}
+{"type":"ContainerdHasNoDeprecationWarnings","status":true}
+
+command: crictl images
+output:
+IMAGE                                     TAG                 IMAGE ID            SIZE
+registry.k8s.io/e2e-test-images/busybox   1.38.0-1            45a1d298552b4       2.21MB
+registry.k8s.io/pause                     3.10.2              4a83b15d3ecfe       318kB
+
+command: getenforce; firewall-cmd --state; swapon --show
+output:
+Enforcing
+running
+(swapon: no output)
+
+result: PASS. containerd enabled and active after boot; runtime disk mounted by the expected UUID as xfs (mount dependency drop-in satisfied at real boot); RuntimeReady=true, NetworkReady=false as expected without CNI; both images persisted on the runtime disk with unchanged IMAGE IDs; SELinux Enforcing, firewalld running, no active swap.
+pending: explicit boot timestamp; confirmation that no sandbox/container survived; post-reboot smoke run (attempt 3).

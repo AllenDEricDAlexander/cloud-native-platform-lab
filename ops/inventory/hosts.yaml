@@ -23,6 +23,10 @@ hypervisors:
     bmc_ip: 192.168.9.52
     datastore: null
     port_group: null
+    # 2026-10-16 用户报告：克隆 seal-test-02 到 esxi02 后提示「没有为该虚拟机分配网络」；
+    # vCenter 对 esxi02 报「在主机上注册/取消注册第三方 IO 筛选器存储提供程序失败」。均未核实根因。
+    reported_vm_network_on_host: unknown  # 2026-10-16 seal-test-02 先报无网络，用户报告等待后自行恢复并取得 DHCP .32；原因与端口组配置未核实
+    reported_vcenter_alarms: [iofilter_storage_provider_registration_failed]
   - id: esxi03
     model: Dell PowerEdge R730xd
     reported_esxi_major_version: 8
@@ -56,12 +60,22 @@ bootstrap_template:
   reported_overlay_loaded: true
   reported_services_enabled: [vmtoolsd, chronyd, firewalld, containerd]
   reported_network_connection: ens33
+  reported_network_method_after_seal: dhcp
   reported_dns_servers: [8.8.8.8]
   reported_firewalld_zone: public
   reported_containerd_version: '2.4.2'
   reported_runc_version: '1.5.2'
   reported_containerd_service_state: active_running
   reported_containerd_enabled: true
+  reported_crictl_in_path: true
+  reported_crictl_version: '1.36.0'
+  reported_cri_tools_package: cri-tools-1.36.0-150500.1.1.x86_64
+  reported_crictl_config: /etc/crictl.yaml
+  reported_cri_runtime_ready: true
+  reported_cri_network_ready: false_no_cni_expected
+  reported_cri_images:
+    - registry.k8s.io/pause:3.10.2
+    - registry.k8s.io/e2e-test-images/busybox:1.38.0-1
   reported_containerd_config_version: 3
   reported_containerd_cri_selinux_configured: true
   reported_systemd_cgroup_configured: true
@@ -77,8 +91,20 @@ bootstrap_template:
     mountpoint: /var/lib/containerd
     status: mounted_verified_by_user
   reported_cri_plugins_ok: [images, runtime, cri]
-  node_bootstrap_status: runtime_plugins_ok_cri_smoke_pending
-  clone_status: not_started
+  node_bootstrap_status: sealed_powered_off
+  reported_seal: completed_2026-10-16  # machine-id 清空、主机密钥删除、ens33 改 DHCP、实验文件清理
+  reported_snapshots: [pre-seal-2026-10-16, sealed-2026-10-16]
+  reported_journal_storage: volatile_run_log_journal  # node_base 待办：持久化与上限
+  reported_kubeadm_kubelet_kubectl_version: 1.36.5-150500.1.1
+  reported_kubernetes_cni_package: kubernetes-cni-1.9.1-150500.1.1.x86_64
+  reported_kubelet_enabled: false
+  reported_cni_netd_empty: true
+  reported_cri_smoke: passed_pre_reboot_2026-10-16
+  reported_reboot_revalidation: passed_2026-10-16
+  reported_cri_smoke_post_reboot: passed_2026-10-16
+  clone_status: ten_nodes_cloned_identity_verified  # 2026-10-16 node-readiness：十台 machine-id/BIOS UUID/MAC/SSH/主机名/IP 均唯一
+  planned_first_boot_network: dhcp_then_static  # 2026-10-16 用户选择：封装时 ens33 改为 DHCP，克隆后再配置 .101–.110
+  planned_control_plane_images: via_harbor_before_phase01  # 2026-10-16 用户选择：模板只保留 pause 与 cri_smoke_image
 kubernetes_nodes:
   - id: cp01
     fqdn: cp01.k8s.internal.egon.top
@@ -86,11 +112,15 @@ kubernetes_nodes:
     role: control_plane
     resource_profile: control_plane
     planned_hypervisor: esxi01
-    actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    actual_hypervisor: esxi01  # 2026-10-16 用户报告，未导出 vSphere 放置
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:56:c1'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
+    cloned_from: rocky10-base@sealed-2026-10-16
   - id: cp02
     fqdn: cp02.k8s.internal.egon.top
     ip: 192.168.9.102
@@ -98,10 +128,13 @@ kubernetes_nodes:
     resource_profile: control_plane
     planned_hypervisor: esxi02
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:41:c8'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: cp03
     fqdn: cp03.k8s.internal.egon.top
     ip: 192.168.9.103
@@ -109,10 +142,13 @@ kubernetes_nodes:
     resource_profile: control_plane
     planned_hypervisor: esxi03
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sda1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:c2:84'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: infra01
     fqdn: infra01.k8s.internal.egon.top
     ip: 192.168.9.104
@@ -120,10 +156,13 @@ kubernetes_nodes:
     resource_profile: infra
     planned_hypervisor: esxi01
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:96:85'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: infra02
     fqdn: infra02.k8s.internal.egon.top
     ip: 192.168.9.105
@@ -131,10 +170,13 @@ kubernetes_nodes:
     resource_profile: infra
     planned_hypervisor: esxi02
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '2:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:2b:76'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: storage01
     fqdn: storage01.k8s.internal.egon.top
     ip: 192.168.9.106
@@ -142,10 +184,13 @@ kubernetes_nodes:
     resource_profile: storage
     planned_hypervisor: esxi01
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:39:3e'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: storage02
     fqdn: storage02.k8s.internal.egon.top
     ip: 192.168.9.107
@@ -153,10 +198,13 @@ kubernetes_nodes:
     resource_profile: storage
     planned_hypervisor: esxi02
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:cb:ec'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: storage03
     fqdn: storage03.k8s.internal.egon.top
     ip: 192.168.9.108
@@ -164,10 +212,13 @@ kubernetes_nodes:
     resource_profile: storage
     planned_hypervisor: esxi03
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:a7:24'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: worker01
     fqdn: worker01.k8s.internal.egon.top
     ip: 192.168.9.109
@@ -175,10 +226,13 @@ kubernetes_nodes:
     resource_profile: worker
     planned_hypervisor: esxi01
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:21:68'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
   - id: worker02
     fqdn: worker02.k8s.internal.egon.top
     ip: 192.168.9.110
@@ -186,10 +240,13 @@ kubernetes_nodes:
     resource_profile: worker
     planned_hypervisor: esxi03
     actual_hypervisor: null
-    network_connection: null
-    runtime_disk_uuid: null
+    network_connection: ens33
+    runtime_disk_uuid: 1b36c022-c96c-4b0f-9570-d8e291ba03c0  # 继承自模板，各节点相同
+    runtime_disk_scsi_hctl: '0:0:1:0'  # 2026-10-16 node-readiness；设备名 /dev/sdb1 不作为标识
     osd_device_ids: []
-    node_bootstrap_status: not_started
+    node_bootstrap_status: identity_verified_resize_pending  # 2026-10-16 node-readiness：身份唯一；vCPU/内存仍为模板 2/4GiB
+    reported_mac: '00:50:56:99:b9:98'
+    node_readiness_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-094918/matrix.md
 bootstrap_services:
   - id: openwrt
     fqdn: openwrt.mgmt.internal.egon.top
@@ -247,3 +304,6 @@ vcenter:
   dns_recovery_status: pending
   fqdn_migration_status: pending
   api_access_verified: false
+  # 2026-10-16 用户选择以 vCenter 克隆十节点；所选选项表述为三台 ESXi 已纳管且 vSphere Client 可登录，尚未独立核实。
+  reported_clone_method_selected: vcenter_clone
+  reported_hosts_managed: user_reported_unverified

@@ -30,7 +30,8 @@
 | `roles/node_base/` | 用户、SSH、网络、时间、软件源、挂载、sysctl、Swap、安全和日志 |
 | `roles/container_runtime/` | containerd/runc/crictl 安装、配置、CA、systemd 和 CRI 检查 |
 | `playbooks/bootstrap-nodes.yml` | 按 node_base → container_runtime 执行，串行批次和重启检查 |
-| `ops/00-preparation/tests/smoke/node-readiness.sh`（仓库根目录下） | 只读主机检查与结构化结果；CRI 运行测试另加显式启用参数 |
+| `ops/00-preparation/tests/smoke/node-readiness.sh`（仓库根目录下） | 只读主机检查，逐项输出 key=value；经 SSH 推送执行，节点上不存放文件；CRI 运行测试不在其中 |
+| `ops/00-preparation/scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 管理端按 hosts/resources/networks 台账与版本锁生成期望值，密钥登录批量采集，输出十节点矩阵（身份唯一性、规格、网络、安全、运行时、版本）到批次 evidence |
 
 Rocky 基础服务 VM 同样复用 `node_base`；`container_runtime` 只应用于十个 Kubernetes 节点。OpenWrt 使用自己的配置流程，Harbor 所需专用运行环境由仓库角色负责，不把它们混入节点 CRI 角色。
 
@@ -235,19 +236,24 @@ sudo crictl images
 
 镜像必须出现在 `crictl images` 中才算导入成功。此路线下 **不执行 `crictl pull`**，第 10.3 节的 `LAB_SMOKE_IMAGE` 直接使用已导入的本地引用。
 
+**变体：目标机直连官方仓库。** 若目标机能访问 `registry.k8s.io`，可以不经管理端，直接在目标机执行 `crictl pull <SANDBOX_REF>` 和 `crictl pull <SMOKE_REF>`，按 tag 拉取后用 `crictl images --digests` 核对 index Digest 与版本锁一致。此变体不需要管理端容器工具，同时验证了 CRI 的拉取路径；但它依赖公网出口，不能替代 10.2 的内网仓库验收，也不能作为十节点离线交付的物料来源。拉取失败时退回上面的种子导入。
+
 ### 10.2 内网仓库路线（Harbor 之后）
 
 Harbor、DNS 和 CA 就绪后，把同两个镜像按 Digest 复制到只读引导项目，按第 8 节写入 `pinned_images.sandbox`、按第 9 节写入 `hosts.toml`，重启 containerd，再执行 10.3 并在其中保留 `crictl pull` 一步。此时才产生 registry 配置、CA 信任与只读认证的验收证据。
 
 ### 10.3 共用的自测流程
 
-在专用临时工作目录准备 `sandbox.json`（CRI 的 namespace enum 中 NODE 为 2，实施前对照锁定 cri-tools 版本）：
+在专用临时工作目录准备 `sandbox.json`（CRI 的 namespace enum 中 NODE 为 2，实施前对照锁定 cri-tools 版本）。**containerd 使用 `SystemdCgroup = true` 时必须给出以 `.slice` 结尾的 `cgroup_parent`**：kubelet 总会提供它，手写配置缺少时 containerd 退回 cgroupfs 形式的 `/k8s.io/<id>`，runc 会以 `expected cgroupsPath to be of format "slice:prefix:name"` 拒绝。slice 名不要带 `-`，systemd 会把短横线解释为层级。
 
 ```json
 {
   "metadata": {"name": "phase00-cri-smoke", "namespace": "phase00", "uid": "phase00-cri-smoke", "attempt": 1},
   "log_directory": "/var/log/phase00-cri",
-  "linux": {"security_context": {"namespace_options": {"network": 2}}}
+  "linux": {
+    "cgroup_parent": "phase00.slice",
+    "security_context": {"namespace_options": {"network": 2}}
+  }
 }
 ```
 

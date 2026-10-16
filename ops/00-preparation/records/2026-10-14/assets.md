@@ -509,3 +509,554 @@ enable 设置开机启动链接；is-enabled 为只读检查，预期 enabled。
 完整 00 共 43 步，另包括两台 ESXi 的 Datastore/Port Group 与三宿主资源/物理盘映射复核、跨宿主及 VIP 网络、集群外 DNS/CA/管理和软件供应、OpenWrt/VPN/代理、GitLab/Harbor/Nexus/缓存/扫描、指定离线物料/七类最小构建以及独立备份恢复。上述条目未被母机工作替代。VCSA 名称调整按用户要求暂缓；AdGuard/Windows AD 未作为当前必做前置新增。
 
 阶段状态更新为进行中，不能宣布完整 00 通过。当前按用户选择优先完成节点准备主线，下一步是安装 crictl 并做实际 CRI 自测；不在本次状态汇报中派发新的部署命令。原网络出口与离线生成器故障根因仍待独立复核，失败及恢复过程均已保存。
+
+## 29. 2026-10-16 继续：恢复母机 CRI 检查
+
+用户继续实验。已重新核对迁移后的 ops/inventory/hosts.yaml、ops/versions.lock.yaml 和本记录：最后确认 containerd running/enabled、三个 CRI 插件 ok；cri_tools 仍 pending，未记录 RuntimeReady 或实际容器自测结果。正式节点仍为 0/10。
+
+本次客户端日期/时区为 2026-10-16、America/New_York；母机此前设置的 Asia/Shanghai 不随客户端时区调整。本节是继续工作的记录，不修改此前原始输出的时间。保持逐次 1–3 条短命令说明和回传方式，SELinux Enforcing/firewalld enabled 要求不变。
+
+下一次由用户登录母机 root@192.168.9.9，再执行以下只读检查：
+
+```bash
+systemctl is-active containerd
+command -v crictl
+```
+
+第一条预期 active；第二条输出已安装的 crictl 路径，若无输出则表示当前 PATH 未找到该命令，不能仅据此排除其他目录存在文件。先取得实际结果，再决定安装或直接配置 CRI endpoint；今天的服务状态和工具存在性尚未复验。
+
+## 30. 2026-10-16 继续：准备 crictl 物料
+
+用户回传 systemctl is-active containerd 为 active；command -v crictl 无输出，当前 PATH 没有找到该工具，已据实更新台账。未提供时间或退出码，不补造。下一步准备与候选 Kubernetes 1.36 系列一致的 crictl v1.36.0，先下载校验，再解包安装；不能将候选字段标为已安装。
+
+已核对官方 v1.36.0 release 页面，并通过 HTTPS 读取对应 linux-amd64 归档的 .sha256 文件，值为 83855e114566a8a8c44c548d515670f51de3a5e1da8b2effb59870e2f10c25a3；写入版本锁作为期望值。GitHub API 查询被 403 限流，改用同一官方项目的 release 页面与直接校验文件获取，未更换第三方来源。目标机尚未下载或校验归档。
+
+下一组仅在 Rocky root 会话下载和校验，curl 失败时先返回错误，不继续解包或安装：
+
+```bash
+cd /root/lab-artifacts
+curl -fL --retry 2 --connect-timeout 10 --max-time 180 -o crictl-v1.36.0-linux-amd64.tar.gz https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.36.0/crictl-v1.36.0-linux-amd64.tar.gz
+echo '83855e114566a8a8c44c548d515670f51de3a5e1da8b2effb59870e2f10c25a3  crictl-v1.36.0-linux-amd64.tar.gz' | sha256sum -c -
+```
+
+预期校验输出文件名和 OK。这组命令不安装程序、不改变容器运行时服务或安全设置；取得校验结果后再给解包、恢复执行文件标签与版本验证命令。尚未取得此次下载和 SHA256 结果。
+
+## 31. 2026-10-16 调整：crictl 改用 Kubernetes 官方签名 RPM
+
+用户回传与第 30 节相同的两条检查：containerd 为 active，`command -v crictl` 无输出。第 30 节给出的 Rocky 端 GitHub 下载命令尚未执行，没有下载或校验结果。
+
+本助手在 Mac 复核：GitHub v1.36.0 linux-amd64 归档的 .sha256 仍为 83855e114566a8a8c44c548d515670f51de3a5e1da8b2effb59870e2f10c25a3，与第 30 节一致；但该值与归档同源，只证明完整性。另读取 pkgs.k8s.io core:/stable:/v1.36 的 repomd.xml、repomd.xml.asc 与公钥：公钥 isv:kubernetes OBS Project，指纹 DE15B14486CD377B9E876E1A234654DA9A296436，到期 2026-12-29；Mac 上临时 GPG 目录验证 repomd 签名为 Good signature（未导入用户密钥环）。primary.xml.gz 的 SHA256 ee341fd1…0d43 与 repomd 一致，其中 cri-tools-1.36.0-150500.1.1.x86_64 的 SHA256 为 e622a370e92664907b660c7bd7af73831d3d8132be5616be8ec11581a7443970，7805276 字节，只安装 /usr/bin/crictl，无额外依赖；同仓库 kubeadm/kubelet/kubectl 最新为 1.36.5-150500.1.1，kubelet 依赖 kubernetes-cni ≥ 1.2.0（仓库为 1.9.1）。
+
+因此改用该签名 RPM：与 containerd.io 相同的「签名 + rpmkeys --checksig + dnf 本地包」路线，后续入群工具也来自同一仓库和签名链，避免 /usr/local/bin 归档与 RPM 两套 crictl 并存。版本锁的 cri_tools artifact 已改为该 RPM，GitHub 归档不再作为安装输入。公钥到期日早于后续可能的模板重建，到期后需重新获取并核对续期公钥，不跳过签名检查。
+
+Rocky 到 download.docker.com 曾出现 TLS reset，pkgs.k8s.io 的可达性未验证，因此沿用第 14 节的管理端种子 + scp 路线。以下命令均待用户执行，尚无输出。
+
+Mac 终端下载并校验：
+
+```bash
+cd ~/Downloads/cloud-native-lab-seed-2026-10-14
+curl -fL -o cri-tools-1.36.0-150500.1.1.x86_64.rpm https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/cri-tools-1.36.0-150500.1.1.x86_64.rpm
+curl -fL -o k8s-v1.36-rpm.key https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml.key
+echo 'e622a370e92664907b660c7bd7af73831d3d8132be5616be8ec11581a7443970  cri-tools-1.36.0-150500.1.1.x86_64.rpm' | shasum -a 256 -c -
+```
+
+Mac 终端传输：
+
+```bash
+scp ~/Downloads/cloud-native-lab-seed-2026-10-14/cri-tools-1.36.0-150500.1.1.x86_64.rpm ~/Downloads/cloud-native-lab-seed-2026-10-14/k8s-v1.36-rpm.key root@192.168.9.9:/root/lab-artifacts/
+```
+
+Rocky 端先校验，指纹与 SHA256 均一致才继续：
+
+```bash
+cd /root/lab-artifacts
+echo 'e622a370e92664907b660c7bd7af73831d3d8132be5616be8ec11581a7443970  cri-tools-1.36.0-150500.1.1.x86_64.rpm' | sha256sum -c -
+gpg --show-keys --with-fingerprint k8s-v1.36-rpm.key
+```
+
+再导入公钥、检查包签名并安装：
+
+```bash
+rpmkeys --import k8s-v1.36-rpm.key
+rpmkeys --checksig cri-tools-1.36.0-150500.1.1.x86_64.rpm
+dnf install -y --setopt=localpkg_gpgcheck=1 ./cri-tools-1.36.0-150500.1.1.x86_64.rpm
+```
+
+最后只读确认：`crictl --version`、`rpm -q cri-tools`、`ls -Z /usr/bin/crictl`。预期版本 v1.36.0、包 1.36.0-150500.1.1.x86_64；安装 crictl 不改变 containerd、SELinux 或 firewalld。之后再写 /etc/crictl.yaml 并检查 RuntimeReady。
+
+## 32. 2026-10-16 继续：种子目录缺失修正与 crictl 安装结果
+
+用户在 Mac 下载公钥时报 `Failed to open the file .../cloud-native-lab-seed-2026-10-14/k8s-v1.36-rpm.key: No such file or directory` 与 `curl: (56) Failure writing output`。本助手只读核对：该种子目录已不存在，curl 不自动建目录，属于写入路径错误，不是网络或来源问题。`~/Downloads/` 下另有 cri-tools-1.36.0-150500.1.1.x86_64.rpm，7805276 字节，SHA256 e622a370…3970 与签名元数据一致。修正为 `mkdir -p` 重建目录、将该 RPM 移入并重新下载公钥。
+
+同时发现 10-14 记录的 containerd.io RPM 与 docker.gpg 不在原种子目录，版本锁中 containerd 的 local_source 已失效；母机 /root/lab-artifacts/ 应仍有副本，Mac 侧备份位置待用户确认，本次不改写该字段。
+
+用户随后回传安装结果，已归档 [crictl 安装证据](evidence/00.10.02-crictl-install.txt)：crictl v1.36.0，RPM cri-tools-1.36.0-150500.1.1.x86_64，/usr/bin/crictl 标签 bin_t。版本锁 cri_tools 更新为 version 1.36.0、installed_unvalidated，台账同步。客体端 sha256sum、公钥指纹、rpmkeys --checksig 与 dnf 事务输出未回传，signature_verified 保持 false，不补造。
+
+下一组由用户在母机执行，写入 crictl 端点配置并只读检查 CRI 状态与 sandbox 引用：
+
+```bash
+cat > /etc/crictl.yaml <<'CRICTL'
+runtime-endpoint: unix:///run/containerd/containerd.sock
+image-endpoint: unix:///run/containerd/containerd.sock
+timeout: 20
+debug: false
+CRICTL
+```
+
+```bash
+crictl info | jq '.status.conditions'
+containerd config dump | grep -A2 'pinned_images'
+```
+
+预期 RuntimeReady 为 true；NetworkReady 为 false 且原因指向 CNI 未初始化，这是 00 未装 CNI 的阶段边界，不代表故障。第二条显示实际 sandbox 引用，用于第 10.1 节种子导入，不预设 pause tag。尚无输出。
+
+## 33. 2026-10-16 继续：RuntimeReady 通过与镜像来源调整
+
+用户写入 /etc/crictl.yaml 后回传 CRI 状态，已归档 [CRI 状态证据](evidence/00.10.02-cri-runtime-status.txt)：RuntimeReady=true；NetworkReady=false、原因 NetworkPluginNotReady（cni plugin not initialized），属于 00 未安装 CNI 的阶段边界；ContainerdHasNoDeprecationWarnings=true。实际 sandbox 引用为 registry.k8s.io/pause:3.10.2。config dump 仍提示 v3 配置被自动迁移，与第 22 节相同；不是弃用告警，封装模板前再决定是否用 `containerd config migrate` 生成新格式配置，本次不改动。
+
+本助手从 Mac 只读查询官方仓库：pause:3.10.2 的 index Digest 为 sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4（linux/amd64 manifest sha256:412c4a72…0f17）；选定测试镜像 registry.k8s.io/e2e-test-images/busybox:1.38.0-1，index Digest 为 sha256:302d6221f7d600725e0f926f9f04f8fbbb2a32678b4e991da760a5062d4dc7e1（amd64 manifest sha256:7d31f97b…340f）。二者已从 pending_by_phase 提升为版本锁 components 记录，状态 pending。
+
+Mac 上 Docker Desktop 未运行；用户说明 Mac 性能不适合运行 Docker。因此改用手册 10.1 的「目标机直连官方仓库」变体：母机直接 `crictl pull` 两个镜像并核对 Digest。该变体依赖公网出口，不替代 10.2 内网仓库验收，也不构成十节点离线物料；若母机访问 registry.k8s.io 失败，再改用不需要虚拟机的管理端工具导出归档。
+
+下一组由用户在母机执行，尚无输出：
+
+```bash
+crictl pull registry.k8s.io/pause:3.10.2
+crictl pull registry.k8s.io/e2e-test-images/busybox:1.38.0-1
+crictl images --digests
+```
+
+预期两次 pull 均返回 `Image is up to date for sha256:…`；images 列表中 pause 的 DIGEST 以 f548e0e8e3dc1 开头，busybox 以 302d6221f7d60 开头。任何一条失败时保留完整错误，不更换镜像源、不跳过 TLS。
+
+## 34. 2026-10-16 失败与调整：母机直连官方镜像仓库超时
+
+用户执行第 33 节的拉取，两次 crictl pull 均失败，已归档 [拉取超时证据](evidence/00.10.02-crictl-pull-timeout.txt)。registry.k8s.io 把 manifest 请求重定向到 Google Artifact Registry `europe-west3-docker.pkg.dev`，解析到 74.125.204.82，TCP 443 连接 i/o timeout，CRI 返回 DeadlineExceeded；`crictl images` 为空，没有写入任何镜像。DNS 解析成功，失败发生在建立 TCP 连接阶段。
+
+本助手只读确认 Mac 系统 HTTPS 代理为 127.0.0.1:7897，shell 也设置了 HTTPS_PROXY/HTTP_PROXY；Mac 访问同一仓库成功不能说明母机直连路径可用。与第 14 节 download.docker.com 的连接重置一起看，最可能的解释是母机的直连出口无法到达部分境外站点；具体是哪个设备或哪条策略在丢包，仍未证实。这正是计划中节点应从内网 Harbor 取镜像、由受控显式代理（00.06.02）负责外部同步的原因；本次不为 containerd 配置代理，也不改用未核实的镜像站。
+
+调整为手册 10.1 的种子导入路线，管理端工具改用 Homebrew 提供的 crane（单个 Go 程序，不启动虚拟机），以满足用户「Mac 不运行 Docker」的要求。crane 默认 tarball 格式与 docker save 兼容，RepoTags 保留完整镜像名，`ctr -n k8s.io images import` 后名称应能匹配 sandbox 引用。导入后 containerd 会根据 tarball 重新生成 manifest，所以 DIGEST 列不一定等于仓库 Digest；用 IMAGE ID（即 config digest）核对。已从仓库补查并自校验 amd64 manifest：pause config sha256:4a83b15d3ecfe0d916b2d0a7991bc2854a629b8097017c2ee1ff65b30ae4c07c，busybox config sha256:45a1d298552b4ed95d21af416e729f4340ef42a54050de7e0aebb37c1bee9606，已写入版本锁。
+
+以下命令待用户执行，尚无输出。Mac：
+
+```bash
+brew install crane
+crane version
+crane pull --platform linux/amd64 registry.k8s.io/pause:3.10.2 ~/Downloads/cloud-native-lab-seed-2026-10-14/pause-3.10.2-amd64.tar
+crane pull --platform linux/amd64 registry.k8s.io/e2e-test-images/busybox:1.38.0-1 ~/Downloads/cloud-native-lab-seed-2026-10-14/busybox-1.38.0-1-amd64.tar
+shasum -a 256 ~/Downloads/cloud-native-lab-seed-2026-10-14/pause-3.10.2-amd64.tar ~/Downloads/cloud-native-lab-seed-2026-10-14/busybox-1.38.0-1-amd64.tar
+scp ~/Downloads/cloud-native-lab-seed-2026-10-14/pause-3.10.2-amd64.tar ~/Downloads/cloud-native-lab-seed-2026-10-14/busybox-1.38.0-1-amd64.tar root@192.168.9.9:/root/lab-artifacts/
+```
+
+母机：
+
+```bash
+cd /root/lab-artifacts
+sha256sum pause-3.10.2-amd64.tar busybox-1.38.0-1-amd64.tar
+ctr -n k8s.io images import --platform linux/amd64 pause-3.10.2-amd64.tar
+ctr -n k8s.io images import --platform linux/amd64 busybox-1.38.0-1-amd64.tar
+crictl images
+```
+
+预期两端 tar 的 SHA256 相同；crictl images 中 registry.k8s.io/pause:3.10.2 的 IMAGE ID 以 4a83b15d3ecfe 开头，busybox 以 45a1d298552b4 开头。crane 版本取得后再锁定 image_export_tool。
+
+## 35. 2026-10-16 继续：种子镜像导入通过，准备 host-network CRI 自测
+
+用户回传 `crictl images`：registry.k8s.io/pause:3.10.2 的 IMAGE ID 为 4a83b15d3ecfe，registry.k8s.io/e2e-test-images/busybox:1.38.0-1 为 45a1d298552b4，与第 34 节锁定的 config digest 前缀一致，说明两镜像已在 k8s.io 命名空间对 CRI 可见。客体端 tar 的 sha256sum 与 ctr import 输出未回传，不补造；内容身份由 config digest 一致证明。
+
+本助手在 Mac 只读补查：crane 0.22.1（Homebrew）；pause tar SHA256 a7061466…9db6（321024 字节），busybox tar SHA256 2f116433…70a0（2215936 字节）；两份 manifest.json 的 Config 与 RepoTags 分别等于锁定 config digest 与完整镜像名。已归档 [镜像导入证据](evidence/00.10.02-cri-image-import.txt)；版本锁中 pause、cri_smoke_image 更新为 installed_unvalidated 并登记本地归档，crane 提升为 image_export_tool 组件；台账母机状态更新为 runtime_ready_images_imported_cri_smoke_pending。
+
+下一步按手册 10.3 执行 host-network 自测。以下命令待用户在母机同一 SSH 会话执行，尚无输出。先准备工作目录与两份 JSON：
+
+```bash
+install -d -m 0700 /root/lab-cri-smoke
+install -d -m 0755 /var/log/phase00-cri
+cd /root/lab-cri-smoke
+cat > sandbox.json <<'JSON'
+{
+  "metadata": {"name": "phase00-cri-smoke", "namespace": "phase00", "uid": "phase00-cri-smoke", "attempt": 1},
+  "log_directory": "/var/log/phase00-cri",
+  "linux": {"security_context": {"namespace_options": {"network": 2}}}
+}
+JSON
+cat > container.json <<'JSON'
+{
+  "metadata": {"name": "smoke", "attempt": 1},
+  "image": {"image": "registry.k8s.io/e2e-test-images/busybox:1.38.0-1"},
+  "command": ["/bin/sh", "-c", "echo phase00-cri-ok"],
+  "log_path": "smoke.log",
+  "linux": {}
+}
+JSON
+jq . sandbox.json container.json >/dev/null && echo json-ok
+```
+
+创建 sandbox 并检查网络模式与 SELinux 进程标签：
+
+```bash
+SANDBOX_ID=$(crictl runp sandbox.json); echo "SANDBOX_ID=$SANDBOX_ID"
+crictl pods
+crictl inspectp "$SANDBOX_ID" | jq '.status.linux.namespaces.options'
+ps -eZ | grep '[p]ause'
+```
+
+创建并运行容器，检查日志、退出码与 AVC：
+
+```bash
+CONTAINER_ID=$(crictl create "$SANDBOX_ID" container.json sandbox.json); echo "CONTAINER_ID=$CONTAINER_ID"
+crictl start "$CONTAINER_ID"
+crictl ps -a
+crictl logs "$CONTAINER_ID"
+crictl inspect "$CONTAINER_ID" | jq '.status | {state, exitCode, reason}'
+ausearch -m AVC -ts recent
+```
+
+预期：sandbox Ready，network 为 NODE；pause 进程标签含 container_t 与 MCS 类别；容器 Exited，日志 phase00-cri-ok，state CONTAINER_EXITED、exitCode 0；ausearch 为 `<no matches>`。清理（rm/stopp/rmp）在取得输出后进行，失败时先保留对象和证据，不清空 runtime 数据目录。
+
+## 36. 2026-10-16 失败与修正：sandbox 配置缺少 systemd cgroup_parent
+
+用户执行第 35 节第二组命令，`crictl runp` 失败，已归档 [runp 失败证据](evidence/00.10.02-cri-smoke-runp-failure.txt)。crictl 先警告 `cgroup_parent is not set`，随后 runc 报 `expected cgroupsPath to be of format "slice:prefix:name" for systemd cgroups, got "/k8s.io/<id>"`。后续 inspectp 的 `prefix can't be empty` 是 SANDBOX_ID 为空导致的连带错误；`crictl pods` 为空，没有遗留 sandbox。
+
+原因是本助手给出的 sandbox.json 缺少 `linux.cgroup_parent`。containerd 按配置以 SystemdCgroup=true 调用 runc，runc 要求 systemd 形式的 cgroup 路径；kubelet 总会提供 `.slice` 父级，手写测试配置没有，containerd 退回 cgroupfs 形式路径而被拒绝。这是测试输入错误，不是运行时缺陷；该拒绝反而证明 systemd cgroup 驱动已按配置生效。手册 10.3 的同一模板已补 `"cgroup_parent": "phase00.slice"` 及说明。
+
+用户表示希望直接进入下一步。本助手说明：host-network CRI smoke 是计划 00 的验收用例（十台节点通过 node-readiness 与 host-network CRI smoke），「组件已安装」与「功能已通过」是不同状态；修正只需改一个字段，且应在克隆前确认，否则任何缺陷会被复制到十台节点，并推迟到 01 的 kubeadm init 才暴露。是否继续由用户决定；若跳过，本项记为未执行而非通过。
+
+修正后的重试命令（attempt 改为 2，避免与失败尝试的名称混淆），待用户执行：
+
+```bash
+cd /root/lab-cri-smoke
+cat > sandbox.json <<'JSON'
+{
+  "metadata": {"name": "phase00-cri-smoke", "namespace": "phase00", "uid": "phase00-cri-smoke", "attempt": 2},
+  "log_directory": "/var/log/phase00-cri",
+  "linux": {
+    "cgroup_parent": "phase00.slice",
+    "security_context": {"namespace_options": {"network": 2}}
+  }
+}
+JSON
+jq . sandbox.json >/dev/null && echo json-ok
+```
+
+随后重新执行第 35 节的第二组、第三组命令，预期不变。
+
+## 37. 2026-10-16 通过：母机 host-network CRI 自测（重启前）
+
+用户按第 36 节重写 sandbox.json（attempt 2，cgroup_parent phase00.slice）并重跑第 35 节第二、三组命令，全部成功，完整输出已归档 [CRI 自测通过证据](evidence/00.10.02-cri-smoke-pass.txt)：sandbox c928451e94377 Ready，命名空间 network=NODE、ipc/pid=POD；pause 进程为 `system_u:system_r:container_t:s0:c961,c999`，说明 Enforcing 下被限制在 container_t 并分配了独立 MCS 类别；容器 8159cd15fb42a 输出 phase00-cri-ok，状态 CONTAINER_EXITED、exitCode 0、reason Completed；`ausearch -m AVC -ts recent` 为 `<no matches>`。
+
+`crictl ps -a` 中的 Running 是启动后立即取的快照，随后 inspect 已为 EXITED；POD/NAMESPACE 显示 unknown 是因为手写 container.json 未带 kubelet 才会添加的 io.kubernetes.pod.* 标签，不是失败。版本锁中 containerd、runc、cri_tools、pause、cri_smoke_image 追加该执行证据，状态仍为 installed_unvalidated，待重启复验；台账母机状态更新为 cri_smoke_passed_reboot_revalidation_pending。
+
+本次通过只证明母机重启前的运行时链路。尚未证明：重启后的挂载依赖、服务自启与镜像持久性；10.2 仓库拉取路径（需 Harbor）；CNI 与普通 Pod 网络（01）。
+
+下一组由用户在同一 SSH 会话执行。先只清理本次两个对象，保留镜像：
+
+```bash
+crictl rm "$CONTAINER_ID"
+crictl stopp "$SANDBOX_ID"
+crictl rmp "$SANDBOX_ID"
+crictl ps -a
+crictl pods
+```
+
+预期 rm/stopp/rmp 各回显对应 ID，ps -a 与 pods 只剩表头。若 SSH 已断开，用 `crictl pods --name phase00-cri-smoke -q` 与 `crictl ps -a --name smoke -q` 找回 ID。临时 phase00.slice 在重启后消失。
+
+随后执行 `reboot`。这是 containerd 配置挂载依赖后的第一次真实开机，重新登录后只读检查：
+
+```bash
+systemctl is-enabled containerd; systemctl is-active containerd
+findmnt -M /var/lib/containerd -o SOURCE,UUID,FSTYPE
+crictl info | jq -c '.status.conditions[] | {type, status}'
+crictl images
+getenforce; firewall-cmd --state; swapon --show
+```
+
+预期 containerd enabled/active；挂载来源 /dev/sdb1、UUID 1b36c022-c96c-4b0f-9570-d8e291ba03c0、xfs；RuntimeReady=true、NetworkReady=false；两镜像仍在且 IMAGE ID 不变；Enforcing、running，Swap 无输出。之后再以 attempt 3 重跑一次自测，证明重启后仍可运行容器。
+
+## 38. 2026-10-16 通过：运行时配置后的首次重启复验
+
+用户报告已完成第 37 节的清理、重启与检查，已归档 [重启复验证据](evidence/00.10.02-reboot-revalidation.txt)：containerd enabled/active；/var/lib/containerd 来自 /dev/sdb1，UUID 1b36c022-c96c-4b0f-9570-d8e291ba03c0，xfs；RuntimeReady=true、NetworkReady=false、ContainerdHasNoDeprecationWarnings=true；两镜像仍在且 IMAGE ID 不变；SELinux Enforcing、firewalld running、Swap 无输出。这是配置挂载依赖 drop-in 后的第一次真实开机，说明依赖在开机流程中成立、镜像确实持久化在运行时盘。
+
+清理命令输出与明确的开机时间未回传，不补造；下一组先补查。台账母机状态更新为 reboot_revalidated_post_reboot_smoke_pending。
+
+下一组待用户执行。先确认已重启、没有遗留对象，并把 attempt 改为 3：
+
+```bash
+uptime -s
+crictl pods; crictl ps -a
+cd /root/lab-cri-smoke && sed -i 's/"attempt": 2/"attempt": 3/' sandbox.json && grep -o '"attempt": [0-9]' sandbox.json
+```
+
+重启后再跑一次自测：
+
+```bash
+SANDBOX_ID=$(crictl runp sandbox.json); echo "SANDBOX_ID=$SANDBOX_ID"
+ps -eZ | grep '[p]ause'
+CONTAINER_ID=$(crictl create "$SANDBOX_ID" container.json sandbox.json); echo "CONTAINER_ID=$CONTAINER_ID"
+crictl start "$CONTAINER_ID"; sleep 2
+crictl logs "$CONTAINER_ID"
+crictl inspect "$CONTAINER_ID" | jq '.status | {state, exitCode, reason}'
+ausearch -m AVC -ts recent
+```
+
+结果符合预期再清理：
+
+```bash
+crictl rm "$CONTAINER_ID"; crictl stopp "$SANDBOX_ID"; crictl rmp "$SANDBOX_ID"
+crictl ps -a; crictl pods
+```
+
+预期 uptime -s 为本次重启时间，pods/ps 只有表头，attempt 为 3；自测结果与第 37 节相同（MCS 类别会不同）；清理后只剩表头。之后进入 kubeadm/kubelet/kubectl 的锁定与安装。
+
+## 39. 2026-10-16 通过：重启后 CRI 自测；准备入群工具
+
+用户回传第 38 节全部输出，已归档 [重启后自测证据](evidence/00.10.02-cri-smoke-post-reboot.txt)：开机时间 2026-10-16 19:49:21，晚于 19:42 的 runp 失败与重启前通过；重启前清理无遗留。attempt 3 自测再次通过，pause 为 container_t:s0:c692,c750（与上次 c961,c999 不同，每个 Pod 获得新 MCS 类别），日志 phase00-cri-ok、exitCode 0，无 AVC；清理后 pods/ps 只剩表头。
+
+母机运行时部分至此完成：版本锁中 containerd、runc、cri_tools、pause、cri_smoke_image 更新为 validated_on_template_host（只代表母机；十节点矩阵与 10.2 仓库拉取仍待验）；台账母机状态为 runtime_validated_kube_tools_pending。/root/lab-cri-smoke 与 /var/log/phase00-cri 暂留作复测输入，封装模板前清理。
+
+下一步按手册第 8 节第 4 项安装入群工具，00 不执行 init/join。本助手复核 pkgs.k8s.io v1.36 repomd 与先前一致且签名有效，锁定 kubeadm/kubelet/kubectl 1.36.5-150500.1.1；kubelet 依赖 kubernetes-cni ≥ 1.2.0 与 util-linux，同仓库 kubernetes-cni 1.9.1-150500.1.1 一并锁定为 cni_plugins，并从 01 待锁定列表提升到 00。kubernetes-cni 只安装 /opt/cni/bin 插件与空的 /etc/cni/net.d，不写网络配置，NetworkReady 应继续为 false。四个包的 SHA256 与大小已写入版本锁；公钥沿用安装 cri-tools 时导入的同一把（DE15…6436）。以下命令待用户执行，尚无输出。
+
+Mac：
+
+```bash
+cd ~/Downloads/cloud-native-lab-seed-2026-10-14 && for p in kubeadm-1.36.5-150500.1.1 kubelet-1.36.5-150500.1.1 kubectl-1.36.5-150500.1.1 kubernetes-cni-1.9.1-150500.1.1; do curl -fL -o "$p.x86_64.rpm" "https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/$p.x86_64.rpm" || break; done
+cat > ~/Downloads/cloud-native-lab-seed-2026-10-14/k8s-1.36.5-rpms.sha256 <<'SUMS'
+0f857b25db48cb01e5c69dc1d02a1fc02c125a0d04a5cd58440a4e9adb631f5a  kubeadm-1.36.5-150500.1.1.x86_64.rpm
+15b55de802c19f1c5b89c065086ad8feec3430fd58da836300f51688ecbbb63b  kubelet-1.36.5-150500.1.1.x86_64.rpm
+9e406829bad036e45e08f6c49176f479c06d239cf64a96befa56f8b1b55a37fc  kubectl-1.36.5-150500.1.1.x86_64.rpm
+a228e611f547cf3554873c383078a7ff9abf289e5b7ae315cd38c3811804e2f7  kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+SUMS
+cd ~/Downloads/cloud-native-lab-seed-2026-10-14 && shasum -a 256 -c k8s-1.36.5-rpms.sha256
+cd ~/Downloads/cloud-native-lab-seed-2026-10-14 && scp kubeadm-1.36.5-150500.1.1.x86_64.rpm kubelet-1.36.5-150500.1.1.x86_64.rpm kubectl-1.36.5-150500.1.1.x86_64.rpm kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm k8s-1.36.5-rpms.sha256 root@192.168.9.9:/root/lab-artifacts/
+```
+
+母机先校验：
+
+```bash
+cd /root/lab-artifacts
+sha256sum -c k8s-1.36.5-rpms.sha256
+rpmkeys --checksig kubeadm-1.36.5-150500.1.1.x86_64.rpm kubelet-1.36.5-150500.1.1.x86_64.rpm kubectl-1.36.5-150500.1.1.x86_64.rpm kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+```
+
+全部 OK 再安装并只读检查：
+
+```bash
+dnf install -y --setopt=localpkg_gpgcheck=1 ./kubeadm-1.36.5-150500.1.1.x86_64.rpm ./kubelet-1.36.5-150500.1.1.x86_64.rpm ./kubectl-1.36.5-150500.1.1.x86_64.rpm ./kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+kubeadm version -o short; kubelet --version; kubectl version --client
+rpm -q kubeadm kubelet kubectl kubernetes-cni
+systemctl is-enabled kubelet; ls /etc/cni/net.d; ls /opt/cni/bin | head -5
+kubeadm config images list --kubernetes-version v1.36.5
+```
+
+预期四份 OK 与 digests signatures OK；三者 v1.36.5；kubelet 保持 disabled，00 不启动（未经 kubeadm 生成配置时会反复重启），01 引导时再 enable；/etc/cni/net.d 为空；最后一条列出 01 需要预置的控制面镜像，并用于核对 kubeadm 期望的 pause 版本是否与 containerd 的 3.10.2 一致。
+
+## 40. 2026-10-16 继续：入群工具安装通过；封装与克隆方式决定
+
+用户回传入群工具安装结果，已归档 [入群工具安装证据](evidence/00.10.02-kube-tools-install.txt)：dnf `Complete!`；kubeadm/kubelet/kubectl 均为 v1.36.5（RPM 1.36.5-150500.1.1），kubernetes-cni 1.9.1-150500.1.1；kubelet disabled；/etc/cni/net.d 为空，/opt/cni/bin 有 bandwidth/bridge/dhcp/dummy/firewall 等插件。`kubeadm config images list --kubernetes-version v1.36.5` 列出 kube-apiserver/controller-manager/scheduler/proxy v1.36.5、coredns v1.14.2、pause 3.10.2、etcd 3.6.8-0；kubeadm 期望的 pause 与 containerd 的 sandbox 引用一致，init 时不应出现 sandbox 版本不一致告警。第 39 节第 3 步的 sha256sum/checksig 输出未回传；安装使用 localpkg_gpgcheck=1 只能间接说明签名检查通过，signature_verified 暂不提升，下一组用已安装包的签名信息补证。版本锁四个组件更新为 installed_unvalidated，kubeadm 记录 v1.36.5 所需镜像列表；台账母机状态为 kube_tools_installed_seal_pending。
+
+用户就封装与克隆作出三项选择：
+
+| 事项 | 选择 | 影响 |
+| --- | --- | --- |
+| 克隆方式 | vCenter 克隆 | 选项表述为三台 ESXi 已纳管、vSphere Client 可登录；本助手未核实。vCenter 克隆会生成新的 BIOS UUID 与 MAC。不依赖 Linux guest customization，节点身份在客体内处理。 |
+| 首次开机网络 | 封装时 ens33 改 DHCP | 克隆机可同时开机，从路由器 DHCP（登记为 .30–.49）取得临时地址，再改为 .101–.110 静态地址。若有线网段无 DHCP，退回 ESXi 控制台逐台配置。 |
+| 控制面镜像 | 以后通过 Harbor | 模板只保留 pause 与 cri_smoke_image。00.09 的 Harbor 及其 DNS/CA 前置须在 01 kubeadm init 前完成，否则十节点无法取得控制面镜像（母机已证实不能直连 registry.k8s.io）。 |
+
+封装会删除母机身份并不可逆，因此拆成两批：本批只做只读检查、种子物料回传 Mac 与 vCenter 快照；确认后下一批再执行封装和关机。以下待用户执行，尚无输出。
+
+母机只读检查：
+
+```bash
+rpm -qi containerd.io cri-tools kubeadm kubelet kubectl kubernetes-cni | grep -E '^(Name|Signature)'
+nmcli -g connection.uuid,connection.interface-name,802-3-ethernet.mac-address,ipv4.method,ipv4.addresses connection show ens33
+ls -l /etc/machine-id /var/lib/dbus/machine-id; systemctl list-unit-files 'sshd-keygen@.service'
+ls /root/lab-artifacts /root/lab-evidence/phase00
+```
+
+Mac 回传种子物料与客体原始日志（第 32 节发现 containerd RPM 与 docker.gpg 不在 Mac 种子目录）：
+
+```bash
+scp root@192.168.9.9:/root/lab-artifacts/containerd.io-2.4.2-2.el10.x86_64.rpm root@192.168.9.9:/root/lab-artifacts/docker.gpg ~/Downloads/cloud-native-lab-seed-2026-10-14/
+scp -r root@192.168.9.9:/root/lab-evidence ~/Downloads/cloud-native-lab-seed-2026-10-14/guest-lab-evidence-rocky10-base
+cd ~/Downloads/cloud-native-lab-seed-2026-10-14 && echo '323346eb71f8886bce5c382978cf0b3934c14c08e20e10837b395c19b9ebd11e  containerd.io-2.4.2-2.el10.x86_64.rpm' | shasum -a 256 -c -
+gpg --show-keys --with-fingerprint ~/Downloads/cloud-native-lab-seed-2026-10-14/docker.gpg
+```
+
+vSphere Client：对运行中的 rocky10-base 拍快照 `pre-seal-2026-10-16`，不勾选内存，作为封装前回退点。
+
+预期：containerd.io 的 Key ID 为 c52feb6b621e9f35，五个 Kubernetes 包为 234654da9a296436；ens33 的 mac-address 若非空，封装时须清空，否则新 MAC 的克隆机不会激活该连接；machine-id 与 dbus 的关系及 sshd-keygen 模板单元用于确定封装命令；Mac 端 RPM 校验 OK，docker.gpg 指纹 060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35。
+
+## 41. 2026-10-16 继续：封装前检查结果与封装步骤
+
+用户回传第 40 节全部输出并确认已拍快照，已归档 [封装前检查证据](evidence/00.10.02-pre-seal-checks.txt)。ens33 连接只按接口名绑定、mac-address 为空，克隆机新 MAC 不影响该连接；/var/lib/dbus/machine-id 不存在，只需处理 /etc/machine-id；sshd-keygen@.service 为 disabled/disabled，通常经 sshd-keygen.target 拉起，删除主机密钥前先核对依赖。Mac 已取回 containerd.io RPM（shasum OK）与 docker.gpg（指纹 060A…9F35），客体 5 份原始日志存于种子目录 guest-lab-evidence-rocky10-base；版本锁 containerd 的 local_source 恢复有效，其余 RPM 登记 Mac 种子路径。快照由用户报告完成，未提供任务结果。
+
+`rpm -qi` 的 Signature 对六个包均为空。containerd.io 文件此前 checksig 为 digests signatures OK，因此不将该显示解读为未签名，原因未确定；改为在删除物料前用 `rpmkeys --checksig -v` 对文件取证。
+
+封装分三组，前一组全部符合预期才执行下一组；任何异常即停止，可回退到快照 pre-seal-2026-10-16。以下待用户执行，尚无输出。
+
+第一组，只读取证与依赖核对：
+
+```bash
+cd /root/lab-artifacts
+sha256sum -c k8s-1.36.5-rpms.sha256
+echo 'e622a370e92664907b660c7bd7af73831d3d8132be5616be8ec11581a7443970  cri-tools-1.36.0-150500.1.1.x86_64.rpm' | sha256sum -c -
+rpmkeys --checksig -v containerd.io-2.4.2-2.el10.x86_64.rpm cri-tools-1.36.0-150500.1.1.x86_64.rpm kubeadm-1.36.5-150500.1.1.x86_64.rpm kubelet-1.36.5-150500.1.1.x86_64.rpm kubectl-1.36.5-150500.1.1.x86_64.rpm kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+rpm -q gpg-pubkey --qf '%{NAME}-%{VERSION}-%{RELEASE}\t%{SUMMARY}\n'
+systemctl show -p Wants sshd-keygen.target; systemctl show -p Wants sshd.service | tr ' ' '\n' | grep -i keygen
+```
+
+第二组，清理实验文件并把 ens33 改为 DHCP（只改配置文件，不重新激活，当前 SSH 不断开）：
+
+```bash
+cd /root
+rm -rf /root/lab-cri-smoke /var/log/phase00-cri /root/lab-artifacts /root/lab-evidence
+nmcli connection modify ens33 ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""
+nmcli -g ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns connection show ens33
+ip -br address show ens33
+```
+
+第三组，清除身份并关机；删除主机密钥后不再新开 SSH 会话：
+
+```bash
+truncate -s 0 /etc/machine-id
+rm -f /var/lib/systemd/random-seed /var/lib/NetworkManager/secret_key /var/lib/NetworkManager/*.lease
+journalctl --rotate && journalctl --vacuum-time=1s
+dnf clean all
+rm -f /etc/ssh/ssh_host_*
+unset HISTFILE; rm -f /root/.bash_history
+ls -l /etc/machine-id; ls /etc/ssh/ssh_host_* 2>&1
+```
+
+确认 machine-id 为 0 字节、主机密钥不存在后执行 `poweroff`（不是 reboot；母机再开机会生成新身份而失去封装状态）。关机后在 vSphere 对 rocky10-base 拍快照 `sealed-2026-10-16`，此后不再开启母机，克隆以它为源。
+
+预期：第一组 sha256 全 OK；checksig -v 中 containerd.io 显示 key ID 621e9f35、其余五个 key ID 9a296436，均 OK；gpg-pubkey 含 621e9f35 与 9a296436 两把；sshd-keygen.target 的 Wants 含 sshd-keygen@ 实例，sshd.service 依赖 sshd-keygen.target。第二组 method 为 auto，地址/网关/DNS 为空，`ip` 仍显示当前 192.168.9.9/24。首次开机时 machine-id 为空会被 systemd 视为 first boot，可能按 preset 启用默认启用的单元（如 kdump），克隆验收时检查 `systemctl --failed` 与相关单元状态。
+
+## 42. 2026-10-16 继续：身份清除完成（第三组）
+
+用户回传第 41 节第三组输出并认为命令执行出错。已归档 [身份清除证据](evidence/00.04.03-seal-identity.txt)：machine-id 为 0 字节，`ls /etc/ssh/ssh_host_*` 报 No such file or directory，正是主机密钥已删除的预期确认；journald 删除 1.3M 归档日志，dnf 清理 18 个文件。第三组按设计完成，没有执行错误。
+
+日志位于 /run/log/journal，说明母机 journal 为易失存储，重启后不保留。封装期间不改动，记为 node_base 待办：按手册第 6 节以容量预算设置持久化和上限。
+
+第一、二组的输出未回传，不能确认 checksig 取证、sshd-keygen 依赖、DHCP 切换与实验文件清理是否已执行。主机密钥已删除，当前 SSH 会话不得断开；若已断开，只能经 vSphere 网页控制台以 root 登录处理，或回退到 pre-seal-2026-10-16。下一组在同一会话只读确认：
+
+```bash
+nmcli -g ipv4.method,ipv4.addresses connection show ens33
+ls -d /root/lab-cri-smoke /var/log/phase00-cri /root/lab-artifacts /root/lab-evidence 2>&1
+systemctl show -p Wants sshd-keygen.target
+```
+
+预期第一条为 auto 与空行；第二条四个路径都 No such file or directory；第三条含 sshd-keygen@ 实例。若第一组未执行而物料仍在，先补第一组再补第二组；若物料已删，签名文件取证缺口如实保留。全部符合后 `poweroff`，并在 vSphere 拍快照 sealed-2026-10-16。尚无输出。
+
+## 43. 2026-10-16 封装完成；准备双克隆唯一性验证
+
+用户回传第 42 节检查：ens33 为 auto 且无静态地址；四个实验目录均不存在；sshd-keygen.target Wants 含 ecdsa/ed25519/rsa 三个实例。用户报告已 poweroff 并拍快照 sealed-2026-10-16。证据追加至 [身份清除证据](evidence/00.04.03-seal-identity.txt)。母机状态更新为 sealed_powered_off，clone_status 为 seal_test_pending。第 41 节第一组输出从未回传，物料已从客体删除，cri-tools 与四个 Kubernetes RPM 的文件签名取证仍为缺口，如实保留。
+
+按 00.04.03 与手册第 3 节第 5 项，正式克隆十台前先做两个临时克隆，对比 machine-id、BIOS UUID、MAC、SSH 主机密钥与 DHCP 地址。两台分放 esxi01 与 esxi02，同时验证 esxi02 的 Datastore/端口组、Rocky 10 对 x86-64-v3 的 CPU 暴露（R730xd 为 E5-2686 v4）以及跨宿主机二层互通（00.04.01 的一部分）。临时克隆验证后删除，不计入十节点。
+
+vSphere Client 操作，待用户执行：右键已关机的 rocky10-base → 克隆到虚拟机；名称 seal-test-01，计算资源 esxi01，存储 esxi01-sas10t5，磁盘格式与源相同；不勾选「自定义操作系统」，不改硬件；完成后开机。seal-test-02 同样操作，计算资源选 esxi02，存储选 esxi02 本地 Datastore，网络选与 VM Network 相同用途的端口组，并记下实际 Datastore 与端口组名称。若 seal-test-02 启动时报 CPU ISA level 低于要求，说明集群 EVC 屏蔽了 x86-64-v3 指令，停下处理，不改用其他系统。
+
+两台开机后，从 VM 摘要读取 VMware Tools 报告的 IP，由 Mac 分别 SSH 登录（首次连接确认新主机密钥；若该 IP 曾被其他设备使用并报主机标识变化，先 `ssh-keygen -R <IP>`）。每台执行只读检查：
+
+```bash
+hostnamectl --static; cat /etc/machine-id; cat /sys/class/dmi/id/product_uuid
+ip -br link show ens33; ip -br -4 address show ens33; ip route show default; cat /etc/resolv.conf
+for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf "$f"; done
+systemctl --failed --no-legend; systemctl is-enabled kdump kubelet 2>&1
+getenforce; firewall-cmd --state; findmnt -M /var/lib/containerd -o SOURCE,UUID
+systemctl is-active containerd; crictl info | jq -c '.status.conditions[] | {type, status}'; crictl images
+chronyc tracking | grep -E 'Reference ID|Leap status'
+```
+
+两台都检查后，在 seal-test-01 上 `ping -c 3 <seal-test-02 的 IP>`。预期：两台 machine-id、product_uuid、MAC、IP、三种主机密钥指纹均不同；地址来自 DHCP、有默认路由和 DNS；无失败单元或只有可解释项；kubelet disabled，kdump 状态记录实际值；Enforcing、running；运行时盘、containerd、RuntimeReady 与两个镜像均与母机一致；chrony 同步；跨宿主机 ping 通。尚无输出。
+
+## 44. 2026-10-16 问题：seal-test-02 无网络与 esxi02 的 IO 筛选器告警
+
+用户报告 seal-test-01（esxi01）已正常；seal-test-02（esxi02）提示「没有为该虚拟机分配网络」，同时 vCenter 对 esxi02 报「在主机上注册/取消注册第三方 IO 筛选器存储提供程序失败」。没有截图或任务详情，以下判断均待核实。
+
+无网络：标准交换机的端口组按主机分别存在，vCenter 中同名端口组才视为同一网络。母机网卡连接的是 esxi01 的 `VM Network`；台账中 esxi02 的端口组一直为空。最可能的解释是 esxi02 没有同名端口组，或克隆向导中网络没有选到 esxi02 上的有效端口组，所以克隆后网卡没有后端网络。处理顺序：先只读对比 esxi01 与 esxi02 的虚拟交换机、上行链路和端口组（名称与 VLAN ID）；若 esxi02 的 vSwitch0 缺少 VM Network，就在同一 vSwitch0 上新增同名、同 VLAN 的虚拟机端口组，不修改 Management Network、vmk0 或上行链路；再为 seal-test-02 的网卡选择该端口组，并勾选「已连接」与「打开电源时连接」。新增端口组不改变唯一管理通道。
+
+IO 筛选器告警：这是 vCenter 的存储管理服务向 esxi02 注册 IO Filter VASA Provider 失败。本实验没有使用 IO 筛选器（虚拟机加密及第三方缓存/复制等会用到），因此它不阻塞克隆验证和节点准备。常见原因是 vCenter 与该主机之间的证书、时间或名称解析问题；第 5 节记录的 VCSA DNS 丢失是可能因素之一，但未证实。先只读检查三台主机中哪台有该告警、esxi02 的时间配置与证书有效期，以及 vCenter 存储提供程序列表中 esxi02 的状态；可选的低风险操作是在 esxi02 上重启 iofiltervpd 服务后同步存储提供程序。若仍反复出现，与 VCSA DNS/改名一起处理，不在节点主线上展开。
+
+seal-test-01 的第 43 节检查可以同时进行。尚无输出。
+
+## 45. 2026-10-16 继续：第一台克隆检查通过，待第二台对比
+
+用户报告两台测试克隆均已正常、跨宿主机 ping 通（ping 输出与 seal-test-02 的修复步骤未提供），回传了 192.168.9.30 一台的检查输出，未说明它是 seal-test-01 还是 seal-test-02。已归档 [克隆检查证据](evidence/00.04.03-clone-test-seal-test-01.txt)。
+
+该克隆首次开机已重新生成身份：machine-id db35c4b6…d7ec 与母机 journal 目录 id 6eda8862…bbbd 不同；SSH 主机密钥为新生成，Mac 首次连接显示的 ED25519 指纹与磁盘上密钥一致；DHCP 取得 .30，网关 .1，DNS 为路由器下发的 8.8.8.8 与 223.5.5.5。无失败单元；kdump 为 not-found，即系统未安装 kdump，第 41 节担心的 first-boot preset 不适用；kubelet disabled、Enforcing、running、containerd 与两镜像、RuntimeReady、chrony 均正常。
+
+两个观察：运行时文件系统在母机上是 /dev/sdb1，在克隆上变为 /dev/sda1，而挂载仍正确，因为 fstab 与 systemd 依赖按 UUID 指定——磁盘设备名在克隆后不稳定，台账与 OSD 映射只能用 UUID、SCSI 地址或序列号。登录提示中的 `Last login ... from 192.168.9.200` 来自母机的 wtmp/lastlog，封装未清理登录记录，属外观问题，补入封装清单。
+
+唯一性需两台对比才能下结论。下一组请用户在另一台执行第 43 节同一组检查，并在两台各执行 `lsblk -e7 -o NAME,SIZE,TYPE,HCTL,MOUNTPOINTS`，同时说明哪台是 .30、esxi02 网络如何修复（是否新建 VM Network 及 VLAN ID）、esxi02 所用 Datastore 名称与 IO 筛选器告警现状。尚无输出。
+
+## 46. 2026-10-16 继续：克隆与地址对应、esxi02 网络自行恢复
+
+用户确认 seal-test-01 为 192.168.9.30，seal-test-02 为 192.168.9.32；第 45 节证据文件已据此改名为 [seal-test-01 检查证据](evidence/00.04.03-clone-test-seal-test-01.txt)。seal-test-02 的「没有为该虚拟机分配网络」在用户等待后自行恢复，没有新建端口组或修改设置。可能是克隆或开机后 vCenter 清单、网络信息尚未同步，但未经证实；esxi02 端口组名称、VLAN 与 Datastore 仍未登记。
+
+seal-test-02 的检查输出与两台的 lsblk 仍未回传，唯一性尚不能下结论。下一组：在 seal-test-02 执行第 43 节同一组检查并加 `lsblk -e7 -o NAME,SIZE,TYPE,HCTL,MOUNTPOINTS`；在 seal-test-01 只执行 lsblk；从 vSphere 中 seal-test-02 的摘要页读取其数据存储与网络名称。尚无输出。
+
+## 47. 2026-10-16 继续：seal-test-02 用户报告正常；唯一性待最小对比
+
+用户报告 seal-test-02 的检查命令「执行都正确」，并说明其网络名与存储名「一样」，未回传输出。按本记录规则，该结果记为用户报告；唯一性需要两台的实际值对比，目前只有 seal-test-01 的证据。「一样」存在两种理解：与 esxi02 的名称一致，或与 seal-test-01 相同（VM Network、esxi01-sas10t5）。若数据存储也是 esxi01-sas10t5，说明 seal-test-02 可能实际运行在 esxi01，esxi02 的存储、CPU 与跨宿主网络就未被测到。需由用户在摘要页确认「主机」一栏。
+
+为减少往返，改用 Mac 上一条命令同时读取两台的四项身份值（machine-id、BIOS UUID、MAC、ED25519 指纹），用户输入两次密码即可；四行在两台之间都不同即通过，并请回传该输出存档。待执行：
+
+```bash
+for ip in 192.168.9.30 192.168.9.32; do echo "== $ip"; ssh root@$ip 'cat /etc/machine-id; cat /sys/class/dmi/id/product_uuid; cat /sys/class/net/ens33/address; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'; done
+```
+
+通过后的顺序：核对 esxi02/esxi03 的 VM Network 与本地 Datastore 名称 → 关机并从磁盘删除两台测试克隆 → 按 hosts.yaml 位置和 resources.yaml 规格克隆十台（不自定义操作系统，只改 vCPU/内存）→ 按手册第 5 节「先改一个节点并验证 SSH 回连，再小批量执行」，先只对 cp01 设置 FQDN 与静态地址。DNS 暂用 DHCP 下发并已验证可用的 8.8.8.8、223.5.5.5，不引用尚未部署的 .11；内部名称解析在 DNS 部署后补。路由器 DHCP 池 .30–.49 只有 20 个地址且与 Wi-Fi 共用，十台同时开机可能耗尽，按宿主机分批开机并改为静态地址；取不到地址时用网页控制台直接配置。尚无输出。
+
+## 48. 2026-10-16 继续：双克隆与 cp01（用户报告）；其余九台步骤
+
+用户报告：双克隆对比「没问题」，seal-test-02 的存储、主机、网卡「都对」「名字都一样」；cp01 已按第 47 节完成克隆、FQDN 与静态地址设置。均未回传输出。以下按用户报告记录：双克隆唯一性只有 seal-test-01 一侧证据；seal-test-02 实际所在主机与 esxi02 Datastore 名称仍不明确；cp01 的 hostname/IP/路由/DNS 检查无输出。台账 cp01 记为 cloned_hostname_static_ip_user_reported，actual_hypervisor 按用户报告填 esxi01；运行时盘 UUID 继承自模板，十台相同，属预期（每台是独立磁盘）。测试克隆是否已删除未说明。
+
+为不再逐台索取输出，改为十台完成后一次性取证：在 Mac 生成专用 SSH 密钥并分发到十台（保留现有 root 密码登录，不收紧），然后用一条命令批量读取身份、网络、运行时和安全状态，作为十节点矩阵证据；该密钥同时作为后续 Ansible 的连接方式。
+
+其余九台按 cp01 的方法逐台执行：先克隆（不开机），开机后取得 DHCP 地址；Mac 先 `ping` 确认目标静态地址未被占用；SSH 到 DHCP 地址后执行以下三条，并把第一行替换为该节点的值：
+
+```bash
+N=cp02; IP=192.168.9.102
+hostnamectl set-hostname "$N.k8s.internal.egon.top"
+nmcli connection modify ens33 ipv4.method manual ipv4.addresses "$IP/24" ipv4.gateway 192.168.9.1 ipv4.dns "8.8.8.8 223.5.5.5"
+nmcli connection up ens33
+```
+
+用新地址重新登录后检查 `hostnamectl --static; ip -br -4 address show ens33; ping -c 2 192.168.9.1; ping -c 2 192.168.9.101`，其中 ping cp01 用于验证跨宿主机互通。顺序先 cp02（esxi02 第一台正式节点）、cp03（esxi03 第一台），再其余。尚无输出。
+
+## 49. 2026-10-16 继续：十台改址完成（用户报告）；交付 node-readiness 批量取证
+
+用户报告十台节点均已克隆并配置 FQDN 与静态地址，未回传输出。台账九台节点状态同步为 cloned_hostname_static_ip_user_reported，clone_status 为 ten_nodes_cloned_user_reported。
+
+为把「用户报告」转为可复核证据、并避免逐台粘贴输出，本次交付手册第 2 节规划的只读检查与管理端汇总：
+
+- [node-readiness.sh](../../tests/smoke/node-readiness.sh)：在节点以 root 运行，只读采集身份、虚拟硬件、网络、安全基线、运行时盘、containerd/CRI、入群工具与失败单元，逐项输出 key=value；经 `ssh 'bash -s' <` 推送，节点上不留文件。
+- [collect-node-readiness.sh](../../scripts/collect-node-readiness.sh)：管理端用 ruby 标准库读取 hosts/resources/networks 台账与版本锁，为每台写期望值，以密钥和 BatchMode 采集，记录 SSH 退出码，默认输出到本批 evidence 下带时间戳的目录。
+- [summarize-node-readiness.py](../../scripts/summarize-node-readiness.py)：只读汇总为 matrix.md，每台 24 项检查与六个字段（machine-id、BIOS UUID、MAC、SSH ED25519、主机名、IPv4）的跨节点唯一性；采集失败的节点只报一次且不参与比对；任一不通过退出码为 1。
+
+本助手在 Mac 用模拟 ssh 做了本地验证（未连接节点）：全部正常的数据退出码 0、「全部通过」；注入不可达节点、重复 machine-id、错误 vCPU 与已启用 kubelet 时，四类问题均被列出、退出码 1。节点端脚本只做了 bash 语法检查，尚未在 Rocky 上运行，首次真实运行的输出即为其验证。
+
+取证前需要密钥登录：在 Mac 生成专用 ed25519 密钥（建议设置口令并加入钥匙串代理），用 ssh-copy-id 分发到十台 root，保留现有密码登录、不收紧 SSH。该密钥也作为后续 Ansible 的连接方式；改用专用管理账户与 sudo 仍按手册第 6 节在 node_base 中实施。以下待用户执行，尚无输出：
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/cnpl_lab_ed25519 -C "cnpl-lab-admin@MarioMacBook-Pro"
+ssh-add --apple-use-keychain ~/.ssh/cnpl_lab_ed25519
+for i in $(seq 101 110); do ssh-copy-id -i ~/.ssh/cnpl_lab_ed25519.pub root@192.168.9.$i || break; done
+for i in $(seq 101 110); do ssh -i ~/.ssh/cnpl_lab_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes root@192.168.9.$i hostname; done
+cd ~/SelfProject/cloud-native-platform-lab && ops/00-preparation/scripts/collect-node-readiness.sh
+```
+
+采集完成后由本助手直接读取输出目录的 matrix.md 与原始文件，不需要用户粘贴。
+
+## 50. 2026-10-16 十节点 node-readiness 首次实测：身份唯一，规格未调整
+
+用户按第 49 节分发密钥并运行收集脚本（密钥生成、分发与免密验证的输出未回传；采集本身以 BatchMode 成功即说明十台密钥登录可用）。本助手直接读取输出目录 [00.10.02-node-readiness-20261016-094918](evidence/00.10.02-node-readiness-20261016-094918/matrix.md)：十台 collect_exit 均为 0，这也是 node-readiness.sh 在 Rocky 上的首次真实运行，各项均有值，脚本可用。
+
+**通过**：六项身份字段在十台之间全部唯一（machine-id、BIOS UUID、MAC、SSH ED25519、主机名、IPv4），这同时补足了第 47–48 节双克隆对比只有单侧证据的缺口。十台主机名与台账 FQDN 一致，地址为 .101–.110/24 静态配置，网关 .1，DNS 8.8.8.8/223.5.5.5；VMXNET3 与 VMware Tools 正常；SELinux Enforcing、firewalld running、无 Swap、cgroup v2、ip_forward=1、overlay 已加载、chrony Normal；运行时盘按 UUID 1b36c022… 挂载为 xfs；containerd enabled/active，containerd v2.4.2、runc 1.5.2、crictl v1.36.0、kubeadm/kubelet/kubectl v1.36.5 与版本锁一致；RuntimeReady=true、NetworkReady=false；pause:3.10.2 存在；kubelet disabled；/etc/cni/net.d 为空。
+
+**未通过**：
+
+1. 十台 vCPU 均为 2、MemTotal 3908 MiB，即模板规格，未按 resources.yaml 调整为 cp 4/8、infra 6/12、storage 8/16、worker 8/16。第 47 节要求在克隆向导中「自定义此虚拟机的硬件」，实际没有生效或未执行。需逐台关机后在 vSphere 修改 CPU 与内存再开机；修改后 esxi01/02/03 预计分别占用 52/36/40 GiB，未超过各自物理内存。
+2. worker01 有失败单元 dnf-makecache.service。这是定时刷新软件源元数据的 oneshot 服务，其余九台没有。原因未查：可能是当时访问外部镜像源失败（母机已证实部分境外站点不可达），也可能是其他问题。先查看 `systemctl status dnf-makecache.service` 与本次开机日志后再 reset-failed，不能直接清除。
+
+**观察**：运行时盘在八台为 sdb、cp03 为 sda、infra02 的 SCSI host 号为 2，但十台的 SCSI 目标号/LUN 均为 1:0；挂载按 UUID 始终正确。台账为每台登记 runtime_disk_scsi_hctl 与 MAC，设备名不作为标识。十台都带有 1.9G 的 sr0，即模板安装时挂载的 ISO 仍连接在虚拟光驱上；调整规格时可一并改为客户端设备并取消「打开电源时连接」。
+
+台账十台状态更新为 identity_verified_resize_pending，clone_status 为 ten_nodes_cloned_identity_verified。规格调整并排查 worker01 后重跑收集脚本，以新的输出目录作为验收证据；本目录作为首次实测与失败记录保留。

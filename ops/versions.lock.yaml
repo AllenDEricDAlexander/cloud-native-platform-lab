@@ -68,6 +68,7 @@ components:
         metadata_verified_at: '2026-10-14'
         checksum_verified_at: '2026-10-14'
         local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/containerd.io-2.4.2-2.el10.x86_64.rpm
+        local_source_reverified_at: '2026-10-16'  # 曾缺失，自母机 scp 回传后 shasum -c OK
         signature_verified: true
         signature_verified_at: '2026-10-14'
         signature_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-runtime-disk-before.txt
@@ -75,7 +76,9 @@ components:
     compatibility_evidence: []
     execution_evidence:
       - ops/00-preparation/records/2026-10-14/evidence/00.10.02-containerd-install.txt
-    status: installed_unvalidated
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+    status: validated_on_template_host  # 母机重启前后 CRI 自测通过；十节点矩阵与 10.2 仓库路径待验
   runc:
     phase: "00"
     candidate: "1.5.2"
@@ -85,39 +88,219 @@ components:
     compatibility_evidence: []
     execution_evidence:
       - ops/00-preparation/records/2026-10-14/evidence/00.10.02-containerd-install.txt
-    status: installed_unvalidated
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+    status: validated_on_template_host  # 母机重启前后 CRI 自测通过；十节点矩阵与 10.2 仓库路径待验
   cri_tools:
     phase: "00"
-    candidate: null
-    version: null
-    artifacts: []
+    candidate: "1.36.0"
+    version: "1.36.0"
+    # 2026-10-16 选用 pkgs.k8s.io v1.36 签名 RPM，与 kubeadm/kubelet/kubectl 同一仓库与签名链；
+    # 同日核对的 GitHub tarball（sha256 83855e11…25a3）保留在执行记录第 30–31 节，未采用。
+    artifacts:
+      - name: cri-tools-1.36.0-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.0-150500.1.1
+        installs: [/usr/bin/crictl]
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/cri-tools-1.36.0-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/cri-tools-1.36.0-150500.1.1.x86_64.rpm
+        sha256: e622a370e92664907b660c7bd7af73831d3d8132be5616be8ec11581a7443970
+        size_bytes: 7805276
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml.key
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        signing_key_expires: '2026-12-29'
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-crictl-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+    status: validated_on_template_host  # 母机重启前后 CRI 自测通过；十节点矩阵与 10.2 仓库路径待验
   kubeadm:
     phase: "00"
     candidate: "1.36.5"
-    version: null
-    artifacts: []
+    version: "1.36.5"
+    artifacts:
+      - name: kubeadm-1.36.5-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.5-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubeadm-1.36.5-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubeadm-1.36.5-150500.1.1.x86_64.rpm
+        sha256: 0f857b25db48cb01e5c69dc1d02a1fc02c125a0d04a5cd58440a4e9adb631f5a
+        size_bytes: 12737484
+        requires: []
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    required_images_v1_36_5:  # kubeadm config images list --kubernetes-version v1.36.5，2026-10-16 母机输出；Digest 待 01 前锁定
+      - registry.k8s.io/kube-apiserver:v1.36.5
+      - registry.k8s.io/kube-controller-manager:v1.36.5
+      - registry.k8s.io/kube-scheduler:v1.36.5
+      - registry.k8s.io/kube-proxy:v1.36.5
+      - registry.k8s.io/coredns/coredns:v1.14.2
+      - registry.k8s.io/pause:3.10.2
+      - registry.k8s.io/etcd:3.6.8-0
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+    status: installed_unvalidated
   kubelet:
     phase: "00"
     candidate: "1.36.5"
-    version: null
-    artifacts: []
+    version: "1.36.5"
+    artifacts:
+      - name: kubelet-1.36.5-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.5-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubelet-1.36.5-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubelet-1.36.5-150500.1.1.x86_64.rpm
+        sha256: 15b55de802c19f1c5b89c065086ad8feec3430fd58da836300f51688ecbbb63b
+        size_bytes: 13521112
+        requires: ['kubernetes-cni >= 1.2.0', 'util-linux']
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+    status: installed_unvalidated  # 00 保持 disabled，01 由 kubeadm 引导时 enable
   kubectl:
     phase: "00"
     candidate: "1.36.5"
-    version: null
+    version: "1.36.5"
+    artifacts:
+      - name: kubectl-1.36.5-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.5-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubectl-1.36.5-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubectl-1.36.5-150500.1.1.x86_64.rpm
+        sha256: 9e406829bad036e45e08f6c49176f479c06d239cf64a96befa56f8b1b55a37fc
+        size_bytes: 11897980
+        requires: []
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+    status: installed_unvalidated
+  pause:
+    phase: "00"
+    candidate: "3.10.2"
+    version: "3.10.2"
+    reference: registry.k8s.io/pause:3.10.2
+    selected_by: containerd 2.4.2 effective pinned_images.sandbox（evidence/00.10.02-cri-runtime-status.txt）
+    artifacts:
+      - name: registry.k8s.io/pause:3.10.2
+        type: oci_image
+        architecture: linux/amd64
+        index_digest: sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4
+        platform_manifest_digest: sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17
+        config_digest: sha256:4a83b15d3ecfe0d916b2d0a7991bc2854a629b8097017c2ee1ff65b30ae4c07c
+        layer_digests: ['sha256:81ede36234b06d9a16771d804ef81ea888e29f8c425a5269e3d55d34a1b128a8']
+        source: https://registry.k8s.io/v2/pause/manifests/3.10.2
+        internal_source: null
+        metadata_verified_at: '2026-10-16'
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/pause-3.10.2-amd64.tar
+        local_archive_format: docker-archive（crane 0.22.1 tarball，RepoTags 保留完整名）
+        local_archive_sha256: a7061466662a39698d769c0a523904539c7e48499df38d98c9a4f2ec33469db6
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-image-import.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+    status: validated_on_template_host  # 母机重启前后 CRI 自测通过；十节点矩阵与 10.2 仓库路径待验
+  cri_smoke_image:
+    phase: "00"
+    candidate: "1.38.0-1"
+    version: "1.38.0-1"
+    reference: registry.k8s.io/e2e-test-images/busybox:1.38.0-1
+    purpose: 00.10.02 host-network CRI 自测，需要 /bin/sh；不进入业务或平台工作负载
+    artifacts:
+      - name: registry.k8s.io/e2e-test-images/busybox:1.38.0-1
+        type: oci_image
+        architecture: linux/amd64
+        index_digest: sha256:302d6221f7d600725e0f926f9f04f8fbbb2a32678b4e991da760a5062d4dc7e1
+        platform_manifest_digest: sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+        config_digest: sha256:45a1d298552b4ed95d21af416e729f4340ef42a54050de7e0aebb37c1bee9606
+        layer_digests: ['sha256:436a1b1fd078ee8e117111472724c2827077657189af7a781829d0825d48d2ab']
+        source: https://registry.k8s.io/v2/e2e-test-images/busybox/manifests/1.38.0-1
+        internal_source: null
+        metadata_verified_at: '2026-10-16'
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/busybox-1.38.0-1-amd64.tar
+        local_archive_format: docker-archive（crane 0.22.1 tarball，RepoTags 保留完整名）
+        local_archive_sha256: 2f116433c938819176fbbcb1996987a29b9f1aa0785bcbf134a51f8abf4f70a0
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-image-import.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+    status: validated_on_template_host  # 母机重启前后 CRI 自测通过；十节点矩阵与 10.2 仓库路径待验
+  image_export_tool:
+    phase: "00"
+    candidate: "crane 0.22.1"
+    version: "0.22.1"
+    runs_on: management Mac (arm64), Homebrew package crane
+    purpose: Harbor 之前把官方镜像导出为 docker-archive 种子；不进入节点
     artifacts: []
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-image-import.txt
+    status: installed_management_side
+  cni_plugins:
+    phase: "00"
+    candidate: "1.9.1"
+    version: "1.9.1"
+    note: kubelet RPM 硬依赖 kubernetes-cni，00 只安装 /opt/cni/bin 插件二进制与空的 /etc/cni/net.d，不写网络配置；Pod 网络由 01 的 Cilium 负责
+    artifacts:
+      - name: kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.9.1-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+        sha256: a228e611f547cf3554873c383078a7ff9abf289e5b7ae315cd38c3811804e2f7
+        size_bytes: 9255068
+        requires: []
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+    status: installed_unvalidated
   harbor:
     phase: "00"
     candidate: null
@@ -218,10 +401,11 @@ components:
 # digest 或 sha256；Chart 同时记录 Chart 版本和实际镜像；包记录完整版本及依赖。
 # 以下组件按首次使用阶段逐一提升为上方的完整锁定记录，不允许仅锁核心组件就部署扩展。
 pending_by_phase:
-  # pause 与 cri_smoke_image 由 00.10.02 的 host-network CRI 自测首次使用，
-  # 不能留到 01；image_export_tool 用于 Harbor 之前的种子导入路线。
-  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, ansible_collections, registry_runtime, pause, cri_smoke_image, image_export_tool]
-  "01": [etcd, coredns, cni_plugins, metrics_server]
+  # pause 与 cri_smoke_image 已于 2026-10-16 提升为上方 components 记录；
+  # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。
+  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, ansible_collections, registry_runtime]
+  # cni_plugins 因 kubelet RPM 依赖于 2026-10-16 提升到 00 的 components 记录。
+  "01": [etcd, coredns, metrics_server]
   "02": [istio, spire, ingress_comparison_controller]
   "03": [cloudnativepg, postgresql, redis, strimzi, kafka, rabbitmq_operator, rabbitmq, nats, mysql, eck, elasticsearch, operator_toolchain]
   "04": [gitlab_runner, jenkins, jenkins_plugins, buildkit, argocd, argo_rollouts, helm, kustomize, cosign, kyverno, backstage, crossplane, tekton, flux, dragonfly, prometheus_minimal]

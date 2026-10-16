@@ -1,0 +1,29 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output
+guest_log_time: E1016 19:42:16 (guest clock)
+exit_codes: not provided; runp ended with FATA
+input: /root/lab-cri-smoke/sandbox.json as given in assets.md section 35 (attempt 1, no linux.cgroup_parent)
+
+command: SANDBOX_ID=$(crictl runp sandbox.json); echo "SANDBOX_ID=$SANDBOX_ID"
+output:
+WARN[0000] cgroup_parent is not set. Use `runtime-config` to get the runtime cgroup driver
+E1016 19:42:16.311522    2368 remote_runtime.go:237] "RunPodSandbox from runtime service failed" err="rpc error: code = Unknown desc = failed to start sandbox \"51242c19c9e426ab440003c3b4f6ea353832e1027e823395aef8fc5464c0ff0a\": failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: expected cgroupsPath to be of format \"slice:prefix:name\" for systemd cgroups, got \"/k8s.io/51242c19c9e426ab440003c3b4f6ea353832e1027e823395aef8fc5464c0ff0a\" instead"
+FATA[0000] run pod sandbox: rpc error: code = Unknown desc = failed to start sandbox "51242c19c9e426ab440003c3b4f6ea353832e1027e823395aef8fc5464c0ff0a": failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: expected cgroupsPath to be of format "slice:prefix:name" for systemd cgroups, got "/k8s.io/51242c19c9e426ab440003c3b4f6ea353832e1027e823395aef8fc5464c0ff0a" instead
+SANDBOX_ID=
+
+command: crictl pods
+output:
+POD ID              CREATED             STATE               NAME                NAMESPACE           ATTEMPT             RUNTIME
+
+command: crictl inspectp "$SANDBOX_ID" | jq '.status.linux.namespaces.options'
+output:
+FATA[0000] get the status of pod sandboxes: get pod sandbox status: rpc error: code = Unknown desc = an error occurred when try to find sandbox: prefix can't be empty
+
+command: ps -eZ | grep '[p]ause'
+output: (none)
+
+cause: Test input defect. containerd runs runc with SystemdCgroup=true, so runc requires cgroupsPath "slice:prefix:name". kubelet always supplies a .slice cgroup_parent; the hand-written sandbox.json did not, so containerd fell back to the cgroupfs-style path "/k8s.io/<id>" and runc rejected it.
+not_a_runtime_defect: The rejection confirms the systemd cgroup driver is active as configured.
+consequence: Empty SANDBOX_ID caused the inspectp error. crictl pods lists no leftover sandbox.

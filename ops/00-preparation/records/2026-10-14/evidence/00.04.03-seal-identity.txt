@@ -1,0 +1,50 @@
+recorded_date: 2026-10-16
+step: 00.04.03 (template sealing, group 3 of assets.md section 41)
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output; user believed the group had failed
+exit_codes: not provided
+not_returned: outputs of section 41 groups 1 and 2 (checksig evidence, sshd-keygen wiring, DHCP switch, cleanup)
+
+command: truncate -s 0 /etc/machine-id
+command: rm -f /var/lib/systemd/random-seed /var/lib/NetworkManager/secret_key /var/lib/NetworkManager/*.lease
+command: journalctl --rotate && journalctl --vacuum-time=1s
+output:
+Deleted archived journal /run/log/journal/6eda886282d9466182f6f6b920a99bbd/system@a39ca484aca8443a8ce21cec003383c8-0000000000000001-00065df3c18f40e8.journal (1.3M).
+Vacuuming done, freed 1.3M of archived journals from /run/log/journal/6eda886282d9466182f6f6b920a99bbd.
+Vacuuming done, freed 0B of archived journals from /run/log/journal.
+
+command: dnf clean all
+output:
+18 files removed
+
+command: rm -f /etc/ssh/ssh_host_*
+command: unset HISTFILE; rm -f /root/.bash_history
+command: ls -l /etc/machine-id; ls /etc/ssh/ssh_host_* 2>&1
+output:
+-r--r--r--. 1 root root 0 Oct 16 20:20 /etc/machine-id
+ls: cannot access '/etc/ssh/ssh_host_*': No such file or directory
+
+result: Group 3 succeeded as designed. machine-id is 0 bytes; SSH host keys are gone (the ls "No such file or directory" is the expected confirmation, not a failure).
+observation: The journal lives under /run/log/journal (volatile, tmpfs); /var/log/journal is not in use, so logs do not survive reboot on this template. Not changed during sealing; to be handled by node_base (persistent journal with size limits from the capacity budget, manual section 6).
+pending: confirm groups 1-2 were executed in this same session; poweroff; snapshot sealed-2026-10-16.
+
+## Follow-up in the same session (assets.md section 42)
+command: nmcli -g ipv4.method,ipv4.addresses connection show ens33
+output:
+auto
+(ipv4.addresses: empty)
+
+command: ls -d /root/lab-cri-smoke /var/log/phase00-cri /root/lab-artifacts /root/lab-evidence 2>&1
+output:
+ls: cannot access '/root/lab-cri-smoke': No such file or directory
+ls: cannot access '/var/log/phase00-cri': No such file or directory
+ls: cannot access '/root/lab-artifacts': No such file or directory
+ls: cannot access '/root/lab-evidence': No such file or directory
+
+command: systemctl show -p Wants sshd-keygen.target
+output:
+Wants=sshd-keygen@ecdsa.service sshd-keygen@ed25519.service sshd-keygen@rsa.service
+
+user_reported: poweroff completed; vSphere snapshot sealed-2026-10-16 taken (task results not provided).
+result: Group 2 effects confirmed (DHCP profile, lab files removed); host keys will be regenerated through sshd-keygen.target on first boot. Template sealed and powered off.
+gap: Section 41 group 1 output (sha256sum/checksig -v on the RPM files, gpg-pubkey list) was never returned and the files are now removed from the guest; package-file signature evidence for cri-tools and the four Kubernetes RPMs remains open (Mac seed copies and signed repo metadata still exist).

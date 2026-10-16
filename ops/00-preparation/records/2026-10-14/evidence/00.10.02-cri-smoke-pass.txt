@@ -1,0 +1,76 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output (full session paste)
+execution_time: not provided (crictl showed "Less than a second ago")
+exit_codes: not provided
+route: ops/00-preparation/README.md 10.1 seed import + 10.3 host-network smoke
+attempt: 2 (attempt 1 failed on missing cgroup_parent, see 00.10.02-cri-smoke-runp-failure.txt)
+
+input sandbox.json:
+{
+  "metadata": {"name": "phase00-cri-smoke", "namespace": "phase00", "uid": "phase00-cri-smoke", "attempt": 2},
+  "log_directory": "/var/log/phase00-cri",
+  "linux": {
+    "cgroup_parent": "phase00.slice",
+    "security_context": {"namespace_options": {"network": 2}}
+  }
+}
+input container.json: as in assets.md section 35 (image registry.k8s.io/e2e-test-images/busybox:1.38.0-1, command /bin/sh -c "echo phase00-cri-ok")
+check: jq . sandbox.json -> json-ok
+
+command: SANDBOX_ID=$(crictl runp sandbox.json); echo "SANDBOX_ID=$SANDBOX_ID"
+output:
+SANDBOX_ID=c928451e94377badd9056ffcbc85732ddf6e58137ceba88a3df4bbbec90c296b
+
+command: crictl pods
+output:
+POD ID              CREATED                  STATE               NAME                NAMESPACE           ATTEMPT             RUNTIME
+c928451e94377       Less than a second ago   Ready               phase00-cri-smoke   phase00             2                   (default)
+
+command: crictl inspectp "$SANDBOX_ID" | jq '.status.linux.namespaces.options'
+output:
+{
+  "ipc": "POD",
+  "network": "NODE",
+  "pid": "POD",
+  "targetId": ""
+}
+
+command: ps -eZ | grep '[p]ause'
+output:
+system_u:system_r:container_t:s0:c961,c999 2478 ? 00:00:00 pause
+
+command: CONTAINER_ID=$(crictl create "$SANDBOX_ID" container.json sandbox.json); echo "CONTAINER_ID=$CONTAINER_ID"
+output:
+CONTAINER_ID=8159cd15fb42ac3466ac88632911d3015e4e531a2817e42fe7ff834dff4717bf
+
+command: crictl start "$CONTAINER_ID"
+output:
+8159cd15fb42ac3466ac88632911d3015e4e531a2817e42fe7ff834dff4717bf
+
+command: crictl ps -a
+output:
+CONTAINER           IMAGE                                              CREATED                  STATE               NAME                ATTEMPT             POD ID              POD                 NAMESPACE
+8159cd15fb42a       registry.k8s.io/e2e-test-images/busybox:1.38.0-1   Less than a second ago   Running             smoke               1                   c928451e94377       unknown             unknown
+
+command: crictl logs "$CONTAINER_ID"
+output:
+phase00-cri-ok
+
+command: crictl inspect "$CONTAINER_ID" | jq '.status | {state, exitCode, reason}'
+output:
+{
+  "state": "CONTAINER_EXITED",
+  "exitCode": 0,
+  "reason": "Completed"
+}
+
+command: ausearch -m AVC -ts recent
+output:
+<no matches>
+
+result: PASS (pre-reboot). Sandbox Ready with host network (NODE); pause confined as container_t with MCS c961,c999 under Enforcing; container ran, logged phase00-cri-ok, exited 0/Completed; no AVC in the recent window.
+interpretation: "Running" in crictl ps -a is a snapshot taken immediately after start, before the echo finished; inspect afterwards shows EXITED. POD/NAMESPACE "unknown" in ps -a is because container.json carries no io.kubernetes.pod.* labels (kubelet adds them); not a failure.
+not_proven: Behaviour after reboot; registry pull path (10.2, needs Harbor); CNI pod networking (Phase 01).
+pending: cleanup of container/sandbox; reboot revalidation and post-reboot smoke.

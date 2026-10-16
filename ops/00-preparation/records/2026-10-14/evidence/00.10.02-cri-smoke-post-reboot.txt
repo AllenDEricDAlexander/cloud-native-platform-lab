@@ -1,0 +1,65 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output (full session paste)
+exit_codes: not provided
+attempt: 3 (post-reboot)
+
+command: uptime -s
+output:
+2026-10-16 19:49:21
+
+command: crictl pods; crictl ps -a
+output:
+POD ID              CREATED             STATE               NAME                NAMESPACE           ATTEMPT             RUNTIME
+CONTAINER           IMAGE               CREATED             STATE               NAME                ATTEMPT             POD ID              POD                 NAMESPACE
+
+command: cd /root/lab-cri-smoke && sed -i 's/"attempt": 2/"attempt": 3/' sandbox.json && grep -o '"attempt": [0-9]' sandbox.json
+output:
+"attempt": 3
+
+command: SANDBOX_ID=$(crictl runp sandbox.json); echo "SANDBOX_ID=$SANDBOX_ID"
+output:
+SANDBOX_ID=bdc2028cd1bb424c36077e0d3f010b2f5bc45725d6ca6cc4192b02b1643bf954
+
+command: ps -eZ | grep '[p]ause'
+output:
+system_u:system_r:container_t:s0:c692,c750 1180 ? 00:00:00 pause
+
+command: CONTAINER_ID=$(crictl create "$SANDBOX_ID" container.json sandbox.json); echo "CONTAINER_ID=$CONTAINER_ID"
+output:
+CONTAINER_ID=30673c5fdb929839adda38c4a59f2ba7cc3c569bbc45da6fb3f2f4ccb286af0f
+
+command: crictl start "$CONTAINER_ID"; sleep 2
+output:
+30673c5fdb929839adda38c4a59f2ba7cc3c569bbc45da6fb3f2f4ccb286af0f
+
+command: crictl logs "$CONTAINER_ID"
+output:
+phase00-cri-ok
+
+command: crictl inspect "$CONTAINER_ID" | jq '.status | {state, exitCode, reason}'
+output:
+{
+  "state": "CONTAINER_EXITED",
+  "exitCode": 0,
+  "reason": "Completed"
+}
+
+command: ausearch -m AVC -ts recent
+output:
+<no matches>
+
+command: crictl rm "$CONTAINER_ID"; crictl stopp "$SANDBOX_ID"; crictl rmp "$SANDBOX_ID"
+output:
+30673c5fdb929839adda38c4a59f2ba7cc3c569bbc45da6fb3f2f4ccb286af0f
+Stopped sandbox bdc2028cd1bb424c36077e0d3f010b2f5bc45725d6ca6cc4192b02b1643bf954
+Removed sandbox bdc2028cd1bb424c36077e0d3f010b2f5bc45725d6ca6cc4192b02b1643bf954
+
+command: crictl ps -a; crictl pods
+output:
+CONTAINER           IMAGE               CREATED             STATE               NAME                ATTEMPT             POD ID              POD                 NAMESPACE
+POD ID              CREATED             STATE               NAME                NAMESPACE           ATTEMPT             RUNTIME
+
+result: PASS (post-reboot). Boot at 19:49:21 is after the 19:42 runp failure and the pre-reboot pass; no sandbox/container survived the earlier cleanup. Smoke passed again with a new MCS pair (c692,c750 vs c961,c999), exit 0, no AVC. Cleanup left no CRI objects.
+scope: Template host only. Registry pull (10.2), CNI pod networking (01) and the 10-node matrix remain open.

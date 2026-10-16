@@ -1,0 +1,40 @@
+recorded_date: 2026-10-16
+step: 00.10.02
+host: rocky10-base (192.168.9.9)
+source: user-provided terminal output
+execution_time: not provided
+exit_codes: not provided
+precondition: /etc/crictl.yaml written per ops/00-preparation/README.md section 9 (write command output not returned)
+
+command: crictl info | jq '.status.conditions'
+output:
+[
+  {
+    "message": "",
+    "reason": "",
+    "status": true,
+    "type": "RuntimeReady"
+  },
+  {
+    "message": "Network plugin returns error: cni plugin not initialized",
+    "reason": "NetworkPluginNotReady",
+    "status": false,
+    "type": "NetworkReady"
+  },
+  {
+    "message": "",
+    "reason": "",
+    "status": true,
+    "type": "ContainerdHasNoDeprecationWarnings"
+  }
+]
+
+command: containerd config dump | grep -A2 'pinned_images'
+output:
+WARN[0000] Configuration migrated from version 3, use `containerd config migrate` to avoid migration  t="25.19µs"
+    [plugins.'io.containerd.cri.v1.images'.pinned_images]
+      sandbox = 'registry.k8s.io/pause:3.10.2'
+
+scope: CRI runtime/network conditions and effective sandbox image reference only.
+interpretation: NetworkReady=false is the expected Phase 00 boundary (no CNI installed). The migration WARN is the same auto-migration notice seen in section 22; it is not a deprecation warning (ContainerdHasNoDeprecationWarnings=true).
+pending: Sandbox and smoke images not yet present; host-network sandbox and container smoke test not yet executed.

@@ -1,0 +1,35 @@
+# 由 Ansible gitlab 角色管理（ops/00-preparation/ansible/roles/gitlab），请勿手改。
+# 只写与默认值不同的设置；全部选项见 /opt/gitlab/etc/gitlab.rb.template。
+external_url 'https://{{ gitlab_fqdn }}'
+
+# TLS：内部 CA 签发的证书（含中间 CA 的证书链）；不使用 Let's Encrypt。
+letsencrypt['enable'] = false
+nginx['redirect_http_to_https'] = true
+nginx['ssl_certificate'] = '/etc/gitlab/ssl/{{ gitlab_fqdn }}.crt'
+nginx['ssl_certificate_key'] = '/etc/gitlab/ssl/{{ gitlab_fqdn }}.key'
+
+gitlab_rails['time_zone'] = 'Asia/Shanghai'
+gitlab_rails['gitlab_shell_ssh_port'] = 22
+gitlab_rails['usage_ping_enabled'] = false
+
+# 容器镜像仓库由 Harbor 负责；Pages 与内置 Prometheus 监控在本实验中不使用。
+registry['enable'] = false
+gitlab_pages['enable'] = false
+prometheus_monitoring['enable'] = false
+
+# 出站请求经 OpenWrt 显式代理，内部地址直连（00.06.02）。
+gitlab_rails['env'] = {
+  'http_proxy' => '{{ gitlab_outbound_proxy }}',
+  'https_proxy' => '{{ gitlab_outbound_proxy }}',
+  'no_proxy' => '{{ gitlab_no_proxy }}'
+}
+gitlab_workhorse['env'] = {
+  'http_proxy' => '{{ gitlab_outbound_proxy }}',
+  'https_proxy' => '{{ gitlab_outbound_proxy }}',
+  'no_proxy' => '{{ gitlab_no_proxy }}'
+}
+gitaly['env'] = {
+  'http_proxy' => '{{ gitlab_outbound_proxy }}',
+  'https_proxy' => '{{ gitlab_outbound_proxy }}',
+  'no_proxy' => '{{ gitlab_no_proxy }}'
+}

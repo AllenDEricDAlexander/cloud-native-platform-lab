@@ -1,0 +1,18 @@
+# Nexus Repository Community Edition（00.09.04）：官方 Linux 安装包（自带 JDK 21），nginx 以内部证书提供 HTTPS。
+# 版本与校验值见 versions.lock.yaml nexus。
+nexus_version: 3.96.4-01
+nexus_tarball: nexus-{{ nexus_version }}-linux-x86_64.tar.gz
+nexus_tarball_sha256: b4be574def830eeef97ca13fe206c458ba0a60631af441e8b128231ad7e002d0
+nexus_download_url: https://download.sonatype.com/nexus/3/{{ nexus_tarball }}
+# 下载与 Nexus 自身的出站访问经 OpenWrt 显式代理。
+nexus_outbound_proxy: http://192.168.9.10:7890
+nexus_install_parent: /opt
+nexus_home: "{{ nexus_install_parent }}/nexus-{{ nexus_version }}"
+# 数据目录 = 数据盘挂载点（host_vars 的 data_disk_path）下的 nexus3；启动脚本按 ../sonatype-work/nexus3 解析。
+nexus_work_dir: "{{ nexus_install_parent }}/sonatype-work"
+nexus_data_dir: "{{ nexus_work_dir }}/nexus3"
+nexus_fqdn: "{{ node_fqdn }}"
+nexus_tls_dir_local: "{{ lookup('ansible.builtin.env', 'HOME') }}/cnpl-pki/intermediate/issued/{{ nexus_fqdn }}"
+nexus_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+nexus_admin_password: "{{ lookup('ansible.builtin.password', nexus_secrets_dir ~ '/nexus_admin_password', length=24, chars=['ascii_letters', 'digits']) }}"
+nexus_allowed_clients: ["192.168.9.0/24"]

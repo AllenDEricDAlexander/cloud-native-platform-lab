@@ -16,6 +16,7 @@
         ipv4.dns-search "{{ node_dns_search | join(' ') }}"
         ipv6.ignore-auto-dns yes
       when: node_dns_current.stdout_lines != [node_dns_servers | join(','), node_dns_search | join(','), 'yes']
+      register: node_dns_modify
       notify: 重新应用网络连接
 
     - name: 让 DNS 设置立即生效
@@ -33,11 +34,31 @@
       changed_when: false
       check_mode: false
 
+    # reapply 不会清除已从路由器 RA 学到的 IPv6 DNS（执行记录第 86 节）。本次刚修改设置且仍有多余条目时，
+    # 在后台重新激活连接（静态地址不变，只有短暂中断），等 SSH 恢复后再读一次。
+    - name: 重新激活连接以清除已学到的 IPv6 DNS（后台执行，不中断当前任务）
+      ansible.builtin.shell: nohup sh -c 'sleep 2; nmcli connection up {{ node_network_connection }}' >/dev/null 2>&1 &
+      when: node_resolv.stdout_lines != node_dns_servers and node_dns_modify is changed
+      register: node_dns_reactivated
+
+    - name: 等待连接恢复
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: 120
+      when: node_dns_reactivated is changed
+
+    - name: 重新激活后再次读取 resolv.conf
+      ansible.builtin.command: awk '/^nameserver/ {print $2}' /etc/resolv.conf
+      register: node_resolv_after
+      changed_when: false
+      when: node_dns_reactivated is changed
+
     - name: 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）
       ansible.builtin.assert:
-        that: node_resolv.stdout_lines == node_dns_servers
+        that: resolv_now == node_dns_servers
         fail_msg: >-
-          resolv.conf 为 {{ node_resolv.stdout_lines | join(',') }}。若本次刚设置 ipv6.ignore-auto-dns：
-          reapply 不会清除已从路由器 RA 学到的 IPv6 DNS，连接重新激活或重启后才清除（执行记录第 86 节），
-          请执行 reboot-nodes.yml 后重跑本标签。
+          resolv.conf 为 {{ resolv_now | join(',') }}。已从路由器 RA 学到的 IPv6 DNS 需要连接重新激活或重启后
+          才清除（执行记录第 86 节）；请执行 reboot-nodes.yml 后重跑本标签。
         quiet: true
+      vars:
+        resolv_now: "{{ node_resolv_after.stdout_lines if node_resolv_after is not skipped else node_resolv.stdout_lines }}"

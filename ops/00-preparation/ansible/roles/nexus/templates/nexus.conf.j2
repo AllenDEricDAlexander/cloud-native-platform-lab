@@ -1,0 +1,30 @@
+# 由 Ansible nexus 角色管理（ops/00-preparation/ansible/roles/nexus），请勿手改。
+# Nexus 只监听 127.0.0.1:8081，对外由 nginx 以内部 CA 证书提供 HTTPS。
+server {
+    listen 80;
+    server_name {{ nexus_fqdn }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name {{ nexus_fqdn }};
+
+    ssl_certificate     /etc/nginx/tls/{{ nexus_fqdn }}.crt;
+    ssl_certificate_key /etc/nginx/tls/{{ nexus_fqdn }}.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # 组件上传（Maven、npm 等）可能较大；代理仓库首次拉取上游时等待较久。
+    client_max_body_size 4g;
+    proxy_read_timeout   300s;
+    proxy_send_timeout   300s;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}

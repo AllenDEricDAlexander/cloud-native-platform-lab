@@ -1,0 +1,289 @@
+
+PLAY [服务 VM 基线] ************************************************************
+
+TASK [service_vm : 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）] ******
+skipping: [nexus]
+skipping: [backup]
+
+TASK [service_vm : 移除 crictl 配置（保留 containerd 的服务 VM）] **************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+changed: [backup]
+changed: [nexus]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+changed: [nexus]
+changed: [backup]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+changed: [backup]
+changed: [nexus]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+changed: [nexus] => (item=/etc/containerd)
+changed: [backup] => (item=/etc/containerd)
+changed: [backup] => (item=/etc/systemd/system/containerd.service.d)
+changed: [nexus] => (item=/etc/systemd/system/containerd.service.d)
+changed: [backup] => (item=/etc/crictl.yaml)
+changed: [nexus] => (item=/etc/crictl.yaml)
+changed: [backup] => (item=/etc/modules-load.d/90-kubernetes.conf)
+changed: [nexus] => (item=/etc/modules-load.d/90-kubernetes.conf)
+changed: [nexus] => (item=/etc/sysctl.d/90-kubernetes.conf)
+changed: [backup] => (item=/etc/sysctl.d/90-kubernetes.conf)
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [backup] => (item=vmtoolsd)
+ok: [nexus] => (item=vmtoolsd)
+ok: [backup] => (item=chronyd)
+ok: [nexus] => (item=chronyd)
+ok: [backup] => (item=firewalld)
+ok: [nexus] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [backup]
+ok: [nexus]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [nexus] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [backup] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [backup]
+changed: [nexus]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [nexus] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [backup] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [nexus] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [backup] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [backup] => (item=lab-mgmt: 192.168.9.200)
+changed: [nexus] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [service_vm : 服务 VM 重新加载 systemd] ************************
+ok: [nexus]
+ok: [backup]
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [nexus] => (item=cockpit)
+changed: [backup] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+RUNNING HANDLER [node_base : 重启 journald 并转存运行时日志] *******************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+RUNNING HANDLER [node_base : 更新系统信任] *************************************
+changed: [nexus]
+changed: [backup]
+
+RUNNING HANDLER [node_base : 重新应用网络连接] *********************************
+changed: [nexus]
+changed: [backup]
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [backup] => (item=harbor.k8s.internal.egon.top)
+ok: [nexus] => (item=harbor.k8s.internal.egon.top)
+ok: [backup] => (item=rockylinux.org)
+ok: [nexus] => (item=rockylinux.org)
+
+TASK [node_base : 读取 resolv.conf 中的 nameserver] ****************************
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : 重新激活连接以清除已学到的 IPv6 DNS（后台执行，不中断当前任务）] ***
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 等待连接恢复] ************************************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 重新激活后再次读取 resolv.conf] ******************************
+skipping: [nexus]
+skipping: [backup]
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+ok: [nexus]
+ok: [backup]
+
+TASK [node_base : dnf 使用显式代理] ********************************************
+changed: [nexus]
+changed: [backup]
+
+TASK [data_disk : 数据盘参数齐全] **********************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [data_disk : 已带标签的数据盘] ********************************************
+ok: [backup]
+ok: [nexus]
+
+TASK [data_disk : 列出磁盘] ****************************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [data_disk : 候选必须恰好一块：容量等于台账值、无分区、无文件系统] ********
+ok: [nexus]
+ok: [backup]
+
+TASK [data_disk : 不是恰好一块时停止，不猜测设备] ******************************
+ok: [nexus] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [backup] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [data_disk : 格式化数据盘（XFS，带标签）] *********************************
+changed: [nexus]
+changed: [backup]
+
+TASK [data_disk : 读取数据盘 UUID] *********************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [data_disk : 按 UUID 挂载] ************************************************
+changed: [nexus]
+changed: [backup]
+
+TASK [data_disk : 挂载点按策略恢复 SELinux 标签] *******************************
+changed: [nexus]
+changed: [backup]
+
+TASK [数据盘已挂载] ************************************************************
+ok: [nexus]
+ok: [backup]
+
+TASK [显示挂载] ****************************************************************
+ok: [nexus] => {
+    "msg": "/opt/sonatype-work: /dev/sdc xfs rw,nosuid,nodev,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota"
+}
+ok: [backup] => {
+    "msg": "/srv/backup: /dev/sdc xfs rw,nosuid,nodev,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota"
+}
+
+PLAY RECAP *********************************************************************
+backup                     : ok=45   changed=20   unreachable=0    failed=0    skipped=14   rescued=0    ignored=0   
+nexus                      : ok=45   changed=20   unreachable=0    failed=0    skipped=14   rescued=0    ignored=0   
+

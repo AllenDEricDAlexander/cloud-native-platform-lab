@@ -1,0 +1,164 @@
+- name: 管理端口令目录（仓库之外）
+  ansible.builtin.file:
+    path: "{{ gitlab_secrets_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: 内部证书已签发（管理端先运行 issue-cert.sh）
+  ansible.builtin.stat:
+    path: "{{ gitlab_tls_dir_local }}/fullchain.crt"
+  register: gitlab_cert_local
+  delegate_to: localhost
+  become: false
+
+- name: 缺少证书时停止
+  ansible.builtin.assert:
+    that: gitlab_cert_local.stat.exists
+    fail_msg: "未找到 {{ gitlab_tls_dir_local }}/fullchain.crt，请先执行 issue-cert.sh {{ gitlab_fqdn }} {{ ansible_host }}"
+    quiet: true
+
+# ---------- 软件源与签名 ----------
+- name: 传输签名公钥
+  ansible.builtin.copy:
+    src: "{{ item.file }}"
+    dest: /etc/pki/rpm-gpg/{{ item.file }}
+    mode: "0644"
+  loop: "{{ gitlab_gpg_keys }}"
+  loop_control:
+    label: "{{ item.fingerprint }}"
+
+- name: 导入签名公钥（按指纹核对）
+  ansible.builtin.rpm_key:
+    key: /etc/pki/rpm-gpg/{{ item.file }}
+    fingerprint: "{{ item.fingerprint }}"
+  loop: "{{ gitlab_gpg_keys }}"
+  loop_control:
+    label: "{{ item.fingerprint }}"
+
+- name: GitLab CE 软件源（软件包与仓库元数据都验签；经 dnf 全局代理下载）
+  ansible.builtin.yum_repository:
+    name: gitlab_gitlab-ce
+    description: GitLab CE (el/10)
+    baseurl: https://packages.gitlab.com/gitlab/gitlab-ce/el/10/$basearch
+    gpgcheck: true
+    repo_gpgcheck: true
+    gpgkey: "{{ gitlab_gpg_keys | map(attribute='file') | map('regex_replace', '^', 'file:///etc/pki/rpm-gpg/') | list }}"
+    sslverify: true
+    metadata_expire: "300"
+    enabled: true
+
+# ---------- 配置（先于安装写入，第一次 reconfigure 即使用正式配置） ----------
+- name: 配置目录
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/gitlab, mode: "0775"}
+    - {path: /etc/gitlab/ssl, mode: "0755"}
+    - {path: /etc/gitlab/trusted-certs, mode: "0755"}
+
+# 该文件只阻止「升级」时的自动 reconfigure。首次安装时，gitlab.rb 已有 external_url，软件包仍会自动执行
+# 一次 reconfigure，并生成随机 root 口令（执行记录第 95 节），root 口令因此由下面的单独任务设置。
+- name: 升级时不自动 reconfigure
+  ansible.builtin.copy:
+    dest: /etc/gitlab/skip-auto-reconfigure
+    content: ""
+    mode: "0644"
+
+- name: 传输证书链与私钥（私钥 0600）
+  ansible.builtin.copy:
+    src: "{{ gitlab_tls_dir_local }}/{{ item.src }}"
+    dest: /etc/gitlab/ssl/{{ gitlab_fqdn }}.{{ item.ext }}
+    mode: "{{ item.mode }}"
+  loop:
+    - {src: fullchain.crt, ext: crt, mode: "0644"}
+    - {src: server.key, ext: key, mode: "0600"}
+  loop_control:
+    label: "{{ item.ext }}"
+  diff: false
+  notify: 重新配置 GitLab
+
+# GitLab 内置的 OpenSSL 不读系统信任，访问内部 HTTPS 服务（Harbor、Nexus）需要单独信任根 CA。
+- name: 信任内部根 CA
+  ansible.builtin.copy:
+    src: "{{ gitlab_root_ca }}"
+    dest: /etc/gitlab/trusted-certs/cnpl-lab-root-ca.crt
+    mode: "0644"
+  notify: 重新配置 GitLab
+
+- name: gitlab.rb
+  ansible.builtin.template:
+    src: gitlab.rb.j2
+    dest: /etc/gitlab/gitlab.rb
+    mode: "0600"
+  notify: 重新配置 GitLab
+
+# ---------- 安装与首次配置 ----------
+- name: 安装 GitLab CE（约 1.1 GB，经代理下载；安装后软件包自动执行首次 reconfigure）
+  ansible.builtin.dnf:
+    name: "{{ gitlab_package }}"
+    state: present
+  async: 3600
+  poll: 15
+
+# 软件包通常已完成首次 reconfigure；这里确保至少成功执行过一次（以标记文件判断），不传口令、不隐藏输出。
+- name: 确保至少完成一次 reconfigure
+  ansible.builtin.shell: gitlab-ctl reconfigure && touch /etc/gitlab/.cnpl-first-reconfigure-done
+  args:
+    creates: /etc/gitlab/.cnpl-first-reconfigure-done
+  async: 3600
+  poll: 15
+  register: gitlab_first_reconfigure
+
+# root 口令设为管理端 ~/.cnpl-secrets/gitlab_root_password 的值，只执行一次（标记文件）；口令经环境变量传入。
+- name: 设置 root 口令为管理端保存的值（只执行一次，约 1 分钟）
+  ansible.builtin.shell: >-
+    gitlab-rails runner 'u = User.find_by_username("root");
+    u.password = u.password_confirmation = ENV.fetch("CNPL_GITLAB_ROOT_PASSWORD");
+    u.password_automatically_set = false; u.save!'
+    && touch /etc/gitlab/.cnpl-root-password-set
+  args:
+    creates: /etc/gitlab/.cnpl-root-password-set
+  environment:
+    CNPL_GITLAB_ROOT_PASSWORD: "{{ gitlab_root_password }}"
+  no_log: true
+
+- name: 删除安装时生成的初始口令文件（已不再有效）
+  ansible.builtin.file:
+    path: /etc/gitlab/initial_root_password
+    state: absent
+
+- name: root 口令与管理端保存的值一致（约 1 分钟）
+  ansible.builtin.command: >-
+    gitlab-rails runner 'puts User.find_by_username("root").valid_password?(ENV.fetch("CNPL_GITLAB_ROOT_PASSWORD"))'
+  environment:
+    CNPL_GITLAB_ROOT_PASSWORD: "{{ gitlab_root_password }}"
+  register: gitlab_root_check
+  changed_when: false
+  failed_when: gitlab_root_check.rc != 0 or gitlab_root_check.stdout_lines[-1:] != ['true']
+  no_log: true
+
+- name: 只对实验网段开放 HTTP（跳转到 HTTPS）与 HTTPS
+  ansible.posix.firewalld:
+    zone: "{{ node_firewall_zone | default('public') }}"
+    rich_rule: rule family="ipv4" source address="{{ item.0 }}" port port="{{ item.1 }}" protocol="tcp" accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ gitlab_allowed_clients | product(['80', '443']) | list }}"
+  loop_control:
+    label: "{{ item.0 }}:{{ item.1 }}"
+
+- name: 立即执行待处理的 reconfigure
+  ansible.builtin.meta: flush_handlers
+
+- name: 各组件运行中
+  ansible.builtin.command: gitlab-ctl status
+  register: gitlab_status
+  changed_when: false
+  retries: 12
+  delay: 10
+  until: gitlab_status.rc == 0

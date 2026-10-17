@@ -1,0 +1,234 @@
+- name: 管理端口令目录（仓库之外）
+  ansible.builtin.file:
+    path: "{{ nexus_secrets_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: 内部证书已签发（管理端先运行 issue-cert.sh）
+  ansible.builtin.stat:
+    path: "{{ nexus_tls_dir_local }}/fullchain.crt"
+  register: nexus_cert_local
+  delegate_to: localhost
+  become: false
+
+- name: 缺少证书时停止
+  ansible.builtin.assert:
+    that: nexus_cert_local.stat.exists
+    fail_msg: "未找到 {{ nexus_tls_dir_local }}/fullchain.crt，请先执行 issue-cert.sh {{ nexus_fqdn }} {{ ansible_host }}"
+    quiet: true
+
+- name: 数据目录必须是已挂载的数据盘（data_disk 角色）
+  ansible.builtin.command: findmnt -n -o TARGET {{ nexus_work_dir }}
+  changed_when: false
+
+# ---------- 安装 ----------
+- name: 运行账户 nexus（无登录 shell）
+  ansible.builtin.user:
+    name: nexus
+    system: true
+    home: "{{ nexus_work_dir }}"
+    create_home: false
+    shell: /sbin/nologin
+
+- name: 下载安装包（经代理，按版本锁 SHA256 校验）
+  ansible.builtin.get_url:
+    url: "{{ nexus_download_url }}"
+    dest: "{{ nexus_install_parent }}/{{ nexus_tarball }}"
+    checksum: "sha256:{{ nexus_tarball_sha256 }}"
+    mode: "0644"
+    timeout: 120
+  environment:
+    https_proxy: "{{ nexus_outbound_proxy }}"
+    http_proxy: "{{ nexus_outbound_proxy }}"
+
+# 安装包中的 sonatype-work/ 只有空的 log、tmp 目录，不解压，数据目录由下面的任务建立。
+- name: 解压程序目录（已存在则跳过）
+  ansible.builtin.unarchive:
+    src: "{{ nexus_install_parent }}/{{ nexus_tarball }}"
+    dest: "{{ nexus_install_parent }}"
+    remote_src: true
+    exclude: [sonatype-work]
+    creates: "{{ nexus_home }}/bin/nexus"
+
+- name: 当前版本链接 /opt/nexus
+  ansible.builtin.file:
+    src: "{{ nexus_home }}"
+    dest: "{{ nexus_install_parent }}/nexus"
+    state: link
+
+- name: 数据目录归 nexus 所有
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: nexus
+    group: nexus
+    mode: "0750"
+  loop:
+    - "{{ nexus_work_dir }}"
+    - "{{ nexus_data_dir }}"
+    - "{{ nexus_data_dir }}/etc"
+
+- name: 只监听本机（对外由 nginx 提供 HTTPS）
+  ansible.builtin.copy:
+    dest: "{{ nexus_data_dir }}/etc/nexus.properties"
+    owner: nexus
+    group: nexus
+    mode: "0640"
+    content: |
+      # 由 Ansible nexus 角色管理。
+      application-host=127.0.0.1
+      application-port=8081
+  notify: 重启 nexus
+
+- name: systemd 单元
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nexus.service
+    mode: "0644"
+    content: |
+      # 由 Ansible nexus 角色管理（ops/00-preparation/ansible/roles/nexus），请勿手改。
+      [Unit]
+      Description=Nexus Repository
+      After=network-online.target
+      Wants=network-online.target
+      RequiresMountsFor={{ nexus_work_dir }}
+
+      [Service]
+      Type=simple
+      User=nexus
+      Group=nexus
+      LimitNOFILE=65536
+      ExecStart={{ nexus_install_parent }}/nexus/bin/nexus run
+      Restart=on-failure
+      TimeoutStartSec=600
+      TimeoutStopSec=300
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: 重启 nexus
+
+- name: 开机启动并运行
+  ansible.builtin.systemd_service:
+    name: nexus
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: 立即应用待处理的重启
+  ansible.builtin.meta: flush_handlers
+
+- name: 等待 Nexus 就绪（首次启动约 1–3 分钟）
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8081/service/rest/v1/status
+    status_code: 200
+  register: nexus_status
+  retries: 60
+  delay: 10
+  until: nexus_status.status == 200
+
+# ---------- 管理员口令 ----------
+# 首次启动时 Nexus 把随机初始口令写入 admin.password；用它把 admin 口令改为管理端保存的值，成功后删除该文件。
+# 许可协议（EULA）与匿名访问由用户在网页首次登录时自行决定，本角色不代为接受。
+- name: 初始口令文件
+  ansible.builtin.stat:
+    path: "{{ nexus_data_dir }}/admin.password"
+  register: nexus_initial_password_file
+
+- name: 修改 admin 口令
+  when: nexus_initial_password_file.stat.exists
+  block:
+    - name: 读取初始口令
+      ansible.builtin.slurp:
+        src: "{{ nexus_data_dir }}/admin.password"
+      register: nexus_initial_password
+      no_log: true
+
+    - name: 用初始口令把 admin 口令改为管理端保存的值
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8081/service/rest/v1/security/users/admin/change-password
+        method: PUT
+        url_username: admin
+        url_password: "{{ nexus_initial_password.content | b64decode | trim }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: text/plain
+        body: "{{ nexus_admin_password }}"
+        status_code: 204
+      changed_when: true
+      no_log: true
+
+    - name: 删除已失效的初始口令文件
+      ansible.builtin.file:
+        path: "{{ nexus_data_dir }}/admin.password"
+        state: absent
+
+- name: admin 口令与管理端保存的值一致
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8081/service/rest/v1/status/check
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  no_log: true
+
+# ---------- HTTPS（nginx） ----------
+- name: 安装 nginx（经 dnf 代理）
+  ansible.builtin.dnf:
+    name: nginx
+    state: present
+
+- name: 证书目录
+  ansible.builtin.file:
+    path: /etc/nginx/tls
+    state: directory
+    mode: "0700"
+
+- name: 传输证书链与私钥（私钥 0600）
+  ansible.builtin.copy:
+    src: "{{ nexus_tls_dir_local }}/{{ item.src }}"
+    dest: /etc/nginx/tls/{{ nexus_fqdn }}.{{ item.ext }}
+    mode: "{{ item.mode }}"
+  loop:
+    - {src: fullchain.crt, ext: crt, mode: "0644"}
+    - {src: server.key, ext: key, mode: "0600"}
+  loop_control:
+    label: "{{ item.ext }}"
+  diff: false
+  notify: 重新加载 nginx
+
+- name: 反向代理配置
+  ansible.builtin.template:
+    src: nexus.conf.j2
+    dest: /etc/nginx/conf.d/nexus.conf
+    mode: "0644"
+  notify: 重新加载 nginx
+
+# 配置以 include 方式加载，无法单独校验片段；写入后检查完整配置，出错时停止，不重新加载。
+- name: nginx 配置语法检查
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+# SELinux 默认不允许 nginx（httpd_t）连接 8081；只打开这一项布尔值，不改变 Enforcing。
+- name: 允许 nginx 连接本机后端
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: true
+
+- name: nginx 开机启动并运行
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: 只对实验网段开放 HTTP（跳转到 HTTPS）与 HTTPS
+  ansible.posix.firewalld:
+    zone: "{{ node_firewall_zone | default('public') }}"
+    rich_rule: rule family="ipv4" source address="{{ item.0 }}" port port="{{ item.1 }}" protocol="tcp" accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ nexus_allowed_clients | product(['80', '443']) | list }}"
+  loop_control:
+    label: "{{ item.0 }}:{{ item.1 }}"

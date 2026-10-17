@@ -1,323 +1,410 @@
-# Phase 00：服务器创建、Linux 初始化与 CRI 部署
+# Phase 00 操作流程：基础设施与服务器初始化
 
-本手册展开 00.04.03、00.04.05、00.10.01、00.10.02，属于 **00 阶段必做实施**。完成后交付十台具备入群条件的服务器。01 只复验并执行 kubeadm init/join，不再承担 Linux 和 containerd 的首次安装。
+完成后交付：集群外基础服务（DNS、CA、OpenWrt 显式代理、Harbor、GitLab、Nexus、备份）可用；十台 Rocky Linux 10 节点完成 Linux 基线、containerd/CRI 与入群工具，能直接进入 01 的 kubeadm init/join。
 
-当前阶段进行中，[执行记录](records/2026-10-14/README.md)已有母机、封装、十台克隆及 node-readiness/CRI 自测证据，十节点尚未完成交付验收。下面的路径是实施时应编写的交付文件，命令在具体操作时由管理机或目标 Rocky 节点执行；本手册本身不表示已经连接服务器或完成部署。`LAB_*` 参数必须来自已核实台账和版本锁，示例中的占位值不得直接上线。
+本页是**可以照着执行的流程**，按依赖顺序排列，从零重建也按这个顺序。每一步写明前提、命令、预期结果、证据位置和失败时怎么办。要做什么、验收标准是什么，见 [阶段计划](../../plan/00-preparation.md)；实际执行过程与结果见 [执行记录](records/2026-10-14/README.md)（文中「第 N 节」指 [assets.md](records/2026-10-14/assets.md) 的小节）。参数来自 [台账](../inventory/README.md)，版本来自 [版本锁](../versions.lock.yaml)。
 
-[阶段计划与验收](../../plan/00-preparation.md) · [共用输入与记录规范](../README.md)
+> 实际建设顺序与本页不同：先做了模板和十台节点，再补基础服务，所以执行记录中节点的部分步骤（例如先导入种子镜像，Harbor 就绪后再切换）比这里多一轮。
 
-## 1. 执行顺序与自举来源
+## 0. 开始之前
 
-| 批次 | 实际动作 | 完成后可用的能力 |
-| --- | --- | --- |
-| A | 准备离线种子、管理工具；创建 Rocky 模板；核实 CPU/EVC 与 VMXNET3 | 可以安全创建 VM 和登录客体 |
-| B | 创建管理/基础服务 VM，部署 OpenWrt、DNS、CA、GitLab、Harbor、Nexus | 内部解析、信任与软件供应独立可用 |
-| C | 克隆十台节点；配置身份、磁盘、网络、时间、SSH、软件源、内核、安全策略 | Linux 基线实际完成 |
-| D | 安装并配置 containerd/runc/crictl、Kubernetes 工具；镜像预热与 CRI 运行测试 | 运行时可用，仍未创建 Kubernetes 集群 |
-| E | 重启复验、重复执行 Ansible、断网安装/构建检查、备份和交接 | 00 验收通过，可以进入 01 |
+### 0.1 约定
 
-批次 A 使用已校验 ISO、RPM/归档、工具和容器物料作为种子；不依赖尚未部署的 Nexus/Harbor。Harbor 等集群外服务按其官方部署方式准备专用运行环境，不能要求它们先使用集群 PVC，也不能把其 Docker/Compose 依赖复制到 Kubernetes 节点作为 CRI。
+- 所有命令在**管理 Mac** 上执行；需要登录到虚拟机控制台的步骤会单独写明。
+- Ansible 命令在 `ops/00-preparation/ansible/` 下运行，使用 `~/.venvs/cnpl-ansible/bin/ansible-playbook`；`ansible.cfg` 指定了 inventory、本目录的 collections 与 SSH 设置。
+- 证据：输出用 `tee` 写入 `records/<批次>/evidence/<步骤号>-<名称>.txt`。本页命令中的批次目录是 `2026-10-14`，开新批次时替换。
+- 剧本都是幂等的：中途失败，修复后从头重跑即可。
+- 提交前检查证据：没有 `BEGIN ... PRIVATE KEY`，不含口令与订阅信息；在分支上提交后快进合并到 main。
 
-## 2. 准备自动化文件和输入
+### 0.2 安全规则（不可绕过）
 
-实施时在 `ops/00-preparation/ansible/` 建立以下文件，不将资产台账直接误当 Ansible Inventory：
+- SELinux 保持 Enforcing，firewalld 保持启用，规则按来源限定（2026-10-14 用户明确要求）。遇到拒绝先取证（`ausearch -m AVC -ts recent`），按策略处理，不切换到 permissive，也不停防火墙。
+- 私钥与口令只放在 Mac 的 `~/cnpl-pki`、`~/.cnpl-secrets/`；订阅地址只放在 OpenWrt。涉及私钥的任务已设 `diff: false` 或 `no_log`，运行时仍不要加 `--diff`。
+- 不对「未挂载的盘」自动格式化：数据盘按台账容量唯一匹配，匹配不到就停止。storage 节点的 OSD 候选盘在 00 不分区、不格式化。
+- 不使用 `curl -k`、`skip_verify` 或关闭签名校验来通过验收。
 
-| 文件 / 目录 | 具体内容 |
-| --- | --- |
-| `inventories/lab/hosts.yml` | `control_plane`、`infra`、`storage`、`worker`、`bootstrap_services` 主机组，IP 和远程用户 |
-| `inventories/lab/group_vars/all.yml` | DNS、NTP、CA 路径、内部软件源、管理员公钥、锁定版本 |
-| `inventories/lab/host_vars/<node>.yml` | FQDN、已确认网卡连接名、网关、磁盘 UUID、物理宿主机、角色预留 |
-| `roles/node_base/` | 用户、SSH、网络、时间、软件源、挂载、sysctl、Swap、安全和日志 |
-| `roles/container_runtime/` | containerd/runc/crictl 安装、配置、CA、systemd 和 CRI 检查 |
-| `playbooks/bootstrap-nodes.yml` | 按 node_base → container_runtime 执行，串行批次和重启检查 |
-| `ops/00-preparation/tests/smoke/node-readiness.sh`（仓库根目录下） | 只读主机检查，逐项输出 key=value；经 SSH 推送执行，节点上不存放文件；CRI 运行测试不在其中 |
-| `ops/00-preparation/scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 管理端按 hosts/resources/networks 台账与版本锁生成期望值，密钥登录批量采集，输出十节点矩阵（身份唯一性、规格、网络、安全、运行时、版本）到批次 evidence |
-| `ops/00-preparation/tests/smoke/cri-smoke.sh` | 第 10.3 节 host-network 自测的脚本化版本：需 `CRI_SMOKE_CONFIRM=yes`，只用本地镜像，创建并清理本次 sandbox/容器；由收集脚本 `--with-cri-smoke` 批量执行并计入矩阵 |
+### 0.3 流程总览
 
-Rocky 基础服务 VM 同样复用 `node_base`；`container_runtime` 只应用于十个 Kubernetes 节点。OpenWrt 使用自己的配置流程，Harbor 所需专用运行环境由仓库角色负责，不把它们混入节点 CRI 角色。
-
-先从根目录运行 `ansible-inventory -i ops/00-preparation/ansible/inventories/lab/hosts.yml --graph`，检查十节点数量和分组；再对 `cp01` 运行 `ansible ... -m ping`。密码、sudo 凭据和私钥使用受控引用，不写入这些明文文件。
-
-OpenTofu 模块在 `ops/00-preparation/opentofu/` 声明模板、Datastore、Port Group、CPU、内存与磁盘；先 `tofu init`、`tofu validate`、`tofu plan -out=...`，逐项核对计划仅创建本项目 VM，再执行保存的 Plan。既有资源未明确纳管前不 import、不替换、不 destroy。State 单独安全备份，Git 不提交 State 和含秘密的 Plan 文件。
-
-## 3. 创建 Rocky 模板与克隆身份
-
-1. 使用锁定 ISO，核对 SHA256/签名；在每类宿主机/EVC 配置上启动试装 VM。Rocky 10 的 x86_64 基线要求 x86-64-v3，必须检查客体实际暴露的能力，不能只看 CPU 型号。[Rocky 官方发布说明](https://docs.rockylinux.org/latest/releases/release_notes/10_0/)
-2. 采用最小安装，确认 UEFI/启动盘和目标磁盘；OS 盘与未来运行时/OSD 盘分开。安装 `open-vm-tools`、NetworkManager、chrony、SSH 和所需诊断工具。
-3. 网卡选择 VMXNET3；执行 `ip -br link`、`ethtool -i <实际网卡>`、`systemctl is-active vmtoolsd`，检查驱动、速率和管理端看到的客体信息。
-4. 模板仅保留公共基线。封装过程处理 machine-id、SSH host key、DHCP/连接身份和日志；首次启动再生成唯一标识，不在每次 Ansible 执行时删除身份。
-5. 连续创建两个临时克隆，比较 `cat /etc/machine-id`、`cat /sys/class/dmi/id/product_uuid`、网卡 MAC 与 `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`；验证不同身份后才复制十台节点。
-6. cp01/storage01、cp02/storage02、cp03/storage03 分别放在三台 ESXi，其他节点按物理拓扑放置。保存克隆参数与 vSphere Task 结果，失败只清理本次创建且无数据的对象。
-
-验收：模板能冷启动和重启；克隆身份唯一；Mac/管理机能够经已验证主机密钥登录。模板不含业务凭据、VPN 私钥或长期管理员 kubeconfig。
-
-## 4. 磁盘、目录与文件系统
-
-先执行只读检查：
-
-```bash
-lsblk -e7 -o NAME,PATH,SIZE,TYPE,FSTYPE,UUID,MOUNTPOINTS,MODEL,SERIAL
-findmnt --verify --verbose
-df -hT
-```
-
-按设备稳定 ID 对照台账，再为新建且已确认用途的系统/运行时盘创建文件系统和挂载；不对所有“未挂载盘”自动格式化。运行时数据规划挂载到 `/var/lib/containerd`，kubelet 与构建临时空间分别核算，记录 inode 与容量。
-
-`/etc/fstab` 使用 UUID 等稳定标识；专用运行时盘应配置挂载依赖和检查，盘丢失时阻止 containerd 悄悄写入系统根盘。启用服务前用 `mountpoint`/`findmnt` 验证实际挂载。
-
-storage01–03 的候选 OSD 保持未使用，不创建分区、LVM、文件系统或通用挂载；00 仅记录稳定 ID 和物理来源，03 才执行 cephadm 初始化。磁盘尚未核实时，该节点不能通过磁盘验收。
-
-## 5. 网络、主机名和 DNS
-
-1. 每台设置与台账一致的 FQDN，例如 `cp01.k8s.internal.egon.top`；先以 `nmcli connection show` 获取实际连接名，禁止假定都叫 `eth0`。
-2. 用 NetworkManager 配置静态 IP、掩码、已核实的默认网关、DNS `.11` 和内部搜索域。保持原 LAN 默认网关，不能统一指向 OpenWrt 旁路由。
-3. 网络变更前保留控制台或第二管理连接；先更改一个节点并验证 SSH 回连，再小批量执行。持久配置由 Ansible 模板/任务保存，不能只运行临时 `ip addr add`。
-4. 配置完成检查实际路由和系统解析，不用 `/etc/hosts` 长期替代 DNS：
-
-```bash
-hostnamectl --static
-ip -br address
-ip route
-nmcli device show
-getent hosts cp01.k8s.internal.egon.top
-getent hosts harbor.k8s.internal.egon.top
-getent hosts gitlab.svc.internal.egon.top
-```
-
-从不同 ESXi 上的节点互相访问，并检查 MTU；失败时先定位 Port Group、vSwitch、上联、客体防火墙与回程路由。一次 ping 不能代替后续 TCP/TLS、Overlay 和 VIP 检查。
-
-## 6. 软件源、账户、时间与 CA
-
-- 将经过校验的 Rocky BaseOS/AppStream、工具 RPM 和 Kubernetes 版本仓库映射到受控内网源；保留 GPG 校验。安装所需 `curl`、`jq`、`tar`、`ethtool`、`bind-utils`、`iproute`、诊断工具及 runtime 依赖，固定来源和包版本；不执行来源不明的在线安装脚本。
-- 创建专用管理账户、分发公钥、配置有限 sudo；用 `sshd -t` 检查后 reload，并从第二会话确认登录，再收紧 root/密码登录。不要提前关闭唯一可用登录方式。
-- 配置 `/etc/chrony.conf` 指向核实过的时间源；确定 VMware 客体时间同步和 chrony 的职责，避免两套持续纠偏互相干扰。检查 `chronyc sources -v`、`chronyc tracking`、`timedatectl`；无有效时间源不能通过。
-- 将公开 CA 证书写入 `/etc/pki/ca-trust/source/anchors/` 并执行 `update-ca-trust`。先校验 CA 指纹，再验证 Harbor/GitLab/Nexus 的 TLS，不使用 `curl -k` 或 `skip_verify` 作为验收。
-- 为 journald/系统日志配置明确的占用上限和保留；检查 `/var/log`、系统盘与 runtime 盘水位。实际大小来自容量预算，不能套一个无限保留配置。
-
-```bash
-sudo sshd -t
-chronyc tracking
-sudo update-ca-trust
-curl -I https://gitlab.svc.internal.egon.top
-curl -I https://nexus.svc.internal.egon.top
-curl -sS -o /dev/null -w '%{http_code}\n' https://harbor.k8s.internal.egon.top/v2/
-```
-
-Harbor `/v2/` 未认证返回 `401` 可用于证明 TLS 和 Registry 端点可达，不代表已拥有拉取权限；实际镜像拉取在第 10 节验收。
-
-## 7. cgroup、Swap、内核与主机安全
-
-本次实验的安全约束（2026-10-14 用户明确要求）：SELinux 必须保持 Enforcing，firewalld 必须保持启用；不得通过 permissive、disabled 或停止防火墙绕过兼容性问题。运行时、CNI 和存储组件需验证相应策略、标签及来源受限规则；缺少支持时保留阻塞项并排查，不降低安全模式。
-
-00 必须把以下配置实际写入主机并在重启后验证，不能只登记“待 01 处理”。
-
-| 配置位置 | 本阶段动作 | 检查结果 |
-| --- | --- | --- |
-| `/sys/fs/cgroup` 与启动参数 | 确认 cgroup v2，containerd 采用 systemd cgroup | `stat -fc %T /sys/fs/cgroup` 为 `cgroup2fs` |
-| `/etc/fstab`、Swap unit / zram 来源 | 起步关闭 Swap，并移除对应持久启用项；保留原配置 | `swapon --show` 无激活项，重启后仍一致 |
-| `/etc/modules-load.d/` | 按所选运行时加载 overlay；桥接路径需要时再加载 br_netfilter | `lsmod` 和内核能力检查符合所选数据面 |
-| `/etc/sysctl.d/90-kubernetes.conf` | 持久配置 `net.ipv4.ip_forward=1`；桥接 netfilter 参数按实际模式核对 | `sysctl net.ipv4.ip_forward` 返回 1，无未知键错误 |
-| firewalld/nftables | 按下表配置来源受限规则，保存原规则与回退入口 | 允许与拒绝用例都通过 |
-| `/etc/selinux/config` 与策略包 | 明确实际模式、runtime 支持和必要文件标签；检查 AVC | `getenforce` 与文档一致，CRI 测试无未处理拒绝 |
-| 主机变量 / kubelet 规划 | 填写按角色的 OS、kubelet、Ceph 预留预算 | 01 将预算写入 kubelet 并复验 Allocatable |
-
-不要盲目设置 `rp_filter`、关闭 IPv6、修改全局文件句柄或套用“性能优化参数包”。有具体 CNI/存储需求时再加参数和对应验证。SELinux 不能直接照抄其他发行版配置；官方 kubeadm RPM 示例采用 permissive，本次不能照做，必须在 Enforcing 下验证实际支持和策略。[运行时文档](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)；[安装前置](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
-
-| 访问目标 | 来源与端口设计 |
-| --- | --- |
-| SSH | 授权管理终端 → 节点 TCP 22 |
-| DNS / 时间 | 节点 → 基础 DNS TCP/UDP 53；节点 → 时间源 UDP 123 |
-| 仓库 | 节点 → 基础服务 HTTPS 443，其他端口按实际配置登记 |
-| API | 授权管理端与节点 → 控制平面/VIP TCP 6443 |
-| etcd | 三控制平面之间 TCP 2379–2380，不向普通 LAN 开放 |
-| kubelet | 授权控制平面及后续监控来源 → 节点 TCP 10250 |
-| Cilium 基础 Overlay | 节点之间所选 VXLAN UDP 8472 或 Geneve UDP 6081；只启用实际选定模式 |
-| Cilium 健康检查 | 节点之间 TCP 4240 与所需 ICMP，按锁定版本核对 |
-| Ceph / Hubble / NodePort / 网关 | 仅预留来源和用途，03/02 启用时落实具体规则，不提前放开整网全部端口 |
-
-00 检查主机规则持久性与节点路径；01 部署真实 CNI/API 后验证数据面。`ss -lntup` 在 00 看不到 kube-apiserver 属于正常现象，不应为了通过检查提前 init。
-
-## 8. 安装 containerd、runc、crictl 与入群工具
-
-1. 从版本锁读取 containerd 2.x、runc、crictl 的精确版本、体系结构、来源和校验值。选择已经在 Rocky 10 验证过的 RPM 或官方二进制安装路线，不假设系统仓库天然提供全部组件。
-2. 使用种子或内网源安装，保留包清单；归档路线需同时交付 systemd unit、runc 和必要 CNI 工具，不能只复制一个 containerd 二进制。`containerd --version`、`runc --version`、`crictl --version` 均与锁定集合一致。
-3. 按锁定版本的默认配置生成受控模板，配置 `/etc/containerd/config.toml`、registry hosts、CA 与 systemd。runtime 数据盘先挂载，再启用服务。
-4. 安装锁定 kubeadm、kubelet、kubectl 工具包并防止未经计划的次版本升级；00 不执行 init/join。kubelet 在配置生成前不作为健康服务验收，具体启动由 01 的 kubeadm 流程接管。
-5. `containerd config dump` 检查最终配置；启动后检查 `systemctl is-enabled containerd`、`systemctl is-active containerd`、`journalctl -u containerd -b` 和 CRI 插件状态。不要在已有业务节点上无条件覆盖配置/重启。
-
-containerd 2.x 配置 v3 的关键项如下，实施时合并到该版本生成的完整配置。下面的 `pinned_images.sandbox` 与 `certs.d` 是 Harbor（00.09.02）和内部 DNS（00.07.01）就绪后的目标形态，`<PAUSE_DIGEST>` 必须替换为已同步镜像的实际 Digest：
-
-```toml
-version = 3
-root = "/var/lib/containerd"
-state = "/run/containerd"
-
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-  runtime_type = "io.containerd.runc.v2"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-  SystemdCgroup = true
-
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = "harbor.k8s.internal.egon.top/bootstrap/pause@sha256:<PAUSE_DIGEST>"
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-```
-
-不能继续写 1.x 的 `io.containerd.grpc.v1.cri` 配置路径，也不能让 CRI 留在禁用插件列表。字段以锁定发行版配置为准。[containerd CRI 配置](https://github.com/containerd/containerd/blob/main/docs/cri/config.md)
-
-**Harbor 与 DNS 就绪前不要写入上面的 `pinned_images.sandbox`。** 指向一个不存在的仓库会让 `RunPodSandbox` 在拉取阶段直接失败，并且无法通过 `--noproxy` 或信任配置绕过。此时保留锁定版本生成的默认 sandbox 引用，按第 10.1 节把该引用的镜像以种子物料导入本地；`certs.d` 目录可以先建立但保持为空，不预写任何主机条目。Harbor 投产后再改为固定 Digest，并重新执行一次第 10 节自测确认引用切换成功。配置里出现内部域名不代表该域名已可解析。
-
-## 9. Registry、CA 与 crictl 配置
-
-计划交付 `roles/container_runtime/templates/config.toml.j2`、`hosts.toml.j2`、`crictl.yaml.j2`。本节的 `/etc/crictl.yaml` 在母机阶段即可写入；`hosts.toml` 属于 Harbor 就绪后的交付物，Harbor 未部署时不写该文件。Harbor 示例 hosts 文件保存到 `/etc/containerd/certs.d/harbor.k8s.internal.egon.top/hosts.toml`：
-
-```toml
-server = "https://harbor.k8s.internal.egon.top"
-[host."https://harbor.k8s.internal.egon.top"]
-  capabilities = ["pull", "resolve"]
-  ca = "/etc/pki/ca-trust/source/anchors/lab-root-ca.crt"
-```
-
-这只配置端点和信任，不会自动提供认证。引导镜像必须采用已经验证的节点只读认证或内网受限的只读引导项目；不能依赖尚不存在的 Kubernetes Secret。临时用人工凭据拉一次镜像，也不能证明之后静态 Pod 能自行拉取。
-
-`/etc/crictl.yaml`：
-
-```yaml
-runtime-endpoint: unix:///run/containerd/containerd.sock
-image-endpoint: unix:///run/containerd/containerd.sock
-timeout: 20
-debug: false
-```
-
-分别通过系统 HTTPS 客户端和 CRI 拉取验证；`ctr images pull` 成功不能替代 CRI 配置验收。`NO_PROXY` 覆盖内部域、回环、节点/Pod/Service 网段，逐个客户端核对匹配行为。上述拉取验证以 Harbor 可达为前提；Harbor 之前的镜像供应按第 10.1 节的种子导入路线执行，此时没有 registry 拉取结果可供验收，也不能因为缺少仓库就改用未核实的公共镜像源。
-
-crictl 属于 cri-tools，与 containerd 分开发布，版本锁中 `cri_tools` 仍为 `null`。执行第 10 节前先按 00.02.02 锁定与锁定 Kubernetes 次版本对应的 cri-tools 版本、架构、来源和 SHA256，再按第 1 节批次 A 的种子物料路线安装；`policy.exact_versions_required` 不允许凭 latest 或系统仓库顺带提供的版本进入节点。[cri-tools 发布与版本对应说明](https://github.com/kubernetes-sigs/cri-tools/blob/master/README.md)
-
-## 10. 无 Kubernetes、无 CNI 的 CRI 自测
-
-先验证 `sudo crictl info` 的 RuntimeReady。00 尚未安装 Cilium，NetworkReady 可因 CNI 未安装为 false，这是明确的阶段边界；不能把它说成 Pod 网络已经通过。用 host-network sandbox 测试 runtime，01 再验收普通 Pod 网络。
-
-本节有两条镜像来源路线，验收标准相同，前置不同。Harbor（00.09.02）和内部 DNS（00.07.01）尚未部署时执行 10.1；两者投产后按 10.2 重做一次，确认引用切换成功。两条路线都不改变 SELinux Enforcing 与 firewalld 启用的要求。
-
-| 路线 | 适用时机 | 镜像来源 | 本阶段能证明什么 |
+| 步骤 | 内容 | 计划步骤 | 依赖 |
 | --- | --- | --- | --- |
-| 10.1 种子导入 | Harbor/DNS 之前，含母机 | 管理端已校验归档，scp 后导入本地 | runtime、cgroup、SELinux 标签和容器执行链路可用 |
-| 10.2 内网仓库 | Harbor/DNS 就绪后 | Harbor 引导项目的固定 Digest | 追加证明 CRI 的 registry 配置、CA 信任和只读认证可用 |
+| 1 | 管理端 | 00.10.01 | — |
+| 2 | 种子物料 | 00.02.03 | 1 |
+| 3 | 模板 rocky10-base | 00.04.03 | 2 |
+| 4 | 克隆与身份 | 00.04.04、00.04.05 | 3 |
+| 5 | 内部 DNS | 00.07.01、00.07.02 | 4 |
+| 6 | 内部 CA 与证书 | 00.08.01、00.08.02 | 1 |
+| 7 | OpenWrt 与显式代理 | 00.05、00.06.02 | 5 |
+| 8 | Harbor | 00.09.02 | 4、5、6 |
+| 9 | 十台节点基线 | 00.10.02 | 5、6、8 |
+| 10 | 引导镜像 | 00.09.03 | 8、9 |
+| 11 | 节点检查矩阵与 CRI 自测 | 00.10.02 | 10 |
+| 12 | GitLab | 00.09.01 | 5、6、7 |
+| 13 | Nexus | 00.09.04 | 5、6、7（代理仓库待补充） |
+| 14 | 备份与恢复 | 00.10.03 | 5–13（剧本待编写） |
+| 15 | 重启复验与幂等 | 00.10.02 | 9–12 |
+| 16 | 断网验收 | 00.10.04 | 全部（待编写） |
+| 17 | 阶段交接 | 00.10.05 | 全部 |
 
-10.1 通过不代表仓库拉取路径已验收；10.2 未执行前，第 12 节的「CRI」行只能记为部分通过。
+## 步骤 1：管理端
 
-### 10.1 种子导入路线（Harbor 之前）
-
-沿用第 1 节批次 A 的自举方式：管理端取得并校验镜像归档，scp 到目标机，再导入 containerd。关键点是 **CRI 只查看 `k8s.io` 命名空间**，导入时必须显式指定，否则 `crictl images` 看不到镜像，而 `ctr images ls` 却显示存在。
-
-先在管理端确定要导入哪个 sandbox 引用——不要假定具体 tag，从目标机实际生效的配置读取：
-
-```bash
-sudo containerd config dump | grep -A3 'pinned_images'
-sudo crictl info | jq -r '.config.sandboxImage'
-```
-
-按该引用和一个含 `/bin/sh` 的测试镜像（busybox 一类）在管理端导出归档。Mac 多为 arm64，必须强制 `linux/amd64`，否则导入后容器以 `exec format error` 失败：
-
-```bash
-# 管理端；<SANDBOX_REF> 用上一步的实际输出，<SMOKE_REF> 为已在版本锁登记的测试镜像
-crane pull --platform linux/amd64 <SANDBOX_REF> sandbox-image.tar
-crane pull --platform linux/amd64 <SMOKE_REF>  cri-smoke.tar
-shasum -a 256 sandbox-image.tar cri-smoke.tar
-```
-
-两份归档的来源、Digest 和 SHA256 按 00.02.03 登记后再传输；`crane`/`skopeo` 自身也是需要锁定的工具。导入与核对：
+**前提**：Mac 有 Homebrew Python 3.12 以上（系统自带的 3.9 不满足 ansible-core 要求）、ruby（系统自带）、crane（`brew install crane`）。
 
 ```bash
-# 目标机
-sudo ctr -n k8s.io images import --platform linux/amd64 sandbox-image.tar
-sudo ctr -n k8s.io images import --platform linux/amd64 cri-smoke.tar
-sudo crictl images
+python3 -m venv ~/.venvs/cnpl-ansible
+```
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/pip install -r requirements.txt && ~/.venvs/cnpl-ansible/bin/ansible-galaxy collection install -r requirements.yml -p collections
+```
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/cnpl_lab_ed25519
 ```
 
-镜像必须出现在 `crictl images` 中才算导入成功。此路线下 **不执行 `crictl pull`**，第 10.3 节的 `LAB_SMOKE_IMAGE` 直接使用已导入的本地引用。
+**预期**：`~/.venvs/cnpl-ansible/bin/ansible --version` 显示 core 2.21.5，config file 为本目录的 ansible.cfg；`ansible-galaxy collection list -p collections` 含 ansible.posix 2.2.2。证据：`00.10.01-ansible-control-node.txt`（第 56–57 节）。
 
-**变体：目标机直连官方仓库。** 若目标机能访问 `registry.k8s.io`，可以不经管理端，直接在目标机执行 `crictl pull <SANDBOX_REF>` 和 `crictl pull <SMOKE_REF>`，按 tag 拉取后用 `crictl images --digests` 核对 index Digest 与版本锁一致。此变体不需要管理端容器工具，同时验证了 CRI 的拉取路径；但它依赖公网出口，不能替代 10.2 的内网仓库验收，也不能作为十节点离线交付的物料来源。拉取失败时退回上面的种子导入。
+## 步骤 2：种子物料
 
-### 10.2 内网仓库路线（Harbor 之后）
+节点在建设初期无法稳定访问外部软件源与 registry.k8s.io（第 33–34、51 节），物料先在 Mac 上下载、校验，再传到目标机。种子目录为 `~/Downloads/cloud-native-lab-seed-2026-10-14/`，每个文件的来源、SHA256 与签名指纹登记在版本锁中：
 
-Harbor、DNS 和 CA 就绪后，把同两个镜像按 Digest 复制到只读引导项目，按第 8 节写入 `pinned_images.sandbox`、按第 9 节写入 `hosts.toml`，重启 containerd，再执行 10.3 并在其中保留 `crictl pull` 一步。此时才产生 registry 配置、CA 信任与只读认证的验收证据。
+| 物料 | 用于 | 版本锁条目 |
+| --- | --- | --- |
+| containerd.io、cri-tools、kubeadm、kubelet、kubectl、kubernetes-cni 的 RPM 与签名公钥 | 模板 | containerd、cri_tools、kubeadm 等 |
+| pause、busybox 的 linux/amd64 归档（`crane pull --platform linux/amd64`） | 模板的 CRI 自测 | pause、cri_smoke_image |
+| Docker CE 与 iptables 依赖 RPM、docker.gpg | Harbor 主机 | registry_runtime |
+| Harbor 离线安装包 | Harbor 主机 | harbor |
+| OpenWrt 镜像、mihomo | OpenWrt | openwrt、proxy_core |
 
-### 10.3 共用的自测流程
+新增物料时：从官方来源下载，按官方校验文件或签名核对，把 URL、SHA256、指纹写入版本锁后再使用。Mac 为 arm64，镜像必须指定 `linux/amd64`，否则容器启动时报 `exec format error`。
 
-在专用临时工作目录准备 `sandbox.json`（CRI 的 namespace enum 中 NODE 为 2，实施前对照锁定 cri-tools 版本）。**containerd 使用 `SystemdCgroup = true` 时必须给出以 `.slice` 结尾的 `cgroup_parent`**：kubelet 总会提供它，手写配置缺少时 containerd 退回 cgroupfs 形式的 `/k8s.io/<id>`，runc 会以 `expected cgroupsPath to be of format "slice:prefix:name"` 拒绝。slice 名不要带 `-`，systemd 会把短横线解释为层级。
+## 步骤 3：模板 rocky10-base
 
-```json
-{
-  "metadata": {"name": "phase00-cri-smoke", "namespace": "phase00", "uid": "phase00-cri-smoke", "attempt": 1},
-  "log_directory": "/var/log/phase00-cri",
-  "linux": {
-    "cgroup_parent": "phase00.slice",
-    "security_context": {"namespace_options": {"network": 2}}
-  }
-}
-```
+**前提**：Rocky 10.2 ISO 已校验；esxi01 上创建 VM：2 vCPU、4 GiB、EFI、VMXNET3、系统盘 100 GiB 与第二块 100 GiB 运行时盘（精简置备）。
 
-准备 `container.json`，镜像须含 `/bin/sh`。`<SMOKE_REF>` 在 10.1 下是已导入的本地引用，在 10.2 下是 Harbor 引导项目的固定 Digest：
+1. **安装与基线**（控制台）：最小安装，静态地址 .9；安装 node_base 要求的工具包（`roles/node_base/defaults/main.yml` 的 `node_base_packages`）；确认 SELinux Enforcing、firewalld 运行、cgroup v2、Swap 关闭、chrony 同步、VMware 周期时间同步关闭。Rocky 10 要求 CPU 支持 x86-64-v3，需确认客体实际可见（第 8–12 节）。
+2. **运行时盘**：按 [`records/2026-10-14/commands/00.10.02-runtime-disk-configure.sh`](records/2026-10-14/commands/00.10.02-runtime-disk-configure.sh) 对**已确认为空**的第二块盘分区、建 XFS、按 UUID 挂载到 `/var/lib/containerd`（脚本先检查容量、签名与挂载状态，不符即退出）。
+3. **运行时与入群工具**：把步骤 2 的 RPM 传到模板，导入签名公钥后本地安装并校验签名：
+   ```
+   dnf install -y --setopt=localpkg_gpgcheck=1 ./containerd.io-*.rpm ./cri-tools-*.rpm ./kubeadm-*.rpm ./kubelet-*.rpm ./kubectl-*.rpm ./kubernetes-cni-*.rpm
+   ```
+   containerd 配置、运行时盘依赖与 crictl 配置之后由 container_runtime 角色统一写入；kubelet 不启用（第 13–40 节）。
+4. **种子镜像与 CRI 自测**：`ctr -n k8s.io images import --platform linux/amd64 <归档>` 导入 pause 与 busybox（必须是 k8s.io 命名空间，CRI 只看这里，第 34 节），再从 Mac 推送自测脚本：`ssh root@192.168.9.9 'CRI_SMOKE_CONFIRM=yes bash -s' < ops/00-preparation/tests/smoke/cri-smoke.sh`，结果应为 `smoke_result=PASS`（第 35–38 节）。
+5. **封装**：先拍快照 `pre-seal-<日期>`，在模板上依次执行三组命令（第 41–42 节）。第二组改为 DHCP：
+   ```
+   rm -rf /root/lab-cri-smoke /var/log/phase00-cri /root/lab-artifacts /root/lab-evidence
+   nmcli connection modify ens33 ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""
+   ```
+   第三组清除身份，之后不要再开新的 SSH 会话：
+   ```
+   truncate -s 0 /etc/machine-id
+   rm -f /var/lib/systemd/random-seed /var/lib/NetworkManager/secret_key /var/lib/NetworkManager/*.lease
+   journalctl --rotate && journalctl --vacuum-time=1s
+   dnf clean all
+   rm -f /etc/ssh/ssh_host_*
+   unset HISTFILE; rm -f /root/.bash_history
+   ```
+   确认 machine-id 为 0 字节、主机密钥不存在后执行 `poweroff`（不是 reboot），在 vSphere 拍快照 `sealed-<日期>`。此后不再开启模板。
+6. **双克隆验证**：从封装快照克隆两台临时 VM（分放两台 ESXi），比较 machine-id、`/sys/class/dmi/id/product_uuid`、MAC、SSH 主机密钥指纹与 DHCP 地址，全部不同才开始正式克隆（第 43–48 节）。
 
-```json
-{
-  "metadata": {"name": "smoke", "attempt": 1},
-  "image": {"image": "<SMOKE_REF>"},
-  "command": ["/bin/sh", "-c", "echo phase00-cri-ok"],
-  "log_path": "smoke.log",
-  "linux": {}
-}
-```
+## 步骤 4：克隆与身份
 
-替换占位值、创建日志目录、确认仅针对新建实验节点后执行。先只读确认 RuntimeReady 和镜像已就位，再创建对象：
+1. 在 vCenter 从封装快照克隆，名称、宿主机、vCPU、内存按台账设置，不勾选「自定义操作系统」。需要数据盘的服务 VM 新增一块硬盘，容量**必须等于**台账 `data_disk_gib`；模板带来的「硬盘 2」（运行时盘）在服务 VM 上会被卸载，可删除。
+2. 开机后在 vSphere「摘要」页查看 DHCP 地址，然后：
+   ```bash
+   cd ~/SelfProject/cloud-native-platform-lab && bash ops/00-preparation/scripts/set-vm-identity.sh <台账 id> <DHCP 地址>
+   ```
+   脚本从台账读取名称、地址、网关与 DNS；目标地址已被占用时停止；只需输入一次模板 root 口令（ssh-copy-id），之后都用密钥；结束时输出主机名、地址、路由、DNS 与网关连通性。
+3. 把台账中该 VM 的 `vm_status` 改为 `identity_set`，然后重新生成 Inventory：
+   ```bash
+   ruby ops/00-preparation/scripts/generate-ansible-inventory.rb
+   ```
+
+**预期**：`ssh -i ~/.ssh/cnpl_lab_ed25519 root@<新地址> hostname` 输出台账中的 FQDN。**失败时**：报「REMOTE HOST IDENTIFICATION HAS CHANGED」是 DHCP 地址被其他克隆用过，执行 `ssh-keygen -R <地址>`（脚本已自动处理）；新地址连不上时到 vSphere 控制台检查 `nmcli connection show ens33`。
+
+## 步骤 5：内部 DNS
+
+**前提**：dns VM（.11）已完成步骤 4。
 
 ```bash
-set -euo pipefail
-sudo install -d -m 0755 /var/log/phase00-cri
-sudo crictl info
-LAB_SMOKE_IMAGE=$(jq -r '.image.image' container.json)
-# 10.2 内网仓库路线才执行下一行；10.1 的镜像已由 ctr 导入，pull 会因无仓库而失败
-# sudo crictl pull "$LAB_SMOKE_IMAGE"
-sudo crictl images | grep -F "${LAB_SMOKE_IMAGE%@*}"
-LAB_SANDBOX_ID=$(sudo crictl runp sandbox.json)
-LAB_CONTAINER_ID=$(sudo crictl create "$LAB_SANDBOX_ID" container.json sandbox.json)
-sudo crictl start "$LAB_CONTAINER_ID"
-sudo crictl logs "$LAB_CONTAINER_ID"
-sudo crictl inspect "$LAB_CONTAINER_ID"
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/dns.yml | tee ../records/2026-10-14/evidence/00.07.01-dns.txt
 ```
 
-等待容器终止，检查日志含 `phase00-cri-ok`、退出码为 0，再对本次记录的 ID 执行 `crictl rm`、`crictl stopp`、`crictl rmp`。失败时先保存 CRI/containerd/SELinux 证据，清理仅限本次对象；禁止清空整个 runtime 数据目录。
+剧本：service_vm（去除 Kubernetes 运行时）→ node_base → dns_server（BIND；正向、反向区域由台账生成；只对实验网开放 53；转发到 223.5.5.5、8.8.8.8，不做本地 DNSSEC 验证）→ 从 Mac 用 dig 验证。
 
-`runp` 阶段失败时先区分三类原因，不要先改安全配置：sandbox 镜像不在 `k8s.io` 命名空间（`crictl images` 为空而 `ctr -n default images ls` 有内容）、配置里的 `pinned_images.sandbox` 指向不可达仓库、或 Enforcing 下的真实拒绝。第三类用 `sudo ausearch -m AVC -ts recent` 取证并按策略处理，不通过 permissive 或停防火墙绕过。架构不符会表现为容器启动后立即以 `exec format error` 退出，属于导入时未锁定 `linux/amd64`，不是 runtime 缺陷。
+**预期**：dns 与 localhost 都是 failed=0；六个内部名称、PTR、外部递归（rockylinux.org）与权威应答（aa 标志）全部通过。
 
-随后将 kubeadm 控制面、etcd、CoreDNS、kube-vip、Cilium 镜像与 Chart 缓存到内网。使用 `kubeadm config images list --kubernetes-version <锁定版本>` 核对列表；镜像映射、认证和 Digest 落入物料清单。00 能取回引导镜像，01 才实际启动它们。
+Mac 改用内部 DNS 解析内部域名（00.07.02，只需一次）：
+```bash
+sudo mkdir -p /etc/resolver && echo 'nameserver 192.168.9.11' | sudo tee /etc/resolver/internal.egon.top
+```
 
-## 11. 批量执行、幂等与重启复验
+**以后改台账**：递增 `roles/dns_server/defaults/main.yml` 的 `dns_zone_serial` 后重跑本剧本。**失败时**：外部名称 SERVFAIL 而 `dig +cd` 正常，是 DNSSEC 验证被上游路径破坏（第 81 节）；本剧本已关闭本地验证。
 
-以已经编写并语法验证的 Playbook 为前提，先 `cp01`，再每批一台扩展到其余角色；storage 组单独检查磁盘保护和资源预留。
+## 步骤 6：内部 CA 与证书
 
 ```bash
-ansible-playbook -i ops/00-preparation/ansible/inventories/lab/hosts.yml ops/00-preparation/ansible/playbooks/bootstrap-nodes.yml --syntax-check
-ansible-playbook -i ops/00-preparation/ansible/inventories/lab/hosts.yml ops/00-preparation/ansible/playbooks/bootstrap-nodes.yml --check --limit cp01
-ansible-playbook -i ops/00-preparation/ansible/inventories/lab/hosts.yml ops/00-preparation/ansible/playbooks/bootstrap-nodes.yml --limit cp01
+cd ~/SelfProject/cloud-native-platform-lab && bash ops/00-preparation/pki/create-ca.sh
 ```
 
-Check mode 不能代替实际安装验收。完成一台后检查本手册各项结果，再执行下一台。第二次真实执行应无非预期变更，尤其不得重建 machine-id、SSH host key、格式化数据盘或重写已有密钥。
+运行时输入根 CA 与中间 CA 的口令（由你保管）。结果：私钥（AES-256 加密）在 `~/cnpl-pki`，公开证书在 `ops/00-preparation/pki/public/`。根 CA 为 P-384、10 年；中间 CA 为 P-384、5 年，名称约束只允许 internal.egon.top 与 192.168.9.0/24。
 
-在阶段实施窗口逐台重启，复查 SSH、网卡地址、DNS、chrony、挂载、Swap、sysctl、firewall/SELinux、containerd 自启与 CRI 自测。不能仅凭重启前的输出交接。结果按主机写入 `ops/00-preparation/records/<执行批次>/`，命令日志必须脱敏。
+每个 HTTPS 服务签发一张证书（输入中间 CA 口令；已存在时不覆盖）：
+```bash
+bash ops/00-preparation/pki/issue-cert.sh harbor.k8s.internal.egon.top 192.168.9.12
+```
+```bash
+bash ops/00-preparation/pki/issue-cert.sh gitlab.svc.internal.egon.top 192.168.9.13
+```
+```bash
+bash ops/00-preparation/pki/issue-cert.sh nexus.svc.internal.egon.top 192.168.9.14
+```
 
-## 12. 十节点交接清单与失败处理
+Mac 信任根 CA（浏览器、curl 与 crane 使用）：
+```bash
+security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db ops/00-preparation/pki/public/cnpl-lab-root-ca.crt
+```
+
+节点与服务 VM 的信任由 node_base 的 ca_trust 写入系统锚点，GitLab 另有 trusted-certs（角色处理）。
+
+## 步骤 7：OpenWrt 与显式代理
+
+**作用**：Mac 之外的主机访问外网时，只有明确配置了代理的程序经 OpenWrt；默认网关仍是 .1。
+
+1. **VM**：按第 68–71 节把 `openwrt-25.12.5-x86-64-generic-ext4-combined.img.gz`（BIOS 版）转为 VMFS 磁盘上传；VM 设置为 Other Linux 5.x 64 位、BIOS、PVSCSI、VMXNET3、1 GiB 内存。首次开机前**断开网卡**。
+2. **控制台初始配置**：关闭 LAN 的 DHCP 与 RA，设置地址后用 `passwd` 设 root 口令，再在 vSphere 连接网卡：
+   ```
+   uci set dhcp.lan.ignore=1; uci commit dhcp; service odhcpd stop; service odhcpd disable
+   uci set network.lan.ipaddr=192.168.9.10; uci set network.lan.netmask=255.255.255.0; uci set network.lan.gateway=192.168.9.1; uci commit network; service network restart
+   ```
+3. **密钥与别名**（输入一次 root 口令）：
+   ```bash
+   ssh root@192.168.9.10 'umask 077; mkdir -p /etc/dropbear; cat >> /etc/dropbear/authorized_keys' < ~/.ssh/cnpl_lab_ed25519.pub
+   ```
+   ```bash
+   printf '\nHost openwrt\n  HostName 192.168.9.10\n  User root\n  IdentityFile ~/.ssh/cnpl_lab_ed25519\n  IdentitiesOnly yes\n' >> ~/.ssh/config
+   ```
+4. **基线**（幂等；地址与掩码、DNS .11、关闭 DHCP/RA、SSH 只用密钥且只监听 LAN）：
+   ```bash
+   cd ~/SelfProject/cloud-native-platform-lab && ssh openwrt -o BatchMode=yes 'sh -s' < ops/00-preparation/openwrt/apply-base.sh | tee ops/00-preparation/records/2026-10-14/evidence/00.05.03-openwrt-base.txt
+   ```
+   预期最后有 `gateway ok`、`internet ok`，harbor 解析为 192.168.9.12。
+5. **订阅地址**（只写到 OpenWrt，不经过对话与仓库；粘贴后回车，最后只显示字节数）：
+   ```bash
+   read -rs "SUB?粘贴订阅链接后按回车（不会显示）：" && echo && printf '%s\n' "$SUB" | ssh openwrt 'umask 077; mkdir -p /etc/mihomo; cat > /etc/mihomo/subscription-url; wc -c < /etc/mihomo/subscription-url'; unset SUB
+   ```
+6. **mihomo**（在 Mac 下载并按版本锁校验，可重复运行；同一版本不重复传输）：
+   ```bash
+   bash ops/00-preparation/openwrt/install-mihomo.sh | tee -a ops/00-preparation/records/2026-10-14/evidence/00.06.02-mihomo-install.txt
+   ```
+7. **验证**：
+   ```bash
+   curl -sS -m 20 -x http://192.168.9.10:7890 -o /dev/null -w '%{http_code} %{time_total}s\n' https://www.google.com/generate_204
+   ```
+
+**预期**：204。代理只对 192.168.9.0/24 开放；内部域名与私有地址直连，其余走订阅节点。LuCI 管理页为 http://openwrt.mgmt.internal.egon.top（root 口令）。**注意**：根分区约 100 MB、剩余约 14 MB，不要在 OpenWrt 上存放大文件。
+
+## 步骤 8：Harbor
+
+**前提**：harbor VM（.12，数据盘 200 GiB）完成步骤 4；已签发 Harbor 证书；种子目录有 Harbor 离线包与 Docker RPM。
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/harbor.yml | tee ../records/2026-10-14/evidence/00.09.02-harbor.txt
+```
+
+剧本：service_vm（保留 containerd 供 Docker 使用）→ node_base → docker_host（离线安装、验签；配置变化时在安装 Harbor **之前**重启 Docker）→ harbor（数据盘 /data、证书、harbor.yml、install.sh、`docker compose up -d`、开机单元 harbor.service、只对实验网开放 443）→ verify-harbor.yml。口令首次运行时生成在 `~/.cnpl-secrets/`。
+
+**预期**：harbor 与 localhost 都是 failed=0；/api/v2.0/ping 为 Pong，health 为 healthy，/v2/ 未认证返回 401。浏览器访问 https://harbor.k8s.internal.egon.top，用户名 admin，`pbcopy < ~/.cnpl-secrets/harbor_admin_password` 复制口令。只验证时运行 `playbooks/verify-harbor.yml`。
+
+**失败时**：容器反复重启、日志中 `lookup redis ... no such host` 是 Docker 在 Harbor 之后重启导致（第 79 节，角色已修正，`docker compose down` 后重跑）；重启后容器 `Exited (128)` 且 Docker 日志有 `failed to initialize logging driver` 是日志容器的启动时序（第 89 节，harbor.service 负责重试）。
+
+## 步骤 9：十台节点基线
+
+**前提**：十台完成步骤 4；DNS、CA、Harbor 已就绪。
+
+先对 cp01 用检查模式，再实际执行，确认后扩展到十台：
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --check --limit cp01
+```
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --limit cp01
+```
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml -e bootstrap_serial=10 | tee ../records/2026-10-14/evidence/00.10.02-bootstrap-nodes.txt
+```
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/verify-firewall.yml -e target=k8s_nodes | tee ../records/2026-10-14/evidence/00.10.02-verify-firewall.txt
+```
+
+| 角色 / 标签 | 内容 |
+| --- | --- |
+| node_base `system` | 工具包存在、SELinux Enforcing、基础服务、Swap 关闭、overlay、`net.ipv4.ip_forward=1`、关闭 VMware 周期时间同步 |
+| node_base `firewall` | 备份原配置；ipset（k8s-nodes、k8s-control-plane、lab-mgmt）按来源放行端口（附录 A.3） |
+| node_base `journald` | 持久化，上限 2G、保留 10G 空闲、30 天 |
+| node_base `ca_trust` | 内部根 CA 写入系统锚点 |
+| node_base `dns` | 只用内部 DNS 与搜索域；忽略路由器经 IPv6 RA 下发的 DNS，必要时自动重新激活连接 |
+| container_runtime `runtime` | 版本与版本锁一致；运行时盘按 UUID 挂载且 containerd 依赖该挂载；config.toml（v3、SystemdCgroup、enable_selinux、sandbox 为 Harbor 中的 pause Digest）；Harbor 的 hosts.toml；crictl.yaml |
+
+只改某一部分时用 `--tags`，例如 `--tags dns,ca_trust,runtime`。**预期**：failed=0；防火墙允许与拒绝用例全部符合。
+
+## 步骤 10：引导镜像
+
+**前提**：Mac 的 shell 代理可访问 registry.k8s.io；NO_PROXY 含内部域名（附录 B）；节点已有 hosts.toml。
+
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/harbor-bootstrap-images.yml | tee ../records/2026-10-14/evidence/00.09.03-bootstrap-images.txt
+```
+
+剧本：创建公开项目 bootstrap → crane 以 `--password-stdin` 登录 → 把版本锁 `kubeadm.required_images_v1_36_5` 与 CRI 自测镜像按 `linux/amd64` 复制到 Harbor（coredns/coredns 映射为 bootstrap/coredns）→ 核对源与目标摘要、按 Digest 引用的 pause 与 busybox 与版本锁一致 → 十台执行 `kubeadm config images pull --image-repository harbor.k8s.internal.egon.top/bootstrap`。
+
+**预期**：localhost 与十台都是 failed=0。
+
+## 步骤 11：节点检查矩阵与 CRI 自测
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab && bash ops/00-preparation/scripts/collect-node-readiness.sh --with-cri-smoke
+```
+
+对每台推送只读的 `tests/smoke/node-readiness.sh`，再运行 `tests/smoke/cri-smoke.sh`：从 Harbor 按 Digest 拉取 busybox，创建一个 host-network sandbox 与容器，检查日志、退出码、SELinux 标签与 AVC，随后清理。期望值来自台账与版本锁。
+
+**预期**：十台 27/27，六项身份字段唯一，CRI 自测 PASS，结果在 `records/2026-10-14/evidence/00.10.02-node-readiness-<时间>/matrix.md`。NetworkReady 为 false 是阶段边界（00 不装 CNI）。
+
+## 步骤 12：GitLab
+
+**前提**：gitlab VM（.13，数据盘 150 GiB）完成步骤 4；已签发 GitLab 证书；OpenWrt 代理可用。
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/gitlab.yml | tee ../records/2026-10-14/evidence/00.09.01-gitlab-deploy.txt
+```
+
+剧本：service_vm → node_base（dnf 经 OpenWrt 代理）→ data_disk（/var/opt/gitlab）→ gitlab（官方 el/10 仓库，软件包与元数据都验签，签名公钥按指纹导入；先写 gitlab.rb 与证书再安装，安装时软件包自动完成首次 reconfigure；随后把 root 口令设为 `~/.cnpl-secrets/gitlab_root_password` 的值并核对，删除安装时生成的随机初始口令文件；只对实验网开放 80/443）→ 从 Mac 验证登录页与 HTTP 跳转。
+
+**预期**：首次约 15–25 分钟（下载约 1.1 GB，安装后的 reconfigure 约 10 分钟）；gitlab 与 localhost 都是 failed=0，「root 口令与管理端保存的值一致」为 ok。浏览器访问 https://gitlab.svc.internal.egon.top，用户名 root，`pbcopy < ~/.cnpl-secrets/gitlab_root_password` 复制口令。**失败时**：reconfigure 出错时到 gitlab 上执行 `gitlab-ctl reconfigure` 查看完整输出，修复后重跑剧本。
+
+## 步骤 13：Nexus
+
+**前提**：nexus VM（.14，数据盘 250 GiB）完成步骤 4；已签发 Nexus 证书；OpenWrt 代理可用。
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/nexus.yml | tee ../records/2026-10-14/evidence/00.09.04-nexus-deploy.txt
+```
+
+剧本：service_vm → node_base（dnf 经代理）→ data_disk（/opt/sonatype-work）→ nexus：经代理下载 Nexus 3.96.4-01 安装包并按版本锁 SHA256 校验，解压到 /opt/nexus-3.96.4-01（链接 /opt/nexus，自带 JDK 21）；以 nexus 账户运行的 systemd 服务，只监听 127.0.0.1:8081；用首次启动生成的初始口令把 admin 口令改为 `~/.cnpl-secrets/nexus_admin_password` 的值并核对；nginx 以内部证书提供 HTTPS（为此打开 SELinux 布尔值 httpd_can_network_connect）；只对实验网开放 80/443 → 从 Mac 验证状态接口与 HTTP 跳转。
+
+**预期**：nexus 与 localhost 都是 failed=0。浏览器访问 https://nexus.svc.internal.egon.top，用户名 admin，`pbcopy < ~/.cnpl-secrets/nexus_admin_password` 复制口令。首次登录时网页会要求阅读并接受 Community Edition 许可协议、选择是否允许匿名访问，由你决定，剧本不代为接受。
+
+**待补充**：Maven、npm、PyPI、Go 等代理仓库与 Nexus 的出站代理设置（Administration → System → HTTP）。只需要 nexus 与 backup 的系统基线和数据盘时，也可单独运行 `playbooks/service-base.yml`。
+
+## 步骤 14：备份与恢复（剧本待编写）
+
+backup VM（.16，/srv/backup 500 GiB）已由 service-base.yml 完成基线。待交付：restic 0.19.1（版本锁 backup_tool，签名核对后使用）以 SFTP 仓库保存到 backup；备份范围为 CA（Mac 的 `~/cnpl-pki`）、DNS 配置与区域、Harbor（配置、数据库导出、镜像数据）、GitLab（`gitlab-backup` 与 /etc/gitlab）、Nexus、OpenWrt 配置（`sysupgrade -b`）；至少演练一次恢复并验证数据。restic 口令另存一份到 Mac 之外。
+
+偏差：backup 与被备份的服务同在 esxi01，不满足「独立备份」，验收中如实标注。
+
+## 步骤 15：重启复验与幂等
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/reboot-nodes.yml | tee ../records/2026-10-14/evidence/00.11-reboot-nodes.txt
+```
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/reboot-nodes.yml -e target=dns,harbor,gitlab | tee ../records/2026-10-14/evidence/00.11-reboot-services.txt && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/verify-harbor.yml | tee -a ../records/2026-10-14/evidence/00.11-reboot-services.txt
+```
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --check -e bootstrap_serial=10 | tee ../records/2026-10-14/evidence/00.11-bootstrap-check.txt
+```
+
+reboot-nodes.yml 每次重启一台，任何一台失败即停止；重启后检查 SELinux、firewalld、DNS、失败单元，节点另查运行时盘与 containerd。之后重跑步骤 11 的矩阵。**预期**：重启全部通过；矩阵 27/27；检查模式十台 changed=0。服务本身（Harbor、GitLab）需要各自的验证剧本确认，系统级检查通过不代表服务已恢复。
+
+## 步骤 16：断网验收（待编写）
+
+在一台干净的测试客户端上限制外网访问，依次验证：内部 DNS 与 TLS、Git 克隆、Harbor 镜像拉取、RPM 安装、指定语言依赖经 Nexus 获取与构建；记录任何未缓存的下载并补充物料，完成后恢复网络限制。交付 `tests/smoke/` 下的离线用例与物料缺口清单。
+
+## 步骤 17：阶段交接
+
+按 [阶段验收模板](../templates/phase-acceptance.md) 建立 `records/<批次>/acceptance.md`，逐项链接证据：
 
 | 验收项 | 预期结果 | 失败后处理 |
 | --- | --- | --- |
-| VM/身份/放置 | 十节点身份唯一，三 cp 分散三 ESXi | 修正模板/放置，再重新核验受影响节点 |
-| 网络/DNS/时间 | 静态配置持久、系统解析正确、时间源有效 | 通过控制台恢复原网络，修复角色任务 |
-| 软件源/CA/仓库 | 指定物料可内网获取，TLS 无绕过 | 补同步缺失包/证书链，不能转用不可信源 |
-| OS/cgroup/Swap/安全 | 配置与预算一致，重启仍生效 | 修复持久配置与策略，记录明确例外 |
-| CRI | containerd 自启，RuntimeReady，运行/日志/清理通过；镜像来源按 10.2 完成仓库拉取，仅完成 10.1 时标注为种子导入、仓库拉取待验 | 排查版本、socket、cgroup、证书、mount、AVC |
-| 幂等 | 第二次执行无非预期变更 | 修复 Playbook，禁止用手工结果掩盖重复破坏 |
-| 保护范围 | OSD 候选盘未被初始化，既有 VM/数据未受影响 | 阻止后续步骤并处理偏差 |
-| 离线/备份 | 新客户端可完成指定安装/构建，基础服务可从独立备份恢复 | 补齐物料和恢复材料后重测 |
+| VM、身份、放置 | 十台身份唯一，三台控制平面分散在三台 ESXi | 修正模板或放置，重新核验受影响节点 |
+| 网络、DNS、时间 | 静态配置持久，只用内部 DNS，时间同步正常 | 通过控制台恢复网络，修复角色 |
+| 软件源、CA、仓库 | 指定物料可经内网获取，TLS 无绕过 | 补同步缺失物料或证书链，不改用不可信来源 |
+| OS、cgroup、Swap、安全 | 与预算一致，重启后仍生效 | 修复持久配置，记录明确例外 |
+| CRI | containerd 自启，RuntimeReady，经 Harbor 拉取、运行、日志、清理通过 | 排查版本、socket、cgroup、证书、挂载、AVC |
+| 幂等 | 第二次执行无非预期变更 | 修复剧本，不用手工结果掩盖 |
+| 保护范围 | OSD 候选盘未初始化，既有 VM 与数据未受影响 | 停止后续步骤，处理偏差 |
+| 离线与备份 | 干净客户端完成指定安装与构建，基础服务可从备份恢复 | 补齐物料与恢复材料后重测 |
 
-以上全部通过后填写阶段验收，01 才开始 kubeadm 配置与 init/join。主机缺陷回到 00 的对应配置修复；不通过 `kubeadm --ignore-preflight-errors=all` 绕过，也不把本阶段问题拖到 01 临时处理。
+未完成或延后的项（如 OpenTofu、vSwitch 与 VIP 二层核实、第二台 DNS、构建缓存、镜像扫描）如实标注。全部满足或明确延后后，01 才开始 kubeadm init/join；主机问题回到本阶段修复，不用 `--ignore-preflight-errors=all` 绕过。
+
+## 附录 A：设计要点
+
+### A.1 磁盘
+
+- OS 盘、运行时盘与 OSD 盘分开。运行时数据在 `/var/lib/containerd`，按 UUID 挂载，containerd 依赖该挂载（盘缺失时不启动，避免写入根盘）。十台的运行时盘 UUID 相同（继承自模板，各自是独立磁盘），按 SCSI 地址核对；设备名 sda/sdb 在重启间会变化，不作为标识。
+- 服务 VM 的数据盘由 data_disk / harbor 角色按「唯一容量、无分区、无文件系统」选择，XFS 带标签，挂载后恢复 SELinux 标签。
+
+### A.2 网络与 DNS
+
+- 每台的 FQDN、地址、连接名都来自台账；默认网关保持 .1，不指向 OpenWrt。
+- 节点只用内部 DNS，不长期依赖 `/etc/hosts`。路由器会经 IPv6 RA 下发自己的 DNS，必须忽略（`ipv6.ignore-auto-dns yes`），否则内部 DNS 超时时会改问路由器，内部名称解析失败。不关闭 IPv6。
+
+### A.3 防火墙端口（来源受限）
+
+| 端口 | 来源 | 用途 |
+| --- | --- | --- |
+| 22/tcp | 现有规则（未收紧） | SSH |
+| 6443/tcp | k8s-nodes、lab-mgmt → 控制平面 | kube-apiserver |
+| 2379–2380/tcp | k8s-control-plane | etcd |
+| 10250/tcp | k8s-nodes | kubelet |
+| 8472/udp、4240/tcp | k8s-nodes | Cilium VXLAN 与健康检查 |
+| 53、80/443 等 | 192.168.9.0/24 → 对应服务 VM | DNS、Harbor、GitLab |
+
+kube-controller-manager 与 kube-scheduler 绑定在 127.0.0.1，不开放；Ceph、Hubble、NodePort、网关在 02/03 启用时再加规则。8472/udp 与 4240/tcp 在 01 数据面验证。
+
+### A.4 containerd 与 CRI
+
+- 配置使用 containerd 2.x 的 v3 路径（`io.containerd.cri.v1.*`），不写 1.x 的 `io.containerd.grpc.v1.cri`。
+- `SystemdCgroup = true` 时，手写的 sandbox 必须给出以 `.slice` 结尾的 `cgroup_parent`（cri-smoke.sh 使用 `phase00.slice`），否则 runc 拒绝。
+- sandbox 镜像固定为 Harbor 中的 Digest；Harbor 尚未就绪时不能写入，否则新 sandbox 在拉取阶段失败。
+- hosts.toml 只提供端点与 CA 信任，不提供认证；bootstrap 项目为公开项目。
+- CRI 自测失败先区分：镜像不在 k8s.io 命名空间、sandbox 指向不可达的仓库、Enforcing 下的真实拒绝（`ausearch -m AVC -ts recent`）；架构不符表现为 `exec format error`。
+
+## 附录 B：管理端访问路径与常见问题
+
+**访问路径**：Mac 用 `/etc/resolver/internal.egon.top` 把内部域名交给 .11；根 CA 在登录钥匙串；Clash Verge 的系统代理例外含 `*.internal.egon.top` 与 192.168.0.0/16；shell 的 NO_PROXY 加入内部域名：
+```bash
+echo 'export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.internal.egon.top,192.168.9.0/24"; export no_proxy="$NO_PROXY"' >> ~/.zshrc
+```
+实验网经 USB 网卡 en5（.200）访问；防火墙中的 lab-mgmt 即 .200，地址变化时改 `inventories/lab/group_vars/all.yml` 的 `lab_mgmt_sources` 并重跑 node_base 的 firewall 部分。
+
+| 现象 | 原因 | 处理 | 记录 |
+| --- | --- | --- | --- |
+| 节点 dnf 极慢或元数据 404 | mirrorlist 选中慢速或不同步的国内镜像 | 物料走种子；服务 VM 的剧本设置 `node_dnf_proxy` 经 OpenWrt | 第 51、74 节 |
+| Mac 访问内部 HTTPS 报 SSL_ERROR_SYSCALL | 请求经 Clash 代理，代理无法解析内部域名 | NO_PROXY 与系统代理例外加入内部域名；验证命令加 `--noproxy '*'` | 第 77–78 节 |
+| 内部 DNS 对外部名称 SERVFAIL | 上游路径去掉 DNSSEC 签名 | 已关闭本地验证 | 第 81 节 |
+| resolv.conf 多出 fd5c:… 地址 | 路由器经 RA 下发 DNS，reapply 不清除 | node_base dns 自动重新激活连接 | 第 84、86 节 |
+| Harbor 容器反复重启，`lookup redis` 失败 | Docker 在 Harbor 安装后重启（live-restore） | 已修正；`docker compose down` 后重跑 | 第 79 节 |
+| Harbor 重启后 443 无监听 | syslog 日志驱动与 harbor-log 的启动时序 | harbor.service 重试 | 第 89 节 |
+| OpenWrt ping 外网全丢 | 掩码误写为 225.225.225.0 | apply-base.sh 写入正确掩码 | 第 86 节 |
+| OpenWrt 写文件报 No space left | 根分区约 100 MB | 不在 OpenWrt 上存放大文件 | 第 89 节 |
+| Mac 脚本报 `xxx?: unbound variable` | bash 3.2 把全角标点吞进变量名 | 变量一律写成 `${var}` | 第 52、72 节 |
+| `harbor.yml --limit localhost` 直接退出 | 隐式 localhost 不在 inventory 中 | 单独运行 verify-harbor.yml | 第 86 节 |
+
+## 附录 C：自动化清单
+
+| 类型 | 文件 | 作用 |
+| --- | --- | --- |
+| 剧本 | `ansible/playbooks/dns.yml` | 内部 DNS 与验证 |
+| | `harbor.yml`、`verify-harbor.yml` | Harbor 部署与管理端验证 |
+| | `bootstrap-nodes.yml`、`verify-firewall.yml` | 十台节点基线；防火墙允许与拒绝验证 |
+| | `harbor-bootstrap-images.yml` | 引导镜像复制与节点预拉 |
+| | `gitlab.yml` | GitLab 部署与验证 |
+| | `nexus.yml` | Nexus 部署与验证 |
+| | `service-base.yml` | Nexus、备份的基线与数据盘 |
+| | `reboot-nodes.yml` | 逐台重启复验 |
+| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus` | 见各步骤 |
+| 管理端脚本 | `scripts/generate-ansible-inventory.rb` | 台账生成 Inventory |
+| | `scripts/set-vm-identity.sh` | 新克隆设置名称、地址与密钥 |
+| | `scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 节点检查矩阵 |
+| 节点检查 | `tests/smoke/node-readiness.sh`、`tests/smoke/cri-smoke.sh` | 只读检查；host-network CRI 自测 |
+| PKI | `pki/create-ca.sh`、`pki/issue-cert.sh` | 内部 CA 与服务证书 |
+| OpenWrt | `openwrt/apply-base.sh`、`openwrt/install-mihomo.sh`、`openwrt/mihomo/` | 旁路由基线与显式代理 |
+
+OpenTofu（`opentofu/`）尚未开始，VM 目前在 vCenter 手工克隆。

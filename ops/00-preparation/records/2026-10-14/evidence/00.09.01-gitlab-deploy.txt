@@ -1,0 +1,584 @@
+
+PLAY [GitLab 服务器] ***********************************************************
+
+TASK [service_vm : 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）] ******
+skipping: [gitlab]
+
+TASK [service_vm : 移除 crictl 配置（保留 containerd 的服务 VM）] **************
+skipping: [gitlab]
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+changed: [gitlab]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+changed: [gitlab]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+changed: [gitlab]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+changed: [gitlab] => (item=/etc/containerd)
+changed: [gitlab] => (item=/etc/systemd/system/containerd.service.d)
+changed: [gitlab] => (item=/etc/crictl.yaml)
+changed: [gitlab] => (item=/etc/modules-load.d/90-kubernetes.conf)
+changed: [gitlab] => (item=/etc/sysctl.d/90-kubernetes.conf)
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+ok: [gitlab]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+changed: [gitlab]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [gitlab]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [gitlab]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [gitlab]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [gitlab] => (item=vmtoolsd)
+ok: [gitlab] => (item=chronyd)
+ok: [gitlab] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [gitlab]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [gitlab]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [gitlab]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [gitlab]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [gitlab]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [gitlab]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [gitlab]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [gitlab]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [gitlab]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [gitlab]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [gitlab]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [gitlab]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [gitlab] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [gitlab]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+changed: [gitlab] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+changed: [gitlab] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+changed: [gitlab] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [service_vm : 服务 VM 重新加载 systemd] ************************
+ok: [gitlab]
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [gitlab]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [gitlab] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [gitlab]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [gitlab]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+changed: [gitlab]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+changed: [gitlab]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+RUNNING HANDLER [node_base : 重启 journald 并转存运行时日志] *******************
+changed: [gitlab]
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [gitlab]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+changed: [gitlab]
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [gitlab]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+changed: [gitlab]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+RUNNING HANDLER [node_base : 更新系统信任] *************************************
+changed: [gitlab]
+
+RUNNING HANDLER [node_base : 重新应用网络连接] *********************************
+changed: [gitlab]
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [gitlab] => (item=harbor.k8s.internal.egon.top)
+ok: [gitlab] => (item=rockylinux.org)
+
+TASK [node_base : 读取 resolv.conf 中的 nameserver] ****************************
+ok: [gitlab]
+
+TASK [node_base : 重新激活连接以清除已学到的 IPv6 DNS（后台执行，不中断当前任务）] ***
+skipping: [gitlab]
+
+TASK [node_base : 等待连接恢复] ************************************************
+skipping: [gitlab]
+
+TASK [node_base : 重新激活后再次读取 resolv.conf] ******************************
+skipping: [gitlab]
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+ok: [gitlab]
+
+TASK [node_base : dnf 使用显式代理] ********************************************
+changed: [gitlab]
+
+TASK [data_disk : 数据盘参数齐全] **********************************************
+ok: [gitlab]
+
+TASK [data_disk : 已带标签的数据盘] ********************************************
+ok: [gitlab]
+
+TASK [data_disk : 列出磁盘] ****************************************************
+ok: [gitlab]
+
+TASK [data_disk : 候选必须恰好一块：容量等于台账值、无分区、无文件系统] ********
+ok: [gitlab]
+
+TASK [data_disk : 不是恰好一块时停止，不猜测设备] ******************************
+ok: [gitlab] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [data_disk : 格式化数据盘（XFS，带标签）] *********************************
+changed: [gitlab]
+
+TASK [data_disk : 读取数据盘 UUID] *********************************************
+ok: [gitlab]
+
+TASK [data_disk : 按 UUID 挂载] ************************************************
+changed: [gitlab]
+
+TASK [data_disk : 挂载点按策略恢复 SELinux 标签] *******************************
+changed: [gitlab]
+
+TASK [gitlab : 管理端口令目录（仓库之外）] *************************************
+ok: [gitlab -> localhost]
+
+TASK [gitlab : 内部证书已签发（管理端先运行 issue-cert.sh）] *******************
+ok: [gitlab -> localhost]
+
+TASK [gitlab : 缺少证书时停止] *************************************************
+ok: [gitlab]
+
+TASK [gitlab : 传输签名公钥] ***************************************************
+changed: [gitlab] => (item=F6403F6544A38863DAA0B6E03F01618A51312F3F)
+changed: [gitlab] => (item=98BFDB87FCF10076416C1E0BAD997ACC82DD593D)
+
+TASK [gitlab : 导入签名公钥（按指纹核对）] *************************************
+changed: [gitlab] => (item=F6403F6544A38863DAA0B6E03F01618A51312F3F)
+changed: [gitlab] => (item=98BFDB87FCF10076416C1E0BAD997ACC82DD593D)
+
+TASK [gitlab : GitLab CE 软件源（软件包与仓库元数据都验签；经 dnf 全局代理下载）] ***
+changed: [gitlab]
+
+TASK [gitlab : 配置目录] *******************************************************
+changed: [gitlab] => (item={'path': '/etc/gitlab', 'mode': '0775'})
+changed: [gitlab] => (item={'path': '/etc/gitlab/ssl', 'mode': '0755'})
+changed: [gitlab] => (item={'path': '/etc/gitlab/trusted-certs', 'mode': '0755'})
+
+TASK [gitlab : 关闭安装后的自动 reconfigure] ***********************************
+changed: [gitlab]
+
+TASK [gitlab : 传输证书链与私钥（私钥 0600）] **********************************
+changed: [gitlab] => (item=crt)
+changed: [gitlab] => (item=key)
+
+TASK [gitlab : 信任内部根 CA] **************************************************
+changed: [gitlab]
+
+TASK [gitlab : gitlab.rb] ******************************************************
+changed: [gitlab]
+
+TASK [gitlab : 安装 GitLab CE（约 1.1 GB，经代理下载）] ************************
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC POLL on gitlab: jid=j99430811264.6252 started=True finished=False
+ASYNC OK on gitlab: jid=j99430811264.6252
+changed: [gitlab]
+
+TASK [gitlab : 首次 reconfigure（初始化数据库并设置 root 口令，约 5–10 分钟）] ***
+ASYNC POLL on gitlab: jid=j845754297829.13721 started=True finished=False
+ASYNC POLL on gitlab: jid=j845754297829.13721 started=True finished=False
+ASYNC OK on gitlab: jid=None
+changed: [gitlab]
+
+TASK [gitlab : 只对实验网段开放 HTTP（跳转到 HTTPS）与 HTTPS] ******************
+changed: [gitlab] => (item=192.168.9.0/24:80)
+changed: [gitlab] => (item=192.168.9.0/24:443)
+
+TASK [gitlab : 立即执行待处理的 reconfigure] ***********************************
+
+RUNNING HANDLER [gitlab : 重新配置 GitLab] *************************************
+skipping: [gitlab]
+
+TASK [gitlab : 各组件运行中] ***************************************************
+ok: [gitlab]
+
+PLAY [从管理端验证 GitLab] *****************************************************
+
+TASK [登录页经内部根 CA 校验证书链返回 200] ************************************
+ok: [localhost]
+
+TASK [HTTP 跳转到 HTTPS] *******************************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+gitlab                     : ok=58   changed=31   unreachable=0    failed=0    skipped=15   rescued=0    ignored=0   
+localhost                  : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+PLAY [GitLab 服务器] ***********************************************************
+
+TASK [service_vm : 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）] ******
+skipping: [gitlab]
+
+TASK [service_vm : 移除 crictl 配置（保留 containerd 的服务 VM）] **************
+skipping: [gitlab]
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+ok: [gitlab]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+ok: [gitlab]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+ok: [gitlab]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+ok: [gitlab] => (item=/etc/containerd)
+ok: [gitlab] => (item=/etc/systemd/system/containerd.service.d)
+ok: [gitlab] => (item=/etc/crictl.yaml)
+ok: [gitlab] => (item=/etc/modules-load.d/90-kubernetes.conf)
+ok: [gitlab] => (item=/etc/sysctl.d/90-kubernetes.conf)
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+ok: [gitlab]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+skipping: [gitlab]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [gitlab]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [gitlab]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [gitlab]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [gitlab] => (item=vmtoolsd)
+ok: [gitlab] => (item=chronyd)
+ok: [gitlab] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [gitlab]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [gitlab]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [gitlab]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [gitlab]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [gitlab]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [gitlab]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [gitlab]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [gitlab]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [gitlab]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [gitlab]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [gitlab]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [gitlab]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [gitlab] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+ok: [gitlab]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+ok: [gitlab] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [gitlab] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [gitlab] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+ok: [gitlab] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [gitlab]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [gitlab]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+ok: [gitlab]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+ok: [gitlab]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [gitlab]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+ok: [gitlab]
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [gitlab]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+skipping: [gitlab]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [gitlab] => (item=harbor.k8s.internal.egon.top)
+ok: [gitlab] => (item=rockylinux.org)
+
+TASK [node_base : 读取 resolv.conf 中的 nameserver] ****************************
+ok: [gitlab]
+
+TASK [node_base : 重新激活连接以清除已学到的 IPv6 DNS（后台执行，不中断当前任务）] ***
+skipping: [gitlab]
+
+TASK [node_base : 等待连接恢复] ************************************************
+skipping: [gitlab]
+
+TASK [node_base : 重新激活后再次读取 resolv.conf] ******************************
+skipping: [gitlab]
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+ok: [gitlab]
+
+TASK [node_base : dnf 使用显式代理] ********************************************
+ok: [gitlab]
+
+TASK [data_disk : 数据盘参数齐全] **********************************************
+ok: [gitlab]
+
+TASK [data_disk : 已带标签的数据盘] ********************************************
+ok: [gitlab]
+
+TASK [data_disk : 列出磁盘] ****************************************************
+skipping: [gitlab]
+
+TASK [data_disk : 候选必须恰好一块：容量等于台账值、无分区、无文件系统] ********
+skipping: [gitlab]
+
+TASK [data_disk : 不是恰好一块时停止，不猜测设备] ******************************
+skipping: [gitlab]
+
+TASK [data_disk : 格式化数据盘（XFS，带标签）] *********************************
+skipping: [gitlab]
+
+TASK [data_disk : 读取数据盘 UUID] *********************************************
+ok: [gitlab]
+
+TASK [data_disk : 按 UUID 挂载] ************************************************
+ok: [gitlab]
+
+TASK [data_disk : 挂载点按策略恢复 SELinux 标签] *******************************
+ok: [gitlab]
+
+TASK [gitlab : 管理端口令目录（仓库之外）] *************************************
+ok: [gitlab -> localhost]
+
+TASK [gitlab : 内部证书已签发（管理端先运行 issue-cert.sh）] *******************
+ok: [gitlab -> localhost]
+
+TASK [gitlab : 缺少证书时停止] *************************************************
+ok: [gitlab]
+
+TASK [gitlab : 传输签名公钥] ***************************************************
+ok: [gitlab] => (item=F6403F6544A38863DAA0B6E03F01618A51312F3F)
+ok: [gitlab] => (item=98BFDB87FCF10076416C1E0BAD997ACC82DD593D)
+
+TASK [gitlab : 导入签名公钥（按指纹核对）] *************************************
+ok: [gitlab] => (item=F6403F6544A38863DAA0B6E03F01618A51312F3F)
+ok: [gitlab] => (item=98BFDB87FCF10076416C1E0BAD997ACC82DD593D)
+
+TASK [gitlab : GitLab CE 软件源（软件包与仓库元数据都验签；经 dnf 全局代理下载）] ***
+ok: [gitlab]
+
+TASK [gitlab : 配置目录] *******************************************************
+ok: [gitlab] => (item={'path': '/etc/gitlab', 'mode': '0775'})
+ok: [gitlab] => (item={'path': '/etc/gitlab/ssl', 'mode': '0755'})
+ok: [gitlab] => (item={'path': '/etc/gitlab/trusted-certs', 'mode': '0755'})
+
+TASK [gitlab : 升级时不自动 reconfigure] ***************************************
+ok: [gitlab]
+
+TASK [gitlab : 传输证书链与私钥（私钥 0600）] **********************************
+ok: [gitlab] => (item=crt)
+ok: [gitlab] => (item=key)
+
+TASK [gitlab : 信任内部根 CA] **************************************************
+ok: [gitlab]
+
+TASK [gitlab : gitlab.rb] ******************************************************
+ok: [gitlab]
+
+TASK [gitlab : 安装 GitLab CE（约 1.1 GB，经代理下载；安装后软件包自动执行首次 reconfigure）] ***
+ASYNC OK on gitlab: jid=j955955427903.17921
+ok: [gitlab]
+
+TASK [gitlab : 确保至少完成一次 reconfigure] ***********************************
+ASYNC OK on gitlab: jid=j452278956580.18177
+ok: [gitlab]
+
+TASK [gitlab : 设置 root 口令为管理端保存的值（只执行一次，约 1 分钟）] ********
+changed: [gitlab]
+
+TASK [gitlab : 删除安装时生成的初始口令文件（已不再有效）] *********************
+changed: [gitlab]
+
+TASK [gitlab : root 口令与管理端保存的值一致（约 1 分钟）] *********************
+ok: [gitlab]
+
+TASK [gitlab : 只对实验网段开放 HTTP（跳转到 HTTPS）与 HTTPS] ******************
+ok: [gitlab] => (item=192.168.9.0/24:80)
+ok: [gitlab] => (item=192.168.9.0/24:443)
+
+TASK [gitlab : 立即执行待处理的 reconfigure] ***********************************
+
+TASK [gitlab : 各组件运行中] ***************************************************
+ok: [gitlab]
+
+PLAY [从管理端验证 GitLab] *****************************************************
+
+TASK [登录页经内部根 CA 校验证书链返回 200] ************************************
+ok: [localhost]
+
+TASK [HTTP 跳转到 HTTPS] *******************************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+gitlab                     : ok=50   changed=2    unreachable=0    failed=0    skipped=20   rescued=0    ignored=0   
+localhost                  : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,6 +1,6 @@
 # Phase 00｜基础设施、服务器初始化与软件供应准备
 
-文档版本：V3.0。状态：进行中（十节点 Linux/CRI 基线已通过检查，整体阶段尚未验收）。步骤数：43。当前批次：[2026-10-14 执行记录](../ops/00-preparation/records/2026-10-14/README.md)。
+文档版本：V3.0。步骤数：43。完成时应有的对象见 [阶段完成时的目标状态](#阶段完成时的目标状态)。具体操作见 [Phase 00 操作流程](../ops/00-preparation/README.md)；执行状态与证据见 [执行记录](../ops/00-preparation/records/2026-10-14/README.md)。
 
 本阶段实际创建 VM、部署基础服务，并完成十台 Rocky Linux 的系统初始化、containerd/runc/crictl 安装、镜像预热、CRI 自测和重启复验，交付可以直接进入 kubeadm init/join 的节点。资产统计只是开头，不是阶段成果。
 
@@ -29,6 +29,54 @@
 阶段交接：基础服务与十台服务器已实际就绪；OS/CRI 初始化不能延后到 01。
 
 验收结果保存为 `ops/00-preparation/records/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../ops/templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+
+## 阶段完成时的目标状态
+
+本节是 Phase 00 完成时应当存在的全部对象，即本阶段的**目标台账**。实际参数以 [主机台账](../ops/inventory/hosts.yaml)、[网络台账](../ops/inventory/networks.yaml)、[资源台账](../ops/inventory/resources.yaml) 为准（[台账速览](../ops/inventory/README.md)）；实际完成情况见执行记录。
+
+### 物理与网络
+
+| 对象 | 目标 |
+| --- | --- |
+| 宿主机 | esxi01（R730，128 GiB）、esxi02 与 esxi03（R730xd，各 64 GiB），ESXi 8，由 vCenter（.5）纳管；iDRAC 与 ESXi 管理地址固定 |
+| 实验网 | 192.168.9.0/24 单网段，网关为现有路由器 .1，DHCP 池 .30–.49 与静态地址不重叠；地址按用途分段（节点 .101–.119、基础服务 .10–.19、VIP .100 与 .201–.220） |
+| 域名 | internal.egon.top 下分 mgmt（管理设施）、k8s（节点与平台）、svc（开发服务）三层，全部由内部 DNS 权威应答；公网 egon.top 只发布白名单中的入口 |
+| 集群地址（01 使用） | Pod 10.244.0.0/16、Service 192.168.20.0/24、API VIP 192.168.9.100，00 只预留，不配置 |
+
+### 虚拟机
+
+| 类别 | 虚拟机 | 地址 | 规格（vCPU / 内存 GiB） | 完成时的状态 |
+| --- | --- | --- | --- | --- |
+| 模板 | rocky10-base | .9 | 2 / 4 | Rocky 10、运行时盘、containerd 与入群工具，已封装并保留快照 |
+| 控制平面 | cp01–cp03 | .101–.103 | 4 / 8 | 分别位于三台 ESXi |
+| 基础设施 | infra01–infra02 | .104–.105 | 6 / 12 | — |
+| 存储 | storage01–storage03 | .106–.108 | 8 / 16 | 分别位于三台 ESXi；OSD 候选盘只登记，不初始化 |
+| 工作节点 | worker01–worker02 | .109–.110 | 8 / 16 | — |
+| 基础服务 | openwrt、dns、harbor、gitlab、nexus、backup、admin | .10–.16 | 见资源台账 | 见下一张表 |
+
+十台节点完成时：身份唯一（machine-id、BIOS UUID、MAC、SSH 主机密钥、主机名、地址）；静态网络与内部 DNS；时间同步；SELinux Enforcing、firewalld 来源受限规则；cgroup v2、Swap 关闭、内核参数持久；journald 持久化有上限；运行时盘按 UUID 挂载；containerd、runc、crictl 与 kubeadm、kubelet、kubectl 为锁定版本，sandbox 与控制面镜像来自 Harbor；host-network CRI 自测通过；重启后结果一致；Ansible 重复执行无变更。kubelet 不启用，不执行 kubeadm init/join，不安装 CNI。
+
+### 集群外基础服务
+
+| 服务 | 名称 | 完成标准 |
+| --- | --- | --- |
+| 显式代理 / VPN | openwrt.mgmt.internal.egon.top（.10） | 只有显式配置的程序经代理访问外网；默认网关不变；代理或隧道故障时内网服务仍可用 |
+| 内部 DNS | dns.mgmt.internal.egon.top（.11） | 内部区域由台账生成并权威应答；外部名称经上游递归；节点、服务 VM 与管理端都使用它；有故障与恢复流程 |
+| 内部 CA | 管理端（私钥离线保存） | 根 CA 与中间 CA（名称约束）；每个 HTTPS 服务单独签发证书；节点、服务、管理端与构建工具都信任根 CA，验收不使用 `-k` |
+| 镜像仓库 | harbor.k8s.internal.egon.top（.12） | 引导项目保存 kubeadm 与 CRI 自测镜像（固定 Digest）；上游代理缓存；按项目授权，节点只读拉取 |
+| 代码仓库 | gitlab.svc.internal.egon.top（.13） | HTTPS 与 SSH 可用，管理员账户受控；作为 04 阶段 CI 的起点 |
+| 依赖仓库 | nexus.svc.internal.egon.top（.14） | Maven、npm、PyPI、Go 等七类语言依赖的代理仓库，可离线提供已缓存的依赖 |
+| 备份 | backup.mgmt.internal.egon.top（.16） | CA、DNS、Harbor、GitLab、Nexus、OpenWrt 配置的加密备份；至少一次恢复演练并验证数据；按 00.10.03 应与被备份对象分属不同物理存储 |
+| 管理 VM | admin.mgmt.internal.egon.top（.15） | 独立的管理工具环境（Ansible、OpenTofu 与凭据分离），不依赖单台个人电脑 |
+
+所有基础服务独立于 Kubernetes 与 Ceph，使用集群外本地存储，重启后自动恢复。
+
+### 自动化与物料
+
+- 三份台账、版本锁与物料清单完整，所有部署物料都有来源与校验值。
+- Ansible 角色与剧本覆盖节点与 Rocky 服务 VM；OpenWrt、PKI 各有可重复执行的脚本；VM 的虚拟硬件由 OpenTofu 声明。
+- 干净客户端在断网条件下，能经内部服务完成指定物料的安装与七类最小构建。
+- 阶段验收文档逐项链接证据，01 只做复验，不再首次配置 Linux 或安装 CRI。
 
 ## 00.01 确认建设边界与资产
 

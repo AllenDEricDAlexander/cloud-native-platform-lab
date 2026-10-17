@@ -1,0 +1,65 @@
+- name: 数据盘参数齐全
+  ansible.builtin.assert:
+    that:
+      - data_disk_path is not none
+      - data_disk_label is not none
+      - data_disk_gib | int > 0
+    fail_msg: 需要在 host_vars 中设置 data_disk_path、data_disk_label，并在台账中填写 data_disk_gib
+    quiet: true
+
+- name: 已带标签的数据盘
+  ansible.builtin.command: blkid -L {{ data_disk_label }}
+  register: data_disk_labeled
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: 准备新数据盘（只在尚无标签盘时）
+  when: data_disk_labeled.rc != 0
+  block:
+    - name: 列出磁盘
+      ansible.builtin.command: lsblk -J -b -o NAME,PATH,SIZE,TYPE,FSTYPE
+      register: data_disk_lsblk
+      changed_when: false
+      check_mode: false
+
+    - name: 候选必须恰好一块：容量等于台账值、无分区、无文件系统
+      ansible.builtin.set_fact:
+        data_disk_candidates: >-
+          {{ (data_disk_lsblk.stdout | from_json).blockdevices
+             | selectattr('type', 'equalto', 'disk')
+             | selectattr('size', 'equalto', (data_disk_gib | int) * 1024 * 1024 * 1024)
+             | rejectattr('children', 'defined')
+             | selectattr('fstype', 'none')
+             | map(attribute='path') | list }}
+
+    - name: 不是恰好一块时停止，不猜测设备
+      ansible.builtin.assert:
+        that: data_disk_candidates | length == 1
+        fail_msg: >-
+          找到 {{ data_disk_candidates | length }} 块 {{ data_disk_gib }} GiB 的空盘：{{ data_disk_candidates }}。
+          请核对 vSphere 中新增硬盘的容量与台账 data_disk_gib 一致，且该盘未分区、未格式化。
+
+    - name: 格式化数据盘（XFS，带标签）
+      ansible.builtin.command: mkfs.xfs -L {{ data_disk_label }} {{ data_disk_candidates[0] }}
+
+- name: 读取数据盘 UUID
+  ansible.builtin.shell: blkid -s UUID -o value "$(blkid -L {{ data_disk_label }})"
+  register: data_disk_uuid
+  changed_when: false
+  check_mode: false
+
+- name: 按 UUID 挂载
+  ansible.posix.mount:
+    path: "{{ data_disk_path }}"
+    src: UUID={{ data_disk_uuid.stdout }}
+    fstype: xfs
+    opts: "{{ data_disk_opts }}"
+    state: mounted
+
+# 新建 XFS 的根目录没有 SELinux 标签（unlabeled_t），在其下创建的文件会继承不合适的类型；
+# 挂载后按策略恢复挂载点自身的标签。只处理根目录，应用写入的数据由各自的安装程序标注。
+- name: 挂载点按策略恢复 SELinux 标签
+  ansible.builtin.command: restorecon -v {{ data_disk_path }}
+  register: data_disk_restorecon
+  changed_when: data_disk_restorecon.stdout | length > 0

@@ -47,3 +47,6 @@ node_ca_trust_source: "{{ inventory_dir }}/../../../pki/public/cnpl-lab-root-ca.
 # 只配置内部 DNS：单点风险已记录，第二台 DNS（.17）部署到另一宿主机前不算冗余。
 node_dns_servers: "{{ (lookup('ansible.builtin.file', inventory_dir ~ '/../../../../inventory/networks.yaml') | from_yaml).lan.planned_dns_servers }}"
 node_dns_search: ["k8s.internal.egon.top"]
+
+# dnf 显式代理：默认不设置；服务 VM 的剧本按需传入（如 http://192.168.9.10:7890）。
+node_dnf_proxy: ""

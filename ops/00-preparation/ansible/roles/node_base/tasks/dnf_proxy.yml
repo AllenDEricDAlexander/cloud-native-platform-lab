@@ -1,0 +1,10 @@
+# dnf 经 OpenWrt 显式代理访问软件源（00.06.02「仅给确有需要的进程配置代理」）：只在设置了 node_dnf_proxy 的
+# 主机上写入，其余主机不改。经代理时 Rocky 的 mirrorlist 按出口位置选择镜像，避开第 51、74 节遇到的
+# 慢速或不同步的国内镜像。
+- name: dnf 使用显式代理
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/dnf.conf
+    regexp: '^proxy\s*='
+    line: proxy={{ node_dnf_proxy }}
+    insertafter: '^\[main\]'
+  when: node_dnf_proxy | length > 0

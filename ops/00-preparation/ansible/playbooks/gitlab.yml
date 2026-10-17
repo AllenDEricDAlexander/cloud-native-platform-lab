@@ -1,0 +1,41 @@
+# GitLab CE（00.09.01）：从封装模板克隆的服务 VM。
+# 去除 Kubernetes 运行时 → 系统基线（DNS、CA、防火墙、日志、dnf 代理）→ 数据盘 /var/opt/gitlab → GitLab；
+# 最后从管理端经内部根 CA 验证 HTTPS。
+# 前提：VM 已改为 gitlab.svc.internal.egon.top / 192.168.9.13、已分发管理端密钥、已新增 150 GiB 数据盘；
+# 管理端已签发证书：bash ops/00-preparation/pki/issue-cert.sh gitlab.svc.internal.egon.top 192.168.9.13
+- name: GitLab 服务器
+  hosts: gitlab
+  gather_facts: false
+  vars:
+    node_dnf_proxy: http://192.168.9.10:7890
+  roles:
+    - role: service_vm
+    - role: node_base
+    - role: data_disk
+    - role: gitlab
+
+- name: 从管理端验证 GitLab
+  hosts: localhost
+  gather_facts: false
+  vars:
+    gitlab_fqdn: "{{ hostvars['gitlab']['node_fqdn'] }}"
+    root_ca: "{{ hostvars['gitlab']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"
+  tasks:
+    # reconfigure 之后各组件还需 1–3 分钟就绪，期间返回 502。
+    - name: 登录页经内部根 CA 校验证书链返回 200
+      ansible.builtin.command: >-
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 15 --cacert {{ root_ca }}
+        https://{{ gitlab_fqdn }}/users/sign_in
+      register: gitlab_signin
+      changed_when: false
+      retries: 30
+      delay: 10
+      until: gitlab_signin.stdout == '200'
+
+    - name: HTTP 跳转到 HTTPS
+      ansible.builtin.command: >-
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 15
+        http://{{ gitlab_fqdn }}/
+      register: gitlab_redirect
+      changed_when: false
+      failed_when: not gitlab_redirect.stdout is match('30[1278] https://' ~ gitlab_fqdn)

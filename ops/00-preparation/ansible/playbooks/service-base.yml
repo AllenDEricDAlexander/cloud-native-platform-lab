@@ -1,0 +1,22 @@
+# 服务 VM 基线（Nexus、备份）：去除 Kubernetes 运行时 → 系统基线（DNS、CA、防火墙、日志、dnf 代理）→ 数据盘。
+# 应用由各自的剧本安装（nexus.yml、backup.yml）；GitLab 的基线包含在 gitlab.yml 中。
+# 前提：VM 已改为台账中的名称与地址、已分发管理端密钥、已按台账 data_disk_gib 新增数据盘。
+- name: 服务 VM 基线
+  hosts: nexus:backup
+  gather_facts: false
+  vars:
+    node_dnf_proxy: http://192.168.9.10:7890
+  roles:
+    - role: service_vm
+    - role: node_base
+    - role: data_disk
+
+  post_tasks:
+    - name: 数据盘已挂载
+      ansible.builtin.command: findmnt -n -o SOURCE,FSTYPE,OPTIONS {{ data_disk_path }}
+      register: service_base_mount
+      changed_when: false
+
+    - name: 显示挂载
+      ansible.builtin.debug:
+        msg: "{{ data_disk_path }}: {{ service_base_mount.stdout }}"

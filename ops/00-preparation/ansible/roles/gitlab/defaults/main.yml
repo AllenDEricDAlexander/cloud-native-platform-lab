@@ -1,0 +1,17 @@
+# GitLab CE（00.09.01）：Omnibus 软件包，原生安装在 Rocky 10。版本见 versions.lock.yaml gitlab。
+gitlab_package: gitlab-ce-19.4.2-ce.0.el10
+gitlab_fqdn: "{{ node_fqdn }}"
+gitlab_tls_dir_local: "{{ lookup('ansible.builtin.env', 'HOME') }}/cnpl-pki/intermediate/issued/{{ gitlab_fqdn }}"
+gitlab_root_ca: "{{ inventory_dir }}/../../../pki/public/cnpl-lab-root-ca.crt"
+gitlab_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+# 初始 root 口令：首次初始化数据库时使用；保存在管理端仓库之外。
+gitlab_root_password: "{{ lookup('ansible.builtin.password', gitlab_secrets_dir ~ '/gitlab_root_password', length=24, chars=['ascii_letters', 'digits']) }}"
+gitlab_allowed_clients: ["192.168.9.0/24"]
+# GitLab 自身的出站请求（导入、镜像同步、外部 Webhook）经 OpenWrt 显式代理；内部名称与实验网段直连。
+gitlab_outbound_proxy: http://192.168.9.10:7890
+gitlab_no_proxy: localhost,127.0.0.1,.internal.egon.top,192.168.9.0/24
+# 仓库元数据签名密钥与软件包签名密钥（公开密钥，随角色提交；指纹 2026-10-17 核对）。
+# 旧的软件包密钥 3D645A26AB9FBD22 已于 2025-07 过期，不导入。
+gitlab_gpg_keys:
+  - {file: gitlab-repo-metadata.gpg, fingerprint: F6403F6544A38863DAA0B6E03F01618A51312F3F}
+  - {file: gitlab-package-CB947AD886C8E8FD.gpg, fingerprint: 98BFDB87FCF10076416C1E0BAD997ACC82DD593D}

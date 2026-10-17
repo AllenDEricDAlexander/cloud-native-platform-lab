@@ -1570,3 +1570,101 @@ Harbor VM 实际安装的 iptables-nft 版本未取证；重跑时 docker_host �
 **Harbor**（[证据](evidence/00.11-harbor-boot-unit.txt)）：文件中只有一次 harbor.yml 运行，为 ok=44 changed=3 failed=0。三项变更是 compose up（重启后容器处于停止状态，由它拉起）、写入 harbor.service、启用该单元；管理端验证通过，health 重试一次后为 healthy。随后 `reboot-nodes.yml -e target=harbor` 通过（新的 boot_id，SELinux Enforcing，firewalld running，DNS .11，没有失败单元）。重启后 verify-harbor.yml 通过：ping 第一次即成功，health 重试一次后为 healthy，/v2/ 返回 401。从证据无法判断写入的是哪一版单元，因此本助手从管理端只读执行了一次 `systemctl show harbor`：ExecStart 为带 6 次重试的版本，UnitFileState=enabled，ActiveState=active，本次开机在 12:41:39 启动、12:41:45 以 status=0 结束。6 秒说明第一次 compose up 就已成功，没有用到重试。Harbor 重启后的自动恢复由此得到证据。两份证据中都没有私钥块。
 
 **mihomo**（[证据](evidence/00.06.02-mihomo-install.txt) 末尾）：SHA256 校验 OK；`/usr/bin/mihomo 已是该版本`，跳过传输；残留的 mihomo.new 已删除。根分区为 98.3M，已用 81.9M，剩余 14.3M。服务重启后为 running，监听 192.168.9.10:7890，新的日志级别与订阅直连配置已生效：输出中没有逐连接日志，其余几行是解析配置之前的启动信息。根分区只剩 14 MB，再写入大文件（例如升级 mihomo 时）前需要先删除旧文件；新脚本已按这个顺序执行。
+
+## 91. 2026-10-17 提交；LuCI 入口；三台新 VM 的基线与 GitLab 自动化
+
+**提交**：2b1b611（分支 phase00/openwrt-proxy-reboot，快进合并到 main，未推送），包含第 85–90 节的全部改动与证据。提交前检查：没有 PEM 私钥块；与两个 Harbor 口令文件比对，没有匹配；没有订阅相关字样（订阅服务器域名、token=、/subscribe 等）。
+
+**LuCI**：从管理端只读探测：http://192.168.9.10/ 返回 200；https 返回 200（uhttpd 自签名证书）；/cgi-bin/luci/ 未登录时返回 403，即登录页，说明 25.12.5 发行镜像自带 LuCI。openwrt.mgmt.internal.egon.top 经内部 DNS 解析为 .10。LAN 区域允许入站，Mac 的系统代理例外包含 192.168.0.0/16 与 *.internal.egon.top，浏览器直连。登录使用用户在控制台设置的 root 口令。HTTP 在 LAN 上明文传输，HTTPS 会有自签名证书警告；改用内部 CA 签发的证书留待以后。
+
+**三台新 VM**：用户报告 gitlab、nexus、backup 已创建，台账记为 cloned_user_reported，inventory 生成器为服务 VM 增加 node_data_disk_gib（取自台账 data_disk_gib），重新生成后基础服务为 dns、harbor、gitlab、nexus、backup。
+
+- 新增 data_disk 角色：沿用 harbor 的选盘逻辑，容量取自台账，挂载点与标签写在手写的 host_vars 中（/var/opt/gitlab、/opt/sonatype-work、/srv/backup）。新增一项：挂载后对挂载点执行 restorecon，因为新建 XFS 的根目录没有 SELinux 标签，在其下创建的文件会继承不合适的类型。
+- node_base 新增 dnf_proxy（标签 dnf_proxy）：只在剧本传入 node_dnf_proxy 的主机上，在 /etc/dnf/dnf.conf 写入 proxy=。经代理时 Rocky 的 mirrorlist 按出口位置选镜像，避开第 51、74 节遇到的慢速或不同步的国内镜像。十个节点、dns、harbor 不受影响。
+- node_base dns：新克隆的 VM 会遇到第 86 节的问题（reapply 后 RA 学到的 IPv6 DNS 仍在）。本次刚修改设置且 resolv.conf 仍有多余条目时，改为在后台延迟 2 秒执行 `nmcli connection up`，用 wait_for_connection 等 SSH 恢复后再读一次，不再要求重启。
+- playbooks/service-base.yml：nexus 与 backup 的基线与数据盘（应用剧本随后提供）。
+
+**GitLab**（playbooks/gitlab.yml + roles/gitlab）：
+
+- 版本：gitlab-ce 19.4.2-ce.0.el10（2026-10-07，上一个次版本的最新补丁；19.5.0 于 2026-10-15 发布，未选）。官方 el/10 仓库可用，RPM 1121060581 字节，依赖 policycoreutils-python-utils、perl-interpreter、openssh-server，SHA256 e0474b31… 取自仓库 primary.xml。
+- 签名：官方仓库配置列出三个公钥，本助手经 HTTPS 获取后用 gpg 查看：仓库元数据密钥 F6403F65…312F3F（2028-02 到期）与软件包密钥 98BFDB87…593D（CB947AD886C8E8FD，2025-02 创建，2028-02 到期）随角色提交，rpm_key 按指纹导入；旧密钥 3D645A26AB9FBD22 已于 2025-07 过期，不导入。软件源 gpgcheck 与 repo_gpgcheck 均开启。
+- 配置先于安装写入：/etc/gitlab/skip-auto-reconfigure 禁止安装与升级时自动 reconfigure；gitlab.rb（0600）只写与默认值不同的项：external_url 为 https，使用内部 CA 证书，HTTP 跳转 HTTPS；关闭 Let's Encrypt、内置镜像仓库（由 Harbor 负责）、Pages、内置 Prometheus；rails、workhorse、gitaly 的出站请求经 OpenWrt 代理，内部名称与实验网段直连；根 CA 放入 /etc/gitlab/trusted-certs。私钥传输设置 diff: false。
+- 首次 reconfigure 由任务执行（以标记文件判断是否已完成），root 口令来自管理端 ~/.cnpl-secrets/gitlab_root_password，经环境变量 GITLAB_ROOT_PASSWORD 传入，no_log。之后 gitlab.rb 或证书变化由处理器执行 reconfigure。防火墙只对 192.168.9.0/24 开放 80 与 443，SSH（git）沿用现有规则。管理端验证：/users/sign_in 经根 CA 校验返回 200（最多等 5 分钟），HTTP 返回 30x 跳转到 https。
+- 本地检查：syntax-check 通过；gitlab.rb 模板渲染后 `ruby -c` 为 Syntax OK。
+
+**版本锁**：gitlab 记为 19.4.2-ce.0.el10（selected）。nexus 记为 3.96.4-01：2026-09-30 发布，SHA256 b4be574d… 取自 download.sonatype.com 的 .sha256 文件，没有签名；3.97.0-13 发布于 2026-10-14，未满两周，未选。新增 backup_tool：restic 0.19.1，2026-07-05 发布，带 SHA256SUMS.asc 签名，签名待核对。Nexus 与备份的角色尚未编写。
+
+待用户执行：用 issue-cert.sh 签发 gitlab（.13）与 nexus（.14）的证书，需要中间 CA 口令；运行 service-base.yml；运行 gitlab.yml。尚无执行输出。
+
+## 92. 2026-10-17 三台新 VM 仍为 DHCP：新增 set-vm-identity.sh
+
+用户说明 gitlab、nexus、backup 已创建，但还没改主机名与地址，仍为 DHCP。台账 vm_status 记为 cloned_user_reported 的表述因此不准确：已克隆，身份待设置；inventory 已包含它们，脚本完成前对这三台运行剧本会连接失败。
+
+新增 ops/00-preparation/scripts/set-vm-identity.sh，在管理 Mac 上运行，参数为台账 id 与当前 DHCP 地址。FQDN、地址与连接名取自 hosts.yaml，掩码、网关、DNS 取自 networks.yaml，不手抄。流程：目标地址已有主机应答时停止；删除 DHCP 地址、目标地址与 FQDN 的旧主机密钥记录（第 31 节遇到过 DHCP 地址被不同克隆复用的问题）；ssh-copy-id 到 DHCP 地址，只需输入一次模板 root 口令；之后经密钥写入主机名与 nmcli 静态配置（同时设置 ipv6.ignore-auto-dns yes），并在后台延迟 2 秒重新激活连接，标准输入、输出都重定向，当前 SSH 会话可以正常结束；然后等待新地址可用密钥登录，输出主机名、地址、默认路由、DNS 与网关连通性。首次连接用 StrictHostKeyChecking=accept-new 接受新主机密钥（新克隆的主机密钥在首次开机时生成，实验环境接受首次信任）。本地 bash -n 通过；台账读取逻辑对 gitlab 输出 gitlab.svc.internal.egon.top 192.168.9.13 ens33 24 192.168.9.1 192.168.9.11。尚无执行输出。
+
+## 93. 2026-10-17 Phase 00 现状汇总写入根目录 README
+
+用户报告三台新 VM 已通过 set-vm-identity.sh 设置身份，gitlab.yml 正在运行，并要求把设备、服务、IP、资源、虚拟机台账与脚本按完整顺序整理一遍；随后要求直接写进仓库根目录 README，使其可以指导操作（原 README 只有目录与 2026-10-16 的进度）。本助手先写了单独的 overview.md，按用户要求并入根目录 README 后删除，只保留一份，避免两处内容不一致；overview.md 未提交过。
+
+根目录 README 现为操作入口：当前进度；环境一览（物理设备、地址与域名、服务、虚拟机、按计划放置推算的资源占用）；Phase 00 操作指南（步骤 0–13，从零重建的依赖顺序，每步给出可直接执行的命令、前提与预期结果，并注明实际建设顺序不同）；自动化清单；秘密与物料位置（只记位置）；已知取舍；剩余工作；仓库结构。内容以台账、版本锁与本记录为准，README 中写明了这一点。批次 README 顶部加了指向根目录 README 的链接，并注明其第 2 节是 2026-10-16 的快照。set-vm-identity.sh 改为同时查找 kubernetes_nodes，节点重建也可用（本地对 cp02 与 backup 读取正确）。
+
+整理时顺带修正的过时字段：hosts.yaml 中 gitlab、nexus、backup 的 vm_status 由 cloned_user_reported 改为 identity_set（第 92 节已指出原表述不准确）；版本锁 harbor 的 status 由 installed_unvalidated 改为 deployed_verified（管理端 API、浏览器、十节点 CRI 拉取与重启自恢复均已验证）。按计划放置推算，esxi01 承载 44 vCPU、89 GiB（约 70%，未计 vCenter），esxi02 为 18 vCPU、36 GiB，esxi03 为 20 vCPU、40 GiB；节点的实际放置除 cp01 外仍未从 vSphere 导出核对。
+
+## 94. 2026-10-17 文档分工调整：根目录宏观、plan 规划、ops 可执行流程、records 实际记录
+
+用户提出各层文档的分工：根目录 README 做宏观指导，plan 是规划，ops 下的每个 README 是一套可以运行的完整流程，records 是实际记录。第 93 节把操作步骤写进根目录 README，与这一分工不符，因此重新分配：
+
+- **根目录 README**：项目目标与边界、七阶段与进度（一句话）、环境概况（链接台账）、四类目录各自回答什么问题、共同约定。不再包含命令。
+- **ops/README.md**：阶段操作流程表（含状态与「未开始阶段仍是设计草案」的说明）；每个阶段都按同一套流程执行（确定步骤 → 核对输入 → 执行并 tee 证据 → 记录 → 检查秘密后提交 → 回写流程）；共用输入；目录归属表按实际修正：原计划的 `ops/00-preparation/dns/`、`registry/` 实际由 ansible 角色实现，新增 scripts、tests/smoke 两行，OpenTofu 标为未开始。
+- **ops/inventory/README.md**：修改台账的流程（改 YAML → 生成 Inventory → 递增区域序号并重跑 dns.yml → 管理端或节点地址变化时重跑防火墙 → 数据盘容量与台账一致），以及台账速览（物理设备、地址与域名、虚拟机、资源），注明以 YAML 为准。
+- **ops/00-preparation/README.md**：从实施前写的说明性手册（含 LAB_* 占位与「待编写」的文件清单）改写为可执行流程：约定、安全规则、流程总览（17 步，含计划步骤编号与依赖）；每步写明前提、命令、预期、证据与失败处理；模板的封装命令取自第 41 节；Nexus、备份、断网验收标为待编写；原手册中仍有效的设计要点（磁盘、网络与 DNS、防火墙端口、containerd 与 CRI）收入附录 A，管理端访问路径与本批遇到的常见问题收入附录 B（每项注明记录小节），自动化清单为附录 C。原手册中已被角色实现或已过时的内容（逐条手工配置命令、10.1/10.2 两条路线的过渡说明、cri_tools 版本为 null 的旧提示）不再保留，历史以本记录为准。
+- **records/2026-10-14/README.md**：第 2 节改为 2026-10-17 的实际进度，按计划步骤逐项列出结果与证据；删除第 93 节加的跳转提示；说明交互方式已从逐条短命令改为剧本与 tee。
+- **plan**：plan/README.md 与 00-preparation.md 开头的进度描述删除，改为指向操作流程与执行记录，计划文件只保留规划内容。
+
+本地检查：四份 README 中的相对链接全部存在。01–06 的操作流程未改动，仍是设计草案。
+
+## 95. 2026-10-17 GitLab 部署通过但 root 口令不是保存的值；Nexus、备份基线；Nexus 自动化；计划中写入目标状态
+
+**GitLab**（[证据](evidence/00.09.01-gitlab-deploy.txt)）：gitlab ok=58 changed=31 failed=0，localhost ok=2 failed=0。node_base 在新 VM 上首次执行：防火墙 ipset、journald、根 CA、DNS 均为 changed；resolv.conf 本来就只有 .11，第 91 节新增的重新激活连接未触发；dnf 代理已写入。data_disk 选中唯一的 150 GiB 空盘，格式化、按 UUID 挂载并恢复标签。签名公钥按两个指纹导入，软件源、配置、证书写入。安装任务轮询 64 次，约 16 分钟。首次 reconfigure 任务只轮询两次就结束。gitlab-ctl status 正常，管理端经根 CA 访问 /users/sign_in 返回 200，HTTP 跳转到 HTTPS。证据中没有私钥块，与 Harbor、GitLab 口令文件比对均无匹配。
+
+首次 reconfigure 不到一分钟就结束，与初始化数据库所需的时间不符，因此本助手从管理端只读检查了 gitlab：gitlab-ce-19.4.2 于 13:15:35 安装；/var/log/gitlab/reconfigure/ 下有两份日志，一份 13:24:44 结束、180 KB，一份 13:25:37 结束、5.9 KB；/etc/gitlab/initial_root_password 创建于 13:16:07；标记文件 .cnpl-first-reconfigure-done 为 13:25:38；SELinux 为 Enforcing；/var/opt/gitlab 为 /dev/sdc（xfs）；九个服务都在运行，内存已用 4 GiB（共 15 GiB）。
+
+结论：gitlab.rb 已有 external_url，软件包安装时自动执行了首次 reconfigure 并初始化数据库，GitLab 随之生成随机 root 口令并写入 initial_root_password。角色随后那次带 GITLAB_ROOT_PASSWORD 的 reconfigure 只是对已初始化的实例再执行一次，口令不再生效。因此 **~/.cnpl-secrets/gitlab_root_password 目前不是 GitLab 的 root 口令**。第 91 节对 skip-auto-reconfigure 的理解有误：它只阻止升级时的自动 reconfigure，不影响首次安装。
+
+修正（gitlab 角色）：
+- 「确保至少完成一次 reconfigure」不再传口令，也不隐藏输出。
+- 新增「设置 root 口令为管理端保存的值」：用 gitlab-rails runner 写入，口令经环境变量传入，no_log，以标记文件 .cnpl-root-password-set 保证只执行一次。
+- 删除已失效的 initial_root_password。
+- 每次运行都用 valid_password? 核对 root 口令与保存的值一致。
+- 注释改正 skip-auto-reconfigure 的作用。
+
+需要用户重跑一次 gitlab.yml，已安装的部分不会重复执行。syntax-check 通过。
+
+**Nexus 与备份基线**（[证据](evidence/00.09.04-service-base.txt)）：nexus 与 backup 均为 ok=45 changed=20 failed=0。/opt/sonatype-work 与 /srv/backup 都已挂载为 xfs（rw、nosuid、nodev、seclabel）。台账两台的 vm_status 记为 baseline_applied，gitlab 记为 deployed，版本锁 gitlab 记为 deployed（root 口令待重跑）。
+
+**Nexus 自动化**（playbooks/nexus.yml + roles/nexus）：本助手用范围请求读取安装包前 3 MB，确认包内结构为 nexus-3.96.4-01/（bin/nexus、bin/nexus.vmoptions、Spring Boot jar、自带 jdk/temurin 21）与 sonatype-work/nexus3/{log,tmp}。启动脚本支持前台运行 `nexus run`；以非 root 用户运行时不需要 nexus.rc；数据目录按 ../sonatype-work/nexus3 解析为 /opt/sonatype-work/nexus3。角色内容：
+- 经代理用 get_url 下载，按版本锁 SHA256 校验；解压时排除包内的 sonatype-work。
+- /opt/nexus 链接到当前版本；系统账户 nexus。
+- nexus.properties 设置只监听 127.0.0.1:8081。
+- systemd 单元为 Type=simple、`nexus run`、LimitNOFILE 65536，依赖数据盘挂载。
+- 等待 /service/rest/v1/status 返回 200 后，读取 admin.password，经 REST 把 admin 口令改为 ~/.cnpl-secrets/nexus_admin_password 的值（no_log），删除初始口令文件，并以 /service/rest/v1/status/check 核对口令。
+- nginx 以内部证书提供 HTTPS，HTTP 跳转；写入后执行 `nginx -t`。为让 nginx 连接 8081，打开 SELinux 布尔值 httpd_can_network_connect，这是取舍，SELinux 仍为 Enforcing。
+- 只对实验网开放 80/443。管理端验证状态接口经根 CA 返回 200，HTTP 返回 301 跳转。
+
+Community Edition 的许可协议与匿名访问由用户首次登录网页时自行决定，剧本不代为接受。未验证的假设：协议接受之前，REST 修改口令接口可用。代理仓库与 Nexus 的出站代理设置留待下一步。syntax-check 通过，nginx 模板渲染正确。
+
+**文档**：用户反馈没看到台账，并要求在计划中总体交代本阶段完成的目标。plan/00-preparation.md 新增「阶段完成时的目标状态」，即本阶段的目标台账：物理与网络、全部虚拟机（含规格与完成时状态）、十台节点完成时的条件、每个基础服务的名称与完成标准、自动化与物料的完成条件，并注明实际值以 ops/inventory 为准。计划开头、根目录 README 的环境概况与 ops/inventory/README.md 都加了指向它的链接，「目标」与「实际」两种台账的位置在根目录 README 中写明。操作流程的 GitLab 步骤改为新的口令处理，Nexus 步骤改为可执行（代理仓库标为待补充），自动化清单加入 nexus。
+
+待用户执行：重跑 gitlab.yml；运行 nexus.yml；浏览器访问两者。
+
+## 96. 2026-10-17 GitLab root 口令修正、Nexus 部署通过，用户浏览器登录两者成功
+
+**GitLab 重跑**（[证据](evidence/00.09.01-gitlab-deploy.txt) 后半部分）：gitlab ok=50 changed=2 failed=0，localhost failed=0。两项变更是「设置 root 口令为管理端保存的值」与「删除安装时生成的初始口令文件」；「root 口令与管理端保存的值一致」为 ok；软件源、配置、证书、安装与 reconfigure 均无变化。第 95 节的问题已修正。
+
+**Nexus**（[证据](evidence/00.09.04-nexus-deploy.txt)）：nexus ok=60 changed=17 failed=0，localhost failed=0。账户、下载（SHA256 校验通过）、解压、链接、数据目录、nexus.properties、systemd 单元均为 changed；首次启动重试 4 次（约 40 秒）后状态接口返回 200。口令相关任务都执行了：「用初始口令把 admin 口令改为管理端保存的值」显示 ok，因为 uri 模块默认不报告 changed（已加 changed_when: true，以后会显示为 changed）；「删除已失效的初始口令文件」显示 ok，说明 Nexus 在口令修改后已自行删除该文件；口令核对为 ok。nginx 安装、证书、配置、`nginx -t`、SELinux 布尔值、防火墙均为 changed。管理端经根 CA 访问状态接口返回 200，HTTP 返回 301 跳转。第 95 节「协议接受前 REST 修改口令接口可用」的假设成立。
+
+两份证据中都没有私钥块，与 GitLab、Nexus 口令文件比对均无匹配。用户报告用浏览器按域名登录 GitLab（root）与 Nexus（admin）都成功。Nexus 首次登录时的许可协议与匿名访问由用户在网页上决定，本记录不知道其选择。
+
+台账 gitlab、nexus 的 vm_status 记为 deployed，版本锁两者记为 deployed_verified；批次进度表与根目录 README 的进度同步更新。
+
+下一步：按计划 00.09.04 配置 Nexus 的出站代理与代理仓库（Maven、npm、PyPI、NuGet、Cargo、RPM、Go 等），逐生态用固定依赖验证解析；随后是 Harbor 的上游代理缓存与只读账号、备份与恢复演练、GitLab 与 Nexus 的重启复验。

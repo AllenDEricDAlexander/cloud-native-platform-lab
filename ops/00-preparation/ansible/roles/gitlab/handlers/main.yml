@@ -1,0 +1,6 @@
+# gitlab.rb 或证书变化后重新生成配置。首次安装时由任务完成第一次 reconfigure，不重复执行。
+- name: 重新配置 GitLab
+  ansible.builtin.command: gitlab-ctl reconfigure
+  async: 3600
+  poll: 15
+  when: gitlab_first_reconfigure is not changed

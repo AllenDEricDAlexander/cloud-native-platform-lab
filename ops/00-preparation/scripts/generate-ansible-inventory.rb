@@ -27,6 +27,7 @@ ledger.fetch("bootstrap_services").each do |svc|
   next if svc["vm_status"].nil? || svc["vm_status"] == "planned"
   vars = { "ansible_host" => svc.fetch("ip"), "node_fqdn" => svc.fetch("fqdn") }
   vars["node_network_connection"] = svc["network_connection"] if svc["network_connection"]
+  vars["node_data_disk_gib"] = svc["data_disk_gib"] if svc["data_disk_gib"]
   services[svc.fetch("id")] = vars
 end
 

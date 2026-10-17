@@ -1,0 +1,40 @@
+# Nexus Repository（00.09.04）：从封装模板克隆的服务 VM。
+# 去除 Kubernetes 运行时 → 系统基线（DNS、CA、防火墙、日志、dnf 代理）→ 数据盘 /opt/sonatype-work → Nexus 与 nginx；
+# 最后从管理端经内部根 CA 验证 HTTPS。代理仓库（Maven、npm、PyPI、Go 等）与出站代理设置随后单独配置。
+# 前提：VM 已改为 nexus.svc.internal.egon.top / 192.168.9.14、已分发管理端密钥、已新增 250 GiB 数据盘；
+# 管理端已签发证书：bash ops/00-preparation/pki/issue-cert.sh nexus.svc.internal.egon.top 192.168.9.14
+- name: Nexus 服务器
+  hosts: nexus
+  gather_facts: false
+  vars:
+    node_dnf_proxy: http://192.168.9.10:7890
+  roles:
+    - role: service_vm
+    - role: node_base
+    - role: data_disk
+    - role: nexus
+
+- name: 从管理端验证 Nexus
+  hosts: localhost
+  gather_facts: false
+  vars:
+    nexus_fqdn: "{{ hostvars['nexus']['node_fqdn'] }}"
+    root_ca: "{{ hostvars['nexus']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"
+  tasks:
+    - name: 状态接口经内部根 CA 校验证书链返回 200
+      ansible.builtin.command: >-
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 15 --cacert {{ root_ca }}
+        https://{{ nexus_fqdn }}/service/rest/v1/status
+      register: nexus_https
+      changed_when: false
+      retries: 12
+      delay: 10
+      until: nexus_https.stdout == '200'
+
+    - name: HTTP 跳转到 HTTPS
+      ansible.builtin.command: >-
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 15
+        http://{{ nexus_fqdn }}/
+      register: nexus_redirect
+      changed_when: false
+      failed_when: not nexus_redirect.stdout is match('301 https://' ~ nexus_fqdn)

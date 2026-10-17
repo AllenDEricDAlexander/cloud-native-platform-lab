@@ -420,23 +420,62 @@ components:
     compatibility_evidence: []
     execution_evidence:
       - ops/00-preparation/records/2026-10-14/evidence/00.09.02-harbor-deploy.txt
-    status: installed_unvalidated  # 管理端验证尚未通过（执行记录第 75 节）
+    status: deployed_verified  # 2026-10-17 管理端 API、浏览器、十节点 CRI 拉取与重启自恢复均已验证（执行记录第 79–90 节）  # 管理端验证尚未通过（执行记录第 75 节）
   nexus:
     phase: "00"
-    candidate: null
-    version: null
-    artifacts: []
+    candidate: "3.96.4-01"
+    version: "3.96.4-01"
+    selected_by: 2026-10-17 选择发布满两周的最新补丁版本（3.97.0-13 于 2026-10-14 发布，未选）；Community Edition，自带 JDK
+    artifacts:
+      - name: nexus-3.96.4-01-linux-x86_64.tar.gz
+        type: tarball
+        architecture: x86_64
+        size_bytes: 517500940
+        sha256: b4be574def830eeef97ca13fe206c458ba0a60631af441e8b128231ad7e002d0
+        source: https://download.sonatype.com/nexus/3/nexus-3.96.4-01-linux-x86_64.tar.gz
+        checksum_source: https://download.sonatype.com/nexus/3/nexus-3.96.4-01-linux-x86_64.tar.gz.sha256（HTTPS，无签名）
+        released_at: '2026-09-30'
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.04-nexus-deploy.txt
+    status: deployed_verified  # 2026-10-17 HTTPS、admin 口令核对与浏览器登录均通过；代理仓库待配置
   gitlab:
     phase: "00"
-    candidate: null
-    version: null
-    artifacts: []
+    candidate: "19.4.2"
+    version: "19.4.2-ce.0.el10"
+    selected_by: 2026-10-17 上一个次版本的最新补丁（19.5.0 于 2026-10-15 发布，未选）；官方 el/10 仓库
+    artifacts:
+      - name: gitlab-ce-19.4.2-ce.0.el10.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        size_bytes: 1121060581
+        sha256: e0474b316d510a1a6040edd8b95c31af7401996f195a6080f5283bf11cdb9dcb
+        source: https://packages.gitlab.com/gitlab/gitlab-ce/el/10/x86_64/Packages/g/gitlab-ce-19.4.2-ce.0.el10.x86_64.rpm
+        checksum_source: 仓库 primary.xml（repomd 由元数据密钥签名，dnf repo_gpgcheck 验证）
+        requires: [policycoreutils-python-utils, perl-interpreter, openssh-server]
+        signing_keys:
+          - {use: repo_metadata, fingerprint: F6403F6544A38863DAA0B6E03F01618A51312F3F, expires: '2028-02'}
+          - {use: package, fingerprint: 98BFDB87FCF10076416C1E0BAD997ACC82DD593D, expires: '2028-02'}
+        released_at: '2026-10-07'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.01-gitlab-deploy.txt
+    status: deployed_verified  # 2026-10-17 HTTPS、root 口令核对与浏览器登录均通过（执行记录第 95–96 节）
+  backup_tool:
+    phase: "00"
+    candidate: "restic 0.19.1"
+    version: "0.19.1"
+    purpose: 00.10.03 加密备份到 backup VM（SFTP），抽样恢复
+    artifacts:
+      - name: restic_0.19.1_linux_amd64.bz2
+        type: binary_bzip2
+        architecture: x86_64
+        source: https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_linux_amd64.bz2
+        checksum_source: 同一发布的 SHA256SUMS 与 SHA256SUMS.asc（签名待核对）
+        released_at: '2026-07-05'
     compatibility_evidence: []
     execution_evidence: []
-    status: pending
+    status: candidate
   cilium:
     phase: "01"
     candidate: "1.20.x"

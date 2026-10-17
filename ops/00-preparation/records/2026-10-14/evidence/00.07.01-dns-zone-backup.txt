@@ -1,0 +1,182 @@
+
+PLAY [内部 DNS 服务器] *********************************************************
+
+TASK [service_vm : 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）] ******
+skipping: [dns]
+
+TASK [service_vm : 移除 crictl 配置（保留 containerd 的服务 VM）] **************
+skipping: [dns]
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+ok: [dns]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+ok: [dns]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+ok: [dns]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+ok: [dns] => (item=/etc/containerd)
+ok: [dns] => (item=/etc/systemd/system/containerd.service.d)
+ok: [dns] => (item=/etc/crictl.yaml)
+ok: [dns] => (item=/etc/modules-load.d/90-kubernetes.conf)
+ok: [dns] => (item=/etc/sysctl.d/90-kubernetes.conf)
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+ok: [dns]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+skipping: [dns]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [dns]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [dns]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [dns]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [dns] => (item=vmtoolsd)
+ok: [dns] => (item=chronyd)
+ok: [dns] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [dns]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [dns]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [dns]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [dns]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [dns]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [dns]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [dns]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [dns]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [dns]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [dns]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [dns]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [dns]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [dns] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+ok: [dns]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+ok: [dns] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [dns] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [dns] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+ok: [dns] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [dns]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [dns]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+ok: [dns]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+ok: [dns]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [dns]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+ok: [dns]
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+skipping: [dns]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+skipping: [dns]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+skipping: [dns]
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+skipping: [dns] => (item=harbor.k8s.internal.egon.top) 
+skipping: [dns] => (item=rockylinux.org) 
+skipping: [dns]
+
+TASK [node_base : 读取 resolv.conf 中的 nameserver] ****************************
+skipping: [dns]
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+skipping: [dns]
+
+TASK [dns_server : 安装 BIND（需要访问发行版软件源）] **************************
+ok: [dns]
+
+TASK [dns_server : 正向区域] ***************************************************
+changed: [dns]
+
+TASK [dns_server : 反向区域] ***************************************************
+changed: [dns]
+
+TASK [dns_server : named 主配置] ***********************************************
+ok: [dns]
+
+TASK [dns_server : 只对实验网段开放 DNS] ***************************************
+ok: [dns] => (item=['192.168.9.0/24', 'udp'])
+ok: [dns] => (item=['192.168.9.0/24', 'tcp'])
+
+TASK [dns_server : named 开机启动并运行] ***************************************
+ok: [dns]
+
+RUNNING HANDLER [dns_server : 重新加载 named] **********************************
+changed: [dns]
+
+PLAY [从管理端验证解析] ********************************************************
+
+TASK [内部名称] ****************************************************************
+ok: [localhost] => (item=cp01.k8s.internal.egon.top → 192.168.9.101)
+ok: [localhost] => (item=api.k8s.internal.egon.top → 192.168.9.100)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top → 192.168.9.12)
+ok: [localhost] => (item=esxi02.mgmt.internal.egon.top → 192.168.9.62)
+ok: [localhost] => (item=idrac03.mgmt.internal.egon.top → 192.168.9.53)
+ok: [localhost] => (item=192.168.9.109 → worker01.k8s.internal.egon.top.)
+
+TASK [外部名称经上游递归] ******************************************************
+ok: [localhost]
+
+TASK [内部区域由本服务器权威应答] **********************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+dns                        : ok=29   changed=3    unreachable=0    failed=0    skipped=17   rescued=0    ignored=0   
+localhost                  : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

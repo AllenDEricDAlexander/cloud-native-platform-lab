@@ -1,0 +1,284 @@
+
+PLAY [Harbor 服务器] ***********************************************************
+
+TASK [service_vm : 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）] ******
+ok: [harbor]
+
+TASK [service_vm : 移除 crictl 配置（保留 containerd 的服务 VM）] **************
+ok: [harbor]
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+skipping: [harbor]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+skipping: [harbor]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+skipping: [harbor]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+skipping: [harbor] => (item=/etc/containerd) 
+skipping: [harbor] => (item=/etc/systemd/system/containerd.service.d) 
+skipping: [harbor] => (item=/etc/crictl.yaml) 
+skipping: [harbor] => (item=/etc/modules-load.d/90-kubernetes.conf) 
+skipping: [harbor] => (item=/etc/sysctl.d/90-kubernetes.conf) 
+skipping: [harbor]
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+skipping: [harbor]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+skipping: [harbor]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [harbor]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [harbor]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [harbor]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [harbor] => (item=vmtoolsd)
+ok: [harbor] => (item=chronyd)
+ok: [harbor] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [harbor]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [harbor]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [harbor]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [harbor]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [harbor]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [harbor]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [harbor]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [harbor]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [harbor]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [harbor]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [harbor]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [harbor]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [harbor] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+ok: [harbor]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+ok: [harbor] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [harbor] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [harbor] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+ok: [harbor] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [harbor]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [harbor]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+ok: [harbor]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+ok: [harbor]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [harbor]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+ok: [harbor]
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [harbor]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+skipping: [harbor]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [harbor] => (item=harbor.k8s.internal.egon.top)
+ok: [harbor] => (item=rockylinux.org)
+
+TASK [node_base : 读取 resolv.conf 中的 nameserver] ****************************
+ok: [harbor]
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+ok: [harbor]
+
+TASK [docker_host : 种子目录] **************************************************
+ok: [harbor]
+
+TASK [docker_host : 传输 Docker RPM 与签名公钥] ********************************
+ok: [harbor] => (item=docker-ce-29.9.1-1.el10.x86_64.rpm)
+ok: [harbor] => (item=docker-ce-cli-29.9.1-1.el10.x86_64.rpm)
+ok: [harbor] => (item=docker-buildx-plugin-0.38.0-1.el10.x86_64.rpm)
+ok: [harbor] => (item=docker-compose-plugin-5.6.0-1.el10.x86_64.rpm)
+ok: [harbor] => (item=iptables-libs-1.8.11-16.el10_2.x86_64.rpm)
+ok: [harbor] => (item=iptables-nft-1.8.11-16.el10_2.x86_64.rpm)
+ok: [harbor] => (item=docker.gpg)
+
+TASK [docker_host : 导入 Docker 签名公钥并核对指纹] ****************************
+ok: [harbor]
+
+TASK [docker_host : 安装 Docker 及其依赖（本地包验签，禁用全部软件源，不受镜像站速度影响）] ***
+ok: [harbor]
+
+TASK [docker_host : Docker daemon 配置] ****************************************
+ok: [harbor]
+
+TASK [docker_host : Docker 开机启动并运行] *************************************
+ok: [harbor]
+
+TASK [docker_host : 在部署应用前让 Docker 配置生效] ****************************
+
+TASK [harbor : 管理端口令目录（仓库之外）] *************************************
+ok: [harbor -> localhost]
+
+TASK [harbor : 已挂载的数据目录] ***********************************************
+ok: [harbor]
+
+TASK [harbor : 已带标签的数据盘] ***********************************************
+ok: [harbor]
+
+TASK [harbor : 列出磁盘] *******************************************************
+skipping: [harbor]
+
+TASK [harbor : 候选必须恰好一块：容量 200 GiB、无分区、无文件系统] *************
+skipping: [harbor]
+
+TASK [harbor : 不是恰好一块时停止，不猜测设备] *********************************
+skipping: [harbor]
+
+TASK [harbor : 格式化数据盘（XFS，带标签）] ************************************
+skipping: [harbor]
+
+TASK [harbor : 读取数据盘 UUID] ************************************************
+ok: [harbor]
+
+TASK [harbor : 按 UUID 挂载数据目录] *******************************************
+ok: [harbor]
+
+TASK [harbor : 证书目录] *******************************************************
+ok: [harbor]
+
+TASK [harbor : 传输证书链与私钥（私钥 0600）] **********************************
+ok: [harbor] => (item=fullchain.crt)
+ok: [harbor] => (item=server.key)
+
+TASK [harbor : 传输离线安装包] *************************************************
+ok: [harbor]
+
+TASK [harbor : 解压到 /opt/harbor] *********************************************
+skipping: [harbor]
+
+TASK [harbor : 以发行模板生成 harbor.yml（已存在则不覆盖）] ********************
+ok: [harbor]
+
+TASK [harbor : 设置 harbor.yml 关键项] *****************************************
+ok: [harbor] => (item=(censored due to no_log))
+ok: [harbor] => (item=(censored due to no_log))
+ok: [harbor] => (item=(censored due to no_log))
+ok: [harbor] => (item=(censored due to no_log))
+ok: [harbor] => (item=(censored due to no_log))
+ok: [harbor] => (item=(censored due to no_log))
+
+TASK [harbor : 首次安装（加载镜像、生成配置并启动；已安装则跳过）] *************
+ok: [harbor]
+
+TASK [harbor : 确保 Harbor 全部组件运行（已运行时不做改动；容器缺失或停止时由 compose 创建、启动）] ***
+changed: [harbor]
+
+TASK [harbor : 开机启动 Harbor 的 systemd 单元] ********************************
+changed: [harbor]
+
+TASK [harbor : 启用 harbor.service（当前运行状态由上一步 compose up 保证）] ****
+changed: [harbor]
+
+TASK [harbor : 只对实验网段开放 HTTPS（Docker 发布端口可能绕过区域规则，见执行记录）] ***
+ok: [harbor] => (item=192.168.9.0/24)
+
+PLAY [从管理端验证 Harbor] *****************************************************
+
+TASK [用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）] ***
+ok: [localhost]
+
+TASK [各组件健康] **************************************************************
+FAILED - RETRYING: [localhost]: 各组件健康 (29 retries left).
+ok: [localhost]
+
+TASK [Registry 端点未认证时返回 401（证明 TLS 与端点可达，不代表已有拉取权限）] ***
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+harbor                     : ok=44   changed=3    unreachable=0    failed=0    skipped=21   rescued=0    ignored=0   
+localhost                  : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+PLAY [逐台重启并快速复查] ******************************************************
+
+TASK [重启（等待 SSH 恢复，最长 10 分钟）] *************************************
+changed: [harbor]
+
+TASK [等待开机完成（systemd 不再有排队的启动任务）] ****************************
+ok: [harbor]
+
+TASK [读取重启后的状态] ********************************************************
+ok: [harbor]
+
+TASK [重启后基线保持] **********************************************************
+ok: [harbor] => {
+    "changed": false,
+    "msg": "{\"boot_id\": \"17173bbe-daa9-4f60-9248-cc40d50d9b99\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"192.168.9.11\", \"failed_units\": \"\", \"runtime_mount\": \"xfs\", \"containerd\": \"active\"}"
+}
+
+PLAY RECAP *********************************************************************
+harbor                     : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+PLAY [从管理端验证 Harbor] *****************************************************
+
+TASK [用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）] ***
+ok: [localhost]
+
+TASK [各组件健康] **************************************************************
+FAILED - RETRYING: [localhost]: 各组件健康 (29 retries left).
+ok: [localhost]
+
+TASK [Registry 端点未认证时返回 401（证明 TLS 与端点可达，不代表已有拉取权限）] ***
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

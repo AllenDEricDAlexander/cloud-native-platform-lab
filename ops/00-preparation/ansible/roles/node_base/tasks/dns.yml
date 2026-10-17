@@ -27,9 +27,17 @@
       changed_when: false
       check_mode: false
 
-    - name: 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）
+    - name: 读取 resolv.conf 中的 nameserver
       ansible.builtin.command: awk '/^nameserver/ {print $2}' /etc/resolv.conf
       register: node_resolv
       changed_when: false
       check_mode: false
-      failed_when: node_resolv.stdout_lines != node_dns_servers
+
+    - name: 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）
+      ansible.builtin.assert:
+        that: node_resolv.stdout_lines == node_dns_servers
+        fail_msg: >-
+          resolv.conf 为 {{ node_resolv.stdout_lines | join(',') }}。若本次刚设置 ipv6.ignore-auto-dns：
+          reapply 不会清除已从路由器 RA 学到的 IPv6 DNS，连接重新激活或重启后才清除（执行记录第 86 节），
+          请执行 reboot-nodes.yml 后重跑本标签。
+        quiet: true

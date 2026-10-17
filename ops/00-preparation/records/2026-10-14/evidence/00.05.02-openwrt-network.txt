@@ -1,0 +1,61 @@
+DISTRIB_ID='OpenWrt'
+DISTRIB_RELEASE='25.12.5'
+DISTRIB_REVISION='r33051-f5dae5ece4'
+DISTRIB_TARGET='x86/64'
+DISTRIB_ARCH='x86_64'
+DISTRIB_DESCRIPTION='OpenWrt 25.12.5 r33051-f5dae5ece4'
+DISTRIB_TAINTS=''
+network.loopback=interface
+network.loopback.device='lo'
+network.loopback.proto='static'
+network.loopback.ipaddr='127.0.0.1/8'
+network.globals=globals
+network.globals.dhcp_default_duid='00042ec6a0203780433ab80be276a084ec68'
+network.globals.ula_prefix='fd37:4177:f572::/48'
+network.@device[0]=device
+network.@device[0].name='br-lan'
+network.@device[0].type='bridge'
+network.@device[0].ports='eth0'
+network.lan=interface
+network.lan.device='br-lan'
+network.lan.proto='static'
+network.lan.ipaddr='192.168.9.10'
+network.lan.ip6assign='60'
+network.lan.netmask='225.225.225.0'
+network.lan.gateway='192.168.9.1'
+network.lan.dns='192.168.9.1'
+dhcp.lan=dhcp
+dhcp.lan.interface='lan'
+dhcp.lan.start='100'
+dhcp.lan.limit='150'
+dhcp.lan.leasetime='12h'
+dhcp.lan.dhcpv4='server'
+dhcp.lan.dhcpv6='disabled'
+dhcp.lan.ra='disabled'
+dhcp.lan.ra_slaac='1'
+dhcp.lan.ra_flags='managed-config' 'other-config'
+dhcp.lan.ignore='1'
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master br-lan state UP qlen 1000
+    link/ether 00:50:56:99:db:2a brd ff:ff:ff:ff:ff:ff
+4: br-lan: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP qlen 1000
+    link/ether 00:50:56:99:db:2a brd ff:ff:ff:ff:ff:ff
+    inet 192.168.9.10/3 brd 223.255.255.255 scope global br-lan
+       valid_lft forever preferred_lft forever
+    inet6 fd37:4177:f572::1/60 scope global noprefixroute 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::250:56ff:fe99:db2a/64 scope link 
+       valid_lft forever preferred_lft forever
+default via 192.168.9.1 dev br-lan 
+192.0.0.0/3 dev br-lan scope link  src 192.168.9.10 
+PING 223.5.5.5 (223.5.5.5): 56 data bytes
+
+--- 223.5.5.5 ping statistics ---
+3 packets transmitted, 0 packets received, 100% packet loss
+;; connection timed out; no servers could be reached
+

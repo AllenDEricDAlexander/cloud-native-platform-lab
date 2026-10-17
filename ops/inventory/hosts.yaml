@@ -272,9 +272,9 @@ bootstrap_services:
     fqdn: openwrt.mgmt.internal.egon.top
     ip: 192.168.9.10
     planned_hypervisor: esxi01
-    vm_status: planned  # 2026-10-16 准备中：OpenWrt 25.12.5 x86-64 ext4 combined-efi；无 Python，暂不纳入 Ansible inventory
+    vm_status: planned  # 2026-10-17 已部署：apply-base.sh 基线（.10/24、DHCP/RA 关闭、SSH 仅密钥）与 mihomo 显式代理 :7890（第 86–88 节）。保持 planned 是为了不纳入 Ansible inventory（无 Python）
     vcpu: 2
-    memory_gib: 2
+    memory_gib: 1  # 2026-10-17 由 2 GiB 调整：只运行显式代理（mihomo）
     network_adapter: vmxnet3  # 2026-10-16 E1000E 在 25.12.5 镜像中无驱动，已改；见执行记录第 69 节
     outside_kubernetes: true
     depends_on_primary_ceph: false
@@ -292,7 +292,7 @@ bootstrap_services:
     fqdn: harbor.k8s.internal.egon.top
     ip: 192.168.9.12
     planned_hypervisor: esxi01
-    vm_status: deployed  # 2026-10-17 克隆并以 harbor.yml 部署 Harbor v2.15.4（Docker 29.9.1，/data 200G XFS）；管理端 API 验证通过、Mac 浏览器可按域名访问（执行记录第 79–82 节）；引导镜像已复制并由十节点经 CRI 预拉（第 83 节）
+    vm_status: deployed  # 2026-10-17 克隆并以 harbor.yml 部署 Harbor v2.15.4（Docker 29.9.1，/data 200G XFS）；管理端 API 验证通过、Mac 浏览器可按域名访问（执行记录第 79–82 节）；harbor.service 开机拉起，重启复验通过（第 89–90 节）；引导镜像已复制并由十节点经 CRI 预拉（第 83 节）
     vcpu: 4
     memory_gib: 8
     data_disk_gib: 200
@@ -302,13 +302,36 @@ bootstrap_services:
   - id: gitlab
     fqdn: gitlab.svc.internal.egon.top
     ip: 192.168.9.13
-    planned_hypervisor: null
+    planned_hypervisor: esxi01  # 2026-10-17 用户决定：esxi01 资源充裕
+    vm_status: planned
+    vcpu: 4
+    memory_gib: 16
+    data_disk_gib: 150
+    network_connection: ens33
     outside_kubernetes: true
     depends_on_primary_ceph: false
   - id: nexus
     fqdn: nexus.svc.internal.egon.top
     ip: 192.168.9.14
-    planned_hypervisor: null
+    planned_hypervisor: esxi01  # 2026-10-17 用户决定
+    vm_status: planned
+    vcpu: 4
+    memory_gib: 8
+    data_disk_gib: 250
+    network_connection: ens33
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
+  # 备份目标：用户决定放在 esxi01 上的 VM（学习用途）。与被备份的服务同在一台物理宿主机，
+  # 不满足 00.10.03「独立备份」的要求，验收中如实标注为偏差。
+  - id: backup
+    fqdn: backup.mgmt.internal.egon.top
+    ip: 192.168.9.16
+    planned_hypervisor: esxi01
+    vm_status: planned
+    vcpu: 2
+    memory_gib: 2
+    data_disk_gib: 500
+    network_connection: ens33
     outside_kubernetes: true
     depends_on_primary_ceph: false
   - id: admin
@@ -319,7 +342,7 @@ bootstrap_services:
     depends_on_primary_ceph: false
 reserved_endpoints:
   - id: independent_backup
-    ip: 192.168.9.16
+    ip: null  # 2026-10-17 .16 改由 bootstrap_services.backup（esxi01 上的 VM）使用；真正独立的介质尚未提供
     device_verified: false
   - id: second_dns
     ip: 192.168.9.17

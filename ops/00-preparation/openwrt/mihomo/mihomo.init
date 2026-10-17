@@ -1,0 +1,35 @@
+#!/bin/sh /etc/rc.common
+# mihomo 显式代理服务（procd）。安装位置 /etc/init.d/mihomo，由 install-mihomo.sh 写入。
+# 启动时把订阅地址代入模板，生成 /var/run/mihomo/config.yaml（tmpfs、0600）；订阅缓存在 /etc/mihomo/providers。
+
+START=99
+USE_PROCD=1
+
+PROG=/usr/bin/mihomo
+HOME_DIR=/etc/mihomo
+RUN_DIR=/var/run/mihomo
+
+start_service() {
+	if [ ! -s "$HOME_DIR/subscription-url" ]; then
+		logger -t mihomo "缺少 $HOME_DIR/subscription-url，未启动"
+		return 1
+	fi
+	mkdir -p "$RUN_DIR" "$HOME_DIR/providers"
+	chmod 700 "$RUN_DIR" "$HOME_DIR" "$HOME_DIR/providers"
+	umask 077
+	# index/substr 做纯文本替换：订阅地址中的 & | / 等字符不会被当作正则或分隔符。
+	awk 'NR == FNR { if ($0 != "") url = $0; next }
+	     { i = index($0, "__SUBSCRIPTION_URL__"); if (i) $0 = substr($0, 1, i - 1) url substr($0, i + 20); print }' \
+		"$HOME_DIR/subscription-url" "$HOME_DIR/config.template.yaml" > "$RUN_DIR/config.yaml"
+	"$PROG" -t -d "$HOME_DIR" -f "$RUN_DIR/config.yaml" >/dev/null 2>&1 || {
+		logger -t mihomo "配置校验失败，未启动（mihomo -t -d $HOME_DIR -f $RUN_DIR/config.yaml 查看原因）"
+		return 1
+	}
+
+	procd_open_instance
+	procd_set_param command "$PROG" -d "$HOME_DIR" -f "$RUN_DIR/config.yaml"
+	procd_set_param respawn 3600 5 5
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}

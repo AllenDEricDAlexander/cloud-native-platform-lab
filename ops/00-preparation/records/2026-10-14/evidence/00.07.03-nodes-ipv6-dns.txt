@@ -1,0 +1,244 @@
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [storage02]
+ok: [worker02]
+ok: [worker01]
+ok: [infra01]
+ok: [storage01]
+ok: [cp01]
+ok: [cp02]
+ok: [storage03]
+ok: [infra02]
+ok: [cp03]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+changed: [worker01]
+changed: [cp02]
+changed: [storage02]
+changed: [cp01]
+changed: [worker02]
+changed: [storage01]
+changed: [cp03]
+changed: [storage03]
+changed: [infra02]
+changed: [infra01]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+RUNNING HANDLER [node_base : 重新应用网络连接] *********************************
+changed: [infra01]
+changed: [cp02]
+changed: [cp01]
+changed: [storage01]
+changed: [worker01]
+changed: [worker02]
+changed: [cp03]
+changed: [storage03]
+changed: [infra02]
+changed: [storage02]
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [cp01] => (item=harbor.k8s.internal.egon.top)
+ok: [worker01] => (item=harbor.k8s.internal.egon.top)
+ok: [infra02] => (item=harbor.k8s.internal.egon.top)
+ok: [cp03] => (item=harbor.k8s.internal.egon.top)
+ok: [worker02] => (item=harbor.k8s.internal.egon.top)
+ok: [storage03] => (item=harbor.k8s.internal.egon.top)
+ok: [storage01] => (item=harbor.k8s.internal.egon.top)
+ok: [storage02] => (item=harbor.k8s.internal.egon.top)
+ok: [cp02] => (item=harbor.k8s.internal.egon.top)
+ok: [infra01] => (item=harbor.k8s.internal.egon.top)
+ok: [storage02] => (item=rockylinux.org)
+ok: [worker01] => (item=rockylinux.org)
+ok: [storage03] => (item=rockylinux.org)
+ok: [worker02] => (item=rockylinux.org)
+ok: [cp03] => (item=rockylinux.org)
+ok: [infra01] => (item=rockylinux.org)
+ok: [storage01] => (item=rockylinux.org)
+ok: [cp02] => (item=rockylinux.org)
+ok: [cp01] => (item=rockylinux.org)
+ok: [infra02] => (item=rockylinux.org)
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+[ERROR]: Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/roles/node_base/tasks/dns.yml:30:7
+
+28       check_mode: false
+29
+30     - name: 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）
+         ^ column 7
+
+fatal: [cp03]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.015996", "end": "2026-10-17 11:35:51.078174", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.062178", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [worker01]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.017830", "end": "2026-10-17 11:35:51.099889", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.082059", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [cp02]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.019614", "end": "2026-10-17 11:35:51.094765", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.075151", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [cp01]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.023678", "end": "2026-10-17 11:35:51.093763", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.070085", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [storage03]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.017045", "end": "2026-10-17 11:35:51.117854", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.100809", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [infra02]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.016011", "end": "2026-10-17 11:35:51.111467", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.095456", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [worker02]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.018413", "end": "2026-10-17 11:35:51.129634", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.111221", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [infra01]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.014964", "end": "2026-10-17 11:35:51.143778", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.128814", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [storage01]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.021200", "end": "2026-10-17 11:35:51.166424", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.145224", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+fatal: [storage02]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["awk", "/^nameserver/ {print $2}", "/etc/resolv.conf"], "delta": "0:00:00.020631", "end": "2026-10-17 11:35:51.175381", "failed_when_result": true, "msg": "Task failed: Action failed: A 'failed_when' expression evaluated to 'True'.", "rc": 0, "start": "2026-10-17 11:35:51.154750", "stderr": "", "stderr_lines": [], "stdout": "192.168.9.11\nfd5c:c6b4:3ca2::1", "stdout_lines": ["192.168.9.11", "fd5c:c6b4:3ca2::1"]}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+storage02                  : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+storage03                  : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+worker01                   : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=4    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+
+
+PLAY [Harbor 服务器] ***********************************************************
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [harbor]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+changed: [harbor]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+RUNNING HANDLER [node_base : 重新应用网络连接] *********************************
+changed: [harbor]
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [harbor] => (item=harbor.k8s.internal.egon.top)
+ok: [harbor] => (item=rockylinux.org)
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+ok: [harbor]
+
+PLAY [从管理端验证 Harbor] *****************************************************
+
+PLAY RECAP *********************************************************************
+harbor                     : ok=5    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [worker02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [cp01]
+ok: [infra02]
+ok: [infra01]
+ok: [worker01]
+ok: [cp03]
+ok: [cp02]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [infra01]
+skipping: [cp03]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [worker02] => (item=harbor.k8s.internal.egon.top)
+ok: [storage02] => (item=harbor.k8s.internal.egon.top)
+ok: [cp02] => (item=harbor.k8s.internal.egon.top)
+ok: [cp01] => (item=harbor.k8s.internal.egon.top)
+ok: [infra01] => (item=harbor.k8s.internal.egon.top)
+ok: [worker01] => (item=harbor.k8s.internal.egon.top)
+ok: [storage03] => (item=harbor.k8s.internal.egon.top)
+ok: [storage01] => (item=harbor.k8s.internal.egon.top)
+ok: [infra02] => (item=harbor.k8s.internal.egon.top)
+ok: [cp03] => (item=harbor.k8s.internal.egon.top)
+ok: [worker02] => (item=rockylinux.org)
+ok: [worker01] => (item=rockylinux.org)
+ok: [storage03] => (item=rockylinux.org)
+ok: [storage02] => (item=rockylinux.org)
+ok: [cp01] => (item=rockylinux.org)
+ok: [cp02] => (item=rockylinux.org)
+ok: [storage01] => (item=rockylinux.org)
+ok: [cp03] => (item=rockylinux.org)
+ok: [infra01] => (item=rockylinux.org)
+ok: [infra02] => (item=rockylinux.org)
+
+TASK [node_base : 读取 resolv.conf 中的 nameserver] ****************************
+ok: [worker02]
+ok: [storage02]
+ok: [storage01]
+ok: [worker01]
+ok: [cp03]
+ok: [cp01]
+ok: [cp02]
+ok: [infra01]
+ok: [infra02]
+ok: [storage03]
+
+TASK [node_base : 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）] ***
+ok: [cp02]
+ok: [cp01]
+ok: [cp03]
+ok: [infra01]
+ok: [infra02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [worker01]
+ok: [worker02]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+cp02                       : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+cp03                       : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+infra01                    : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+infra02                    : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+storage01                  : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+storage02                  : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+storage03                  : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+worker01                   : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+worker02                   : ok=4    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

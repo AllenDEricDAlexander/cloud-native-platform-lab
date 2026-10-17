@@ -1499,3 +1499,74 @@ Harbor VM 实际安装的 iptables-nft 版本未取证；重跑时 docker_host �
 修正：node_base dns 任务增加 `ipv6.ignore-auto-dns yes`，只忽略 IPv6 自动 DNS，不关闭 IPv6（手册第 7 节明确不盲目关闭 IPv6），幂等判断加入该字段。新增「resolv.conf 中只有内部 DNS」的检查。node-readiness 增加 ipv6_global，只作记录，供 01 选择节点地址时参考。
 
 新增 playbooks/reboot-nodes.yml（手册第 11 节）：serial 1、any_errors_fatal，每次重启一台，失败即停止。重启后等待 systemd 完成启动，判定 SELinux、firewalld、DNS、失败单元，Kubernetes 节点另查运行时盘与 containerd；`-e target=dns,harbor` 可用于基础服务。完整复查仍由矩阵完成。本地 syntax-check 与表达式测试通过。下一步：dns 标签修正，然后逐台重启十节点并在重启后采集矩阵（含 CRI 自测），再重启 dns 与 harbor 并验证 Harbor。
+
+## 85. 2026-10-17 提交；继续 Phase 00 剩余项，从 OpenWrt 旁路由开始
+
+用户要求提交，并决定在进入 01 之前完成 GitLab、Nexus、OpenWrt/VPN、独立备份与恢复演练、断网验收。提交 f4ea193（分支 phase00/harbor-registry-route，快进合并到 main，未推送）包含第 79–84 节涉及的角色、剧本、脚本、台账与证据。提交前检查：没有 PEM 私钥块；用 grep -F -f 以两个 Harbor 口令文件比对，没有匹配，过程中不输出口令内容；口令相关的行只剩 harbor.yml 模板替换（引用变量）。用户提交时正在执行的 00.07.03-nodes-ipv6-dns.txt 与 00.11-reboot-nodes.txt 未纳入，待读取后随下次提交。
+
+顺序：OpenWrt 旁路由与显式代理（00.05、00.06.02）放在最前，因为 GitLab、Nexus 与上游代理缓存的物料下载都依赖它。之后依次为 Harbor 上游代理缓存、GitLab、Nexus、独立备份与恢复、断网验收。
+
+用户提供一篇 ESXi 部署 OpenWrt 软路由的博客。对照本实验的单网卡显式代理旁路由：
+
+- 适用：客户机类型选 Other Linux 5.x 或更高版本 64 位；网卡选 VMXNET3（第 69 节已核实 25.12.5 内核内置该驱动）；用 uci 设置 LAN 地址；禁用声卡与 USB；从硬盘启动。
+- 不适用：双网卡 WAN/LAN 是主路由形态，本实验默认网关保持 .1，单网卡即可，00.05.04 只保留双接口的升级路径。在 vSphere 界面添加 VMXNET3 与改 .vmx 效果相同，第 69 节的失败是网卡类型错误，不是添加方式的问题。
+- 不采用：「把 zone 的 input、forward 设为 ACCEPT」会放开 WAN 区域；显式代理只需要 LAN 区域的入站，默认已允许。博客推荐的第三方证书平台不需要：内部服务使用内部 CA，不把内网名称提交给外部服务。
+- 内存：128 MB 只够转发，运行 mihomo（Clash 内核）与规则集需要更多，台账的 2 GiB 可降为 1 GiB。
+
+第 71 节的「Network unreachable」有一个此前未考虑到的可能原因：第 68、70 节要求首次开机前断开网卡。如果之后没有在 vSphere 中重新勾选「已连接」，br-lan 没有载波，netifd 不会让 lan 接口启用，地址与路由都不存在，ping 网关就会报 Network unreachable。这只是推断，需要用 vSphere 网卡状态与 `ip addr` 确认。下一步：控制台关闭 LAN 的 DHCP 与 RA，设置 .10、网关与 DNS，在 vSphere 确认网卡已连接，设置 root 口令（用户输入），再从 Mac 用 SSH 继续。
+
+## 86. 2026-10-17 重启复验通过；Harbor 验证命令错误；IPv6 DNS 需重新激活；OpenWrt 掩码笔误；GitLab、Nexus、备份 VM 规划
+
+**IPv6 DNS 修正**（[证据](evidence/00.07.03-nodes-ipv6-dns.txt)）：十台的 nmcli modify 与 reapply 均为 changed，但随后的检查全部失败：resolv.conf 仍是 `192.168.9.11,fd5c:c6b4:3ca2::1`。`nmcli device reapply` 写入了 ipv6.ignore-auto-dns，但不会清除已从 RA 学到的 IPv6 DNS，要等连接重新激活才生效。harbor 没有这一项，ok=5 changed=2 failed=0。检查任务改为 assert，失败时说明原因与处理方法（重启后重跑），不在剧本中重新激活连接，因为经 SSH 重新激活连接有中断会话的风险。
+
+**十节点逐台重启**（[证据](evidence/00.11-reboot-nodes.txt)）：serial 1，十台都在 10 分钟内恢复 SSH。重启后的 boot_id 各不相同；SELinux 为 Enforcing，firewalld 为 running，DNS 只剩 192.168.9.11（IPv6 DNS 随重启清除），失败单元为空，运行时盘为 xfs，containerd 为 active。重启后的[矩阵](evidence/00.10.02-node-readiness-20261016-234651/matrix.md)（含经 Harbor 拉取的 CRI 自测）十台均为 27/27，总体全部通过，没有 .err 文件。ipv6_global 十台都为空：路由器只下发了 RDNSS，没有分配全局地址。00.10.02 要求的「重启后结果一致」由此产生证据。
+
+**dns 与 harbor 重启**（[证据](evidence/00.11-reboot-services.txt)）：两台都通过。dns 的 DNS 仍是 8.8.8.8、223.5.5.5（DNS 服务器自身，预期如此），containerd 为 inactive（service_vm 已停用），没有失败单元；harbor 的 containerd 为 active（Docker 使用），运行时挂载点为 xfs。后半条 `harbor.yml --limit localhost` 报错，证据中没有它的输出，因为错误写在 stderr，没有经过 tee。原因：隐式 localhost 不在 inventory 中，`--limit localhost` 让 ansible-playbook 认为没有可执行的主机，直接退出。这条命令由本助手给出，未经验证。修正：管理端验证拆为 playbooks/verify-harbor.yml，harbor.yml 末尾用 import_playbook 导入，可单独运行。Harbor 重启后的 API 验证尚未执行。
+
+**OpenWrt**（[证据](evidence/00.05.02-openwrt-network.txt)）：25.12.5 r33051；br-lan 包含 eth0，UP 且有载波；DHCP 已关闭（ignore=1），dhcpv6 与 ra 为 disabled。问题在于 network.lan.netmask 为 `225.225.225.0`，是 255 的笔误：内核将其按 /3 处理，地址为 192.168.9.10/3，路由为 192.0.0.0/3 直连。223.5.5.5 落在 192.0.0.0/3 之内，OpenWrt 把它当作同一链路上的主机直接 ARP，不经网关，所以 ping 全部丢失。网关与 Mac 在同一 /24 内，仍可访问，SSH 也因此能登录。network.lan.dns 为 192.168.9.1，nslookup 超时，未单独查原因，改用内部 DNS .11。第 85 节「网卡未连接」的推断不成立。
+
+新增 ops/00-preparation/openwrt/：
+
+- apply-base.sh：在 OpenWrt 上经 SSH 执行。设置主机名与时区；地址 .10/24、网关 .1、DNS .11；删除 ip6assign；关闭 LAN 的 DHCP、DHCPv6 与 RA，停用 odhcpd；dropbear 只用密钥、只监听 LAN。只在值不同时写入（uci set 即使值相同也记录变更），有变更才提交与重载，最后输出地址、路由与连通性。该脚本必须经密钥登录执行：执行即说明密钥可用，再关闭口令登录不会把自己锁在外面；控制台与 LuCI 仍可用 root 口令。
+- mihomo/：显式代理配置模板与 procd 服务。mixed-port 7890 只绑定 .10，lan-allowed-ips 为 192.168.9.0/24 与本机；内部域名与私有地址直连，其余走订阅节点（url-test）。不使用 GEOIP，因为首次运行要从 GitHub 下载地址库。订阅地址只存在 OpenWrt 的 /etc/mihomo/subscription-url（0600），服务启动时用 awk 的 index/substr 做纯文本替换（本地用含 `& | / \1` 的测试地址验证），生成到 tmpfs，并先 `mihomo -t` 校验。
+- install-mihomo.sh（管理 Mac）：mihomo v1.19.32 linux-amd64-compatible（GOAMD64 v1）。SHA256 ba3ce607… 取自 GitHub Releases 页面为该资产显示的摘要；GitHub API 因代理出口共享被限流，改为解析发布页，项目没有提供签名。下载到种子目录并校验，经 SSH 写入；有订阅文件时启用服务；输出的日志把 URL 替换为 `<url>` 再写入证据。
+- 版本锁：openwrt 记为 25.12.5（BIOS 镜像 sha256 23e2538e…），新增 proxy_core（mihomo）。台账 openwrt 内存从 2 GiB 改为 1 GiB。
+
+**新 VM 规划**：用户决定 GitLab、Nexus 与备份都放在 esxi01，备份只为学习，不追求严谨。台账：gitlab .13（4 vCPU、16 GiB、数据盘 150 GiB），nexus .14（4 vCPU、8 GiB、250 GiB），新增 backup.mgmt.internal.egon.top .16（2 vCPU、2 GiB、500 GiB），reserved_endpoints 中 independent_backup 的 .16 让出。三块数据盘大小互不相同，也不等于模板运行时盘的 100 GiB，便于角色按「唯一大小、无分区、无文件系统」选盘，沿用 harbor 的做法。偏差如实记录：备份与被备份的服务在同一台物理宿主机，不满足 00.10.03「独立备份」的定义，验收中标为偏差。DNS 区域序号递增为 2026101701，下一次 dns.yml 会加入 backup 的 A 与 PTR 记录。inventory 重新生成后没有变化（新 VM 为 planned）。尚无执行输出。
+
+## 87. 2026-10-17 Harbor 重启后未恢复；OpenWrt 基线完成；写入订阅的命令「卡住」
+
+用户执行第 86 节的步骤，并报告写入订阅地址的命令「一直卡着」。
+
+- **Harbor**（[证据](evidence/00.11-reboot-services.txt) 后半部分）：verify-harbor.yml 重试 30 次（5 分钟）均为 `curl: (7) Failed to connect ... port 443`，localhost failed=1。harbor 重启后，443 不可连接。第 86 节「dns 与 harbor 重启都通过」只是重启剧本的系统级判定（SELinux、firewalld、DNS、失败单元），不包含 Harbor 服务本身，结论需据此收窄：harbor VM 重启成功，Harbor 服务重启后不可用。原因尚未确定。较常见的一种情况是：Harbor 各组件使用 syslog 日志驱动写入 harbor-log 容器，dockerd 开机按重启策略拉起容器时，harbor-log 若尚未就绪，其他容器就会启动失败，且不再重试。未证实，需要查看 `docker compose ps -a` 与本次开机的 docker 日志。修正（不依赖于具体原因）：harbor 角色新增 /etc/systemd/system/harbor.service，类型 oneshot，在 docker.service 与 /data 挂载之后执行 `docker compose up -d`，关机时先执行 `docker compose stop`，并设为开机启用。现有的 compose up 任务保证本次运行时的状态。syntax-check 通过。
+- **节点 DNS**（[证据](evidence/00.07.03-nodes-ipv6-dns.txt) 末尾）：重启后重跑，十台均为 ok=4 changed=0 failed=0，resolv.conf 只剩内部 DNS。文件中的 10 个 fatal 来自第 86 节那一次运行。
+- **DNS 区域**（[证据](evidence/00.07.01-dns-zone-backup.txt)）：dns changed=3（正向、反向区域与重新加载），管理端六项验证、外部递归与权威应答全部通过；backup 的 A 与 PTR 记录随序号 2026101701 加入。
+- **OpenWrt**（[证据](evidence/00.05.03-openwrt-base.txt)）：变更为掩码 255.255.255.0、DNS .11、删除 ip6assign、主机名与时区、dropbear 只用密钥且只监听 LAN；odhcpd 已为 disabled。之后地址为 192.168.9.10/24，路由只有默认网关与 192.168.9.0/24，网关与 223.5.5.5 均可达。名称解析行显示的是 BusyBox nslookup 所用服务器（127.0.0.1:53），不是解析结果：脚本的 awk 只排除了 `#53` 形式，BusyBox 的格式是 `:53`。这是脚本缺陷，已改为取 Name 之后的 Address，并本地验证。dropbear 在后台重启，口令登录已关闭。用户之后能用 `ssh openwrt` 执行命令，说明密钥登录可用。
+- **写入订阅地址卡住**：`cat > 文件` 会一直等待标准输入，直到粘贴后按 Ctrl-D；第 86 节虽有说明，但这种交互方式容易被误认为卡住。改为先在 Mac 上用 zsh 的 `read -rs` 不回显地读取（链接不出现在命令行与 shell 历史中），再经管道写入 OpenWrt，最后只回显文件字节数。
+
+## 88. 2026-10-17 显式代理投入使用：Mac 与 cp01 经 OpenWrt 访问外网成功
+
+用户改用第 87 节的 `read -rs` 方式写入订阅地址（输出只有字节数，本助手未见到链接），随后执行 install-mihomo.sh 与代理测试：
+
+- [安装](evidence/00.06.02-mihomo-install.txt)：管理 Mac 经 Clash 下载 mihomo-linux-amd64-compatible-v1.19.32.gz（21.8 MB，约 5 秒），与版本锁 SHA256 校验 OK；OpenWrt 上 `mihomo -v` 为 Mihomo Meta v1.19.32 linux amd64（go1.26.8）。服务为 running，监听 192.168.9.10:7890，控制接口在 127.0.0.1:9090，订阅提供者开始初始化。`Command failed: ubus call service delete ... (Not found)` 来自首次安装时对未运行服务执行 restart，无害。
+- [代理测试](evidence/00.06.02-proxy-test.txt)：经 http://192.168.9.10:7890 访问 https://www.google.com/generate_204，Mac 返回 204（0.31 s），cp01 返回 204（0.57 s）。cp01 的请求经过 lan-allowed-ips 与 OpenWrt LAN 区域入站，节点到代理的路径已验证。00.06.02「受控的显式代理」可用：默认网关仍是 .1，只有显式指定代理的程序经过 OpenWrt。
+
+安全修正：安装日志中有一行 info 级别的逐连接记录，含订阅服务器域名（`mihomo --> <域名>:443`）。第 86 节的 URL 替换只匹配 `scheme://`，没有覆盖这种格式。证据中的该域名已替换为 `<subscription-host>`，全仓库检查不再出现。域名不是凭据，但会指向订阅提供方，因此按与订阅地址同等的方式处理。后续修改：install-mihomo.sh 输出日志时去掉 [TCP]/[UDP] 逐连接行；配置的 log-level 改为 warning，OpenWrt 本机的 logread 也不再记录每个连接；订阅提供者设为 `proxy: DIRECT`，首次启动时节点组为空，订阅本来就是直连拉取的，固定下来后，以后的更新也不依赖已有节点可用。改动需重跑一次 install-mihomo.sh 才生效（种子已缓存，不会重新下载）。
+
+台账 openwrt 保持 planned，只是为了不纳入 Ansible inventory，注释已说明已部署；版本锁 openwrt 与 proxy_core 记为 deployed。GitLab 官方仓库已有 el/10 的 x86_64 仓库（repomd.xml 返回 200），Nexus 的 latest-linux-x86_64 安装包可下载，两者都可以在 Rocky 10 上原生安装，不需要另建 Docker 宿主。
+
+## 89. 2026-10-17 Harbor 重启失败原因确认；mihomo 重装写满 OpenWrt 根分区
+
+**Harbor**（[诊断](evidence/00.11-harbor-after-reboot.txt)）：命令本身 rc=0。重启后只有 harbor-log 为 Up (healthy)，映射 127.0.0.1:1514；其余八个容器在 39 分钟前 Exited (128)，80 与 443 都没有监听。本次开机的 dockerd 日志在 11:51:45 对八个容器报 `failed to start container ... failed to initialize logging driver: dial tcp [::1]:1514: connect: connection refused`。第 87 节的推断得到证实：dockerd 开机时按重启策略同时启动各容器，它们的 syslog 日志驱动连接 localhost:1514，而 harbor-log 尚未就绪，于是启动失败；这类失败不属于「容器退出」，restart: always 也不会重试。日志中的 [::1] 是 localhost 解析出的第一个地址，harbor-log 只发布在 127.0.0.1，平时会回退到 127.0.0.1 并连接成功（首次安装后运行了数小时），所以 IPv6 不是原因。其余几行（fsverity、nftables 表不存在、git）是 Docker 启动时的常规提示，与本问题无关。
+
+修正：harbor.service 的 ExecStart 改为失败后间隔 10 秒重试，最多 6 次。compose 的 depends_on 只等 harbor-log 容器启动，不等日志端口就绪，同样可能遇到这一时序，因此不能只执行一次。用户在修改之前已开始执行 harbor.yml（单元为第一版，只执行一次 compose up），需要再执行一次 harbor.yml 写入新单元，然后再做重启测试。
+
+**mihomo 重装**：用户按第 88 节重跑 install-mihomo.sh，校验 OK 之后报 `cat: write error: No space left on device`。原因：解压后的二进制为 62054526 字节，OpenWrt combined 镜像的根分区约 100 MB；脚本先写 /usr/bin/mihomo.new 再替换，新旧两份放不下。set -euo pipefail 让脚本在这一步停止，旧二进制、配置与正在运行的服务都未改动，但残留的 mihomo.new 写满了根分区。根分区写满时 uci commit 等写入都会失败，必须尽快清理。这是本助手的缺陷：第一次安装时没有旧文件，所以没有暴露。
+
+修正：install-mihomo.sh 先删除残留的 .new，再比较本地解压后的 SHA256 与 OpenWrt 上现有文件；相同则跳过传输。不同时先停服务、删除旧文件，确认根分区剩余空间至少为二进制大小加 4 MB，然后直接写入并再次核对哈希；结束时输出根分区用量。版本锁 proxy_core 增加 binary_sha256（7a0d59da…）。重跑一次即可完成清理并应用第 88 节的配置改动。如需留出升级空间，可以按 OpenWrt 文档扩展根分区（镜像已补零到 1 GiB，分区之后约有 900 MB 未分配空间），暂不处理。
+
+## 90. 2026-10-17 Harbor 重启复验通过；mihomo 重装完成、根分区恢复
+
+**Harbor**（[证据](evidence/00.11-harbor-boot-unit.txt)）：文件中只有一次 harbor.yml 运行，为 ok=44 changed=3 failed=0。三项变更是 compose up（重启后容器处于停止状态，由它拉起）、写入 harbor.service、启用该单元；管理端验证通过，health 重试一次后为 healthy。随后 `reboot-nodes.yml -e target=harbor` 通过（新的 boot_id，SELinux Enforcing，firewalld running，DNS .11，没有失败单元）。重启后 verify-harbor.yml 通过：ping 第一次即成功，health 重试一次后为 healthy，/v2/ 返回 401。从证据无法判断写入的是哪一版单元，因此本助手从管理端只读执行了一次 `systemctl show harbor`：ExecStart 为带 6 次重试的版本，UnitFileState=enabled，ActiveState=active，本次开机在 12:41:39 启动、12:41:45 以 status=0 结束。6 秒说明第一次 compose up 就已成功，没有用到重试。Harbor 重启后的自动恢复由此得到证据。两份证据中都没有私钥块。
+
+**mihomo**（[证据](evidence/00.06.02-mihomo-install.txt) 末尾）：SHA256 校验 OK；`/usr/bin/mihomo 已是该版本`，跳过传输；残留的 mihomo.new 已删除。根分区为 98.3M，已用 81.9M，剩余 14.3M。服务重启后为 running，监听 192.168.9.10:7890，新的日志级别与订阅直连配置已生效：输出中没有逐连接日志，其余几行是解析配置之前的启动信息。根分区只剩 14 MB，再写入大文件（例如升级 mihomo 时）前需要先删除旧文件；新脚本已按这个顺序执行。

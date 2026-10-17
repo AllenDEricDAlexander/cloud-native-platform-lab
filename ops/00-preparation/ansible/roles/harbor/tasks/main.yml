@@ -139,6 +139,42 @@
   register: harbor_compose_up
   changed_when: harbor_compose_up.stderr is search('Creat|Start|Recreat')
 
+# 开机时由 systemd 在 Docker 之后执行 compose up，不依赖 dockerd 按重启策略自动拉起容器。
+# 第 89 节诊断：各组件用 syslog 日志驱动连接 localhost:1514（harbor-log），dockerd 开机时与 harbor-log
+# 同时启动它们，日志端口尚未就绪，于是报 "failed to initialize logging driver" 并停在 Exited (128)，不再重试。
+# compose up 同样可能遇到这一时序（depends_on 只等容器启动，不等日志端口），因此失败后间隔 10 秒重试。
+# 关机时先停止容器，再停止 Docker。
+- name: 开机启动 Harbor 的 systemd 单元
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/harbor.service
+    mode: "0644"
+    content: |
+      # 由 Ansible harbor 角色管理（ops/00-preparation/ansible/roles/harbor），请勿手改。
+      [Unit]
+      Description=Harbor (docker compose)
+      Requires=docker.service
+      After=docker.service network-online.target
+      Wants=network-online.target
+      RequiresMountsFor={{ harbor_data_dir }}
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory={{ harbor_install_parent }}/harbor
+      ExecStart=/bin/bash -c 'for attempt in 1 2 3 4 5 6; do /usr/bin/docker compose up -d && exit 0; sleep 10; done; exit 1'
+      ExecStop=/usr/bin/docker compose stop
+      TimeoutStartSec=600
+
+      [Install]
+      WantedBy=multi-user.target
+  register: harbor_unit
+
+- name: 启用 harbor.service（当前运行状态由上一步 compose up 保证）
+  ansible.builtin.systemd_service:
+    name: harbor
+    enabled: true
+    daemon_reload: "{{ harbor_unit is changed }}"
+
 - name: 只对实验网段开放 HTTPS（Docker 发布端口可能绕过区域规则，见执行记录）
   ansible.posix.firewalld:
     zone: "{{ node_firewall_zone | default('public') }}"

@@ -4,6 +4,7 @@
 
 ## 1. 复现入口与证据
 
+- [阶段验收](acceptance.md)：计划验收用例、十节点矩阵、基础服务、43 个步骤的对照、未完成项与交接结论。
 - [逐批执行记录](assets.md)：按发生顺序保留资产、实际参数、待执行命令、回传结果、失败和处理路径。后续实际值修正早期建议时追加说明，不能把当时的建议当作最终参数。
 - [版本与物料](../../../versions.lock.yaml)：准确版本、来源和 SHA256；未验证项目仍保留对应状态，整体为 draft。
 - [主机台账](../../../inventory/hosts.yaml)、[资源台账](../../../inventory/resources.yaml)、[网络台账](../../../inventory/networks.yaml)：本批实际与计划参数，整体尚未现场复验。
@@ -38,7 +39,7 @@
 | 00.10.02 十节点初始化 | 完成：矩阵 27/27、经 Harbor 拉取的 CRI 自测 PASS、逐台重启复验、全量检查 changed=0 | 第 83–86 节；[重启后矩阵](evidence/00.10.02-node-readiness-20261016-234651/matrix.md) |
 | 00.10.03 备份与恢复 | restic 加密仓库（backup VM，SFTP）；dns、harbor、gitlab、nexus 每日备份，管理端备份 CA、口令与 OpenWrt 配置；restic check 无错误；恢复演练通过（DNS 配置与区域、CA 目录与原件一致）。偏差：与被备份服务同在 esxi01 | 第 101–104 节 |
 | 00.10.04 断网验收 | 完成：干净客户端 build01 在断网（停 OpenWrt 代理、切默认路由、清空缓存）下 15 项全部通过：DNS/TLS、RPM、镜像（代理缓存按 Digest、bootstrap 按 tag）、Git 与七类语言构建 | 第 107–114 节 |
-| 00.10.05 交接 | 未做（acceptance.md 尚未建立） | — |
+| 00.10.05 交接 | [阶段验收](acceptance.md) 已建立：主线可交接，阶段未完整完成；kubeadm init 前须完成 VIP 二层可达性与实际放置核对 | 第 115 节 |
 
 整体阶段尚未验收。全阶段 43 个计划步骤的工作量差异很大，不按步骤数计算完成百分比。
 

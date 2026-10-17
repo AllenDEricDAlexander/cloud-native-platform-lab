@@ -1,0 +1,66 @@
+test_apply_refuses_running_cluster_with_recovery_hint (test_cp01_init.InitRecoveryTest.test_apply_refuses_running_cluster_with_recovery_hint) ... ok
+test_bootstrap_and_steady_manifests_have_local_api_alias (test_cp01_init.InitRecoveryTest.test_bootstrap_and_steady_manifests_have_local_api_alias) ... ok
+test_diagnostics_redact_bootstrap_credentials (test_cp01_init.InitRecoveryTest.test_diagnostics_redact_bootstrap_credentials) ... ok
+test_old_pod_does_not_pass_merely_because_vip_api_responds (test_cp01_init.InitRecoveryTest.test_old_pod_does_not_pass_merely_because_vip_api_responds) ... ok
+test_resume_refuses_unhealthy_local_api_before_changing_manifest (test_cp01_init.InitRecoveryTest.test_resume_refuses_unhealthy_local_api_before_changing_manifest) ... ok
+test_resume_repairs_vip_without_reinitializing_cluster (test_cp01_init.InitRecoveryTest.test_resume_repairs_vip_without_reinitializing_cluster) ... ok
+test_control_plane_success_cleans_credentials_and_validates_before_enable (test_join_nodes.JoinOrchestrationTest.test_control_plane_success_cleans_credentials_and_validates_before_enable) ... ERROR
+test_invalid_config_does_not_enable_kubelet (test_join_nodes.JoinOrchestrationTest.test_invalid_config_does_not_enable_kubelet) ... ok
+test_invalid_native_output_revokes_token_before_join (test_join_nodes.JoinOrchestrationTest.test_invalid_native_output_revokes_token_before_join) ... ok
+test_join_failure_cleans_credentials_and_preserves_private_log (test_join_nodes.JoinOrchestrationTest.test_join_failure_cleans_credentials_and_preserves_private_log) ... ok
+test_joined_node_reconciles_vip_without_new_token_or_join (test_join_nodes.JoinOrchestrationTest.test_joined_node_reconciles_vip_without_new_token_or_join) ... ERROR
+test_worker_uses_native_hash_without_uploading_certificates (test_join_nodes.JoinOrchestrationTest.test_worker_uses_native_hash_without_uploading_certificates) ... ok
+test_clean_node_and_partial_join_are_distinguished (test_join_nodes.JoinStateTest.test_clean_node_and_partial_join_are_distinguished) ... ok
+
+======================================================================
+ERROR: test_control_plane_success_cleans_credentials_and_validates_before_enable (test_join_nodes.JoinOrchestrationTest.test_control_plane_success_cleans_credentials_and_validates_before_enable)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_join_nodes.py", line 127, in test_control_plane_success_cleans_credentials_and_validates_before_enable
+    result = self.run_join()
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_join_nodes.py", line 118, in run_join
+    result = subprocess.run([command, '-i', str(self.root / 'inventory.yml'), str(self.root / 'play.yml')],
+                            env=self.env, text=True, capture_output=True, timeout=60)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 2154, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1268, in _check_timeout
+    raise TimeoutExpired(
+    ...<2 lines>...
+            stderr=b''.join(stderr_seq) if stderr_seq else None)
+subprocess.TimeoutExpired: Command '['/Users/mario/.venvs/cnpl-ansible/bin/ansible-playbook', '-i', '/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmpgmffibnb/inventory.yml', '/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmpgmffibnb/play.yml']' timed out after 60 seconds
+
+======================================================================
+ERROR: test_joined_node_reconciles_vip_without_new_token_or_join (test_join_nodes.JoinOrchestrationTest.test_joined_node_reconciles_vip_without_new_token_or_join)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_join_nodes.py", line 165, in test_joined_node_reconciles_vip_without_new_token_or_join
+    result = self.run_join(joined=True)
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_join_nodes.py", line 118, in run_join
+    result = subprocess.run([command, '-i', str(self.root / 'inventory.yml'), str(self.root / 'play.yml')],
+                            env=self.env, text=True, capture_output=True, timeout=60)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 2154, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1268, in _check_timeout
+    raise TimeoutExpired(
+    ...<2 lines>...
+            stderr=b''.join(stderr_seq) if stderr_seq else None)
+subprocess.TimeoutExpired: Command '['/Users/mario/.venvs/cnpl-ansible/bin/ansible-playbook', '-i', '/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp4gjmjj9_/inventory.yml', '/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp4gjmjj9_/play.yml']' timed out after 60 seconds
+
+----------------------------------------------------------------------
+Ran 13 tests in 138.608s
+
+FAILED (errors=2)

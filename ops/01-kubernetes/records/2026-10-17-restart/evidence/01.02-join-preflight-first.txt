@@ -1,0 +1,166 @@
+
+PLAY [检查现有集群是否具备扩容条件] ********************************************
+
+TASK [确认 API 入口健康] *******************************************************
+ok: [cp01]
+
+TASK [确认 etcd 全成员健康] ****************************************************
+ok: [cp01]
+
+TASK [确认 Cilium 和 CoreDNS 已就绪] *******************************************
+ok: [cp01] => (item=daemonset/cilium)
+ok: [cp01] => (item=daemonset/cilium-envoy)
+ok: [cp01] => (item=deployment/cilium-operator)
+ok: [cp01] => (item=deployment/coredns)
+
+TASK [读取节点注册状态（公开信息）] ********************************************
+ok: [cp01]
+
+TASK [读取在用的共享加密配置摘要（不取回内容）] ********************************
+ok: [cp01]
+
+PLAY [在任何节点执行 join 前检查本批全部节点] **********************************
+
+TASK [只读检查依赖、身份、版本、CRI、安全基线与部分入群状态] *******************
+ok: [cp02]
+ok: [cp03]
+ok: [worker02]
+ok: [infra02]
+ok: [storage01]
+ok: [worker01]
+ok: [storage02]
+ok: [infra01]
+ok: [storage03]
+
+TASK [核对本机产物与集群登记一致（不能仅靠 kubelet.conf 跳过）] ****************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对当前节点资源补丁与台账一致] ******************************************
+ok: [worker02]
+ok: [cp02]
+ok: [infra02]
+ok: [storage02]
+ok: [infra01]
+ok: [worker01]
+ok: [cp03]
+ok: [storage01]
+ok: [storage03]
+
+TASK [缺少或过期的资源补丁在创建凭据前停止] ************************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对控制平面共享加密配置] ************************************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+ok: [cp02]
+ok: [cp03]
+
+TASK [共享密钥不一致时禁止加入控制平面] ****************************************
+ok: [cp02]
+skipping: [infra01]
+ok: [cp03]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [保存本批前检结果] ********************************************************
+ok: [cp02]
+ok: [cp03]
+ok: [infra01]
+ok: [infra02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [worker01]
+ok: [worker02]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=7    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=7    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+infra02                    : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+storage01                  : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+storage02                  : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+storage03                  : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+worker01                   : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+worker02                   : ok=5    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+

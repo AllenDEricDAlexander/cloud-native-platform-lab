@@ -1,0 +1,36 @@
+
+PLAY [取回引导管理员 kubeconfig 到管理端受控目录] ******************************
+
+TASK [保存 kubeconfig（不显示内容）] *******************************************
+changed: [cp01]
+
+PLAY [从锁定的本地 Chart 安装 Cilium] ******************************************
+
+TASK [kubeconfig 仅限当前用户读取] *********************************************
+ok: [localhost]
+
+TASK [核对集群名称与 API 入口] *************************************************
+ok: [localhost]
+
+TASK [读取已注册节点数] ********************************************************
+ok: [localhost]
+
+TASK [确认已经有首节点注册] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [安装或更新 Cilium（单节点引导 1 个 operator，其后恢复目标 2 个）] ********
+changed: [localhost]
+
+TASK [验证 Cilium agent 和 operator 健康] **************************************
+ok: [localhost]
+
+TASK [确认所有已注册节点 Ready] ************************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=7    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

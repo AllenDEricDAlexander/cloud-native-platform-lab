@@ -1,0 +1,50 @@
+
+PLAY [检查管理端已有依赖并准备私有目录] ****************************************
+
+TASK [确认已有 Python 可以读取 YAML 和验证证书] ********************************
+ok: [localhost]
+
+TASK [创建私有客户端材料目录] **************************************************
+changed: [localhost] => (item=/Users/mario/.cnpl-secrets/access/lab-primary)
+changed: [localhost] => (item=/Users/mario/.cnpl-secrets/access/lab-primary/issued)
+changed: [localhost] => (item=/Users/mario/.cnpl-secrets/access/lab-primary/recovery)
+
+PLAY [在 cp01 使用既有 CA 原生签发独立客户端身份] ******************************
+
+TASK [校验既有初始化配置] ******************************************************
+ok: [cp01]
+
+TASK [创建 root 私有签发目录] **************************************************
+changed: [cp01]
+
+TASK [签发尚不存在的身份（重跑复用，不自动覆盖或续期）] ************************
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+
+TASK [经现有 SSH 取回独立客户端材料（不打印密钥）] *****************************
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+
+PLAY [组合受限 Context、记录到期信息并安装 RBAC] *******************************
+
+TASK [校验证书归属并生成独立 kubeconfig 和恢复包] ******************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/configure-access.yml:93:7
+
+91   vars_files: [../vars/main.yml]
+92   tasks:
+93     - name: 校验证书归属并生成独立 kubeconfig 和恢复包
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"censored": "the output has been hidden due to the fact that 'no_log: true' was specified for this result", "changed": true}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=4    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=2    changed=1    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

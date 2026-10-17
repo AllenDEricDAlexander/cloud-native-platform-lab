@@ -1,0 +1,8 @@
+# 角色预算以 resources.yaml 为唯一来源；原生 kubeletconfiguration 补丁在 init/join 时生效。
+systemReserved:
+{{ phase01_resources.node_reservations.system_reserved[phase01_profile] | to_nice_yaml(indent=2, sort_keys=false) | indent(2, true) }}
+kubeReserved:
+{{ phase01_resources.node_reservations.kube_reserved[phase01_profile] | to_nice_yaml(indent=2, sort_keys=false) | indent(2, true) }}
+evictionHard:
+{{ phase01_resources.node_reservations.eviction_thresholds | to_nice_yaml(indent=2, sort_keys=false) | indent(2, true) }}
+podPidsLimit: {{ phase01_resources.node_reservations.pod_pids_limit }}

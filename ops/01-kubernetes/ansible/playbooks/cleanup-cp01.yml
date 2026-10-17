@@ -1,0 +1,113 @@
+# 01 重做前清理：只处理已无控制平面/etcd/CRI 对象的 cp01，不用于卸载在用集群。
+# 复用 00 的 inventory 与 SSH 配置；在 ops/00-preparation/ansible/ 下运行：
+# ~/.venvs/cnpl-ansible/bin/ansible-playbook ../../01-kubernetes/ansible/playbooks/cleanup-cp01.yml --check --diff
+# 去掉 --check 后清理已确认的旧配置、dry-run 文件、暂存文件与本地审计目录规则。
+- name: 清理 cp01 的旧初始化残留
+  hosts: cp01
+  gather_facts: false
+  vars:
+    cleanup_paths:
+      - /etc/kubernetes/audit
+      - /etc/kubernetes/enc
+      - /etc/kubernetes/tmp
+      - /var/log/kubernetes/audit
+      - /root/phase01-bootstrap
+      - /root/kubeadm-init.out
+    audit_fcontext: '/var/log/kubernetes/audit(/.*)?'
+  tasks:
+    - name: 核对目标主机
+      ansible.builtin.command: hostnamectl --static
+      register: cleanup_hostname
+      changed_when: false
+      check_mode: false
+
+    - name: 检查 kubelet 当前状态
+      ansible.builtin.command: systemctl is-active kubelet
+      register: cleanup_kubelet
+      changed_when: false
+      failed_when: cleanup_kubelet.rc not in [0, 3]
+      check_mode: false
+
+    - name: 列出全部 CRI 容器
+      ansible.builtin.command: crictl ps -a -q
+      register: cleanup_containers
+      changed_when: false
+      check_mode: false
+
+    - name: 列出全部 CRI Pod sandbox
+      ansible.builtin.command: crictl pods -q
+      register: cleanup_pods
+      changed_when: false
+      check_mode: false
+
+    - name: 检查控制平面与 kubelet 文件是否仍在
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/kubernetes/manifests
+        - /etc/kubernetes/pki
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/super-admin.conf
+        - /var/lib/etcd
+        - /var/lib/kubelet/config.yaml
+      register: cleanup_cluster_paths
+
+    - name: 列出 Kubernetes 配置目录的直接子项
+      ansible.builtin.command:
+        argv: [find, /etc/kubernetes, -mindepth, '1', -maxdepth, '1', -printf, '%f\n']
+      register: cleanup_children
+      changed_when: false
+      check_mode: false
+
+    - name: 确认可以清理旧初始化残留
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'cp01'
+          - ansible_host == '192.168.9.101'
+          - cleanup_hostname.stdout == node_fqdn
+          - cleanup_kubelet.stdout == 'inactive'
+          - cleanup_containers.stdout | trim == ''
+          - cleanup_pods.stdout | trim == ''
+          - cleanup_cluster_paths.results | selectattr('stat.exists') | list | length == 0
+          - cleanup_children.stdout_lines | difference(['audit', 'enc', 'tmp']) | length == 0
+        fail_msg: cp01 尚有运行对象、集群文件或未识别目录，停止清理；先核对现场。
+
+    - name: 查看 SELinux 本地文件标签规则
+      ansible.builtin.command: semanage fcontext -l -C
+      register: cleanup_fcontext
+      changed_when: false
+      check_mode: false
+
+    - name: 删除旧审计与加密配置、dry-run 目录和暂存文件
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ cleanup_paths }}"
+      # 删除包含私钥、旧 kubeconfig 或加密配置的目录时，不显示文件内容差异。
+      diff: false
+
+    - name: 撤销旧审计目录的本地标签规则
+      ansible.builtin.command:
+        argv: [semanage, fcontext, -d, '{{ audit_fcontext }}']
+      when: audit_fcontext in cleanup_fcontext.stdout
+
+    - name: 清理后核对目标路径
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ cleanup_paths }}"
+      register: cleanup_after
+      when: not ansible_check_mode
+
+    - name: 清理后核对 SELinux 本地规则
+      ansible.builtin.command: semanage fcontext -l -C
+      register: cleanup_fcontext_after
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: 确认旧残留已删除
+      ansible.builtin.assert:
+        that:
+          - cleanup_after.results | selectattr('stat.exists') | list | length == 0
+          - audit_fcontext not in cleanup_fcontext_after.stdout
+        success_msg: cp01 旧初始化残留已清理，可以开始 01.01 重新复验。
+      when: not ansible_check_mode

@@ -1,0 +1,91 @@
+# 仅由 01 的 prepare.yml 显式调用；不改变 00 常规初始化行为，不启停服务。
+- name: 控制平面 SELinux 文件访问准备
+  vars:
+    kubernetes_contexts:
+      - {path: '/etc/kubernetes/pki(/.*)?', type: container_file_t}
+      - {path: '/etc/kubernetes/enc(/.*)?', type: container_file_t}
+      - {path: '/etc/kubernetes/audit(/.*)?', type: container_file_t}
+      - {path: '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\.conf', type: container_file_t}
+      - {path: '/var/lib/etcd(/.*)?', type: container_file_t}
+      - {path: '/var/log/kubernetes/audit(/.*)?', type: container_file_t}
+  block:
+    - name: 确认 SELinux 保持 Enforcing
+      ansible.builtin.command: getenforce
+      register: kubernetes_selinux_mode
+      changed_when: false
+      check_mode: false
+      failed_when: kubernetes_selinux_mode.stdout != 'Enforcing'
+
+    - name: 创建控制平面必需目录
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+      loop:
+        - {path: /etc/kubernetes, mode: '0755'}
+        - {path: /etc/kubernetes/pki, mode: '0700'}
+        - {path: /etc/kubernetes/enc, mode: '0700'}
+        - {path: /etc/kubernetes/audit, mode: '0755'}
+        - {path: /var/lib/etcd, mode: '0700'}
+        - {path: /var/log/kubernetes/audit, mode: '0750'}
+        - {path: /etc/systemd/system/kubelet.service.d, mode: '0755'}
+
+    - name: 读取本地 SELinux 路径规则
+      ansible.builtin.command: semanage fcontext -l -C
+      register: kubernetes_local_contexts
+      changed_when: false
+      check_mode: false
+
+    - name: 添加缺失的持久标签规则
+      ansible.builtin.command:
+        argv: [semanage, fcontext, -a, -t, '{{ item.type }}', '{{ item.path }}']
+      loop: "{{ kubernetes_contexts }}"
+      when: item.path not in kubernetes_local_contexts.stdout
+
+    - name: 更正已有本地规则的类型
+      ansible.builtin.command:
+        argv: [semanage, fcontext, -m, -t, '{{ item.type }}', '{{ item.path }}']
+      loop: "{{ kubernetes_contexts }}"
+      vars:
+        context_line: "{{ kubernetes_local_contexts.stdout_lines | select('search', '^' ~ (item.path | regex_escape) ~ '\\s') | first | default('') }}"
+      when:
+        - item.path in kubernetes_local_contexts.stdout
+        - "('object_r:' ~ item.type ~ ':') not in context_line"
+
+    - name: 应用控制平面目录标签
+      ansible.builtin.command: restorecon -RF /etc/kubernetes /var/lib/etcd /var/log/kubernetes/audit
+      changed_when: false
+
+    - name: 安装 kubelet 启动前标签恢复配置
+      ansible.builtin.copy:
+        src: 20-kubernetes-selinux.conf
+        dest: /etc/systemd/system/kubelet.service.d/20-kubernetes-selinux.conf
+        mode: '0644'
+      register: kubernetes_kubelet_dropin
+
+    - name: 加载 unit 配置（不启动 kubelet）
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: kubernetes_kubelet_dropin.changed
+
+    - name: 用合成文件检查 container_t 读配置、写 etcd 和创建审计日志的权限
+      ansible.builtin.shell: |
+        set -euo pipefail
+        input=$(mktemp /etc/kubernetes/pki/.cnpl-read.XXXXXX)
+        output=$(mktemp /var/lib/etcd/.cnpl-write.XXXXXX)
+        audit=/var/log/kubernetes/audit/.cnpl-audit-probe-$$
+        trap 'rm -f "$input" "$output" "$audit"' EXIT
+        printf 'read-ok' > "$input"
+        restorecon -F "$input" "$output"
+        test "$(runcon -t container_t -- /usr/bin/cat "$input")" = read-ok
+        runcon -t container_t -- /bin/sh -c 'printf write-ok > "$1"' sh "$output"
+        test "$(cat "$output")" = write-ok
+        runcon -t container_t -- /bin/sh -c 'printf audit-ok > "$1"' sh "$audit"
+        test "$(cat "$audit")" = audit-ok
+        echo 'container_t config/etcd/audit synthetic-file probe PASS'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      when: not ansible_check_mode

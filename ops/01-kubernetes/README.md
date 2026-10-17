@@ -1,6 +1,10 @@
 # Phase 01 实验操作手册
 
-与 [阶段正文](../../plan/01-kubernetes.md) 配合执行，下面按原专题编号展开。当前均为计划，提到的配置和脚本应在实施时编写；命令只是操作/检查入口，不表示本仓库已经具备部署实现。
+与 [阶段正文](../../plan/01-kubernetes.md) 配合执行，下面按原专题编号展开实施参考。配置和脚本应在本轮实施时编写、校验；示例命令只提供操作/检查入口，实际进度以本轮执行记录为准。
+
+当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
+
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；当前进入 01.03 的完整控制平面备份和 HA 实验。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -74,6 +78,130 @@ kubeReserved:
 3. 先执行 `kubeadm init --config <初始化配置> --dry-run`，检查预期对象和前置；真实 init 后检查本地静态 Pod、etcd 和 API，再验证 VIP。短时 join/certificate key 通过受控通道传递。
 4. 编写并安装 Cilium 基础 values：Overlay、kube-proxy 共存、cluster-pool IPAM 与每节点 /24、内网镜像；用 `cilium status --wait` 检查，再顺序 join cp02/cp03 和七 Worker。
 5. 配置控制平面审计/Secret 加密，所有 API Server 使用一致配置；设置 storage 污点、节点角色和物理宿主机标签，检查必要 DaemonSet 仍可调度。
+
+### 01.02.01 本轮第一步：生成并理解默认配置
+
+目的：先看 cp01 当前安装的 kubeadm 支持哪些配置字段，再按台账逐段编写实际初始化配置。模板打印只输出参考内容，不生成真实入群令牌，也不初始化集群。[官方命令说明](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-config/#kubeadm-config-print-init-defaults)
+
+| 配置对象 | 负责什么 |
+| --- | --- |
+| `InitConfiguration` | 本次初始化及首节点的信息，例如本机 API 地址、节点名称与 CRI 端点 |
+| `ClusterConfiguration` | 集群公共参数，例如 Kubernetes 版本、统一 API 入口、网段与镜像仓库 |
+| `KubeletConfiguration` | kubelet 的工作参数，例如 cgroup、集群 DNS 与资源预留 |
+
+在管理 Mac 执行。先切换到仓库根目录，使输出路径明确；`pipefail` 让 SSH 命令失败时整条管道也返回失败，避免只看到 tee 成功写文件。
+
+```bash
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+set -o pipefail
+ssh -i ~/.ssh/cnpl_lab_ed25519 -o IdentitiesOnly=yes root@192.168.9.101 \
+  'kubeadm config print init-defaults --component-configs KubeletConfiguration' \
+  | tee ops/01-kubernetes/records/2026-10-17-restart/evidence/01.02.01-kubeadm-defaults.yaml
+```
+
+SSH 将引号内的命令交给 cp01 执行；`print init-defaults` 打印默认初始化模板，`--component-configs KubeletConfiguration` 额外输出 kubelet 配置；tee 在 Mac 上同时显示并保存标准输出。
+
+预期看到 `InitConfiguration`、`ClusterConfiguration`、`KubeletConfiguration` 三个 kind。`---` 是同一 YAML 文件内不同文档的分隔符。默认值不是本实验室的最终参数，这份文件仅作为参考；下一步再区分首节点的本机 API 地址（`.101`）与全局 API 入口（域名指向 VIP `.100`），并逐项填入实际配置。
+
+### 01.02.01 本轮第二步：首节点地址与集群入口
+
+`.101` 是 cp01 的固定节点地址；`.100` 是控制平面的统一入口 VIP。API 域名始终解析到 `.100`，kube-vip 的 ARP 模式通过选举让一个控制平面持有 VIP，切换持有者时更新网络中的 IP/MAC 映射。三台控制平面的固定节点地址仍各自保留。[kube-vip ARP 说明](https://kube-vip.io/docs/modes/arp/)
+
+| 字段 | 本轮值与含义 |
+| --- | --- |
+| `localAPIEndpoint.advertiseAddress` | `192.168.9.101`，cp01 的 API Server 对外通告的本机地址 |
+| `localAPIEndpoint.bindPort` | `6443`，API Server 端口 |
+| `controlPlaneEndpoint` | `api.k8s.internal.egon.top:6443`，全体节点与客户端共用的入口 |
+| `nodeRegistration.kubeletExtraArgs / node-ip` | `192.168.9.101`，明确 kubelet 注册的节点 IP，避免误用 VIP |
+| `apiServer.certSANs` | API 域名与 `.100`，将这些访问身份列入 API Server 证书 |
+
+`localAPIEndpoint` 与 `controlPlaneEndpoint` 分别描述本机 API 地址和集群全局入口；字段语义见 [kubeadm 配置 API](https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/)。本步仅写入地址、节点身份、锁定版本与镜像仓库；Pod/Service 网段、kubelet 公共配置、审计/加密与 SELinux 访问方案仍待补齐。
+
+在管理 Mac 执行：第一条进入仓库；第二条创建本轮 kubeadm 配置目录（`-p` 会创建缺少的上级目录）；第三条把两段 YAML 写入草稿。`>` 创建或覆盖指定文件，`<<'YAML'` 表示原样读取后面的多行文本，最后一行 `YAML` 结束输入。
+
+```bash
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+mkdir -p ops/01-kubernetes/bootstrap/kubeadm
+cat > ops/01-kubernetes/bootstrap/kubeadm/kubeadm-init-cp01.yaml <<'YAML'
+# 01.02.01 分步草稿：网络、kubelet、审计/加密及 SELinux 配置待补齐。
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 192.168.9.101
+  bindPort: 6443
+nodeRegistration:
+  name: cp01.k8s.internal.egon.top
+  criSocket: unix:///run/containerd/containerd.sock
+  kubeletExtraArgs:
+    - name: node-ip
+      value: 192.168.9.101
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+clusterName: lab-primary
+kubernetesVersion: v1.36.5
+controlPlaneEndpoint: api.k8s.internal.egon.top:6443
+imageRepository: harbor.k8s.internal.egon.top/bootstrap
+apiServer:
+  certSANs:
+    - api.k8s.internal.egon.top
+    - 192.168.9.100
+YAML
+```
+
+`nodeRegistration.name` 使用已核验的 cp01 FQDN；`criSocket` 指向现有 containerd CRI 端点。版本 `v1.36.5` 与镜像仓库均来自本轮已复验的版本锁和镜像准备结果。保留原始默认模板作为对照，不把其中 `1.2.3.4`、`node`、`1.36.0` 等默认值直接用于本轮。
+
+此时写入的是 Mac 仓库里的文件，尚未部署至 cp01。本段草稿已用 cp01 当前 kubeadm 做字段校验（见本轮记录），这不代表整个初始化配置完成或运行验收通过。写入后继续讲解网络与 kubelet 参数，再做完整配置校验与 dry-run。
+
+### 01.02.01 本轮第三步：Pod、Service 网段与集群 DNS
+
+目的：在本轮地址草稿之后追加集群网络范围和 kubelet 的 DNS 参数。当前草稿末尾仍是 ClusterConfiguration，因此顶格的 `networking`、`controllerManager` 会属于集群配置；`---` 之后才开始第三个对象 KubeletConfiguration。
+
+| 地址类别 | 本轮规划 | 用途 |
+| --- | --- | --- |
+| 节点网络 | `192.168.9.0/24` | VM 的网卡地址，包含节点 IP 和 API VIP |
+| Pod 网络 | `10.244.0.0/16` | 分配给普通 Pod，由后续的 Cilium 管理 |
+| Service 网络 | `192.168.20.0/24` | 为 ClusterIP Service 分配稳定的虚拟入口 |
+| 集群 DNS | `192.168.20.10` | 规划的 CoreDNS Service IP，位于 Service 网段内 |
+
+Pod IP 对应具体运行实例，Service IP 对应服务入口，后端 Pod 更换时入口可保持。节点 DNS 仍使用内部 DNS `192.168.9.11`，Pod 的默认集群 DNS 使用 `192.168.20.10`；`cluster.local` 是集群内部域，与节点和 Harbor 使用的 `internal.egon.top` 分工不同。[Service 说明](https://kubernetes.io/docs/concepts/services-networking/service/) · [Kubelet DNS 字段](https://v1-36.docs.kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/)
+
+在之前已启用 `pipefail` 的 Mac 终端执行。第一条切换到仓库；第二条以 `>>` 追加，保留已填写的地址配置，本步追加执行一次即可；第三条将本地文件通过标准输入交给 cp01 的 kubeadm 校验，并保存输出。它不会在节点写入部署配置或初始化集群。
+
+```bash
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+cat >> ops/01-kubernetes/bootstrap/kubeadm/kubeadm-init-cp01.yaml <<'YAML'
+
+networking:
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 192.168.20.0/24
+  dnsDomain: cluster.local
+controllerManager:
+  extraArgs:
+    - name: allocate-node-cidrs
+      value: "false"
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+clusterDNS:
+  - 192.168.20.10
+clusterDomain: cluster.local
+YAML
+ssh -i ~/.ssh/cnpl_lab_ed25519 -o IdentitiesOnly=yes root@192.168.9.101 \
+  'kubeadm config validate --config /dev/stdin' \
+  < ops/01-kubernetes/bootstrap/kubeadm/kubeadm-init-cp01.yaml \
+  2>&1 | tee ops/01-kubernetes/records/2026-10-17-restart/evidence/01.02.01-network-user-validate.txt
+```
+
+字段解释：
+
+- `podSubnet`、`serviceSubnet` 分别确定 Pod 与 Service 地址范围；`dnsDomain` 保留集群内部域。
+- 本项目选择 Cilium cluster-pool 管理每节点 Pod CIDR，因此显式关闭 kube-controller-manager 的 `allocate-node-cidrs`。后续 Cilium values 仍须明确写入 `10.244.0.0/16` 与每节点 `/24`，本步不会安装 Cilium。[Cluster-pool IPAM](https://docs.cilium.io/en/stable/network/concepts/ipam/cluster-pool/)
+- `extraArgs` 的 `value` 是字符串，因此写成 `"false"`。
+- `cgroupDriver: systemd` 与已复验的 containerd 配置保持一致；`clusterDNS` 告诉 kubelet 为使用 ClusterFirst 策略的 Pod 配置哪个 DNS 地址，`clusterDomain` 与上面的 `dnsDomain` 一致。
+
+预期校验返回 `ok`。这是配置校验；Pod 网络与 CoreDNS 的实际访问能力要在对应组件就绪后验证。资源预留、审计/加密及 SELinux 访问方案尚待补齐，下一步继续讲节点资源预算。
 
 ### 操作命令与目的
 

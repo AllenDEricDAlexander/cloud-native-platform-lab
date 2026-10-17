@@ -1,0 +1,121 @@
+# 用户显式运行：签发独立身份、安装受限 RBAC；不启动工作负载或重启服务。
+- name: 检查管理端已有依赖并准备私有目录
+  hosts: localhost
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 确认已有 Python 可以读取 YAML 和验证证书
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python }}', -c, 'import yaml; from cryptography import x509; assert hasattr(x509.Certificate, "verify_directly_issued_by")']
+      changed_when: false
+
+    - name: 创建私有客户端材料目录
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0700'
+      loop: ['{{ phase01_access_dir }}', '{{ phase01_access_dir }}/issued', '{{ phase01_access_dir }}/recovery']
+
+- name: 在 cp01 使用既有 CA 原生签发独立客户端身份
+  hosts: cp01
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml, ../../bootstrap/access/identities.yaml]
+  tasks:
+    - name: 校验既有初始化配置
+      ansible.builtin.command: kubeadm config validate --config {{ phase01_stage }}/kubeadm/kubeadm-init-cp01.yaml
+      changed_when: false
+
+    - name: 创建 root 私有签发目录
+      ansible.builtin.file:
+        path: '{{ phase01_access_stage }}'
+        state: directory
+        mode: '0700'
+
+    - name: 签发尚不存在的身份（重跑复用，不自动覆盖或续期）
+      ansible.builtin.command:
+        argv: [python3, '-', '{{ phase01_stage }}/kubeadm/kubeadm-init-cp01.yaml', '{{ item.name }}', '{{ item.validity }}', '{{ item.group }}', '{{ phase01_access_stage }}/{{ item.name }}.conf']
+        stdin: |
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+
+          config, user, validity, group, destination = sys.argv[1:]
+          path = Path(destination)
+          if path.exists():
+              if not path.is_file() or path.stat().st_size == 0:
+                  raise SystemExit('已有身份文件异常，保留原文件并停止。')
+              path.chmod(0o600)
+              print('reused')
+          else:
+              argv = ['kubeadm', 'kubeconfig', 'user', '--config', config,
+                      '--client-name', user, '--validity-period', validity]
+              if group:
+                  argv += ['--org', group]
+              result = subprocess.run(argv, capture_output=True, timeout=60)
+              if result.returncode:
+                  raise SystemExit('kubeadm 身份签发失败，私有输出未打印。')
+              descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix='.issue-')
+              try:
+                  with os.fdopen(descriptor, 'wb') as output:
+                      output.write(result.stdout)
+                  try:
+                      os.link(temporary, path)
+                      print('created')
+                  except FileExistsError:
+                      print('reused')
+              finally:
+                  os.unlink(temporary)
+      register: phase01_issued_identity
+      changed_when: phase01_issued_identity.stdout == 'created'
+      loop: '{{ phase01_access_identities }}'
+      loop_control:
+        label: '{{ item.name }}'
+      no_log: true
+
+    - name: 经现有 SSH 取回独立客户端材料（不打印密钥）
+      ansible.builtin.fetch:
+        src: '{{ phase01_access_stage }}/{{ item.name }}.conf'
+        dest: '{{ phase01_access_dir }}/issued/{{ item.name }}.conf'
+        flat: true
+      loop: '{{ phase01_access_identities }}'
+      no_log: true
+
+- name: 组合受限 Context、记录到期信息并安装 RBAC
+  hosts: localhost
+  tags: [access_assemble]
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 校验证书归属并生成独立 kubeconfig 和恢复包
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python }}', '{{ phase01_root }}/bootstrap/access/build-access.py', --directory, '{{ phase01_access_dir }}', --admin-kubeconfig, '{{ phase01_kubeconfig }}']
+      register: phase01_access_built
+      failed_when: false
+      changed_when: phase01_access_built.rc == 0
+      no_log: true
+
+    - name: 检查组合结果并显示安全错误摘要
+      ansible.builtin.assert:
+        that: phase01_access_built.rc == 0
+        fail_msg: >-
+          身份组合失败（rc={{ phase01_access_built.rc }}）：
+          {{ phase01_access_built.stdout | default('未取得安全摘要；私有 stderr 仍保持隐藏。', true) }}
+        success_msg: 客户端材料、身份和期限校验通过，独立配置及恢复包已生成。
+
+    - name: 安装实验 Namespace 和白名单 RBAC
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', apply, -f, '{{ phase01_root }}/bootstrap/access/rbac.yaml']
+
+    - name: 显示非敏感交付位置
+      ansible.builtin.debug:
+        msg:
+          - 'Mac 双 Context：{{ phase01_access_dir }}/mac.conf（默认只读）'
+          - '管理机独立包：{{ phase01_access_dir }}/adminhost.conf（.15 未部署，尚未分发）'
+          - '恢复身份：{{ phase01_access_dir }}/recovery/recovery.conf（独立于日常 Context）'
+          - '恢复包：{{ phase01_access_dir }}/recovery/recovery-kit.tar.gz（0600，包含私钥，勿入 Git）'
+          - '证书到期清单：{{ phase01_access_dir }}/certificates.json（不含私钥）'

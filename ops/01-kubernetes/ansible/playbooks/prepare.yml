@@ -1,0 +1,153 @@
+# 安装完整输入、角色补丁和持久标签，不启动 kubelet，不执行 init/join。
+- name: 核对管理端物料与受控加密密钥
+  hosts: localhost
+  gather_facts: false
+  tags: [controller_prepare]
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 创建或验证受控密钥（已有密钥不重建，内容不进入输出）
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python }}', '-', '{{ phase01_key_file }}']
+        stdin: |
+          import base64
+          import os
+          from pathlib import Path
+          import secrets
+          import sys
+
+          path = Path(sys.argv[1]).expanduser()
+          path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+          existed = path.exists()
+          if not existed:
+              fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+              with os.fdopen(fd, 'w') as output:
+                  output.write(base64.b64encode(secrets.token_bytes(32)).decode() + '\n')
+          if len(base64.b64decode(path.read_text().strip(), validate=True)) != 32:
+              raise SystemExit('加密密钥格式不正确，保留原文件并停止。')
+          path.chmod(0o600)
+          print('existing' if existed else 'created')
+      register: phase01_key_status
+      changed_when: phase01_key_status.stdout == 'created'
+      no_log: true
+
+    - name: 核对配置与台账、版本锁一致
+      ansible.builtin.assert:
+        that:
+          - init_docs | map(attribute='kind') | list == ['InitConfiguration', 'ClusterConfiguration', 'KubeletConfiguration']
+          - init_docs[0].localAPIEndpoint.advertiseAddress == hostvars['cp01'].ansible_host
+          - init_docs[0].patches.directory == '/etc/kubernetes/patches'
+          - init_docs[1].kubernetesVersion == 'v' ~ phase01_lock.components.kubeadm.version
+          - init_docs[1].controlPlaneEndpoint == phase01_network.primary_cluster.api_fqdn ~ ':6443'
+          - init_docs[1].networking.podSubnet == phase01_network.primary_cluster.pod_cidr
+          - init_docs[1].networking.serviceSubnet == phase01_network.primary_cluster.service_cidr
+          - init_docs[2].clusterDNS == [phase01_network.primary_cluster.dns_service_ip]
+          - init_docs[2].clusterDomain == init_docs[1].networking.dnsDomain
+        fail_msg: 初始化文件与台账或版本锁不一致，停止准备。
+      vars:
+        init_docs: "{{ lookup('ansible.builtin.file', phase01_root ~ '/bootstrap/kubeadm/kubeadm-init-cp01.yaml') | from_yaml_all | list }}"
+
+    - name: 检查本地 Cilium Chart 的校验值
+      ansible.builtin.stat:
+        path: "{{ phase01_lock.components.cilium.chart.local_source }}"
+        checksum_algorithm: sha256
+      register: phase01_chart
+
+    - name: Cilium Chart 必须与版本锁一致
+      ansible.builtin.assert:
+        that: phase01_chart.stat.checksum | default('') == phase01_lock.components.cilium.chart.sha256
+
+- name: 安装十节点的引导输入
+  hosts: k8s_nodes
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 核对实际主机身份
+      ansible.builtin.command: hostnamectl --static
+      register: phase01_hostname
+      changed_when: false
+      failed_when: phase01_hostname.stdout != node_fqdn
+
+    - name: 确认 kubelet 尚未启动
+      ansible.builtin.command: systemctl is-active kubelet
+      register: phase01_kubelet
+      changed_when: false
+      failed_when: phase01_kubelet.stdout != 'inactive'
+
+    - name: 检查是否已经入群
+      ansible.builtin.stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: phase01_joined
+
+    - name: 不覆盖已入群节点的配置
+      ansible.builtin.assert:
+        that: not phase01_joined.stat.exists
+        fail_msg: 节点已入群，停止本次引导准备；不覆盖在用配置。
+
+    - name: 控制平面复用 00 运行时角色的 SELinux 专用任务
+      ansible.builtin.include_role:
+        name: container_runtime
+        tasks_from: kubernetes-selinux
+      when: inventory_hostname in groups['control_plane']
+
+    - name: 准备 Pod 访问 API 的有限防火墙规则
+      ansible.builtin.include_tasks: ../tasks/pod-api-firewall.yml
+      when: inventory_hostname in groups['control_plane']
+
+    - name: 创建暂存与原生补丁目录
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0700'
+      loop: ['{{ phase01_stage }}', /etc/kubernetes/patches]
+
+    - name: 分发可复现的配置与脚本
+      ansible.builtin.copy:
+        src: "{{ phase01_root }}/bootstrap/"
+        dest: "{{ phase01_stage }}/"
+        mode: '0600'
+        directory_mode: '0700'
+
+    - name: 按节点角色渲染 kubelet 资源补丁
+      ansible.builtin.template:
+        src: "{{ phase01_root }}/bootstrap/kubeadm/kubeletconfiguration+merge.yaml.j2"
+        dest: /etc/kubernetes/patches/kubeletconfiguration+merge.yaml
+        mode: '0600'
+
+    - name: 安装控制平面审计策略
+      ansible.builtin.copy:
+        src: "{{ phase01_root }}/bootstrap/kubeadm/audit-policy.yaml"
+        dest: /etc/kubernetes/audit/policy.yaml
+        mode: '0600'
+      when: inventory_hostname in groups['control_plane']
+
+    - name: 使用同一份受控密钥渲染三个控制平面的静态加密配置
+      ansible.builtin.template:
+        src: "{{ phase01_root }}/bootstrap/kubeadm/encryption-config.yaml.j2"
+        dest: /etc/kubernetes/enc/encryption-config.yaml
+        mode: '0600'
+      when: inventory_hostname in groups['control_plane']
+      no_log: true
+      diff: false
+
+    - name: 恢复新配置文件的持久标签
+      ansible.builtin.command: restorecon -RF /etc/kubernetes /var/lib/etcd /var/log/kubernetes/audit
+      changed_when: false
+      when: inventory_hostname in groups['control_plane']
+
+    - name: 经 CRI 从 Harbor 预拉 Cilium 与 kube-vip 镜像
+      ansible.builtin.command: crictl pull {{ item.internal_source }}@{{ item.platform_manifest_digest }}
+      loop: "{{ phase01_cluster_images }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: false
+
+    - name: 校验 cp01 完整 kubeadm 输入
+      ansible.builtin.command: kubeadm config validate --config {{ phase01_stage }}/kubeadm/kubeadm-init-cp01.yaml
+      changed_when: false
+      when: inventory_hostname == 'cp01'
+
+    - name: 再次确认本次准备没有启动 kubelet
+      ansible.builtin.command: systemctl is-active kubelet
+      register: phase01_after
+      changed_when: false
+      failed_when: phase01_after.stdout != 'inactive'

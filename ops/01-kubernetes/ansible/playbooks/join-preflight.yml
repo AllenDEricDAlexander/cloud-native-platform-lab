@@ -1,0 +1,104 @@
+# 可单独运行；只读检查整批目标，全部通过后才允许后续 play 创建凭据和执行 join。
+- name: 检查现有集群是否具备扩容条件
+  hosts: cp01
+  any_errors_fatal: true
+  gather_facts: false
+  tags: [join_preflight]
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 确认证书上传使用的现有初始化配置有效
+      ansible.builtin.command: kubeadm config validate --config {{ phase01_stage }}/kubeadm/kubeadm-init-cp01.yaml
+      changed_when: false
+
+    - name: 确认 API 入口健康
+      ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf --request-timeout=10s get --raw=/readyz
+      changed_when: false
+
+    - name: 确认 etcd 全成员健康
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, -n, kube-system, exec, 'etcd-{{ node_fqdn }}', --, etcdctl, --endpoints=https://127.0.0.1:2379, --cacert=/etc/kubernetes/pki/etcd/ca.crt, --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt, --key=/etc/kubernetes/pki/etcd/healthcheck-client.key, endpoint, health, --cluster]
+      changed_when: false
+
+    - name: 确认 Cilium 和 CoreDNS 已就绪
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, -n, kube-system, rollout, status, '{{ item }}', --timeout=30s]
+      loop: [daemonset/cilium, daemonset/cilium-envoy, deployment/cilium-operator, deployment/coredns]
+      changed_when: false
+
+    - name: 读取节点注册状态（公开信息）
+      ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes -o json
+      register: phase01_cluster_nodes
+      changed_when: false
+
+    - name: 读取在用的共享加密配置摘要（不取回内容）
+      ansible.builtin.stat:
+        path: /etc/kubernetes/enc/encryption-config.yaml
+        checksum_algorithm: sha256
+      register: phase01_active_encryption
+      no_log: true
+
+- name: 在任何节点执行 join 前检查本批全部节点
+  hosts: "{{ phase01_join_hosts | default('k8s_nodes:!cp01') }}"
+  any_errors_fatal: true
+  gather_facts: false
+  tags: [join_preflight]
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 只读检查依赖、身份、版本、CRI、安全基线与部分入群状态
+      ansible.builtin.script:
+        cmd: >-
+          {{ phase01_root }}/bootstrap/scripts/inspect-join-node.py
+          --fqdn {{ node_fqdn }} --address {{ ansible_host }}
+          --api {{ phase01_network.primary_cluster.api_fqdn }}
+          --vip {{ phase01_network.primary_cluster.api_vip }}
+          --version {{ phase01_lock.components.kubeadm.version }}
+          --pod-cidr {{ phase01_network.primary_cluster.pod_cidr }}
+          {{ '--control-plane' if inventory_hostname in groups['control_plane'] else '' }}
+        executable: python3
+      register: phase01_node_inspection
+      changed_when: false
+
+    - name: 核对本机产物与集群登记一致（不能仅靠 kubelet.conf 跳过）
+      ansible.builtin.assert:
+        that:
+          - (phase01_node_inspection.stdout | from_json).joined == (registered_node | length > 0)
+          - registered_node | length == 0 or ansible_host in (registered_node.status.addresses | selectattr('type', 'equalto', 'InternalIP') | map(attribute='address') | list)
+          - registered_node | length == 0 or (('node-role.kubernetes.io/control-plane' in registered_node.metadata.labels) == (inventory_hostname in groups['control_plane']))
+        fail_msg: 本机入群产物与集群登记的名称、IP 或角色不一致；保留现场，不自动重入或 reset。
+      vars:
+        registered_node: "{{ (hostvars.cp01.phase01_cluster_nodes.stdout | from_json)['items'] | selectattr('metadata.name', 'equalto', node_fqdn) | first | default({}) }}"
+
+    - name: 核对当前节点资源补丁与台账一致
+      ansible.builtin.stat:
+        path: /etc/kubernetes/patches/kubeletconfiguration+merge.yaml
+        checksum_algorithm: sha256
+      register: phase01_patch
+
+    - name: 缺少或过期的资源补丁在创建凭据前停止
+      ansible.builtin.assert:
+        that: phase01_patch.stat.checksum | default('') == (lookup('ansible.builtin.template', phase01_root ~ '/bootstrap/kubeadm/kubeletconfiguration+merge.yaml.j2') | hash('sha256'))
+        fail_msg: 当前节点缺少正确的 prepare 资源补丁；不要对已入群节点运行完整 prepare。
+
+    - name: 核对控制平面共享加密配置
+      ansible.builtin.stat:
+        path: /etc/kubernetes/enc/encryption-config.yaml
+        checksum_algorithm: sha256
+      register: phase01_node_encryption
+      when: inventory_hostname in groups['control_plane']
+      no_log: true
+
+    - name: 共享密钥不一致时禁止加入控制平面
+      ansible.builtin.assert:
+        that:
+          - phase01_node_encryption.stat.mode | default('') == '0600'
+          - phase01_node_encryption.stat.checksum | default('missing') == hostvars.cp01.phase01_active_encryption.stat.checksum | default('invalid')
+        fail_msg: 共享加密配置缺失、权限或内容不符；保留原密钥，先排查 prepare 交付。
+      when: inventory_hostname in groups['control_plane']
+      no_log: true
+
+    - name: 保存本批前检结果
+      ansible.builtin.set_fact:
+        phase01_joined:
+          stat:
+            exists: '{{ (phase01_node_inspection.stdout | from_json).joined }}'
+        phase01_join_preflight_passed: true

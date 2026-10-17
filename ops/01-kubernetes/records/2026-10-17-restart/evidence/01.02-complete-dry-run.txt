@@ -1,0 +1,60 @@
+
+PLAY [预演或显式初始化 cp01] ***************************************************
+
+TASK [执行受控初始化入口（默认仅 kubeadm dry-run）] ****************************
+ok: [cp01]
+
+TASK [显示已过滤凭据的阶段结果] ************************************************
+ok: [cp01] => {
+    "phase01_init.stdout_lines": [
+        "ok",
+        "[init] Using Kubernetes version: v1.36.5",
+        "[preflight] Running pre-flight checks",
+        "[preflight] Would pull the required images (like 'kubeadm config images pull')",
+        "[certs] Using certificateDir folder \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128\"",
+        "[certs] Generating \"ca\" certificate and key",
+        "[certs] Generating \"apiserver\" certificate and key",
+        "[certs] apiserver serving cert is signed for DNS names [api.k8s.internal.egon.top cp01.k8s.internal.egon.top kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [192.168.20.1 192.168.9.101 192.168.9.100]",
+        "[certs] Generating \"apiserver-kubelet-client\" certificate and key",
+        "[certs] Generating \"front-proxy-ca\" certificate and key",
+        "[certs] Generating \"front-proxy-client\" certificate and key",
+        "[certs] Generating \"etcd/ca\" certificate and key",
+        "[certs] Generating \"etcd/server\" certificate and key",
+        "[certs] etcd/server serving cert is signed for DNS names [cp01.k8s.internal.egon.top localhost] and IPs [192.168.9.101 127.0.0.1 ::1]",
+        "[certs] Generating \"etcd/peer\" certificate and key",
+        "[certs] etcd/peer serving cert is signed for DNS names [cp01.k8s.internal.egon.top localhost] and IPs [192.168.9.101 127.0.0.1 ::1]",
+        "[certs] Generating \"etcd/healthcheck-client\" certificate and key",
+        "[certs] Generating \"apiserver-etcd-client\" certificate and key",
+        "[certs] Generating \"sa\" key and public key",
+        "[kubeconfig] Using kubeconfig folder \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128\"",
+        "[kubeconfig] Writing \"admin.conf\" kubeconfig file",
+        "[kubeconfig] Writing \"super-admin.conf\" kubeconfig file",
+        "[kubeconfig] Writing \"kubelet.conf\" kubeconfig file",
+        "[kubeconfig] Writing \"controller-manager.conf\" kubeconfig file",
+        "[kubeconfig] Writing \"scheduler.conf\" kubeconfig file",
+        "[etcd] Would ensure that \"/var/lib/etcd\" directory is present",
+        "[etcd] Creating static Pod manifest for local etcd in \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128\"",
+        "[patches] Reading patches from path \"/etc/kubernetes/patches\"",
+        "[patches] Found the following patch files: [kubeletconfiguration+merge.yaml]",
+        "[control-plane] Using manifest folder \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128\"",
+        "[control-plane] Creating static Pod manifest for \"kube-apiserver\"",
+        "[control-plane] Creating static Pod manifest for \"kube-controller-manager\"",
+        "[control-plane] Creating static Pod manifest for \"kube-scheduler\"",
+        "[kubelet-start] Writing kubelet environment file with flags to file \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128/kubeadm-flags.env\"",
+        "[kubelet-start] Writing kubelet configuration to file \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128/instance-config.yaml\"",
+        "[patches] Applied patch of type \"application/merge-patch+json\" to target \"kubeletconfiguration\"",
+        "[patches] Applied patch of type \"application/strategic-merge-patch+json\" to target \"kubeletconfiguration\"",
+        "[kubelet-start] Writing kubelet configuration to file \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128/config.yaml\"",
+        "[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory \"/etc/kubernetes/tmp/kubeadm-init-dryrun3311891128\"",
+        "[upload-config] Storing the configuration used in ConfigMap \"kubeadm-config\" in the \"kube-system\" Namespace",
+        "[mark-control-plane] Marking the node cp01.k8s.internal.egon.top as control-plane by adding the labels: [node-role.kubernetes.io/control-plane node.kubernetes.io/exclude-from-external-load-balancers]",
+        "[mark-control-plane] Marking the node cp01.k8s.internal.egon.top as control-plane by adding the taints [node-role.kubernetes.io/control-plane:NoSchedule]",
+        "[addons] Applied essential addon: CoreDNS",
+        "[addons] Applied essential addon: kube-proxy",
+        "dry-run PASS；未初始化、未启动 kubelet。下一步显式使用 --apply。"
+    ]
+}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

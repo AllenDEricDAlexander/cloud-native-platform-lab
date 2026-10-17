@@ -1,0 +1,43 @@
+# 首节点引导使用 super-admin.conf；init 成功后切换到 admin.conf。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kube-vip
+  namespace: kube-system
+spec:
+  hostNetwork: true
+  # 控制面客户端的本机 API 别名，避免依赖外部 DNS 或尚未绑定的 VIP。
+  hostAliases:
+    - ip: 127.0.0.1
+      hostnames: [kubernetes]
+  priorityClassName: system-node-critical
+  containers:
+    - name: kube-vip
+      image: harbor.k8s.internal.egon.top/bootstrap/kube-vip:v1.2.4@sha256:26ead1e4f7ce486d1e60351181957f35ae54d30c11e8ae0a30d8e9ca1d8acb51
+      imagePullPolicy: IfNotPresent
+      args: [manager]
+      securityContext:
+        capabilities:
+          add: [NET_ADMIN, NET_RAW]
+      env:
+        - {name: vip_arp, value: "true"}
+        - {name: vip_interface, value: ens33}
+        - {name: vip_subnet, value: "32"}
+        - {name: port, value: "6443"}
+        - {name: cp_enable, value: "true"}
+        - {name: cp_namespace, value: kube-system}
+        - {name: svc_enable, value: "false"}
+        - {name: vip_leaderelection, value: "true"}
+        - {name: vip_leaseduration, value: "15"}
+        - {name: vip_renewdeadline, value: "10"}
+        - {name: vip_retryperiod, value: "2"}
+        - {name: address, value: 192.168.9.100}
+      volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes/admin.conf
+          readOnly: true
+  volumes:
+    - name: kubeconfig
+      hostPath:
+        path: /etc/kubernetes/admin.conf
+        type: File

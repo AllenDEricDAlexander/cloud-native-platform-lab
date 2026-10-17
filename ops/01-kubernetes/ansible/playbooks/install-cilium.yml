@@ -1,0 +1,118 @@
+- name: 在变更 Cilium 前检查管理端依赖和锁定 Chart
+  hosts: localhost
+  any_errors_fatal: true
+  gather_facts: false
+  tags: [cilium_preflight]
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 检查管理端三个客户端可以执行
+      ansible.builtin.command:
+        argv: '{{ item }}'
+      loop:
+        - ['{{ phase01_client_bin }}/kubectl', version, --client, -o, json]
+        - ['{{ phase01_client_bin }}/helm', version, --short]
+        - ['{{ phase01_client_bin }}/cilium', version, --client]
+      register: phase01_client_versions
+      changed_when: false
+
+    - name: 管理端客户端版本必须与锁定物料一致
+      ansible.builtin.assert:
+        that:
+          - (phase01_client_versions.results[0].stdout | from_json).clientVersion.gitVersion == (phase01_lock.components.k8s_clients.artifacts | selectattr('name', 'equalto', 'kubectl') | first).version
+          - phase01_client_versions.results[1].stdout.split('+')[0] == (phase01_lock.components.k8s_clients.artifacts | selectattr('name', 'equalto', 'helm') | first).version
+          - "phase01_client_versions.results[2].stdout.startswith('cilium-cli: ' ~ (phase01_lock.components.k8s_clients.artifacts | selectattr('name', 'equalto', 'cilium-cli') | first).version ~ ' ')"
+
+    - name: 检查本地 Chart 摘要
+      ansible.builtin.stat:
+        path: '{{ phase01_lock.components.cilium.chart.local_source }}'
+        checksum_algorithm: sha256
+      register: phase01_install_chart
+
+    - name: Chart 必须存在且与版本锁一致
+      ansible.builtin.assert:
+        that: phase01_install_chart.stat.checksum | default('') == phase01_lock.components.cilium.chart.sha256
+
+    - name: 保证 kubeconfig 受控目录仅当前用户可访问
+      ansible.builtin.file:
+        path: '{{ phase01_kubeconfig | dirname }}'
+        state: directory
+        mode: '0700'
+
+- name: 安装网络前补齐 Pod 到 API 的规则
+  ansible.builtin.import_playbook: configure-pod-api.yml
+
+- name: 取回引导管理员 kubeconfig 到管理端受控目录
+  hosts: cp01
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 保存 kubeconfig（不显示内容）
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: "{{ phase01_kubeconfig }}"
+        flat: true
+      no_log: true
+
+- name: 从锁定的本地 Chart 安装 Cilium
+  hosts: localhost
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: kubeconfig 仅限当前用户读取
+      ansible.builtin.file:
+        path: "{{ phase01_kubeconfig }}"
+        mode: '0600'
+
+    - name: 核对集群名称与 API 入口
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', config, view, -o, 'jsonpath={.clusters[0].cluster.server}']
+      register: phase01_server
+      changed_when: false
+      failed_when: phase01_server.stdout != 'https://' ~ phase01_network.primary_cluster.api_fqdn ~ ':6443'
+
+    - name: 读取已注册节点数
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', get, nodes, -o, json]
+      register: phase01_nodes
+      changed_when: false
+
+    - name: 确认已经有首节点注册
+      ansible.builtin.assert:
+        that: (phase01_nodes.stdout | from_json)['items'] | length >= 1
+
+    - name: 安装或更新 Cilium（单节点引导 1 个 operator，其后恢复目标 2 个）
+      ansible.builtin.command:
+        argv:
+          - '{{ phase01_client_bin }}/helm'
+          - upgrade
+          - --install
+          - cilium
+          - '{{ phase01_lock.components.cilium.chart.local_source }}'
+          - --kubeconfig
+          - '{{ phase01_kubeconfig }}'
+          - --namespace
+          - kube-system
+          - --values
+          - '{{ phase01_root }}/bootstrap/cilium/cilium-values.yaml'
+          - --set
+          - "operator.replicas={{ [2, ((phase01_nodes.stdout | from_json)['items'] | length)] | min }}"
+          - --wait
+          - --timeout
+          - 10m
+
+    - name: 验证 Cilium agent 和 operator 健康
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/cilium', --kubeconfig, '{{ phase01_kubeconfig }}', status, --wait, --wait-duration, 5m]
+      changed_when: false
+
+    - name: 确认所有已注册节点 Ready
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', wait, node, --all, --for=condition=Ready, --timeout=5m]
+      changed_when: false
+
+    - name: 验证 CoreDNS 实际就绪（节点 Ready 不能代替 Pod 到 API 连通）
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', -n, kube-system, rollout, status, deployment/coredns, --timeout=5m]
+      changed_when: false

@@ -1,0 +1,165 @@
+
+PLAY [验收十节点在用配置与安全基线] ********************************************
+
+TASK [检查 SELinux、firewalld、containerd 和 kubelet] **************************
+ok: [infra01] => (item=getenforce)
+ok: [infra02] => (item=getenforce)
+ok: [cp03] => (item=getenforce)
+ok: [storage02] => (item=getenforce)
+ok: [worker02] => (item=getenforce)
+ok: [storage01] => (item=getenforce)
+ok: [storage03] => (item=getenforce)
+ok: [cp01] => (item=getenforce)
+ok: [cp02] => (item=getenforce)
+ok: [worker01] => (item=getenforce)
+ok: [infra02] => (item=systemctl is-active firewalld)
+ok: [infra01] => (item=systemctl is-active firewalld)
+ok: [storage03] => (item=systemctl is-active firewalld)
+ok: [worker02] => (item=systemctl is-active firewalld)
+ok: [cp02] => (item=systemctl is-active firewalld)
+ok: [storage02] => (item=systemctl is-active firewalld)
+ok: [cp03] => (item=systemctl is-active firewalld)
+ok: [storage01] => (item=systemctl is-active firewalld)
+ok: [worker01] => (item=systemctl is-active firewalld)
+ok: [cp01] => (item=systemctl is-active firewalld)
+ok: [infra01] => (item=systemctl is-active containerd)
+ok: [infra02] => (item=systemctl is-active containerd)
+ok: [storage03] => (item=systemctl is-active containerd)
+ok: [worker02] => (item=systemctl is-active containerd)
+ok: [storage02] => (item=systemctl is-active containerd)
+ok: [storage01] => (item=systemctl is-active containerd)
+ok: [cp02] => (item=systemctl is-active containerd)
+ok: [cp03] => (item=systemctl is-active containerd)
+ok: [worker01] => (item=systemctl is-active containerd)
+ok: [cp01] => (item=systemctl is-active containerd)
+ok: [infra02] => (item=systemctl is-active kubelet)
+ok: [infra01] => (item=systemctl is-active kubelet)
+ok: [storage03] => (item=systemctl is-active kubelet)
+ok: [worker02] => (item=systemctl is-active kubelet)
+ok: [cp02] => (item=systemctl is-active kubelet)
+ok: [storage02] => (item=systemctl is-active kubelet)
+ok: [cp03] => (item=systemctl is-active kubelet)
+ok: [storage01] => (item=systemctl is-active kubelet)
+ok: [worker01] => (item=systemctl is-active kubelet)
+ok: [cp01] => (item=systemctl is-active kubelet)
+
+TASK [读取实际在用 kubelet 配置（不打印正文）] *********************************
+ok: [cp03]
+ok: [infra02]
+ok: [worker02]
+ok: [cp01]
+ok: [storage03]
+ok: [cp02]
+ok: [storage02]
+ok: [storage01]
+ok: [worker01]
+ok: [infra01]
+
+TASK [核对角色预留、驱逐、DNS、PID 和 cgroup 配置] *****************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询 CRI 实际状态] *******************************************************
+ok: [worker02]
+ok: [cp02]
+ok: [storage01]
+ok: [cp01]
+ok: [storage02]
+ok: [cp03]
+ok: [infra02]
+ok: [infra01]
+ok: [worker01]
+ok: [storage03]
+
+TASK [RuntimeReady 和 NetworkReady 都必须为 true] ******************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage02                  : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage03                  : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker01                   : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

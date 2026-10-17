@@ -1,0 +1,8 @@
+来源：首次使用固定占位凭据校验控制平面 JoinConfiguration 的输出摘要。
+占位 certificateKey 为 64 个数字 0，不是真实证书分发密钥；没有执行 join。
+
+cp01 | FAILED | rc=1 >>
+error: error unmarshaling configuration schema.GroupVersionKind{Group:"kubeadm.k8s.io", Version:"v1beta4", Kind:"JoinConfiguration"}: json: cannot unmarshal number into Go struct field JoinControlPlane.controlPlane.certificateKey of type string
+
+修正：certificateKey 模板增加引号，保证 YAML 将其视为字符串。
+四类模板重测结果见 01.02-join-template-validation.txt。

@@ -1,0 +1,368 @@
+
+PLAY [核对管理端物料与受控加密密钥] ********************************************
+
+TASK [创建或验证受控密钥（已有密钥不重建，内容不进入输出）] ********************
+ok: [localhost]
+
+TASK [核对配置与台账、版本锁一致] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [检查本地 Cilium Chart 的校验值] ******************************************
+ok: [localhost]
+
+TASK [Cilium Chart 必须与版本锁一致] *******************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+PLAY [安装十节点的引导输入] ****************************************************
+
+TASK [核对实际主机身份] ********************************************************
+ok: [worker02]
+ok: [cp02]
+ok: [cp03]
+ok: [storage03]
+ok: [infra01]
+ok: [storage01]
+ok: [infra02]
+ok: [worker01]
+ok: [storage02]
+ok: [cp01]
+
+TASK [确认 kubelet 尚未启动] ***************************************************
+ok: [worker01]
+ok: [infra01]
+ok: [storage03]
+ok: [cp03]
+ok: [storage01]
+ok: [cp02]
+ok: [cp01]
+ok: [worker02]
+ok: [storage02]
+ok: [infra02]
+
+TASK [检查是否已经入群] ********************************************************
+ok: [cp01]
+ok: [infra01]
+ok: [infra02]
+ok: [cp02]
+ok: [storage01]
+ok: [worker02]
+ok: [cp03]
+ok: [worker01]
+ok: [storage02]
+ok: [storage03]
+
+TASK [不覆盖已入群节点的配置] **************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [控制平面复用 00 运行时角色的 SELinux 专用任务] ***************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+included: container_runtime for cp01, cp02, cp03
+
+TASK [container_runtime : 确认 SELinux 保持 Enforcing] *************************
+ok: [cp02]
+ok: [cp01]
+ok: [cp03]
+
+TASK [container_runtime : 创建控制平面必需目录] ********************************
+ok: [cp03] => (item={'path': '/etc/kubernetes', 'mode': '0755'})
+ok: [cp02] => (item={'path': '/etc/kubernetes', 'mode': '0755'})
+ok: [cp01] => (item={'path': '/etc/kubernetes', 'mode': '0755'})
+ok: [cp03] => (item={'path': '/etc/kubernetes/pki', 'mode': '0700'})
+ok: [cp02] => (item={'path': '/etc/kubernetes/pki', 'mode': '0700'})
+ok: [cp01] => (item={'path': '/etc/kubernetes/pki', 'mode': '0700'})
+ok: [cp03] => (item={'path': '/etc/kubernetes/enc', 'mode': '0700'})
+ok: [cp02] => (item={'path': '/etc/kubernetes/enc', 'mode': '0700'})
+ok: [cp01] => (item={'path': '/etc/kubernetes/enc', 'mode': '0700'})
+ok: [cp03] => (item={'path': '/etc/kubernetes/audit', 'mode': '0755'})
+ok: [cp01] => (item={'path': '/etc/kubernetes/audit', 'mode': '0755'})
+ok: [cp02] => (item={'path': '/etc/kubernetes/audit', 'mode': '0755'})
+ok: [cp02] => (item={'path': '/var/lib/etcd', 'mode': '0700'})
+ok: [cp03] => (item={'path': '/var/lib/etcd', 'mode': '0700'})
+ok: [cp01] => (item={'path': '/var/lib/etcd', 'mode': '0700'})
+ok: [cp02] => (item={'path': '/var/log/kubernetes/audit', 'mode': '0750'})
+ok: [cp01] => (item={'path': '/var/log/kubernetes/audit', 'mode': '0750'})
+ok: [cp03] => (item={'path': '/var/log/kubernetes/audit', 'mode': '0750'})
+ok: [cp03] => (item={'path': '/etc/systemd/system/kubelet.service.d', 'mode': '0755'})
+ok: [cp02] => (item={'path': '/etc/systemd/system/kubelet.service.d', 'mode': '0755'})
+ok: [cp01] => (item={'path': '/etc/systemd/system/kubelet.service.d', 'mode': '0755'})
+
+TASK [container_runtime : 读取本地 SELinux 路径规则] ***************************
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+
+TASK [container_runtime : 添加缺失的持久标签规则] ******************************
+skipping: [cp01] => (item={'path': '/etc/kubernetes/pki(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/etc/kubernetes/enc(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/etc/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\\.conf', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/pki(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/var/lib/etcd(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/enc(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/var/log/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01]
+skipping: [cp03] => (item={'path': '/etc/kubernetes/pki(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\\.conf', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/var/lib/etcd(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/etc/kubernetes/enc(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/var/log/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/etc/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02]
+skipping: [cp03] => (item={'path': '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\\.conf', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/var/lib/etcd(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/var/log/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03]
+
+TASK [container_runtime : 更正已有本地规则的类型] ******************************
+skipping: [cp01] => (item={'path': '/etc/kubernetes/pki(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/pki(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/etc/kubernetes/enc(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/enc(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/etc/kubernetes/pki(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/etc/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/etc/kubernetes/enc(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\\.conf', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\\.conf', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/etc/kubernetes/audit(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp01] => (item={'path': '/var/lib/etcd(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp02] => (item={'path': '/var/lib/etcd(/.*)?', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/etc/kubernetes/(admin|super-admin|controller-manager|scheduler|kubelet)\\.conf', 'type': 'container_file_t'}) 
+skipping: [cp03] => (item={'path': '/var/lib/etcd(/.*)?', 'type': 'container_file_t'}) 
+changed: [cp03] => (item={'path': '/var/log/kubernetes/audit(/.*)?', 'type': 'container_file_t'})
+changed: [cp02] => (item={'path': '/var/log/kubernetes/audit(/.*)?', 'type': 'container_file_t'})
+changed: [cp01] => (item={'path': '/var/log/kubernetes/audit(/.*)?', 'type': 'container_file_t'})
+
+TASK [container_runtime : 应用控制平面目录标签] ********************************
+ok: [cp03]
+ok: [cp02]
+ok: [cp01]
+
+TASK [container_runtime : 安装 kubelet 启动前标签恢复配置] *********************
+changed: [cp01]
+changed: [cp02]
+changed: [cp03]
+
+TASK [container_runtime : 加载 unit 配置（不启动 kubelet）] ********************
+ok: [cp03]
+ok: [cp02]
+ok: [cp01]
+
+TASK [container_runtime : 用合成文件检查 container_t 读配置、写 etcd 和创建审计日志的权限] ***
+ok: [cp03]
+ok: [cp01]
+ok: [cp02]
+
+TASK [创建暂存与原生补丁目录] **************************************************
+ok: [worker02] => (item=/root/phase01-bootstrap)
+ok: [storage01] => (item=/root/phase01-bootstrap)
+ok: [infra02] => (item=/root/phase01-bootstrap)
+ok: [cp01] => (item=/root/phase01-bootstrap)
+ok: [infra01] => (item=/root/phase01-bootstrap)
+ok: [storage02] => (item=/root/phase01-bootstrap)
+ok: [cp02] => (item=/root/phase01-bootstrap)
+ok: [cp03] => (item=/root/phase01-bootstrap)
+ok: [storage03] => (item=/root/phase01-bootstrap)
+ok: [worker01] => (item=/root/phase01-bootstrap)
+ok: [worker02] => (item=/etc/kubernetes/patches)
+ok: [cp03] => (item=/etc/kubernetes/patches)
+ok: [infra02] => (item=/etc/kubernetes/patches)
+ok: [infra01] => (item=/etc/kubernetes/patches)
+ok: [storage02] => (item=/etc/kubernetes/patches)
+ok: [cp02] => (item=/etc/kubernetes/patches)
+ok: [storage01] => (item=/etc/kubernetes/patches)
+ok: [worker01] => (item=/etc/kubernetes/patches)
+ok: [storage03] => (item=/etc/kubernetes/patches)
+ok: [cp01] => (item=/etc/kubernetes/patches)
+
+TASK [分发可复现的配置与脚本] **************************************************
+changed: [worker02]
+changed: [storage01]
+changed: [worker01]
+changed: [cp01]
+changed: [cp03]
+changed: [cp02]
+changed: [infra01]
+changed: [infra02]
+changed: [storage03]
+changed: [storage02]
+
+TASK [按节点角色渲染 kubelet 资源补丁] *****************************************
+ok: [worker02]
+ok: [cp02]
+ok: [worker01]
+ok: [cp01]
+ok: [storage02]
+ok: [cp03]
+ok: [infra02]
+ok: [storage01]
+ok: [infra01]
+ok: [storage03]
+
+TASK [安装控制平面审计策略] ****************************************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+
+TASK [使用同一份受控密钥渲染三个控制平面的静态加密配置] ************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+changed: [cp03]
+changed: [cp02]
+changed: [cp01]
+
+TASK [恢复新配置文件的持久标签] ************************************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+
+TASK [经 CRI 从 Harbor 预拉 Cilium 与 kube-vip 镜像] ***************************
+ok: [storage03] => (item=cilium)
+ok: [cp03] => (item=cilium)
+ok: [worker01] => (item=cilium)
+ok: [worker02] => (item=cilium)
+ok: [storage01] => (item=cilium)
+ok: [infra02] => (item=cilium)
+ok: [cp02] => (item=cilium)
+ok: [cp01] => (item=cilium)
+ok: [storage02] => (item=cilium)
+ok: [infra01] => (item=cilium)
+ok: [storage03] => (item=operator-generic)
+ok: [cp03] => (item=operator-generic)
+ok: [worker02] => (item=operator-generic)
+ok: [worker01] => (item=operator-generic)
+ok: [cp02] => (item=operator-generic)
+ok: [storage01] => (item=operator-generic)
+ok: [storage02] => (item=operator-generic)
+ok: [infra02] => (item=operator-generic)
+ok: [cp01] => (item=operator-generic)
+ok: [infra01] => (item=operator-generic)
+ok: [storage03] => (item=cilium-envoy)
+ok: [worker02] => (item=cilium-envoy)
+ok: [cp03] => (item=cilium-envoy)
+ok: [storage01] => (item=cilium-envoy)
+ok: [infra02] => (item=cilium-envoy)
+ok: [storage02] => (item=cilium-envoy)
+ok: [worker01] => (item=cilium-envoy)
+ok: [cp02] => (item=cilium-envoy)
+ok: [cp01] => (item=cilium-envoy)
+ok: [infra01] => (item=cilium-envoy)
+ok: [worker02] => (item=kube-vip)
+ok: [cp03] => (item=kube-vip)
+ok: [storage03] => (item=kube-vip)
+ok: [storage01] => (item=kube-vip)
+ok: [infra02] => (item=kube-vip)
+ok: [storage02] => (item=kube-vip)
+ok: [worker01] => (item=kube-vip)
+ok: [cp01] => (item=kube-vip)
+ok: [infra01] => (item=kube-vip)
+ok: [cp02] => (item=kube-vip)
+
+TASK [校验 cp01 完整 kubeadm 输入] *********************************************
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+ok: [cp01]
+
+TASK [再次确认本次准备没有启动 kubelet] ****************************************
+ok: [worker02]
+ok: [infra02]
+ok: [storage02]
+ok: [infra01]
+ok: [worker01]
+ok: [storage03]
+ok: [storage01]
+ok: [cp03]
+ok: [cp01]
+ok: [cp02]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=22   changed=4    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+cp02                       : ok=21   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+cp03                       : ok=21   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+infra01                    : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+infra02                    : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+localhost                  : ok=4    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage02                  : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage03                  : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+worker01                   : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+worker02                   : ok=9    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+

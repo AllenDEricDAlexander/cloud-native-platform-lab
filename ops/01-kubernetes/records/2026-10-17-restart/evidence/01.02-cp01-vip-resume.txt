@@ -1,0 +1,26 @@
+
+PLAY [预演或显式初始化 cp01] ***************************************************
+
+TASK [同步最新入口与 VIP 清单（恢复时无需重跑 prepare）] ***********************
+changed: [cp01] => (item=scripts/init-cp01.sh)
+changed: [cp01] => (item=kube-vip/kube-vip-cp01-init.yaml)
+changed: [cp01] => (item=kube-vip/kube-vip-control-plane.yaml)
+
+TASK [执行 cp01 VIP 恢复] ******************************************************
+changed: [cp01]
+
+TASK [显示已过滤凭据的阶段结果] ************************************************
+ok: [cp01] => {
+    "phase01_init.stdout_lines": [
+        "NAME                         STATUS     ROLES           AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION                              CONTAINER-RUNTIME",
+        "cp01.k8s.internal.egon.top   NotReady   control-plane   22m   v1.36.5   192.168.9.101   <none>        Rocky Linux 10.2 (Red Quartz)   6.12.0-211.16.1.el10_2.0.1.x86_64 (amd64)   containerd://2.4.2",
+        "cp01 init PASS；本机 API、修正后的稳态 kube-vip 和 VIP API 均已验证，下一步安装 Cilium。"
+    ]
+}
+
+TASK [真实初始化后登记 cp01 的计划宿主机] **************************************
+changed: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=4    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

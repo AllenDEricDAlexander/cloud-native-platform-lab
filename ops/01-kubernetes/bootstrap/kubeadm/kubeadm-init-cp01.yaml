@@ -1,0 +1,73 @@
+# cp01 完整初始化配置。先由 prepare.yml 安装审计、加密、角色补丁和 SELinux 配置，再运行 init。
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 192.168.9.101
+  bindPort: 6443
+nodeRegistration:
+  name: cp01.k8s.internal.egon.top
+  criSocket: unix:///run/containerd/containerd.sock
+  imagePullPolicy: IfNotPresent
+  kubeletExtraArgs:
+    - name: node-ip
+      value: 192.168.9.101
+patches:
+  directory: /etc/kubernetes/patches
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+clusterName: lab-primary
+kubernetesVersion: v1.36.5
+controlPlaneEndpoint: api.k8s.internal.egon.top:6443
+imageRepository: harbor.k8s.internal.egon.top/bootstrap
+apiServer:
+  certSANs:
+    - api.k8s.internal.egon.top
+    - 192.168.9.100
+  extraArgs:
+    - name: audit-policy-file
+      value: /etc/kubernetes/audit/policy.yaml
+    - name: audit-log-path
+      value: /var/log/kubernetes/audit/audit.log
+    - name: audit-log-mode
+      value: batch
+    - name: audit-log-maxsize
+      value: "100"
+    - name: audit-log-maxbackup
+      value: "10"
+    - name: audit-log-maxage
+      value: "30"
+    - name: encryption-provider-config
+      value: /etc/kubernetes/enc/encryption-config.yaml
+  extraVolumes:
+    - name: audit-policy
+      hostPath: /etc/kubernetes/audit
+      mountPath: /etc/kubernetes/audit
+      readOnly: true
+      pathType: Directory
+    - name: audit-log
+      hostPath: /var/log/kubernetes/audit
+      mountPath: /var/log/kubernetes/audit
+      readOnly: false
+      pathType: Directory
+    - name: encryption-config
+      hostPath: /etc/kubernetes/enc
+      mountPath: /etc/kubernetes/enc
+      readOnly: true
+      pathType: Directory
+
+networking:
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 192.168.20.0/24
+  dnsDomain: cluster.local
+controllerManager:
+  extraArgs:
+    - name: allocate-node-cidrs
+      value: "false"
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+clusterDNS:
+  - 192.168.20.10
+clusterDomain: cluster.local

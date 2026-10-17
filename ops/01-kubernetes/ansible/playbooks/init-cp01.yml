@@ -1,0 +1,29 @@
+- name: cp01 初始化、预演或 VIP 恢复
+  hosts: cp01
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 同步最新入口与 VIP 清单（恢复时无需重跑 prepare）
+      ansible.builtin.copy:
+        src: '{{ phase01_root }}/bootstrap/{{ item }}'
+        dest: '{{ phase01_stage }}/{{ item }}'
+        mode: '0600'
+      loop:
+        - scripts/init-cp01.sh
+        - kube-vip/kube-vip-cp01-init.yaml
+        - kube-vip/kube-vip-control-plane.yaml
+
+    - name: "执行 cp01 {{ 'VIP 恢复' if (init_resume | default(false) | bool) else ('真实初始化' if (init_apply | default(false) | bool) else 'kubeadm dry-run') }}"
+      ansible.builtin.command:
+        argv: [/bin/bash, '{{ phase01_stage }}/scripts/init-cp01.sh', "{{ '--resume' if (init_resume | default(false) | bool) else ('--apply' if (init_apply | default(false) | bool) else '--dry-run') }}", '{{ ansible_host }}']
+      register: phase01_init
+      changed_when: (init_apply | default(false) | bool) or (init_resume | default(false) | bool)
+
+    - name: 显示已过滤凭据的阶段结果
+      ansible.builtin.debug:
+        var: phase01_init.stdout_lines
+
+    - name: 真实初始化后登记 cp01 的计划宿主机
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, label, node, '{{ node_fqdn }}', 'cnpl.io/planned-hypervisor={{ node_planned_hypervisor }}', --overwrite]
+      when: (init_apply | default(false) | bool) or (init_resume | default(false) | bool)

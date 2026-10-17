@@ -1,0 +1,39 @@
+# 01.02.01 分步草稿：网络、kubelet、审计/加密及 SELinux 配置待补齐。
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 192.168.9.101
+  bindPort: 6443
+nodeRegistration:
+  name: cp01.k8s.internal.egon.top
+  criSocket: unix:///run/containerd/containerd.sock
+  kubeletExtraArgs:
+    - name: node-ip
+      value: 192.168.9.101
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+clusterName: lab-primary
+kubernetesVersion: v1.36.5
+controlPlaneEndpoint: api.k8s.internal.egon.top:6443
+imageRepository: harbor.k8s.internal.egon.top/bootstrap
+apiServer:
+  certSANs:
+    - api.k8s.internal.egon.top
+    - 192.168.9.100
+
+networking:
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 192.168.20.0/24
+  dnsDomain: cluster.local
+controllerManager:
+  extraArgs:
+    - name: allocate-node-cidrs
+      value: "false"
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+clusterDNS:
+  - 192.168.20.10
+clusterDomain: cluster.local

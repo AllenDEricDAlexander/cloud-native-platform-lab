@@ -1,0 +1,14 @@
+# Cilium 的 Pod 源地址不能依赖“节点 IP”ipset 获得 API 权限；仅开放控制平面 6443/tcp。
+- name: 确认控制平面接口仍位于预期区域
+  ansible.builtin.command: firewall-cmd --get-zone-of-interface={{ node_network_connection }}
+  register: phase01_firewall_zone
+  changed_when: false
+  failed_when: phase01_firewall_zone.stdout != 'public'
+
+- name: 允许规划 Pod CIDR 访问控制平面 API（持久和即时）
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: 'rule family="ipv4" source address="{{ phase01_network.primary_cluster.pod_cidr }}" port port="6443" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled

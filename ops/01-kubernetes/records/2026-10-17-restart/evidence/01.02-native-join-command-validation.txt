@@ -1,0 +1,21 @@
+
+PLAY [Native join command and four role schema validation without joining nodes] ***
+
+TASK [Validate native credential path and schema; revoke token in finally] *****
+ok: [cp01]
+
+TASK [Show public validation summary only] *************************************
+ok: [cp01] => {
+    "native_validation.stdout_lines": [
+        "native kubeadm token create --print-join-command: PASS (no OpenSSL)",
+        "control_plane JoinConfiguration validate: ok",
+        "infra JoinConfiguration validate: ok",
+        "storage JoinConfiguration validate: ok",
+        "worker JoinConfiguration validate: ok",
+        "temporary validation token revoked"
+    ]
+}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

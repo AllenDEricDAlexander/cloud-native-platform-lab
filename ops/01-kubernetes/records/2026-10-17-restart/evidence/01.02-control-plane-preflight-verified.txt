@@ -1,0 +1,75 @@
+
+PLAY [检查现有集群是否具备扩容条件] ********************************************
+
+TASK [确认证书上传使用的现有初始化配置有效] ************************************
+ok: [cp01]
+
+TASK [确认 API 入口健康] *******************************************************
+ok: [cp01]
+
+TASK [确认 etcd 全成员健康] ****************************************************
+ok: [cp01]
+
+TASK [确认 Cilium 和 CoreDNS 已就绪] *******************************************
+ok: [cp01] => (item=daemonset/cilium)
+ok: [cp01] => (item=daemonset/cilium-envoy)
+ok: [cp01] => (item=deployment/cilium-operator)
+ok: [cp01] => (item=deployment/coredns)
+
+TASK [读取节点注册状态（公开信息）] ********************************************
+ok: [cp01]
+
+TASK [读取在用的共享加密配置摘要（不取回内容）] ********************************
+ok: [cp01]
+
+PLAY [在任何节点执行 join 前检查本批全部节点] **********************************
+
+TASK [只读检查依赖、身份、版本、CRI、安全基线与部分入群状态] *******************
+ok: [cp02]
+ok: [cp03]
+
+TASK [核对本机产物与集群登记一致（不能仅靠 kubelet.conf 跳过）] ****************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对当前节点资源补丁与台账一致] ******************************************
+ok: [cp03]
+ok: [cp02]
+
+TASK [缺少或过期的资源补丁在创建凭据前停止] ************************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对控制平面共享加密配置] ************************************************
+ok: [cp02]
+ok: [cp03]
+
+TASK [共享密钥不一致时禁止加入控制平面] ****************************************
+ok: [cp02]
+ok: [cp03]
+
+TASK [保存本批前检结果] ********************************************************
+ok: [cp02]
+ok: [cp03]
+
+PLAY [依次加入 cp02 和 cp03，每台确认 Ready 与 etcd 健康后再继续] **************
+
+PLAY [依次加入 cp02 和 cp03，每台确认 Ready 与 etcd 健康后再继续] **************
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=6    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=7    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=7    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

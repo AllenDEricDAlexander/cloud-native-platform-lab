@@ -113,10 +113,30 @@ storage:
   independent_backup_capacity_gib: null
   osd_initialization_allowed: false
 node_reservations:
-  system_reserved: null
-  kube_reserved: null
-  ceph_reserved_on_storage_nodes: null
-  eviction_thresholds: null
+  # 01 起步预算，启动后以 Allocatable 和实际负载复核；storage 的 systemReserved 已包含下面的 Ceph 份额。
+  system_reserved:
+    control_plane: {cpu: 500m, memory: 1Gi, ephemeral-storage: 1Gi}
+    infra: {cpu: 500m, memory: 1Gi, ephemeral-storage: 1Gi}
+    worker: {cpu: 500m, memory: 1Gi, ephemeral-storage: 1Gi}
+    storage: {cpu: 2500m, memory: 5Gi, ephemeral-storage: 1Gi}
+  kube_reserved:
+    control_plane: {cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi}
+    infra: {cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi}
+    worker: {cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi}
+    storage: {cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi}
+  ceph_reserved_on_storage_nodes:
+    cpu: "2"
+    memory: 4Gi
+    accounted_in: system_reserved.storage
+    review_at: Phase 03，按实际 OSD 数量、内存目标和负载调整
+  eviction_thresholds:
+    memory.available: 500Mi
+    nodefs.available: 10%
+    nodefs.inodesFree: 5%
+    imagefs.available: 15%
+    imagefs.inodesFree: 5%
+    pid.available: 10%
+  pod_pids_limit: 4096
 capacity_gates:
   service_ip_review_threshold: 180
   simultaneous_heavy_modules: false

@@ -1,0 +1,64 @@
+
+PLAY [清理 cp01 的旧初始化残留] ************************************************
+
+TASK [核对目标主机] ************************************************************
+ok: [cp01]
+
+TASK [检查 kubelet 当前状态] ***************************************************
+ok: [cp01]
+
+TASK [列出全部 CRI 容器] *******************************************************
+ok: [cp01]
+
+TASK [列出全部 CRI Pod sandbox] ************************************************
+ok: [cp01]
+
+TASK [检查控制平面与 kubelet 文件是否仍在] *************************************
+ok: [cp01] => (item=/etc/kubernetes/manifests)
+ok: [cp01] => (item=/etc/kubernetes/pki)
+ok: [cp01] => (item=/etc/kubernetes/admin.conf)
+ok: [cp01] => (item=/etc/kubernetes/super-admin.conf)
+ok: [cp01] => (item=/var/lib/etcd)
+ok: [cp01] => (item=/var/lib/kubelet/config.yaml)
+
+TASK [列出 Kubernetes 配置目录的直接子项] **************************************
+ok: [cp01]
+
+TASK [确认可以清理旧初始化残留] ************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查看 SELinux 本地文件标签规则] *******************************************
+ok: [cp01]
+
+TASK [删除旧审计与加密配置、dry-run 目录和暂存文件] ****************************
+changed: [cp01] => (item=/etc/kubernetes/audit)
+changed: [cp01] => (item=/etc/kubernetes/enc)
+changed: [cp01] => (item=/etc/kubernetes/tmp)
+changed: [cp01] => (item=/var/log/kubernetes/audit)
+changed: [cp01] => (item=/root/phase01-bootstrap)
+ok: [cp01] => (item=/root/kubeadm-init.out)
+
+TASK [撤销旧审计目录的本地标签规则] ********************************************
+skipping: [cp01]
+
+TASK [清理后核对目标路径] ******************************************************
+skipping: [cp01] => (item=/etc/kubernetes/audit) 
+skipping: [cp01] => (item=/etc/kubernetes/enc) 
+skipping: [cp01] => (item=/etc/kubernetes/tmp) 
+skipping: [cp01] => (item=/var/log/kubernetes/audit) 
+skipping: [cp01] => (item=/root/phase01-bootstrap) 
+skipping: [cp01] => (item=/root/kubeadm-init.out) 
+skipping: [cp01]
+
+TASK [清理后核对 SELinux 本地规则] *********************************************
+skipping: [cp01]
+
+TASK [确认旧残留已删除] ********************************************************
+skipping: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=9    changed=1    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+

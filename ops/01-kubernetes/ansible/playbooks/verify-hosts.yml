@@ -1,0 +1,54 @@
+# 只查询实际在用 kubelet 配置和主机基线，不重启或修改服务。
+- name: 验收十节点在用配置与安全基线
+  hosts: k8s_nodes
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 检查 SELinux、firewalld、containerd 和 kubelet
+      ansible.builtin.command:
+        argv: '{{ item.argv }}'
+      loop:
+        - {argv: [getenforce], expected: Enforcing}
+        - {argv: [systemctl, is-active, firewalld], expected: active}
+        - {argv: [systemctl, is-active, containerd], expected: active}
+        - {argv: [systemctl, is-active, kubelet], expected: active}
+      loop_control:
+        label: '{{ item.argv | join(" ") }}'
+      register: phase01_baseline
+      changed_when: false
+      failed_when: phase01_baseline.rc != 0 or phase01_baseline.stdout != item.expected
+
+    - name: 读取实际在用 kubelet 配置（不打印正文）
+      ansible.builtin.slurp:
+        src: /var/lib/kubelet/config.yaml
+      register: phase01_effective_kubelet
+      no_log: true
+
+    - name: 核对角色预留、驱逐、DNS、PID 和 cgroup 配置
+      ansible.builtin.assert:
+        that:
+          - effective.systemReserved == phase01_resources.node_reservations.system_reserved[phase01_profile]
+          - effective.kubeReserved == phase01_resources.node_reservations.kube_reserved[phase01_profile]
+          - effective.evictionHard == phase01_resources.node_reservations.eviction_thresholds
+          - effective.podPidsLimit == phase01_resources.node_reservations.pod_pids_limit
+          - effective.clusterDNS == [phase01_network.primary_cluster.dns_service_ip]
+          - effective.clusterDomain == phase01_network.domains.kubernetes_service_domain
+          - effective.cgroupDriver == 'systemd'
+        fail_msg: 实际 kubelet 配置与台账不符，不能仅以补丁文件存在判定生效。
+      vars:
+        effective: '{{ phase01_effective_kubelet.content | b64decode | from_yaml }}'
+
+    - name: 查询 CRI 实际状态
+      ansible.builtin.command: crictl info
+      register: phase01_cri
+      changed_when: false
+      no_log: true
+
+    - name: RuntimeReady 和 NetworkReady 都必须为 true
+      ansible.builtin.assert:
+        that:
+          - (conditions | selectattr('type', 'equalto', 'RuntimeReady') | map(attribute='status') | list) == [true]
+          - (conditions | selectattr('type', 'equalto', 'NetworkReady') | map(attribute='status') | list) == [true]
+      vars:
+        conditions: '{{ (phase01_cri.stdout | from_json).status.conditions }}'

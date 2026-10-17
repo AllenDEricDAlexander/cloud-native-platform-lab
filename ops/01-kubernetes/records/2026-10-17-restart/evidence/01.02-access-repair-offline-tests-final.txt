@@ -1,0 +1,22 @@
+test_access_verifier_accepts_warning_and_requires_real_forbidden (test_access.AccessTest.test_access_verifier_accepts_warning_and_requires_real_forbidden) ... ok
+test_ansible_shows_safe_failure_without_private_parser_input (test_access.AccessTest.test_ansible_shows_safe_failure_without_private_parser_input) ... FAIL
+test_build_separates_clients_recovery_and_private_permissions (test_access.AccessTest.test_build_separates_clients_recovery_and_private_permissions) ... ok
+test_future_and_expiring_certificates_remain_rejected (test_access.AccessTest.test_future_and_expiring_certificates_remain_rejected) ... ok
+test_kubeadm_ca_backdate_does_not_extend_remaining_lifetime (test_access.AccessTest.test_kubeadm_ca_backdate_does_not_extend_remaining_lifetime) ... ok
+test_normal_certificate_rejects_admin_group_and_key_mismatch (test_access.AccessTest.test_normal_certificate_rejects_admin_group_and_key_mismatch) ... ok
+test_rbac_has_no_wildcard_secret_or_cluster_write_for_normal_users (test_access.AccessTest.test_rbac_has_no_wildcard_secret_or_cluster_write_for_normal_users) ... ok
+test_real_local_restic_snapshot_restore_uses_exact_private_file (test_access.AccessTest.test_real_local_restic_snapshot_restore_uses_exact_private_file) ... ok
+
+======================================================================
+FAIL: test_ansible_shows_safe_failure_without_private_parser_input (test_access.AccessTest.test_ansible_shows_safe_failure_without_private_parser_input)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_access.py", line 153, in test_ansible_shows_safe_failure_without_private_parser_input
+    self.assertIn('身份组合失败', result.stdout + result.stderr)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '身份组合失败' not found in '[ERROR]: Unexpected Exception, this is probably a bug: Local RPC server did not start.\n\nTraceback (most recent call last):\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/cli/__init__.py", line 663, in cli_executor\n    exit_code = cli.run()\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/cli/playbook.py", line 148, in run\n    pbex = PlaybookExecutor(playbooks=context.CLIARGS[\'args\'], inventory=inventory,\n                            variable_manager=variable_manager, loader=loader,\n                            passwords=passwords)\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/executor/playbook_executor.py", line 59, in __init__\n    self._tqm = TaskQueueManager(\n                ~~~~~~~~~~~~~~~~^\n        inventory=inventory,\n        ^^^^^^^^^^^^^^^^^^^^\n    ...<3 lines>...\n        forks=context.CLIARGS.get(\'forks\'),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/executor/task_queue_manager.py", line 173, in __init__\n    _rpc_host.LocalManager.shared_instance()  # ensure the RPC host is available\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/_internal/_rpc_host.py", line 113, in shared_instance\n    instance.start()\n    ~~~~~~~~~~~~~~^^\n  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/managers.py", line 566, in start\n    self._process.start()\n    ~~~~~~~~~~~~~~~~~~~^^\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/_internal/_rpc_host.py", line 51, in start\n    raise TimeoutError("Local RPC server did not start.")\nTimeoutError: Local RPC server did not start.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File "/Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/cli/__init__.py", line 672, in cli_executor\n    raise AnsibleError("Unexpected Exception, this is probably a bug.") from ex\nansible.errors.AnsibleError: Unexpected Exception, this is probably a bug: Local RPC server did not start.\n\n'
+
+----------------------------------------------------------------------
+Ran 8 tests in 14.147s
+
+FAILED (failures=1)

@@ -1,0 +1,16 @@
+- name: 整批控制平面只读前检
+  ansible.builtin.import_playbook: join-preflight.yml
+  vars:
+    phase01_join_hosts: control_plane:!cp01
+
+- name: 依次加入 cp02 和 cp03，每台确认 Ready 与 etcd 健康后再继续
+  hosts: control_plane:!cp01
+  serial: 1
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  vars:
+    phase01_join_control_plane: true
+  tasks:
+    - name: 加入与核验控制平面
+      ansible.builtin.include_tasks: ../tasks/join-node.yml

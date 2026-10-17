@@ -1,0 +1,194 @@
+# 整批前检通过后才调用；部分失败保留现场，不自动 reset 或重新 init。
+- name: 确认本节点已经完成整批前检
+  ansible.builtin.assert:
+    that: phase01_join_preflight_passed | default(false)
+    fail_msg: 必须先完成同一 playbook 的整批前检，不支持用 --start-at-task 跳过检查。
+
+- name: 为未入群节点执行受控 join
+  when: not phase01_joined.stat.exists
+  block:
+    - name: 本地生成随机令牌（尚不在集群创建）
+      ansible.builtin.command: kubeadm token generate
+      delegate_to: cp01
+      register: phase01_join_token
+      changed_when: false
+      no_log: true
+
+    - name: 校验令牌格式
+      ansible.builtin.assert:
+        that: phase01_join_token.stdout | trim is match('^[a-z0-9]{6}\.[a-z0-9]{16}$')
+      no_log: true
+
+    - name: 创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要
+      ansible.builtin.command:
+        argv: [kubeadm, token, create, '{{ phase01_join_token.stdout | trim }}', --ttl, 30m, --print-join-command, --kubeconfig, /etc/kubernetes/admin.conf]
+      delegate_to: cp01
+      register: phase01_join_command
+      no_log: true
+
+    - name: 校验原生输出中的入口、令牌和公钥摘要
+      ansible.builtin.assert:
+        that:
+          - phase01_join_command.stdout.split() | length == 7
+          - phase01_join_command.stdout.split()[0:3] == ['kubeadm', 'join', phase01_network.primary_cluster.api_fqdn ~ ':6443']
+          - phase01_join_command.stdout.split()[3:6] == ['--token', phase01_join_token.stdout | trim, '--discovery-token-ca-cert-hash']
+          - phase01_join_command.stdout.split()[6] is match('^sha256:[a-f0-9]{64}$')
+      no_log: true
+
+    - name: 保存公开 CA 公钥摘要
+      ansible.builtin.set_fact:
+        phase01_ca_hash: '{{ phase01_join_command.stdout.split()[6] }}'
+      no_log: true
+
+    - name: 控制平面生成短时证书分发密钥
+      ansible.builtin.command: kubeadm init phase upload-certs --upload-certs --config {{ phase01_stage }}/kubeadm/kubeadm-init-cp01.yaml
+      delegate_to: cp01
+      register: phase01_certificate_key
+      when: phase01_join_control_plane
+      no_log: true
+
+    - name: 严格提取本次证书分发密钥
+      ansible.builtin.set_fact:
+        phase01_certificate_key_value: "{{ phase01_certificate_key.stdout_lines | select('match', '^[a-f0-9]{64}$') | list | last | default('') }}"
+      when: phase01_join_control_plane
+      no_log: true
+
+    - name: 校验证书分发密钥格式
+      ansible.builtin.assert:
+        that: phase01_certificate_key_value is match('^[a-f0-9]{64}$')
+      when: phase01_join_control_plane
+      no_log: true
+
+    - name: 渲染本节点的 JoinConfiguration
+      ansible.builtin.template:
+        src: "{{ phase01_root }}/bootstrap/kubeadm/join-node.yaml.j2"
+        dest: /root/cnpl-join.yaml
+        mode: '0600'
+      no_log: true
+      diff: false
+
+    - name: 在启用 kubelet 前校验本节点实际 JoinConfiguration
+      ansible.builtin.command: kubeadm config validate --config /root/cnpl-join.yaml
+      changed_when: false
+      no_log: true
+
+    - name: 设置 kubelet 开机启用（由接下来的 kubeadm join 启动）
+      ansible.builtin.systemd_service:
+        name: kubelet
+        enabled: true
+
+    - name: 执行 join，原始输出留在节点私有日志
+      ansible.builtin.shell: |
+        set -euo pipefail
+        umask 077
+        log=$(mktemp /root/kubeadm-join.XXXXXXXX.out)
+        printf '%s\n' "$log"
+        kubeadm join --config /root/cnpl-join.yaml > "$log" 2>&1
+      args:
+        executable: /bin/bash
+      register: phase01_join_result
+      failed_when: false
+      no_log: true
+
+    - name: 检查 join 返回值
+      ansible.builtin.assert:
+        that: phase01_join_result.rc == 0
+        fail_msg: 'join 未成功，停止本批次并保留现场；私有日志 {{ phase01_join_result.stdout | trim }}，勿原样贴出凭据。不要 reset 或直接跳过失败节点。'
+  rescue:
+    - name: 显示失败阶段并停止（凭据不进入终端）
+      ansible.builtin.fail:
+        msg: >-
+          入群在“{{ ansible_failed_task.name }}”失败，保留现场；
+          {{ '私有日志 ' ~ (phase01_join_result.stdout | trim) if phase01_join_result is defined else '尚未执行 kubeadm join。' }}
+          不要 reset，不要跳过失败节点继续后续批次。
+  always:
+    - name: 清理临时配置与令牌（两项独立尝试）
+      block:
+        - name: 删除包含短时凭据的 JoinConfiguration
+          ansible.builtin.file:
+            path: /root/cnpl-join.yaml
+            state: absent
+          diff: false
+          no_log: true
+      always:
+        - name: 撤销本节点使用的入群令牌（不存在也安全通过）
+          ansible.builtin.command:
+            argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, -n, kube-system, delete, secret, 'bootstrap-token-{{ (phase01_join_token.stdout | trim).split(".")[0] }}', --ignore-not-found=true]
+          delegate_to: cp01
+          when: phase01_join_token is defined and phase01_join_token.stdout | default('') | trim is match('^[a-z0-9]{6}\.[a-z0-9]{16}$')
+          no_log: true
+
+- name: 控制平面协调稳态 kube-vip 清单（重复运行同样补齐）
+  ansible.builtin.copy:
+    src: "{{ phase01_root }}/bootstrap/kube-vip/kube-vip-control-plane.yaml"
+    dest: /etc/kubernetes/manifests/kube-vip.yaml
+    mode: '0600'
+  when: phase01_join_control_plane
+
+- name: 核验本机 API 和稳态 kube-vip Pod
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, '--server=https://{{ ansible_host }}:6443', --request-timeout=10s, -n, kube-system, wait, 'pod/kube-vip-{{ node_fqdn }}', --for=condition=Ready, --timeout=3m]
+  changed_when: false
+  when: phase01_join_control_plane
+
+- name: 确认实际 kube-vip Pod 已采用本机别名和稳态凭据
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - /etc/kubernetes/admin.conf
+      - '--server=https://{{ ansible_host }}:6443'
+      - --request-timeout=10s
+      - -n
+      - kube-system
+      - get
+      - pod
+      - 'kube-vip-{{ node_fqdn }}'
+      - -o
+      - 'jsonpath={.spec.hostAliases[0].ip}{" "}{.spec.hostAliases[0].hostnames[0]}{" "}{.spec.volumes[?(@.name=="kubeconfig")].hostPath.path}'
+  register: phase01_vip_spec
+  until: phase01_vip_spec.rc == 0 and phase01_vip_spec.stdout == '127.0.0.1 kubernetes /etc/kubernetes/admin.conf'
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: phase01_join_control_plane
+
+- name: 确认节点已经 Ready（已入群节点重复运行也检查状态）
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, wait, 'node/{{ node_fqdn }}', --for=condition=Ready, --timeout=5m]
+  delegate_to: cp01
+  changed_when: false
+
+- name: 登记节点角色
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, label, node, '{{ node_fqdn }}', 'node-role.kubernetes.io/{{ phase01_profile }}=', --overwrite]
+  delegate_to: cp01
+  when: not phase01_join_control_plane
+
+- name: 登记计划放置（未核实的放置不冒充实际故障域）
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, label, node, '{{ node_fqdn }}', 'cnpl.io/planned-hypervisor={{ node_planned_hypervisor }}', --overwrite]
+  delegate_to: cp01
+
+- name: 每台控制平面加入后验证 etcd 全部成员健康
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - /etc/kubernetes/admin.conf
+      - -n
+      - kube-system
+      - exec
+      - 'etcd-{{ hostvars.cp01.node_fqdn }}'
+      - --
+      - etcdctl
+      - --endpoints=https://127.0.0.1:2379
+      - --cacert=/etc/kubernetes/pki/etcd/ca.crt
+      - --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt
+      - --key=/etc/kubernetes/pki/etcd/healthcheck-client.key
+      - endpoint
+      - health
+      - --cluster
+  delegate_to: cp01
+  changed_when: false
+  when: phase01_join_control_plane

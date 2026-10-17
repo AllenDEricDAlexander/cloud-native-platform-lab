@@ -1,0 +1,35 @@
+
+PLAY [在变更 Cilium 前检查管理端依赖和锁定 Chart] ******************************
+
+TASK [检查管理端三个客户端可以执行] ********************************************
+ok: [localhost] => (item=['/Users/mario/.cnpl/bin/kubectl', 'version', '--client', '-o', 'json'])
+ok: [localhost] => (item=['/Users/mario/.cnpl/bin/helm', 'version', '--short'])
+ok: [localhost] => (item=['/Users/mario/.cnpl/bin/cilium', 'version', '--client'])
+
+TASK [管理端客户端版本必须与锁定物料一致] **************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [检查本地 Chart 摘要] *****************************************************
+ok: [localhost]
+
+TASK [Chart 必须存在且与版本锁一致] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [保证 kubeconfig 受控目录仅当前用户可访问] ********************************
+ok: [localhost]
+
+PLAY [修正 Pod 访问 API 的有限端口放行] ****************************************
+
+PLAY [取回引导管理员 kubeconfig 到管理端受控目录] ******************************
+
+PLAY [从锁定的本地 Chart 安装 Cilium] ******************************************
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,0 +1,31 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: {{ phase01_network.primary_cluster.api_fqdn }}:6443
+    token: {{ phase01_join_token.stdout | trim }}
+    caCertHashes:
+      - {{ phase01_ca_hash }}
+nodeRegistration:
+  name: {{ node_fqdn }}
+  criSocket: unix:///run/containerd/containerd.sock
+  imagePullPolicy: IfNotPresent
+  kubeletExtraArgs:
+    - name: node-ip
+      value: {{ ansible_host }}
+{% if phase01_profile == 'storage' %}
+  taints:
+    - key: node-role.kubernetes.io/storage
+      effect: NoSchedule
+{% elif not phase01_join_control_plane %}
+  taints: []
+{% endif %}
+patches:
+  directory: /etc/kubernetes/patches
+{% if phase01_join_control_plane %}
+controlPlane:
+  localAPIEndpoint:
+    advertiseAddress: {{ ansible_host }}
+    bindPort: 6443
+  certificateKey: "{{ phase01_certificate_key_value }}"
+{% endif %}

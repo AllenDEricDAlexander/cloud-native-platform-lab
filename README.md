@@ -14,14 +14,14 @@
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
 | [00](plan/00-preparation.md) | 虚拟机、Linux 与 CRI、网络与代理、DNS、CA、仓库、备份、离线物料 | 主线可交接（[阶段验收](ops/00-preparation/records/2026-10-14/acceptance.md)）：十台节点与 DNS、CA、代理、Harbor、GitLab、Nexus、备份就绪，断网验收通过；未完成项在后续阶段跟踪 |
-| [01](plan/01-kubernetes.md) | kubeadm 初始化、控制平面高可用、Cilium | 未开始 |
+| [01](plan/01-kubernetes.md) | kubeadm 初始化、控制平面高可用、Cilium | [基础集群与 Mac 受限身份通过](ops/01-kubernetes/records/2026-10-17-restart/README.md)：进入 01.03 完整备份/HA；.15 管理机分发待交付 |
 | [02](plan/02-networking.md) | 服务网络、MetalLB、Gateway、网络策略 | 未开始 |
 | [03](plan/03-ceph-middleware.md) | Ceph、Rook CSI、中间件 | 未开始 |
 | [04](plan/04-devops-platform.md) | CI/CD、GitOps、平台工程 | 未开始 |
 | [05](plan/05-observability.md) | 指标、日志、追踪、成本 | 未开始 |
 | [06](plan/06-advanced-security-dr.md) | 安全、多集群、Serverless、虚拟化、灾备 | 未开始 |
 
-逐项状态与证据见 [当前执行批次](ops/00-preparation/records/2026-10-14/README.md)。阶段按顺序推进，上一阶段验收后再进入下一阶段；本阶段的问题在本阶段修复，不推到后续阶段。
+逐项状态与证据见 [Phase 00 执行批次](ops/00-preparation/records/2026-10-14/README.md)与 [Phase 01 当前批次](ops/01-kubernetes/records/2026-10-17-restart/README.md)。阶段按顺序推进，上一阶段验收后再进入下一阶段；本阶段的问题在本阶段修复，不推到后续阶段。
 
 ## 3. 环境概况
 
@@ -45,7 +45,7 @@
 | `ops/<阶段>/records/` | 实际做了什么、结果如何 | 按发生顺序的执行记录与原始证据，包括失败与修正 |
 
 - **了解项目**：架构 → 阶段计划。
-- **动手操作**：打开对应阶段的操作流程（当前是 [Phase 00](ops/00-preparation/README.md)），按步骤执行，输出保存到该阶段的 records。
+- **动手操作**：打开对应阶段的操作流程（当前是 [Phase 01](ops/01-kubernetes/README.md)），按步骤执行，输出保存到该阶段的 records。
 - **查看进度或排查问题**：看执行记录；遇到过的问题和处理方法都在其中。
 
 ## 5. 共同约定

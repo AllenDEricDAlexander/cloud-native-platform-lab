@@ -1,0 +1,11 @@
+来源：助手在 cp01 通过 Ansible 执行只读 libselinux 策略查询。
+查询主体和目标：system_u:system_r:container_t:s0
+查询对象类：capability；权限：net_admin
+
+第一次调用 Python 绑定缺少 avd 输出参数，返回 TypeError，没有改变节点状态。
+改为使用 selinux.av_decision() 并传入 security_compute_av 后：
+
+cp01 | CHANGED | rc=0 >>
+query_rc=0 container_t net_admin allowed=True
+
+说明：command 模块默认报告 CHANGED，实际仅查询已加载策略；这不是 kube-vip 的实际 ARP/VIP 运行验收。

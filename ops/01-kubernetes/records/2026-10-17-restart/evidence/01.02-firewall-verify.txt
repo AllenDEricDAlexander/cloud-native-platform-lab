@@ -1,0 +1,171 @@
+
+PLAY [防火墙允许/拒绝验证] *****************************************************
+
+TASK [临时监听被测端口（120 秒后自动退出）] ************************************
+ok: [worker02]
+ok: [cp01]
+ok: [cp03]
+ok: [infra01]
+ok: [storage02]
+ok: [storage01]
+ok: [cp02]
+ok: [infra02]
+ok: [worker01]
+ok: [storage03]
+
+TASK [等待监听就绪] ************************************************************
+ok: [cp01]
+ok: [cp03]
+ok: [storage01]
+ok: [cp02]
+ok: [storage02]
+ok: [storage03]
+ok: [worker02]
+ok: [infra02]
+ok: [infra01]
+ok: [worker01]
+
+TASK [被测端口必须全部在监听，否则探测结果没有意义] ****************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [从另一台控制平面探测（cp03）] ********************************************
+ok: [cp01 -> cp03(192.168.9.103)]
+ok: [cp03 -> cp01(192.168.9.101)]
+ok: [infra01 -> cp01(192.168.9.101)]
+ok: [worker02 -> cp01(192.168.9.101)]
+ok: [cp02 -> cp01(192.168.9.101)]
+ok: [storage01 -> cp01(192.168.9.101)]
+ok: [storage02 -> cp01(192.168.9.101)]
+ok: [storage03 -> cp01(192.168.9.101)]
+ok: [infra02 -> cp01(192.168.9.101)]
+ok: [worker01 -> cp01(192.168.9.101)]
+
+TASK [从非控制平面节点探测（worker01）] ****************************************
+ok: [cp02 -> worker01(192.168.9.109)]
+ok: [infra02 -> worker01(192.168.9.109)]
+ok: [infra01 -> worker01(192.168.9.109)]
+ok: [storage02 -> worker01(192.168.9.109)]
+ok: [worker01 -> storage01(192.168.9.106)]
+ok: [cp01 -> worker01(192.168.9.109)]
+ok: [cp03 -> worker01(192.168.9.109)]
+ok: [storage01 -> worker01(192.168.9.109)]
+ok: [storage03 -> worker01(192.168.9.109)]
+ok: [worker02 -> worker01(192.168.9.109)]
+
+TASK [从管理端（本机）探测] ****************************************************
+ok: [cp03 -> localhost]
+ok: [cp01 -> localhost]
+ok: [storage03 -> localhost]
+ok: [infra02 -> localhost]
+ok: [infra01 -> localhost]
+ok: [storage01 -> localhost]
+ok: [cp02 -> localhost]
+ok: [storage02 -> localhost]
+ok: [worker02 -> localhost]
+ok: [worker01 -> localhost]
+
+TASK [与期望比较] **************************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=open', '10250=open', '2379=open', '9090=blocked'], 'from_node': ['6443=open', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=open', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=open', '10250=open', '2379=open', '9090=blocked'], 'from_node': ['6443=open', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=open', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=open', '10250=open', '2379=open', '9090=blocked'], 'from_node': ['6443=open', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=open', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "符合期望：{'from_control_plane': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_node': ['6443=blocked', '10250=open', '2379=blocked', '9090=blocked'], 'from_mgmt': ['6443=blocked', '10250=blocked', '2379=blocked', '9090=blocked']}"
+}
+
+TASK [停止临时监听] ************************************************************
+ok: [worker02]
+ok: [cp02]
+ok: [infra02]
+ok: [storage03]
+ok: [cp03]
+ok: [worker01]
+ok: [storage02]
+ok: [cp01]
+ok: [storage01]
+ok: [infra01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage02                  : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage03                  : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker01                   : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=8    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

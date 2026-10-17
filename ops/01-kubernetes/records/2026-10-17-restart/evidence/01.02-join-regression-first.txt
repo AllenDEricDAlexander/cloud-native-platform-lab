@@ -1,0 +1,275 @@
+test_apply_refuses_running_cluster_with_recovery_hint (test_cp01_init.InitRecoveryTest.test_apply_refuses_running_cluster_with_recovery_hint) ... ok
+test_bootstrap_and_steady_manifests_have_local_api_alias (test_cp01_init.InitRecoveryTest.test_bootstrap_and_steady_manifests_have_local_api_alias) ... ok
+test_diagnostics_redact_bootstrap_credentials (test_cp01_init.InitRecoveryTest.test_diagnostics_redact_bootstrap_credentials) ... ok
+test_old_pod_does_not_pass_merely_because_vip_api_responds (test_cp01_init.InitRecoveryTest.test_old_pod_does_not_pass_merely_because_vip_api_responds) ... ok
+test_resume_refuses_unhealthy_local_api_before_changing_manifest (test_cp01_init.InitRecoveryTest.test_resume_refuses_unhealthy_local_api_before_changing_manifest) ... ok
+test_resume_repairs_vip_without_reinitializing_cluster (test_cp01_init.InitRecoveryTest.test_resume_repairs_vip_without_reinitializing_cluster) ... ok
+test_control_plane_success_cleans_credentials_and_validates_before_enable (test_join_nodes.JoinOrchestrationTest.test_control_plane_success_cleans_credentials_and_validates_before_enable) ... FAIL
+test_invalid_config_does_not_enable_kubelet (test_join_nodes.JoinOrchestrationTest.test_invalid_config_does_not_enable_kubelet) ... ok
+test_invalid_native_output_revokes_token_before_join (test_join_nodes.JoinOrchestrationTest.test_invalid_native_output_revokes_token_before_join) ... ok
+test_join_failure_cleans_credentials_and_preserves_private_log (test_join_nodes.JoinOrchestrationTest.test_join_failure_cleans_credentials_and_preserves_private_log) ... ok
+test_joined_node_reconciles_vip_without_new_token_or_join (test_join_nodes.JoinOrchestrationTest.test_joined_node_reconciles_vip_without_new_token_or_join) ... FAIL
+test_worker_uses_native_hash_without_uploading_certificates (test_join_nodes.JoinOrchestrationTest.test_worker_uses_native_hash_without_uploading_certificates) ... ok
+test_clean_node_and_partial_join_are_distinguished (test_join_nodes.JoinStateTest.test_clean_node_and_partial_join_are_distinguished) ... ok
+
+======================================================================
+FAIL: test_control_plane_success_cleans_credentials_and_validates_before_enable (test_join_nodes.JoinOrchestrationTest.test_control_plane_success_cleans_credentials_and_validates_before_enable)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_join_nodes.py", line 127, in test_control_plane_success_cleans_credentials_and_validates_before_enable
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 0 : 
+PLAY [cp02] ********************************************************************
+
+TASK [ansible.builtin.include_tasks] *******************************************
+included: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp9m9687n5/tasks.yml for cp02
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [cp02 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [cp02]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [cp02 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [cp02]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [cp02]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+changed: [cp02 -> cp01]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+ok: [cp02]
+
+TASK [校验证书分发密钥格式] ****************************************************
+ok: [cp02]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [cp02]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [cp02]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [cp02]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [cp02]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [cp02]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [cp02 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+changed: [cp02]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+ok: [cp02]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [cp02 -> cp01]
+
+TASK [登记节点角色] ************************************************************
+skipping: [cp02]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [cp02 -> cp01]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+[ERROR]: Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for 'argv': object of type 'HostVarsVars' has no attribute 'node_fqdn'
+
+Task failed.
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp9m9687n5/tasks.yml:195:3
+
+193     - --overwrite
+194   delegate_to: cp01
+195 - name: 每台控制平面加入后验证 etcd 全部成员健康
+      ^ column 3
+
+<<< caused by >>>
+
+Finalization of task args for 'ansible.builtin.command' failed.
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp9m9687n5/tasks.yml:196:3
+
+194   delegate_to: cp01
+195 - name: 每台控制平面加入后验证 etcd 全部成员健康
+196   ansible.builtin.command:
+      ^ column 3
+
+<<< caused by >>>
+
+Error while resolving value for 'argv'.
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp9m9687n5/tasks.yml:198:5
+
+196   ansible.builtin.command:
+197     argv:
+198     - kubectl
+        ^ column 5
+
+<<< caused by >>>
+
+object of type 'HostVarsVars' has no attribute 'node_fqdn'
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmp9m9687n5/tasks.yml:204:7
+
+202     - kube-system
+203     - exec
+204     - etcd-{{ hostvars.cp01.node_fqdn }}
+          ^ column 7
+
+fatal: [cp02 -> cp01]: FAILED! => {"changed": false, "msg": "Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for 'argv': object of type 'HostVarsVars' has no attribute 'node_fqdn'"}
+
+PLAY RECAP *********************************************************************
+cp02                       : ok=21   changed=9    unreachable=0    failed=1    skipped=1    rescued=0    ignored=0   
+
+
+
+======================================================================
+FAIL: test_joined_node_reconciles_vip_without_new_token_or_join (test_join_nodes.JoinOrchestrationTest.test_joined_node_reconciles_vip_without_new_token_or_join)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/tests/test_join_nodes.py", line 165, in test_joined_node_reconciles_vip_without_new_token_or_join
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 0 : 
+PLAY [cp02] ********************************************************************
+
+TASK [ansible.builtin.include_tasks] *******************************************
+included: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmph2rqmrnu/tasks.yml for cp02
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+skipping: [cp02]
+
+TASK [校验令牌格式] ************************************************************
+skipping: [cp02]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+skipping: [cp02]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+skipping: [cp02]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+skipping: [cp02]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [cp02]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [cp02]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [cp02]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+skipping: [cp02]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+skipping: [cp02]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+skipping: [cp02]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+skipping: [cp02]
+
+TASK [检查 join 返回值] ********************************************************
+skipping: [cp02]
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+skipping: [cp02]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+skipping: [cp02]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+changed: [cp02]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+ok: [cp02]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [cp02 -> cp01]
+
+TASK [登记节点角色] ************************************************************
+skipping: [cp02]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [cp02 -> cp01]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+[ERROR]: Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for 'argv': object of type 'HostVarsVars' has no attribute 'node_fqdn'
+
+Task failed.
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmph2rqmrnu/tasks.yml:195:3
+
+193     - --overwrite
+194   delegate_to: cp01
+195 - name: 每台控制平面加入后验证 etcd 全部成员健康
+      ^ column 3
+
+<<< caused by >>>
+
+Finalization of task args for 'ansible.builtin.command' failed.
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmph2rqmrnu/tasks.yml:196:3
+
+194   delegate_to: cp01
+195 - name: 每台控制平面加入后验证 etcd 全部成员健康
+196   ansible.builtin.command:
+      ^ column 3
+
+<<< caused by >>>
+
+Error while resolving value for 'argv'.
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmph2rqmrnu/tasks.yml:198:5
+
+196   ansible.builtin.command:
+197     argv:
+198     - kubectl
+        ^ column 5
+
+<<< caused by >>>
+
+object of type 'HostVarsVars' has no attribute 'node_fqdn'
+Origin: /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/tmph2rqmrnu/tasks.yml:204:7
+
+202     - kube-system
+203     - exec
+204     - etcd-{{ hostvars.cp01.node_fqdn }}
+          ^ column 7
+
+fatal: [cp02 -> cp01]: FAILED! => {"changed": false, "msg": "Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for 'argv': object of type 'HostVarsVars' has no attribute 'node_fqdn'"}
+
+PLAY RECAP *********************************************************************
+cp02                       : ok=6    changed=2    unreachable=0    failed=1    skipped=16   rescued=0    ignored=0   
+
+
+
+----------------------------------------------------------------------
+Ran 13 tests in 28.036s
+
+FAILED (failures=2)

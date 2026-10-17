@@ -1,0 +1,8 @@
+# 不记录请求/响应正文，避免 Secret、ConfigMap 与凭据进入普通审计日志。
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: [RequestReceived]
+rules:
+  - level: None
+    nonResourceURLs: ['/healthz*', '/livez*', '/readyz*', /metrics]
+  - level: Metadata

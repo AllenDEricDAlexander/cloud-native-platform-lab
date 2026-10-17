@@ -1,0 +1,41 @@
+
+PLAY [依次加入 cp02 和 cp03，每台确认 Ready 与 etcd 健康后再继续] **************
+
+TASK [加入与核验控制平面] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for cp02
+
+TASK [检查当前节点是否已经入群] ************************************************
+ok: [cp02]
+
+TASK [确认角色补丁已准备] ******************************************************
+ok: [cp02]
+
+TASK [缺少 prepare 交付时停止] *************************************************
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [为本节点创建 30 分钟入群令牌] ********************************************
+changed: [cp02 -> cp01]
+
+TASK [计算公开 CA 公钥摘要] ****************************************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml:26:7
+
+24       no_log: true
+25
+26     - name: 计算公开 CA 公钥摘要
+         ^ column 7
+
+fatal: [cp02 -> cp01(192.168.9.101)]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": "set -o pipefail; openssl x509 -in /etc/kubernetes/pki/ca.crt -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256 -hex | awk '{print \"sha256:\" $NF}'", "delta": "0:00:00.095558", "end": "2026-10-18 00:13:22.258371", "msg": "The command exited with a non-zero return code.", "rc": 127, "start": "2026-10-18 00:13:22.162813", "stderr": "/bin/bash: line 1: openssl: command not found\n/bin/bash: line 1: openssl: command not found\n/bin/bash: line 1: openssl: command not found", "stderr_lines": ["/bin/bash: line 1: openssl: command not found", "/bin/bash: line 1: openssl: command not found", "/bin/bash: line 1: openssl: command not found"], "stdout": "", "stdout_lines": []}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+ok: [cp02]
+
+TASK [撤销本节点使用的入群令牌] ************************************************
+changed: [cp02 -> cp01]
+
+PLAY RECAP *********************************************************************
+cp02                       : ok=7    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

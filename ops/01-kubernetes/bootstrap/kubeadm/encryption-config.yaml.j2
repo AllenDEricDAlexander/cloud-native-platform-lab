@@ -1,0 +1,10 @@
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources: [secrets]
+    providers:
+      - secretbox:
+          keys:
+            - name: phase01-key1
+              secret: "{{ lookup('ansible.builtin.file', phase01_key_file) | trim }}"
+      - identity: {}

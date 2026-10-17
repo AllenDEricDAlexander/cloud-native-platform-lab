@@ -1,0 +1,42 @@
+# 1.20.2 Chart；平台镜像清单 Digest 与 versions.lock.yaml 一致。
+kubeProxyReplacement: "false"
+routingMode: tunnel
+tunnelProtocol: vxlan
+k8sServiceHost: api.k8s.internal.egon.top
+k8sServicePort: 6443
+ipam:
+  mode: cluster-pool
+  operator:
+    clusterPoolIPv4PodCIDRList: [10.244.0.0/16]
+    clusterPoolIPv4MaskSize: 24
+image:
+  repository: harbor.k8s.internal.egon.top/bootstrap/cilium
+  tag: v1.20.2
+  useDigest: true
+  digest: sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639
+operator:
+  # 单节点引导时由安装 playbook 临时设为 1；节点数增加后使用这里的目标值 2。
+  replicas: 2
+  image:
+    repository: harbor.k8s.internal.egon.top/bootstrap/operator
+    tag: v1.20.2
+    useDigest: true
+    genericDigest: sha256:5bb0f9d871dd7b80461f8e3056896daa51e7d9b70ffe51c3e2126b4c35c02b5e
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {memory: 512Mi}
+envoy:
+  enabled: true
+  image:
+    repository: harbor.k8s.internal.egon.top/bootstrap/cilium-envoy
+    tag: v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82
+    useDigest: true
+    digest: sha256:33b00117d392f24ee5161f66242d12f58ceb62bf80a2bdd66eaf505d77933cb0
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {memory: 512Mi}
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+  limits: {memory: 1Gi}
+hubble:
+  enabled: false

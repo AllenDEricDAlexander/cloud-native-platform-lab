@@ -1,0 +1,33 @@
+
+PLAY [检查管理端已有依赖并准备私有目录] ****************************************
+
+PLAY [在 cp01 使用既有 CA 原生签发独立客户端身份] ******************************
+
+PLAY [组合受限 Context、记录到期信息并安装 RBAC] *******************************
+
+TASK [校验证书归属并生成独立 kubeconfig 和恢复包] ******************************
+changed: [localhost]
+
+TASK [检查组合结果并显示安全错误摘要] ******************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "客户端材料、身份和期限校验通过，独立配置及恢复包已生成。"
+}
+
+TASK [安装实验 Namespace 和白名单 RBAC] ****************************************
+changed: [localhost]
+
+TASK [显示非敏感交付位置] ******************************************************
+ok: [localhost] => {
+    "msg": [
+        "Mac 双 Context：/Users/mario/.cnpl-secrets/access/lab-primary/mac.conf（默认只读）",
+        "管理机独立包：/Users/mario/.cnpl-secrets/access/lab-primary/adminhost.conf（.15 未部署，尚未分发）",
+        "恢复身份：/Users/mario/.cnpl-secrets/access/lab-primary/recovery/recovery.conf（独立于日常 Context）",
+        "恢复包：/Users/mario/.cnpl-secrets/access/lab-primary/recovery/recovery-kit.tar.gz（0600，包含私钥，勿入 Git）",
+        "证书到期清单：/Users/mario/.cnpl-secrets/access/lab-primary/certificates.json（不含私钥）"
+    ]
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=4    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,0 +1,14 @@
+# 所有 playbook 从 00 的 ansible.cfg 运行，复用原有 inventory、SSH 与 collections。
+phase01_repo_root: "{{ playbook_dir }}/../../../.."
+phase01_root: "{{ phase01_repo_root }}/ops/01-kubernetes"
+phase01_stage: /root/phase01-bootstrap
+phase01_lock: "{{ lookup('ansible.builtin.file', phase01_repo_root ~ '/ops/versions.lock.yaml') | from_yaml }}"
+phase01_network: "{{ lookup('ansible.builtin.file', phase01_repo_root ~ '/ops/inventory/networks.yaml') | from_yaml }}"
+phase01_resources: "{{ lookup('ansible.builtin.file', phase01_repo_root ~ '/ops/inventory/resources.yaml') | from_yaml }}"
+phase01_profile: "{{ 'control_plane' if inventory_hostname in groups['control_plane'] else ('storage' if inventory_hostname in groups['storage'] else ('infra' if inventory_hostname in groups['infra'] else 'worker')) }}"
+phase01_key_file: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets/k8s-encryption.key"
+phase01_kubeconfig: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets/kubeconfig-lab-primary"
+phase01_client_bin: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl/bin"
+phase01_access_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets/access/lab-primary"
+phase01_access_stage: /root/cnpl-access
+phase01_cluster_images: "{{ phase01_lock.components.cilium.artifacts + phase01_lock.components.kube_vip.artifacts }}"

@@ -1,0 +1,778 @@
+
+PLAY [检查现有集群是否具备扩容条件] ********************************************
+
+TASK [确认证书上传使用的现有初始化配置有效] ************************************
+ok: [cp01]
+
+TASK [确认 API 入口健康] *******************************************************
+ok: [cp01]
+
+TASK [确认 etcd 全成员健康] ****************************************************
+ok: [cp01]
+
+TASK [确认 Cilium 和 CoreDNS 已就绪] *******************************************
+ok: [cp01] => (item=daemonset/cilium)
+ok: [cp01] => (item=daemonset/cilium-envoy)
+ok: [cp01] => (item=deployment/cilium-operator)
+ok: [cp01] => (item=deployment/coredns)
+
+TASK [读取节点注册状态（公开信息）] ********************************************
+ok: [cp01]
+
+TASK [读取在用的共享加密配置摘要（不取回内容）] ********************************
+ok: [cp01]
+
+PLAY [在任何节点执行 join 前检查本批全部节点] **********************************
+
+TASK [只读检查依赖、身份、版本、CRI、安全基线与部分入群状态] *******************
+ok: [worker02]
+ok: [storage02]
+ok: [infra01]
+ok: [infra02]
+ok: [worker01]
+ok: [storage01]
+ok: [storage03]
+
+TASK [核对本机产物与集群登记一致（不能仅靠 kubelet.conf 跳过）] ****************
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对当前节点资源补丁与台账一致] ******************************************
+ok: [worker02]
+ok: [storage03]
+ok: [storage01]
+ok: [worker01]
+ok: [infra01]
+ok: [storage02]
+ok: [infra02]
+
+TASK [缺少或过期的资源补丁在创建凭据前停止] ************************************
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对控制平面共享加密配置] ************************************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [共享密钥不一致时禁止加入控制平面] ****************************************
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [保存本批前检结果] ********************************************************
+ok: [infra01]
+ok: [infra02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [worker01]
+ok: [worker02]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for infra01
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [infra01 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [infra01]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [infra01 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [infra01]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [infra01]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [infra01]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [infra01]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [infra01]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [infra01]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [infra01]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [infra01]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [infra01]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [infra01]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [infra01 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [infra01]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [infra01]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [infra01]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [infra01 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [infra01 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [infra01 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [infra01]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for infra02
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [infra02 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [infra02]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [infra02 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [infra02]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [infra02]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [infra02]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [infra02]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [infra02]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [infra02]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [infra02]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [infra02]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [infra02]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [infra02]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [infra02 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [infra02]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [infra02]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [infra02]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [infra02 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [infra02 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [infra02 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [infra02]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for storage01
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [storage01 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [storage01]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [storage01 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [storage01]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [storage01]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [storage01]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [storage01]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [storage01]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [storage01]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [storage01]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [storage01]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [storage01]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [storage01]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [storage01 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [storage01]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [storage01]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [storage01]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [storage01 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [storage01 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [storage01 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [storage01]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for storage02
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [storage02 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [storage02]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [storage02 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [storage02]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [storage02]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [storage02]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [storage02]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [storage02]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [storage02]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [storage02]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [storage02]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [storage02]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [storage02]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [storage02 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [storage02]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [storage02]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [storage02]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [storage02 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [storage02 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [storage02 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [storage02]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for storage03
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [storage03 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [storage03]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [storage03 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [storage03]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [storage03]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [storage03]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [storage03]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [storage03]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [storage03]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [storage03]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [storage03]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [storage03]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [storage03]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [storage03 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [storage03]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [storage03]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [storage03]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [storage03 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [storage03 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [storage03 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [storage03]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for worker01
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [worker01 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [worker01]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [worker01 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [worker01]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [worker01]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [worker01]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [worker01]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [worker01]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [worker01]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [worker01]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [worker01]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [worker01]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [worker01]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [worker01 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [worker01]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [worker01]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [worker01]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [worker01 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [worker01 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [worker01 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [worker01]
+
+PLAY [按节点依次加入 infra、storage 与 worker] *********************************
+
+TASK [加入与核验工作节点] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/join-node.yml for worker02
+
+TASK [确认本节点已经完成整批前检] **********************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地生成随机令牌（尚不在集群创建）] **************************************
+ok: [worker02 -> cp01]
+
+TASK [校验令牌格式] ************************************************************
+ok: [worker02]
+
+TASK [创建 30 分钟令牌并由 kubeadm 原生生成 CA 公钥摘要] ***********************
+changed: [worker02 -> cp01]
+
+TASK [校验原生输出中的入口、令牌和公钥摘要] ************************************
+ok: [worker02]
+
+TASK [保存公开 CA 公钥摘要] ****************************************************
+ok: [worker02]
+
+TASK [控制平面生成短时证书分发密钥] ********************************************
+skipping: [worker02]
+
+TASK [严格提取本次证书分发密钥] ************************************************
+skipping: [worker02]
+
+TASK [校验证书分发密钥格式] ****************************************************
+skipping: [worker02]
+
+TASK [渲染本节点的 JoinConfiguration] ******************************************
+changed: [worker02]
+
+TASK [在启用 kubelet 前校验本节点实际 JoinConfiguration] ***********************
+ok: [worker02]
+
+TASK [设置 kubelet 开机启用（由接下来的 kubeadm join 启动）] *******************
+changed: [worker02]
+
+TASK [执行 join，原始输出留在节点私有日志] *************************************
+changed: [worker02]
+
+TASK [检查 join 返回值] ********************************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除包含短时凭据的 JoinConfiguration] ************************************
+changed: [worker02]
+
+TASK [撤销本节点使用的入群令牌（不存在也安全通过）] ****************************
+changed: [worker02 -> cp01]
+
+TASK [控制平面协调稳态 kube-vip 清单（重复运行同样补齐）] **********************
+skipping: [worker02]
+
+TASK [核验本机 API 和稳态 kube-vip Pod] ****************************************
+skipping: [worker02]
+
+TASK [确认实际 kube-vip Pod 已采用本机别名和稳态凭据] **************************
+skipping: [worker02]
+
+TASK [确认节点已经 Ready（已入群节点重复运行也检查状态）] **********************
+ok: [worker02 -> cp01(192.168.9.101)]
+
+TASK [登记节点角色] ************************************************************
+changed: [worker02 -> cp01(192.168.9.101)]
+
+TASK [登记计划放置（未核实的放置不冒充实际故障域）] ****************************
+changed: [worker02 -> cp01(192.168.9.101)]
+
+TASK [每台控制平面加入后验证 etcd 全部成员健康] ********************************
+skipping: [worker02]
+
+PLAY [在变更 Cilium 前检查管理端依赖和锁定 Chart] ******************************
+
+TASK [检查管理端三个客户端可以执行] ********************************************
+ok: [localhost] => (item=['/Users/mario/.cnpl/bin/kubectl', 'version', '--client', '-o', 'json'])
+ok: [localhost] => (item=['/Users/mario/.cnpl/bin/helm', 'version', '--short'])
+ok: [localhost] => (item=['/Users/mario/.cnpl/bin/cilium', 'version', '--client'])
+
+TASK [管理端客户端版本必须与锁定物料一致] **************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [检查本地 Chart 摘要] *****************************************************
+ok: [localhost]
+
+TASK [Chart 必须存在且与版本锁一致] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [保证 kubeconfig 受控目录仅当前用户可访问] ********************************
+ok: [localhost]
+
+PLAY [修正 Pod 访问 API 的有限端口放行] ****************************************
+
+TASK [配置 Pod 到 API 的防火墙规则] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/pod-api-firewall.yml for cp01, cp02, cp03
+
+TASK [确认控制平面接口仍位于预期区域] ******************************************
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+
+TASK [允许规划 Pod CIDR 访问控制平面 API（持久和即时）] ************************
+ok: [cp01]
+ok: [cp03]
+ok: [cp02]
+
+PLAY [取回引导管理员 kubeconfig 到管理端受控目录] ******************************
+
+TASK [保存 kubeconfig（不显示内容）] *******************************************
+ok: [cp01]
+
+PLAY [从锁定的本地 Chart 安装 Cilium] ******************************************
+
+TASK [kubeconfig 仅限当前用户读取] *********************************************
+ok: [localhost]
+
+TASK [核对集群名称与 API 入口] *************************************************
+ok: [localhost]
+
+TASK [读取已注册节点数] ********************************************************
+ok: [localhost]
+
+TASK [确认已经有首节点注册] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [安装或更新 Cilium（单节点引导 1 个 operator，其后恢复目标 2 个）] ********
+changed: [localhost]
+
+TASK [验证 Cilium agent 和 operator 健康] **************************************
+ok: [localhost]
+
+TASK [确认所有已注册节点 Ready] ************************************************
+ok: [localhost]
+
+TASK [验证 CoreDNS 实际就绪（节点 Ready 不能代替 Pod 到 API 连通）] ************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=10   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+infra02                    : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+localhost                  : ok=13   changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+storage02                  : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+storage03                  : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+worker01                   : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+worker02                   : ok=22   changed=8    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+

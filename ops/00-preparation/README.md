@@ -350,13 +350,13 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/reboot-nodes.yml | tee ../records/2026-10-14/evidence/00.11-reboot-nodes.txt
 ```
 ```bash
-~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/reboot-nodes.yml -e target=dns,harbor,gitlab | tee ../records/2026-10-14/evidence/00.11-reboot-services.txt && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/verify-harbor.yml | tee -a ../records/2026-10-14/evidence/00.11-reboot-services.txt
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/reboot-nodes.yml -e target=dns,harbor,gitlab,nexus,backup | tee ../records/2026-10-14/evidence/00.11-reboot-services.txt && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/verify-services.yml | tee -a ../records/2026-10-14/evidence/00.11-reboot-services.txt
 ```
 ```bash
 ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/bootstrap-nodes.yml --check -e bootstrap_serial=10 | tee ../records/2026-10-14/evidence/00.11-bootstrap-check.txt
 ```
 
-reboot-nodes.yml 每次重启一台，任何一台失败即停止；重启后检查 SELinux、firewalld、DNS、失败单元，节点另查运行时盘与 containerd。之后重跑步骤 11 的矩阵。**预期**：重启全部通过；矩阵 27/27；检查模式十台 changed=0。服务本身（Harbor、GitLab）需要各自的验证剧本确认，系统级检查通过不代表服务已恢复。
+reboot-nodes.yml 每次重启一台，任何一台失败即停止；重启后检查 SELinux、firewalld、DNS、失败单元，节点另查运行时盘与 containerd。之后重跑步骤 11 的矩阵。**预期**：重启全部通过；矩阵 27/27；检查模式十台 changed=0。系统级检查通过不代表服务已恢复，因此服务 VM 重启后运行 `playbooks/verify-services.yml`：内部 DNS、Harbor（API、健康、/v2/）、GitLab 登录页、Nexus 状态、备份定时器与经 SFTP 访问备份仓库，都是只读检查，可在任何变更后用来复查。
 
 ## 步骤 16：断网验收（待编写）
 
@@ -445,7 +445,7 @@ echo 'export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.internal.egon.top,192.168.9.0/24"
 | | `nexus.yml`、`nexus-repos.yml` | Nexus 部署与验证；代理仓库与只读账户 |
 | | `service-base.yml` | Nexus、备份的基线与数据盘 |
 | | `backup.yml`、`restore-drill.yml` | 备份部署与第一次备份；恢复演练 |
-| | `reboot-nodes.yml` | 逐台重启复验 |
+| | `reboot-nodes.yml`、`verify-services.yml` | 逐台重启复验；基础服务只读验证 |
 | 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus`、`nexus_repos`、`harbor_projects`、`backup_server`、`backup_client` | 见各步骤 |
 | 管理端脚本 | `scripts/generate-ansible-inventory.rb` | 台账生成 Inventory |
 | | `scripts/set-vm-identity.sh` | 新克隆设置名称、地址与密钥 |

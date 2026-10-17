@@ -1,0 +1,65 @@
+# 基础服务验证（重启复验后使用，只读）：系统级检查（reboot-nodes.yml）通过不代表服务已恢复，
+# 这里逐个确认服务本身可用。可单独运行，也可在任何变更后用来快速复查。
+#   内部 DNS → Harbor（API、健康、/v2/）→ GitLab 登录页 → Nexus 状态 → 备份仓库可经 SFTP 访问 → 每日备份定时器
+- name: 内部 DNS 应答
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: 内部名称与外部递归（经 .11）
+      ansible.builtin.command: dig @192.168.9.11 +short +time=3 +tries=2 {{ item.name }} A
+      loop:
+        - {name: harbor.k8s.internal.egon.top, want: 192.168.9.12}
+        - {name: gitlab.svc.internal.egon.top, want: 192.168.9.13}
+        - {name: nexus.svc.internal.egon.top, want: 192.168.9.14}
+        - {name: rockylinux.org, want: ""}
+      loop_control:
+        label: "{{ item.name }}"
+      register: svc_dns
+      changed_when: false
+      failed_when: >-
+        (item.want and svc_dns.stdout != item.want)
+        or (not item.want and (svc_dns.stdout_lines | select('match', '^[0-9.]+$') | list | length) == 0)
+
+- name: Harbor
+  ansible.builtin.import_playbook: verify-harbor.yml
+
+- name: GitLab 与 Nexus
+  hosts: localhost
+  gather_facts: false
+  vars:
+    root_ca: "{{ hostvars['gitlab']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"
+  tasks:
+    # 重启后 GitLab 需要 2–4 分钟、Nexus 需要 1–2 分钟才就绪，期间分别返回 502 或连接失败。
+    - name: GitLab 登录页返回 200
+      ansible.builtin.command: >-
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 15 --cacert {{ root_ca }}
+        https://gitlab.svc.internal.egon.top/users/sign_in
+      register: svc_gitlab
+      changed_when: false
+      retries: 30
+      delay: 10
+      until: svc_gitlab.stdout == '200'
+
+    - name: Nexus 状态接口返回 200
+      ansible.builtin.command: >-
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 15 --cacert {{ root_ca }}
+        https://nexus.svc.internal.egon.top/service/rest/v1/status
+      register: svc_nexus
+      changed_when: false
+      retries: 30
+      delay: 10
+      until: svc_nexus.stdout == '200'
+
+- name: 备份路径
+  hosts: dns:harbor:gitlab:nexus
+  gather_facts: false
+  tasks:
+    - name: 每日备份定时器在运行
+      ansible.builtin.command: systemctl is-active cnpl-backup.timer
+      changed_when: false
+
+    - name: 经专用密钥以 SFTP 列出仓库（验证 backup VM 的 sshd 与权限）
+      ansible.builtin.shell: echo 'ls /srv/backup/restic/lab' | sftp -q -b - 192.168.9.16
+      register: svc_sftp
+      changed_when: false
+      failed_when: svc_sftp.rc != 0 or 'config' not in svc_sftp.stdout

@@ -13,7 +13,7 @@ ok: [dns]
 TASK [重启后基线保持] **********************************************************
 ok: [dns] => {
     "changed": false,
-    "msg": "{\"boot_id\": \"7b02b62e-dd17-4991-8a00-8a53d5d39cc7\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"8.8.8.8,223.5.5.5\", \"failed_units\": \"\", \"runtime_mount\": \"\", \"containerd\": \"inactive\"}"
+    "msg": "{\"boot_id\": \"952b90fc-74f1-4f1f-85a1-639e5bf00642\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"8.8.8.8,223.5.5.5\", \"failed_units\": \"\", \"runtime_mount\": \"\", \"containerd\": \"inactive\"}"
 }
 
 PLAY [逐台重启并快速复查] ******************************************************
@@ -30,57 +30,116 @@ ok: [harbor]
 TASK [重启后基线保持] **********************************************************
 ok: [harbor] => {
     "changed": false,
-    "msg": "{\"boot_id\": \"b1b81126-5846-4c8f-a526-d7a06d1132d1\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"192.168.9.11\", \"failed_units\": \"\", \"runtime_mount\": \"xfs\", \"containerd\": \"active\"}"
+    "msg": "{\"boot_id\": \"6ac795ac-62a6-4725-a8d3-c61b3743d7fa\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"192.168.9.11\", \"failed_units\": \"\", \"runtime_mount\": \"xfs\", \"containerd\": \"active\"}"
+}
+
+PLAY [逐台重启并快速复查] ******************************************************
+
+TASK [重启（等待 SSH 恢复，最长 10 分钟）] *************************************
+changed: [gitlab]
+
+TASK [等待开机完成（systemd 不再有排队的启动任务）] ****************************
+ok: [gitlab]
+
+TASK [读取重启后的状态] ********************************************************
+ok: [gitlab]
+
+TASK [重启后基线保持] **********************************************************
+ok: [gitlab] => {
+    "changed": false,
+    "msg": "{\"boot_id\": \"d43ee561-eadf-4504-983c-a4f35ca23764\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"192.168.9.11\", \"failed_units\": \"\", \"runtime_mount\": \"\", \"containerd\": \"inactive\"}"
+}
+
+PLAY [逐台重启并快速复查] ******************************************************
+
+TASK [重启（等待 SSH 恢复，最长 10 分钟）] *************************************
+changed: [nexus]
+
+TASK [等待开机完成（systemd 不再有排队的启动任务）] ****************************
+ok: [nexus]
+
+TASK [读取重启后的状态] ********************************************************
+ok: [nexus]
+
+TASK [重启后基线保持] **********************************************************
+ok: [nexus] => {
+    "changed": false,
+    "msg": "{\"boot_id\": \"2ed6442b-c3d3-4e3f-9e9d-ab3518adc40a\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"192.168.9.11\", \"failed_units\": \"\", \"runtime_mount\": \"\", \"containerd\": \"inactive\"}"
+}
+
+PLAY [逐台重启并快速复查] ******************************************************
+
+TASK [重启（等待 SSH 恢复，最长 10 分钟）] *************************************
+changed: [backup]
+
+TASK [等待开机完成（systemd 不再有排队的启动任务）] ****************************
+ok: [backup]
+
+TASK [读取重启后的状态] ********************************************************
+ok: [backup]
+
+TASK [重启后基线保持] **********************************************************
+ok: [backup] => {
+    "changed": false,
+    "msg": "{\"boot_id\": \"39f722c2-a76e-4a4b-a694-a4ccb756598c\", \"selinux\": \"Enforcing\", \"firewalld\": \"running\", \"dns\": \"192.168.9.11\", \"failed_units\": \"\", \"runtime_mount\": \"\", \"containerd\": \"inactive\"}"
 }
 
 PLAY RECAP *********************************************************************
+backup                     : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 dns                        : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+gitlab                     : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 harbor                     : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+nexus                      : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
+
+PLAY [内部 DNS 应答] ***********************************************************
+
+TASK [内部名称与外部递归（经 .11）] ********************************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top)
+ok: [localhost] => (item=gitlab.svc.internal.egon.top)
+ok: [localhost] => (item=nexus.svc.internal.egon.top)
+ok: [localhost] => (item=rockylinux.org)
 
 PLAY [从管理端验证 Harbor] *****************************************************
 
 TASK [用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）] ***
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (29 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (28 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (27 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (26 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (25 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (24 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (23 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (22 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (21 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (20 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (19 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (18 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (17 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (16 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (15 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (14 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (13 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (12 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (11 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (10 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (9 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (8 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (7 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (6 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (5 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (4 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (3 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (2 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (1 retries left).
-FAILED - RETRYING: [localhost]: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址） (0 retries left).
-[ERROR]: Task failed: Module failed: A 'failed_when' expression evaluated to 'True'.
-Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/playbooks/verify-harbor.yml:12:7
+ok: [localhost]
 
-10   tasks:
-11     # --noproxy '*'：验证局域网直连路径，不受管理端 HTTPS_PROXY 影响（第 77 节：经 Clash 时内部域名无法解析，握手被中断）。
-12     - name: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）
-         ^ column 7
+TASK [各组件健康] **************************************************************
+ok: [localhost]
 
-fatal: [localhost]: FAILED! => {"attempts": 30, "changed": false, "changed_when_result": false, "cmd": ["curl", "-sS", "--noproxy", "*", "--fail", "--max-time", "10", "--cacert", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/../../../pki/public/cnpl-lab-root-ca.crt", "--resolve", "harbor.k8s.internal.egon.top:443:192.168.9.12", "https://harbor.k8s.internal.egon.top/api/v2.0/ping"], "delta": "0:00:00.052156", "end": "2026-10-17 00:12:08.918921", "failed_when_result": true, "failed_when_suppressed_exception": "(traceback unavailable)", "msg": "The command exited with a non-zero return code.", "rc": 7, "start": "2026-10-17 00:12:08.866765", "stderr": "curl: (7) Failed to connect to harbor.k8s.internal.egon.top port 443 after 40 ms: Couldn't connect to server", "stderr_lines": ["curl: (7) Failed to connect to harbor.k8s.internal.egon.top port 443 after 40 ms: Couldn't connect to server"], "stdout": "", "stdout_lines": []}
+TASK [Registry 端点未认证时返回 401（证明 TLS 与端点可达，不代表已有拉取权限）] ***
+ok: [localhost]
+
+PLAY [GitLab 与 Nexus] *********************************************************
+
+TASK [GitLab 登录页返回 200] ***************************************************
+FAILED - RETRYING: [localhost]: GitLab 登录页返回 200 (29 retries left).
+FAILED - RETRYING: [localhost]: GitLab 登录页返回 200 (28 retries left).
+FAILED - RETRYING: [localhost]: GitLab 登录页返回 200 (27 retries left).
+ok: [localhost]
+
+TASK [Nexus 状态接口返回 200] **************************************************
+ok: [localhost]
+
+PLAY [备份路径] ****************************************************************
+
+TASK [每日备份定时器在运行] ****************************************************
+ok: [nexus]
+ok: [gitlab]
+ok: [dns]
+ok: [harbor]
+
+TASK [经专用密钥以 SFTP 列出仓库（验证 backup VM 的 sshd 与权限）] *************
+ok: [gitlab]
+ok: [dns]
+ok: [harbor]
+ok: [nexus]
 
 PLAY RECAP *********************************************************************
-localhost                  : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+dns                        : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+gitlab                     : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+harbor                     : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=6    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+nexus                      : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 

@@ -1808,3 +1808,31 @@ restic 口令的保管方式已在操作流程中提示：必须另存到 Mac �
 00.10.03「至少恢复一个服务并验证数据」完成：DNS 配置与区域可以从备份恢复，并通过 BIND 工具校验；CA 材料可以从备份完整取回。未演练整台服务的重建（例如在新 VM 上恢复 Harbor 或 GitLab），留作以后的扩展。偏差仍为：backup 与被备份的服务同在 esxi01。
 
 用户报告已在备份完成后重新运行 export-secrets.sh，口令清单已更新（包含 restic 仓库口令）；清单内容本助手未见到。版本锁 backup_tool 记为 deployed_verified，批次进度表与根目录 README 已同步。
+
+## 105. 2026-10-17 提交备份部分；服务重启复验剧本
+
+提交 9f042c4（分支 phase00/backup-restore，快进合并到 main，未推送），内容为第 101–104 节的备份、恢复演练与口令导出脚本。提交前检查：没有 PEM 私钥块；与 ~/.cnpl-secrets 下全部 7 个文件比对，均无匹配；没有会话 cookie。
+
+按约定的顺序，下一步是 GitLab、Nexus、backup 的重启复验。Harbor 的 harbor.yml 改过出站代理，也一并复验。第 89–90 节的教训是：reboot-nodes.yml 只做系统级判定，不能证明服务已经恢复。因此新增 playbooks/verify-services.yml，全部为只读检查：
+- 从管理端 dig 内部 DNS：三个服务名称与外部递归；
+- 导入 verify-harbor.yml；
+- GitLab /users/sign_in 返回 200，最多等 5 分钟；
+- Nexus /service/rest/v1/status 返回 200，最多等 5 分钟；
+- 四个备份客户端的 cnpl-backup.timer 为 active，并能用专用密钥经 SFTP 列出 /srv/backup/restic/lab，即验证 backup VM 重启后 sshd、Match 设置与权限仍然有效。
+
+操作流程步骤 15 改为重启 dns、harbor、gitlab、nexus、backup 后运行该剧本。syntax-check 通过；尚无执行输出，该剧本未提交。
+
+## 106. 2026-10-17 服务重启复验通过
+
+用户运行第 105 节的命令，见[证据](evidence/00.11-reboot-services.txt)。
+
+- **reboot-nodes.yml**：dns、harbor、gitlab、nexus、backup 逐台重启，均 failed=0，boot_id 都已更新。五台的 SELinux 为 Enforcing，firewalld 为 running，没有失败单元。DNS 方面，dns 为 8.8.8.8、223.5.5.5（DNS 服务器自身，预期如此），其余为 192.168.9.11。containerd 只在 harbor 上为 active（Docker 使用），运行时盘挂载为 xfs；其余服务 VM 为 inactive，这是 service_vm 的预期。
+- **verify-services.yml**：全部 failed=0。
+  - 内部 DNS 解析 harbor、gitlab、nexus 正确，外部递归正常；
+  - Harbor 的 ping、health、/v2/ 通过；
+  - GitLab 登录页在 3 次重试（约 30 秒）后返回 200；
+  - Nexus 状态接口第一次即返回 200；
+  - 四个备份客户端的 cnpl-backup.timer 为 active，经专用密钥用 SFTP 能列出仓库（含 config），说明 backup VM 重启后 sshd、Match 设置与权限仍然有效。
+- 证据中没有私钥块或会话 cookie。
+
+至此，全部基础服务（DNS、Harbor、GitLab、Nexus、备份目标）都有「重启后服务本身恢复」的证据；OpenWrt 本批未重启。下一步是断网验收（00.10.04）。计划 04 定义的七类语言为 Java、Rust、C、C++、C#、JS/TS、Python。

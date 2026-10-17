@@ -1,0 +1,266 @@
+# 所有请求从管理端直连 Harbor（不经 Clash），用内部根 CA 校验证书。
+# 修改类请求不让 uri 模块直接失败：失败时的完整结果含 admin 会话 cookie（sid），会被 tee 写入证据
+# （第 99 节）。改为先记录结果，再只显示状态码与 Harbor 返回的错误信息。
+# ---------- 上游注册表 ----------
+- name: 读取已有的上游注册表
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/registries?page_size=100"
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  register: harbor_registries
+
+# 注册表类型创建后不能修改。类型与期望不同、且没有项目使用它时，删除后按期望重建。
+- name: 读取项目使用的注册表
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/projects?page_size=100"
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  register: harbor_all_projects
+
+- name: 删除类型不符且未被项目使用的注册表
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/registries/{{ current.id }}"
+    method: DELETE
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+    status_code: [200, 204]
+  loop: "{{ harbor_proxy_caches }}"
+  loop_control:
+    label: "{{ item.registry }}"
+  vars:
+    current: "{{ harbor_registries.json | selectattr('name', 'equalto', item.registry) | first | default(none) }}"
+    in_use: "{{ current is not none and (harbor_all_projects.json | selectattr('registry_id', 'defined')
+                | selectattr('registry_id', 'equalto', current.id) | list | length) > 0 }}"
+  when: current is not none and current.type != item.type and not in_use
+  register: harbor_registry_deleted
+  changed_when: true
+  failed_when: false
+
+- name: 删除结果
+  ansible.builtin.assert:
+    that: item is skipped or item.status in [200, 204]
+    fail_msg: "{{ item.item.registry }}：HTTP {{ item.status | default('') }} {{ item.json.errors | default('') }}"
+    quiet: true
+  loop: "{{ harbor_registry_deleted.results }}"
+  loop_control:
+    label: "{{ item.item.registry }}"
+
+- name: 重新读取上游注册表（删除之后）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/registries?page_size=100"
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  register: harbor_registries
+
+- name: 类型不符但已被项目使用时停止（不删除在用的注册表）
+  ansible.builtin.assert:
+    that: >-
+      (harbor_registries.json | selectattr('name', 'equalto', item.registry)
+       | rejectattr('type', 'equalto', item.type) | list | length) == 0
+    fail_msg: "注册表 {{ item.registry }} 的类型不是 {{ item.type }}，且有项目在使用，需要人工处理"
+    quiet: true
+  loop: "{{ harbor_proxy_caches }}"
+  loop_control:
+    label: "{{ item.registry }}"
+
+- name: 创建缺少的上游注册表（创建时 Harbor 会经出站代理检查连通性）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/registries"
+    method: POST
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body: {name: "{{ item.registry }}", type: "{{ item.type }}", url: "{{ item.url }}", insecure: false,
+           description: "上游代理缓存（Ansible harbor_projects 角色管理）"}
+    status_code: 201
+  loop: "{{ harbor_proxy_caches }}"
+  loop_control:
+    label: "{{ item.registry }}"
+  when: item.registry not in (harbor_registries.json | map(attribute='name') | list)
+  register: harbor_registry_created
+  changed_when: true
+  failed_when: false
+
+- name: 创建结果
+  ansible.builtin.assert:
+    that: item is skipped or item.status == 201
+    fail_msg: "{{ item.item.registry }}：HTTP {{ item.status | default('') }} {{ item.json.errors | default('') }}"
+    quiet: true
+  loop: "{{ harbor_registry_created.results }}"
+  loop_control:
+    label: "{{ item.item.registry }}"
+
+- name: 重新读取上游注册表（取得编号）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/registries?page_size=100"
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  register: harbor_registries
+
+# ---------- 代理缓存项目 ----------
+- name: 读取代理缓存项目
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/projects?name={{ item.project }}"
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  loop: "{{ harbor_proxy_caches }}"
+  loop_control:
+    label: "{{ item.project }}"
+  register: harbor_projects_current
+
+- name: 创建缺少的代理缓存项目（公开）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/projects"
+    method: POST
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body:
+      project_name: "{{ cache.project }}"
+      registry_id: "{{ (harbor_registries.json | selectattr('name', 'equalto', cache.registry) | first).id }}"
+      metadata: {public: "true"}
+    status_code: 201
+  loop: "{{ harbor_projects_current.results }}"
+  loop_control:
+    label: "{{ cache.project }}"
+  vars:
+    cache: "{{ item.item }}"
+  when: (item.json | default([], true) | selectattr('name', 'equalto', cache.project) | list | length) == 0
+  register: harbor_project_created
+  changed_when: true
+  failed_when: false
+
+- name: 项目创建结果
+  ansible.builtin.assert:
+    that: item is skipped or item.status == 201
+    fail_msg: "{{ item.item.item.project }}：HTTP {{ item.status | default('') }} {{ item.json.errors | default('') }}"
+    quiet: true
+  loop: "{{ harbor_project_created.results }}"
+  loop_control:
+    label: "{{ item.item.item.project }}"
+
+# ---------- 只读机器人账户 ----------
+- name: 读取机器人账户
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/robots?page_size=100"
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  register: harbor_robots
+
+- name: 管理端是否已保存机器人密钥
+  ansible.builtin.stat:
+    path: "{{ harbor_robot_secret_file }}"
+  register: harbor_robot_secret_saved
+
+- name: 机器人现状
+  ansible.builtin.set_fact:
+    harbor_robot: "{{ harbor_robots.json | selectattr('name', 'equalto', 'robot$' ~ harbor_robot_name) | first | default(none) }}"
+
+- name: 创建只读机器人（所有项目 pull，永不过期）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/robots"
+    method: POST
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body:
+      name: "{{ harbor_robot_name }}"
+      description: 只读拉取（Ansible harbor_projects 角色管理）
+      duration: -1
+      level: system
+      disable: false
+      permissions:
+        - kind: project
+          namespace: "*"
+          access: [{resource: repository, action: pull}]
+    status_code: 201
+  when: harbor_robot is none
+  register: harbor_robot_created
+  changed_when: true
+  no_log: true
+
+# 机器人已存在但管理端没有密钥（例如之前创建时未保存）：刷新密钥，旧密钥随即失效。
+- name: 刷新机器人密钥（只在管理端没有保存时）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/api/v2.0/robots/{{ harbor_robot.id }}"
+    method: PATCH
+    url_username: admin
+    url_password: "{{ harbor_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body: {secret: ""}
+    status_code: 200
+  when: harbor_robot is not none and not harbor_robot_secret_saved.stat.exists
+  register: harbor_robot_refreshed
+  changed_when: true
+  no_log: true
+
+- name: 保存机器人密钥到管理端（0600，仓库之外）
+  ansible.builtin.copy:
+    dest: "{{ harbor_robot_secret_file }}"
+    content: "{{ (harbor_robot_created.json.secret if harbor_robot_created is not skipped else harbor_robot_refreshed.json.secret) }}"
+    mode: "0600"
+  when: harbor_robot_created is not skipped or harbor_robot_refreshed is not skipped
+  no_log: true
+
+- name: 机器人可以取得拉取令牌（验证名称与密钥）
+  ansible.builtin.uri:
+    url: "{{ harbor_url }}/service/token?service=harbor-registry&scope=repository:bootstrap/pause:pull"
+    url_username: robot${{ harbor_robot_name }}
+    url_password: "{{ lookup('ansible.builtin.file', harbor_robot_secret_file) }}"
+    force_basic_auth: true
+    ca_path: "{{ harbor_root_ca }}"
+    use_proxy: false
+  register: harbor_robot_token
+  failed_when: harbor_robot_token.status != 200 or not (harbor_robot_token.json.token | default(''))
+  no_log: true
+
+# ---------- 验证 ----------
+# 经代理缓存取镜像摘要，与直接访问上游（经管理端代理）的结果比较；第一次取时 Harbor 会经出站代理拉取上游。
+- name: 经代理缓存项目取得的摘要与上游一致
+  ansible.builtin.shell: >-
+    test "$(crane digest {{ item.upstream }})" = "$(crane digest {{ harbor_fqdn }}/{{ item.project }}/{{ item.probe }})"
+    && crane digest {{ harbor_fqdn }}/{{ item.project }}/{{ item.probe }}
+  environment:
+    NO_PROXY: "{{ lookup('ansible.builtin.env', 'NO_PROXY') }},.internal.egon.top,192.168.9.0/24"
+    no_proxy: "{{ lookup('ansible.builtin.env', 'NO_PROXY') }},.internal.egon.top,192.168.9.0/24"
+  loop: "{{ harbor_proxy_caches }}"
+  loop_control:
+    label: "{{ item.project }}/{{ item.probe }}"
+  register: harbor_cache_probe
+  changed_when: false
+  retries: 2
+  delay: 15
+  until: harbor_cache_probe.rc == 0

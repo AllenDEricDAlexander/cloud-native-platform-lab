@@ -121,6 +121,11 @@
     - {regexp: '^harbor_admin_password: .*$', replace: 'harbor_admin_password: {{ harbor_admin_password }}'}
     - {regexp: '^  password: root123$', replace: '  password: {{ harbor_db_password }}'}
     - {regexp: '^data_volume: .*$', replace: 'data_volume: {{ harbor_data_dir }}'}
+    # 出站代理（上游代理缓存与复制使用）：core、jobservice、trivy 经 OpenWrt 访问外网；
+    # Harbor 各组件之间的访问由 prepare 自动排除在代理之外。
+    - {regexp: '^  http_proxy:.*$', replace: '  http_proxy: {{ harbor_outbound_proxy }}'}
+    - {regexp: '^  https_proxy:.*$', replace: '  https_proxy: {{ harbor_outbound_proxy }}'}
+    - {regexp: '^  no_proxy:.*$', replace: '  no_proxy: {{ harbor_no_proxy }}'}
   loop_control:
     label: "{{ item.regexp }}"
   no_log: true

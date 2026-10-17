@@ -1,0 +1,10 @@
+# Nexus 代理仓库与只读账户（00.09.04）：在管理端经 REST API 配置并验证，可重复运行。
+# 前提：nexus.yml 已完成；已在网页中接受许可协议，并在 Administration → System → HTTP 中设置出站代理
+# （见操作流程步骤 13）。
+- name: Nexus 仓库配置
+  hosts: localhost
+  gather_facts: false
+  vars:
+    nexus_root_ca: "{{ hostvars['nexus']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"
+  roles:
+    - role: nexus_repos

@@ -1668,3 +1668,66 @@ Community Edition 的许可协议与匿名访问由用户首次登录网页时�
 台账 gitlab、nexus 的 vm_status 记为 deployed，版本锁两者记为 deployed_verified；批次进度表与根目录 README 的进度同步更新。
 
 下一步：按计划 00.09.04 配置 Nexus 的出站代理与代理仓库（Maven、npm、PyPI、NuGet、Cargo、RPM、Go 等），逐生态用固定依赖验证解析；随后是 Harbor 的上游代理缓存与只读账号、备份与恢复演练、GitLab 与 Nexus 的重启复验。
+
+## 97. 2026-10-17 Nexus 代理仓库与只读账户自动化（00.09.04）
+
+用户同意按「Nexus 代理仓库 → Harbor 代理缓存与只读账号 → 备份与恢复 → 重启复验 → 断网与阶段验收」的顺序继续。
+
+本助手从管理端匿名读取 Nexus 的 OpenAPI 描述（/service/rest/swagger.json，3.96.4-01，约 690 KB），核对接口与请求结构：
+
+- 有 maven、npm、pypi、nuget、cargo、go、yum、conan、raw 等格式的 proxy/hosted/group 接口，有安全角色、用户、匿名访问与 /v1/system/eula 接口。
+- **没有出站 HTTP 代理设置的接口**，capabilities 中也没有对应项。因此出站代理只能在网页 Administration → System → HTTP 中设置一次，由用户完成。不采用 Groovy 脚本接口（默认关闭）或网页内部接口（未公开、易变）。
+- 匿名访问 /service/rest/v1/repositories 返回 401，说明匿名访问已关闭（用户在首次登录时的选择），本助手不改动；客户端统一使用只读账户。
+
+新增 roles/nexus_repos 与 playbooks/nexus-repos.yml，在管理端运行，经 HTTPS 与内部根 CA 访问 REST API，不经 Clash：
+
+1. 确认许可协议已被接受，否则停止并提示用户在网页上处理，不代为接受；确认 default blob store 存在。
+2. 代理仓库，均指向官方上游：maven-central（repo1.maven.org）、npm-proxy（registry.npmjs.org）、pypi-proxy（pypi.org）、nuget.org-proxy（NuGet V3）、cargo-proxy（index.crates.io 稀疏索引，requireAuthentication 开启）、go-proxy（proxy.golang.org）、rocky-proxy（dl.rockylinux.org/pub/rocky）。先读取现状：不存在时创建；上游地址或在线状态不同时更新；一致时不改动。maven-central、nuget.org-proxy 沿用 Nexus 新装时的默认名称。
+3. 通用制品 raw-artifacts（hosted，allow_once）。
+4. 只读角色 cnpl-read（所有仓库的 browse 与 read 权限）与账户 cnpl-reader，口令生成在 ~/.cnpl-secrets/nexus_reader_password，创建请求 no_log；uri 模块的 url_password 本身不输出。
+5. 验证：以 cnpl-reader 经 HTTPS 从每个代理仓库取一个固定内容：commons-lang3 3.17.0 的 pom、left-pad 元数据、requests 的 simple 索引、NuGet 服务索引、serde 的稀疏索引项、google/uuid v1.6.0 的 .info、Rocky 10 BaseOS 的 repomd.xml。再确认未认证访问返回 401。
+
+命名约定写入角色默认值与操作流程：`<生态>-proxy` 为上游代理，`<生态>-hosted` 为内部发布（04 阶段按需建立），`<生态>-group` 为组合入口。计划 00.09.04 中的 C/C++（Conan）与工具链缓存属于 00.09.05，本次不建；各生态客户端的实际解析与构建在 00.09.05 与断网验收中用干净环境验证，本次只验证仓库层面能经代理取回上游内容。
+
+本地检查：syntax-check 通过，13 个任务；请求体渲染正确（maven 带 versionPolicy/layoutPolicy，nuget 带 nugetProxy V3）。操作流程步骤 13 补充了网页设置出站代理的具体位置与取值、剧本命令、预期结果与失败排查。尚无执行输出。
+
+## 98. 2026-10-17 Nexus 代理仓库通过；Harbor 出站代理、上游代理缓存与只读机器人自动化
+
+**Nexus**（[证据](evidence/00.09.04-nexus-repos.txt)）：用户在网页上设置了出站代理并接受了许可协议，然后运行 nexus-repos.yml：localhost ok=13 changed=4 failed=0。许可协议检查通过；default blob store 存在；maven-central 与 nuget.org-proxy 是 Nexus 新装时的默认仓库，上游一致，未改动；npm-proxy、pypi-proxy、cargo-proxy、go-proxy、rocky-proxy 新建；raw-artifacts、角色 cnpl-read、账户 cnpl-reader 新建。以 cnpl-reader 经 HTTPS 从 7 个代理仓库取固定内容，全部第一次就返回 200（含 proxy.golang.org，说明出站代理生效）；未认证访问返回 401。证据中没有私钥块，与 ~/.cnpl-secrets 下全部口令文件比对均无匹配。00.09.04 在仓库层面完成，各生态客户端的实际解析留到 00.09.05 与断网验收。
+
+**Harbor 出站代理**：harbor 角色在 harbor.yml 的 proxy 段写入 http_proxy、https_proxy（OpenWrt :7890）与 no_proxy（127.0.0.1、localhost、.internal.egon.top、192.168.9.0/24），components 保持模板默认的 core、jobservice、trivy。模板注释说明各组件之间的访问不经代理，由 prepare 处理。改动触发已有的处理器 `./prepare && docker compose up -d`，相关容器会重建，Harbor 短暂中断。
+
+**上游代理缓存与只读机器人**（roles/harbor_projects + playbooks/harbor-projects.yml，在管理端经 REST API 执行）：
+
+- 上游注册表：docker-hub（https://hub.docker.com）、registry.k8s.io（docker-registry 类型）、quay.io（quay 类型）、ghcr.io（github-ghcr 类型）。不存在才创建。
+- 代理缓存项目 dockerhub、k8s、quay、ghcr，设为公开。理由：内容都是公开的上游镜像，Harbor 只在实验网可达；节点与集群组件可直接拉取，containerd 的 hosts.toml 不提供认证。内部镜像放在私有项目中（04 阶段）。
+- 机器人 robot$cnpl-pull：system 级，所有项目只有 pull 权限，永不过期。密钥只在创建时返回一次，保存到 ~/.cnpl-secrets/harbor_robot_cnpl_pull（0600，no_log）。机器人已存在而管理端没有密钥时，用 PATCH 刷新密钥（未经验证的假设：请求体 secret 为空字符串时由 Harbor 生成新密钥）。
+- 验证：机器人从 /service/token 取得 bootstrap/pause 的拉取令牌；对每个代理缓存项目，用 crane 比较经 Harbor 取得的摘要与经管理端代理直接访问上游的摘要，两者必须相同。测试镜像 busybox 1.37.0、pause 3.10.2、node-exporter v1.9.1、ghcr.io/containerd/busybox 1.36 在上游都存在，本助手已用 crane 确认：pause 3.10.2 的 index 摘要 f548e0e8… 与版本锁一致。
+
+本地检查：harbor.yml 模板中 proxy 段的三个键各出现一次，替换正则唯一匹配；两个剧本的 syntax-check 通过。操作流程步骤 8 补充了命令、用法、预期与说明。待用户执行：重跑 harbor.yml，再运行 harbor-projects.yml。
+
+## 99. 2026-10-17 Harbor 出站代理生效；quay 类型不支持代理缓存；证据中出现会话 cookie
+
+**harbor.yml**（[证据](evidence/00.09.03-harbor-proxy.txt)）：harbor ok=45 changed=2 failed=0，localhost failed=0。harbor.yml 的替换任务有三项为 changed，即 proxy 段的 http_proxy、https_proxy、no_proxy（no_log，内容隐藏）；处理器 `./prepare && docker compose up -d` 执行，重建相关容器；之后管理端验证重试一次通过。
+
+**harbor-projects.yml**（[证据](evidence/00.09.03-harbor-projects.txt)）：localhost ok=4 changed=1 failed=1。
+
+- 四个上游注册表都已创建。Harbor 在创建时会检查连通性，四个都通过，说明出站代理可用。
+- 代理缓存项目 dockerhub、k8s、ghcr 已创建。quay 返回 HTTP 400 `bad request: unsupported registry type quay`：Harbor 2.15.4 的 quay 类型适配器不支持作为代理缓存的上游。剧本在这一步停止，机器人与验证均未执行。
+- 原因是本助手按类型名推测各类型都支持代理缓存，没有先核实。修正：quay.io 改用通用的 docker-registry 类型接入。注册表创建后不能修改类型，因此角色在类型不符、且没有项目使用该注册表时，先删除再按期望重建；有项目在使用时停止，不删除。现有的 quay.io（quay 类型）没有任何项目使用，下次运行时会被重建。
+
+**安全**：该任务失败时，uri 模块输出完整结果，其中有 Harbor 为 admin 基本认证请求设置的会话 cookie（sid，共 4 处），tee 把它们写入了证据。会话 cookie 在过期前可以代替口令访问 Harbor。证据中的 sid 值已替换为 `<redacted>`。全部证据中只有这一个文件出现过会话 cookie（同时检查了 NXSESSIONID 与 _gitlab_session）；该文件未提交。修正：角色中创建、删除类的请求设置 failed_when: false，先记录结果，再由 assert 只显示状态码与 Harbor 返回的 errors，失败时不再输出 cookie。机器人相关任务本来就设置了 no_log。只读请求失败时仍会输出完整结果，提交前检查证据的步骤中加入会话 cookie 一项。
+
+syntax-check 通过。待用户重跑 harbor-projects.yml（harbor.yml 不需要再跑）。
+
+## 100. 2026-10-17 Harbor 上游代理缓存与只读机器人通过
+
+用户按第 99 节重跑 harbor-projects.yml，见[证据](evidence/00.09.03-harbor-projects-2.txt)：localhost ok=19 changed=5 failed=0。
+
+- quay.io（quay 类型）没有项目使用，被删除，并以 docker-registry 类型重建。其余三个注册表类型符合，未改动。
+- 「在用且类型不符」检查全部通过；quay 项目创建成功，dockerhub、k8s、ghcr 已存在，未改动。三个结果检查都只显示状态，没有输出 cookie。
+- 机器人 robot$cnpl-pull 创建，密钥写入 ~/.cnpl-secrets/harbor_robot_cnpl_pull（0600）；刷新任务因已创建而跳过。机器人从 /service/token 取得 bootstrap/pause 的拉取令牌。
+- 四个代理缓存项目取得的摘要都与上游一致：dockerhub/library/busybox:1.37.0、k8s/pause:3.10.2（即版本锁的 index 摘要 f548e0e8…）、quay/prometheus/node-exporter:v1.9.1、ghcr/containerd/busybox:1.36。Harbor 第一次取用时已经过出站代理拉取上游。
+- 证据中没有私钥块、会话 cookie，与 ~/.cnpl-secrets 下全部 6 个文件比对均无匹配。
+
+00.09.03 的上游代理缓存与 00.09.02 的只读账户完成。批次进度表与根目录 README 已同步。

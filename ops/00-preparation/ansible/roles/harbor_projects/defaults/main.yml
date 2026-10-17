@@ -1,0 +1,25 @@
+# Harbor 上游代理缓存与只读机器人账户（00.09.03、00.09.02）：在管理端经 REST API 配置。
+# 前提：harbor.yml 已设置出站代理（harbor 角色），admin 口令在管理端 ~/.cnpl-secrets/harbor_admin_password。
+harbor_url: https://harbor.k8s.internal.egon.top
+harbor_fqdn: harbor.k8s.internal.egon.top
+harbor_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+harbor_admin_password: "{{ lookup('ansible.builtin.file', harbor_secrets_dir ~ '/harbor_admin_password') }}"
+
+# 上游注册表与对应的代理缓存项目。使用方式：harbor.k8s.internal.egon.top/<项目>/<上游路径>:<tag>，
+# 例如 dockerhub/library/busybox:1.37.0、k8s/pause:3.10.2、quay/prometheus/node-exporter:v1.9.1。
+# 代理缓存项目设为公开：内容本来就是公开上游镜像，Harbor 只在实验网可达；节点与集群组件可直接拉取。
+# 内部构建的镜像放在私有项目中（04 阶段），推送与私有拉取使用机器人账户。
+harbor_proxy_caches:
+  - {project: dockerhub, registry: docker-hub, type: docker-hub, url: https://hub.docker.com,
+     probe: library/busybox:1.37.0, upstream: docker.io/library/busybox:1.37.0}
+  - {project: k8s, registry: registry.k8s.io, type: docker-registry, url: https://registry.k8s.io,
+     probe: pause:3.10.2, upstream: registry.k8s.io/pause:3.10.2}
+  # quay 类型不支持代理缓存（2.15.4 返回 unsupported registry type quay，执行记录第 99 节），按通用 docker-registry 接入。
+  - {project: quay, registry: quay.io, type: docker-registry, url: https://quay.io,
+     probe: prometheus/node-exporter:v1.9.1, upstream: quay.io/prometheus/node-exporter:v1.9.1}
+  - {project: ghcr, registry: ghcr.io, type: github-ghcr, url: https://ghcr.io,
+     probe: containerd/busybox:1.36, upstream: ghcr.io/containerd/busybox:1.36}
+
+# 只读机器人：对所有项目只有 pull 权限，永不过期；密钥只在创建（或刷新）时返回一次，保存到管理端。
+harbor_robot_name: cnpl-pull
+harbor_robot_secret_file: "{{ harbor_secrets_dir }}/harbor_robot_cnpl_pull"

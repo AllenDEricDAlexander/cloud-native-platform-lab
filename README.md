@@ -13,7 +13,7 @@
 
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
-| [00](plan/00-preparation.md) | 虚拟机、Linux 与 CRI、网络与代理、DNS、CA、仓库、备份、离线物料 | 进行中：十台节点就绪；DNS、CA、Harbor、代理、GitLab、Nexus 已投入使用；Nexus 代理仓库、备份与恢复、断网验收未完成 |
+| [00](plan/00-preparation.md) | 虚拟机、Linux 与 CRI、网络与代理、DNS、CA、仓库、备份、离线物料 | 进行中：十台节点就绪；DNS、CA、代理、Harbor（含上游代理缓存）、GitLab、Nexus（含代理仓库）已投入使用；备份与恢复、断网验收未完成 |
 | [01](plan/01-kubernetes.md) | kubeadm 初始化、控制平面高可用、Cilium | 未开始 |
 | [02](plan/02-networking.md) | 服务网络、MetalLB、Gateway、网络策略 | 未开始 |
 | [03](plan/03-ceph-middleware.md) | Ceph、Rook CSI、中间件 | 未开始 |

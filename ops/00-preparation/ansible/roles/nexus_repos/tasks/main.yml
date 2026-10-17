@@ -1,0 +1,198 @@
+# 所有请求从管理端直连 Nexus（不经管理端的 Clash 代理），用内部根 CA 校验证书。
+- name: 许可协议已由用户接受（本角色不代为接受）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/system/eula"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+  register: nexus_eula
+
+- name: 未接受许可协议时停止
+  ansible.builtin.assert:
+    that: nexus_eula.json.accepted | default(false)
+    fail_msg: 请先用 admin 登录 Nexus 网页，阅读并接受 Community Edition 许可协议后再运行（本剧本不代为接受）
+    quiet: true
+
+- name: 默认 blob store 存在
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/blobstores"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+  register: nexus_blobstores
+  failed_when: nexus_blob_store not in (nexus_blobstores.json | map(attribute='name') | list)
+
+# ---------- 代理仓库 ----------
+- name: 读取代理仓库现状
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/repositories/{{ item.format }}/proxy/{{ item.name }}"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    status_code: [200, 404]
+  loop: "{{ nexus_proxy_repos }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: nexus_repo_current
+
+# 不存在时创建；已存在但上游地址或在线状态不同时更新；一致时不改动。
+- name: 创建或更新代理仓库
+  ansible.builtin.uri:
+    url: >-
+      {{ nexus_url }}/service/rest/v1/repositories/{{ repo.format }}/proxy{{ '' if missing else '/' ~ repo.name }}
+    method: "{{ 'POST' if missing else 'PUT' }}"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body: >-
+      {{ {'name': repo.name, 'online': true,
+          'storage': {'blobStoreName': nexus_blob_store, 'strictContentTypeValidation': true},
+          'proxy': {'remoteUrl': repo.remote, 'contentMaxAge': 1440, 'metadataMaxAge': 1440},
+          'negativeCache': {'enabled': true, 'timeToLive': 1440},
+          'httpClient': {'blocked': false, 'autoBlock': true}} | combine(repo.extra) }}
+    status_code: [201, 204]
+  loop: "{{ nexus_repo_current.results }}"
+  loop_control:
+    label: "{{ repo.name }}"
+  vars:
+    repo: "{{ item.item }}"
+    missing: "{{ item.status == 404 }}"
+  when: >-
+    item.status == 404
+    or item.json.proxy.remoteUrl != repo.remote
+    or not item.json.online
+  changed_when: true
+
+- name: 通用制品仓库（raw hosted）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/repositories/raw/hosted/{{ item }}"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    status_code: [200, 404]
+  loop: "{{ nexus_raw_hosted }}"
+  register: nexus_raw_current
+
+- name: 创建通用制品仓库
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/repositories/raw/hosted"
+    method: POST
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body:
+      name: "{{ item.item }}"
+      online: true
+      storage: {blobStoreName: "{{ nexus_blob_store }}", strictContentTypeValidation: false, writePolicy: allow_once}
+    status_code: 201
+  loop: "{{ nexus_raw_current.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.status == 404
+  changed_when: true
+
+# ---------- 只读账户 ----------
+- name: 只读角色是否存在
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/roles/{{ nexus_reader_role }}"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    status_code: [200, 404]
+  register: nexus_role_current
+
+- name: 创建只读角色（所有仓库的浏览与读取）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/roles"
+    method: POST
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body:
+      id: "{{ nexus_reader_role }}"
+      name: "{{ nexus_reader_role }}"
+      description: 构建客户端只读访问全部仓库（Ansible nexus_repos 角色管理）
+      privileges: [nx-repository-view-*-*-browse, nx-repository-view-*-*-read]
+      roles: []
+    status_code: 200
+  when: nexus_role_current.status == 404
+  changed_when: true
+
+- name: 只读账户是否存在
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/users?userId={{ nexus_reader_user }}"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+  register: nexus_user_current
+
+- name: 创建只读账户（口令保存在管理端 ~/.cnpl-secrets/nexus_reader_password）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/users"
+    method: POST
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body:
+      userId: "{{ nexus_reader_user }}"
+      firstName: cnpl
+      lastName: reader
+      emailAddress: cnpl-reader@internal.egon.top
+      password: "{{ nexus_reader_password }}"
+      status: active
+      roles: ["{{ nexus_reader_role }}"]
+    status_code: 200
+  when: nexus_user_current.json | selectattr('userId', 'equalto', nexus_reader_user) | list | length == 0
+  changed_when: true
+  no_log: true
+
+# ---------- 验证 ----------
+# 以只读账户经 HTTPS 取一个固定的上游内容：证明 TLS、nginx、权限、Nexus 出站代理与上游都可用。
+- name: 经各代理仓库取固定内容（只读账户）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/repository/{{ item.name }}/{{ item.probe }}"
+    url_username: "{{ nexus_reader_user }}"
+    url_password: "{{ nexus_reader_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    timeout: 120
+    return_content: false
+  loop: "{{ nexus_proxy_repos }}"
+  loop_control:
+    label: "{{ item.name }} → {{ item.probe }}"
+  register: nexus_probe
+  retries: 2
+  delay: 10
+  until: nexus_probe.status == 200
+
+- name: 未认证时拒绝访问（匿名访问已关闭）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/repository/maven-central/{{ nexus_proxy_repos[0].probe }}"
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    status_code: 401

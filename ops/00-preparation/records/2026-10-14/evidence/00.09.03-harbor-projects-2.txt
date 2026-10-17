@@ -1,0 +1,93 @@
+
+PLAY [Harbor 项目配置] *********************************************************
+
+TASK [harbor_projects : 读取已有的上游注册表] **********************************
+ok: [localhost]
+
+TASK [harbor_projects : 读取项目使用的注册表] **********************************
+ok: [localhost]
+
+TASK [harbor_projects : 删除类型不符且未被项目使用的注册表] ********************
+skipping: [localhost] => (item=docker-hub) 
+skipping: [localhost] => (item=registry.k8s.io) 
+changed: [localhost] => (item=quay.io)
+skipping: [localhost] => (item=ghcr.io) 
+
+TASK [harbor_projects : 删除结果] **********************************************
+ok: [localhost] => (item=docker-hub)
+ok: [localhost] => (item=registry.k8s.io)
+ok: [localhost] => (item=quay.io)
+ok: [localhost] => (item=ghcr.io)
+
+TASK [harbor_projects : 重新读取上游注册表（删除之后）] ************************
+ok: [localhost]
+
+TASK [harbor_projects : 类型不符但已被项目使用时停止（不删除在用的注册表）] ****
+ok: [localhost] => (item=docker-hub)
+ok: [localhost] => (item=registry.k8s.io)
+ok: [localhost] => (item=quay.io)
+ok: [localhost] => (item=ghcr.io)
+
+TASK [harbor_projects : 创建缺少的上游注册表（创建时 Harbor 会经出站代理检查连通性）] ***
+skipping: [localhost] => (item=docker-hub) 
+skipping: [localhost] => (item=registry.k8s.io) 
+changed: [localhost] => (item=quay.io)
+skipping: [localhost] => (item=ghcr.io) 
+
+TASK [harbor_projects : 创建结果] **********************************************
+ok: [localhost] => (item=docker-hub)
+ok: [localhost] => (item=registry.k8s.io)
+ok: [localhost] => (item=quay.io)
+ok: [localhost] => (item=ghcr.io)
+
+TASK [harbor_projects : 重新读取上游注册表（取得编号）] ************************
+ok: [localhost]
+
+TASK [harbor_projects : 读取代理缓存项目] **************************************
+ok: [localhost] => (item=dockerhub)
+ok: [localhost] => (item=k8s)
+ok: [localhost] => (item=quay)
+ok: [localhost] => (item=ghcr)
+
+TASK [harbor_projects : 创建缺少的代理缓存项目（公开）] ************************
+skipping: [localhost] => (item=dockerhub) 
+skipping: [localhost] => (item=k8s) 
+changed: [localhost] => (item=quay)
+skipping: [localhost] => (item=ghcr) 
+
+TASK [harbor_projects : 项目创建结果] ******************************************
+ok: [localhost] => (item=dockerhub)
+ok: [localhost] => (item=k8s)
+ok: [localhost] => (item=quay)
+ok: [localhost] => (item=ghcr)
+
+TASK [harbor_projects : 读取机器人账户] ****************************************
+ok: [localhost]
+
+TASK [harbor_projects : 管理端是否已保存机器人密钥] ****************************
+ok: [localhost]
+
+TASK [harbor_projects : 机器人现状] ********************************************
+ok: [localhost]
+
+TASK [harbor_projects : 创建只读机器人（所有项目 pull，永不过期）] *************
+changed: [localhost]
+
+TASK [harbor_projects : 刷新机器人密钥（只在管理端没有保存时）] ****************
+skipping: [localhost]
+
+TASK [harbor_projects : 保存机器人密钥到管理端（0600，仓库之外）] **************
+changed: [localhost]
+
+TASK [harbor_projects : 机器人可以取得拉取令牌（验证名称与密钥）] **************
+ok: [localhost]
+
+TASK [harbor_projects : 经代理缓存项目取得的摘要与上游一致] ********************
+ok: [localhost] => (item=dockerhub/library/busybox:1.37.0)
+ok: [localhost] => (item=k8s/pause:3.10.2)
+ok: [localhost] => (item=quay/prometheus/node-exporter:v1.9.1)
+ok: [localhost] => (item=ghcr/containerd/busybox:1.36)
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=19   changed=5    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

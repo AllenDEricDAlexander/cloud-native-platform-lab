@@ -13,3 +13,6 @@ harbor_allowed_clients: ["192.168.9.0/24"]
 harbor_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
 harbor_admin_password: "{{ lookup('ansible.builtin.password', harbor_secrets_dir ~ '/harbor_admin_password', length=24, chars=['ascii_letters', 'digits']) }}"
 harbor_db_password: "{{ lookup('ansible.builtin.password', harbor_secrets_dir ~ '/harbor_db_password', length=24, chars=['ascii_letters', 'digits']) }}"
+# 出站代理（00.09.03 上游代理缓存）：经 OpenWrt 显式代理；内部名称、实验网段与本机直连。
+harbor_outbound_proxy: http://192.168.9.10:7890
+harbor_no_proxy: 127.0.0.1,localhost,.internal.egon.top,192.168.9.0/24

@@ -14,7 +14,7 @@
 - Ansible 命令在 `ops/00-preparation/ansible/` 下运行，使用 `~/.venvs/cnpl-ansible/bin/ansible-playbook`；`ansible.cfg` 指定了 inventory、本目录的 collections 与 SSH 设置。
 - 证据：输出用 `tee` 写入 `records/<批次>/evidence/<步骤号>-<名称>.txt`。本页命令中的批次目录是 `2026-10-14`，开新批次时替换。
 - 剧本都是幂等的：中途失败，修复后从头重跑即可。
-- 提交前检查证据：没有 `BEGIN ... PRIVATE KEY`，不含口令与订阅信息；在分支上提交后快进合并到 main。
+- 提交前检查证据：没有 `BEGIN ... PRIVATE KEY`，不含口令、会话 cookie（如 Harbor 的 `sid=`）与订阅信息；在分支上提交后快进合并到 main。
 
 ### 0.2 安全规则（不可绕过）
 
@@ -39,7 +39,7 @@
 | 10 | 引导镜像 | 00.09.03 | 8、9 |
 | 11 | 节点检查矩阵与 CRI 自测 | 00.10.02 | 10 |
 | 12 | GitLab | 00.09.01 | 5、6、7 |
-| 13 | Nexus | 00.09.04 | 5、6、7（代理仓库待补充） |
+| 13 | Nexus 与代理仓库 | 00.09.04 | 5、6、7 |
 | 14 | 备份与恢复 | 00.10.03 | 5–13（剧本待编写） |
 | 15 | 重启复验与幂等 | 00.10.02 | 9–12 |
 | 16 | 断网验收 | 00.10.04 | 全部（待编写） |
@@ -213,6 +213,13 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 
 **预期**：harbor 与 localhost 都是 failed=0；/api/v2.0/ping 为 Pong，health 为 healthy，/v2/ 未认证返回 401。浏览器访问 https://harbor.k8s.internal.egon.top，用户名 admin，`pbcopy < ~/.cnpl-secrets/harbor_admin_password` 复制口令。只验证时运行 `playbooks/verify-harbor.yml`。
 
+**上游代理缓存与只读机器人**（00.09.03；前提：OpenWrt 代理可用，`harbor.yml` 已用当前角色运行过，其中设置了出站代理）：
+```bash
+~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/harbor-projects.yml | tee ../records/2026-10-14/evidence/00.09.03-harbor-projects.txt
+```
+
+剧本经 REST API 建立上游注册表与公开的代理缓存项目：dockerhub（Docker Hub）、k8s（registry.k8s.io）、quay（quay.io）、ghcr（ghcr.io），用法为 `harbor.k8s.internal.egon.top/<项目>/<上游路径>:<tag>`，例如 `dockerhub/library/busybox:1.37.0`。同时建立只读机器人 `robot$cnpl-pull`（所有项目只有 pull 权限，永不过期），密钥只在创建时返回一次，保存在 `~/.cnpl-secrets/harbor_robot_cnpl_pull`。验证：机器人能取得拉取令牌；每个代理缓存项目取得的镜像摘要与直接访问上游的结果相同。代理缓存只缓存公开的上游镜像；内部构建的镜像放在私有项目中（04 阶段）。
+
 **失败时**：容器反复重启、日志中 `lookup redis ... no such host` 是 Docker 在 Harbor 之后重启导致（第 79 节，角色已修正，`docker compose down` 后重跑）；重启后容器 `Exited (128)` 且 Docker 日志有 `failed to initialize logging driver` 是日志容器的启动时序（第 89 节，harbor.service 负责重试）。
 
 ## 步骤 9：十台节点基线
@@ -290,7 +297,19 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 
 **预期**：nexus 与 localhost 都是 failed=0。浏览器访问 https://nexus.svc.internal.egon.top，用户名 admin，`pbcopy < ~/.cnpl-secrets/nexus_admin_password` 复制口令。首次登录时网页会要求阅读并接受 Community Edition 许可协议、选择是否允许匿名访问，由你决定，剧本不代为接受。
 
-**待补充**：Maven、npm、PyPI、Go 等代理仓库与 Nexus 的出站代理设置（Administration → System → HTTP）。只需要 nexus 与 backup 的系统基线和数据盘时，也可单独运行 `playbooks/service-base.yml`。
+**代理仓库与只读账户**：
+
+1. 在 Nexus 网页设置出站代理（3.96 没有对应的 REST 接口，只能在网页上设置一次）：用 admin 登录 → 右上角齿轮 → System → HTTP；勾选 HTTP proxy，主机 `192.168.9.10`、端口 `7890`；勾选 HTTPS proxy，填同样的主机与端口；Hosts to exclude 填 `*.internal.egon.top`、`192.168.9.*`、`localhost`、`127.0.0.1`；保存。
+2. 运行（从 Mac 经 REST API 配置，可重复运行）：
+   ```bash
+   cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/nexus-repos.yml | tee ../records/2026-10-14/evidence/00.09.04-nexus-repos.txt
+   ```
+
+剧本先确认许可协议已被接受（未接受则停止，不代为接受），再创建或更新代理仓库：maven-central（Maven Central）、npm-proxy（npmjs）、pypi-proxy（PyPI）、nuget.org-proxy（NuGet V3）、cargo-proxy（crates.io 稀疏索引）、go-proxy（proxy.golang.org）、rocky-proxy（Rocky 官方源）；建立通用制品仓库 raw-artifacts；建立只读角色 cnpl-read 与账户 cnpl-reader（口令在 `~/.cnpl-secrets/nexus_reader_password`）。最后以 cnpl-reader 经 HTTPS 从每个代理仓库取一个固定内容，并确认未认证访问返回 401。
+
+**预期**：localhost failed=0。某个仓库取内容失败时，先在网页 Browse 中查看该仓库的状态：显示 Remote Auto Blocked 或连接错误，通常是出站代理未设置，或上游不可达。
+
+命名约定：`<生态>-proxy` 为上游代理，`<生态>-hosted` 为内部发布（04 阶段按需建立），`<生态>-group` 为组合入口；maven-central、nuget.org-proxy 沿用 Nexus 默认名称。匿名访问已关闭，客户端一律使用只读账户。只需要 nexus 与 backup 的系统基线和数据盘时，也可单独运行 `playbooks/service-base.yml`。
 
 ## 步骤 14：备份与恢复（剧本待编写）
 
@@ -392,14 +411,14 @@ echo 'export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.internal.egon.top,192.168.9.0/24"
 | 类型 | 文件 | 作用 |
 | --- | --- | --- |
 | 剧本 | `ansible/playbooks/dns.yml` | 内部 DNS 与验证 |
-| | `harbor.yml`、`verify-harbor.yml` | Harbor 部署与管理端验证 |
+| | `harbor.yml`、`verify-harbor.yml`、`harbor-projects.yml` | Harbor 部署与管理端验证；上游代理缓存与只读机器人 |
 | | `bootstrap-nodes.yml`、`verify-firewall.yml` | 十台节点基线；防火墙允许与拒绝验证 |
 | | `harbor-bootstrap-images.yml` | 引导镜像复制与节点预拉 |
 | | `gitlab.yml` | GitLab 部署与验证 |
-| | `nexus.yml` | Nexus 部署与验证 |
+| | `nexus.yml`、`nexus-repos.yml` | Nexus 部署与验证；代理仓库与只读账户 |
 | | `service-base.yml` | Nexus、备份的基线与数据盘 |
 | | `reboot-nodes.yml` | 逐台重启复验 |
-| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus` | 见各步骤 |
+| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus`、`nexus_repos`、`harbor_projects` | 见各步骤 |
 | 管理端脚本 | `scripts/generate-ansible-inventory.rb` | 台账生成 Inventory |
 | | `scripts/set-vm-identity.sh` | 新克隆设置名称、地址与密钥 |
 | | `scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 节点检查矩阵 |

@@ -1,0 +1,9 @@
+# Harbor 上游代理缓存项目与只读机器人账户（00.09.03、00.09.02）：在管理端经 REST API 配置并验证，可重复运行。
+# 前提：已用当前的 harbor 角色运行 harbor.yml（harbor.yml 中设置了出站代理）；管理 Mac 有 crane 且 shell 代理可访问上游。
+- name: Harbor 项目配置
+  hosts: localhost
+  gather_facts: false
+  vars:
+    harbor_root_ca: "{{ hostvars['harbor']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"
+  roles:
+    - role: harbor_projects

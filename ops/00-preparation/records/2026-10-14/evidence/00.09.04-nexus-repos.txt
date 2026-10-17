@@ -1,0 +1,63 @@
+
+PLAY [Nexus 仓库配置] **********************************************************
+
+TASK [nexus_repos : 许可协议已由用户接受（本角色不代为接受）] ******************
+ok: [localhost]
+
+TASK [nexus_repos : 未接受许可协议时停止] **************************************
+ok: [localhost]
+
+TASK [nexus_repos : 默认 blob store 存在] **************************************
+ok: [localhost]
+
+TASK [nexus_repos : 读取代理仓库现状] ******************************************
+ok: [localhost] => (item=maven-central)
+ok: [localhost] => (item=npm-proxy)
+ok: [localhost] => (item=pypi-proxy)
+ok: [localhost] => (item=nuget.org-proxy)
+ok: [localhost] => (item=cargo-proxy)
+ok: [localhost] => (item=go-proxy)
+ok: [localhost] => (item=rocky-proxy)
+
+TASK [nexus_repos : 创建或更新代理仓库] ****************************************
+skipping: [localhost] => (item=maven-central) 
+changed: [localhost] => (item=npm-proxy)
+changed: [localhost] => (item=pypi-proxy)
+skipping: [localhost] => (item=nuget.org-proxy) 
+changed: [localhost] => (item=cargo-proxy)
+changed: [localhost] => (item=go-proxy)
+changed: [localhost] => (item=rocky-proxy)
+
+TASK [nexus_repos : 通用制品仓库（raw hosted）] ********************************
+ok: [localhost] => (item=raw-artifacts)
+
+TASK [nexus_repos : 创建通用制品仓库] ******************************************
+changed: [localhost] => (item=raw-artifacts)
+
+TASK [nexus_repos : 只读角色是否存在] ******************************************
+ok: [localhost]
+
+TASK [nexus_repos : 创建只读角色（所有仓库的浏览与读取）] **********************
+changed: [localhost]
+
+TASK [nexus_repos : 只读账户是否存在] ******************************************
+ok: [localhost]
+
+TASK [nexus_repos : 创建只读账户（口令保存在管理端 ~/.cnpl-secrets/nexus_reader_password）] ***
+changed: [localhost]
+
+TASK [nexus_repos : 经各代理仓库取固定内容（只读账户）] ************************
+ok: [localhost] => (item=maven-central → org/apache/commons/commons-lang3/3.17.0/commons-lang3-3.17.0.pom)
+ok: [localhost] => (item=npm-proxy → left-pad)
+ok: [localhost] => (item=pypi-proxy → simple/requests/)
+ok: [localhost] => (item=nuget.org-proxy → index.json)
+ok: [localhost] => (item=cargo-proxy → se/rd/serde)
+ok: [localhost] => (item=go-proxy → github.com/google/uuid/@v/v1.6.0.info)
+ok: [localhost] => (item=rocky-proxy → 10/BaseOS/x86_64/os/repodata/repomd.xml)
+
+TASK [nexus_repos : 未认证时拒绝访问（匿名访问已关闭）] ************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=4    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

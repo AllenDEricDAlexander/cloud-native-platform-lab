@@ -1,0 +1,38 @@
+
+PLAY [Harbor 项目配置] *********************************************************
+
+TASK [harbor_projects : 读取已有的上游注册表] **********************************
+ok: [localhost]
+
+TASK [harbor_projects : 创建缺少的上游注册表（创建时 Harbor 会经出站代理检查连通性）] ***
+changed: [localhost] => (item=docker-hub)
+changed: [localhost] => (item=registry.k8s.io)
+changed: [localhost] => (item=quay.io)
+changed: [localhost] => (item=ghcr.io)
+
+TASK [harbor_projects : 重新读取上游注册表（取得编号）] ************************
+ok: [localhost]
+
+TASK [harbor_projects : 读取代理缓存项目] **************************************
+ok: [localhost] => (item=dockerhub)
+ok: [localhost] => (item=k8s)
+ok: [localhost] => (item=quay)
+ok: [localhost] => (item=ghcr)
+
+TASK [harbor_projects : 创建缺少的代理缓存项目（公开）] ************************
+changed: [localhost] => (item=dockerhub)
+changed: [localhost] => (item=k8s)
+[ERROR]: Task failed: Module failed: Status code was 400 and not [201]: HTTP Error 400: Bad Request
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/roles/harbor_projects/tasks/main.yml:56:3
+
+54   register: harbor_projects_current
+55
+56 - name: 创建缺少的代理缓存项目（公开）
+     ^ column 3
+
+failed: [localhost] (item=quay) => {"ansible_loop_var": "item", "changed": true, "changed_when_result": true, "connection": "close", "content_length": "92", "content_type": "application/json; charset=utf-8", "date": "Sat, 17 Oct 2026 06:09:32 GMT", "elapsed": 0, "item": {"ansible_loop_var": "item", "changed": false, "connection": "close", "content_length": "3", "content_security_policy": "frame-ancestors 'none'", "content_type": "application/json", "cookies": {"sid": "<redacted>"}, "cookies_string": "sid=<redacted>", "date": "Sat, 17 Oct 2026 06:09:27 GMT", "elapsed": 0, "failed": false, "item": {"probe": "prometheus/node-exporter:v1.9.1", "project": "quay", "registry": "quay.io", "type": "quay", "upstream": "quay.io/prometheus/node-exporter:v1.9.1", "url": "https://quay.io"}, "json": [], "msg": "OK (3 bytes)", "redirected": false, "server": "nginx", "set_cookie": "sid=<redacted>; Path=/; Secure; HttpOnly", "status": 200, "strict_transport_security": "max-age=31536000; includeSubdomains; preload", "url": "https://harbor.k8s.internal.egon.top/api/v2.0/projects?name=quay", "x_frame_options": "DENY", "x_request_id": "9707ed91-9072-45d5-8ae6-76f07886491e", "x_total_count": "0"}, "json": {"errors": [{"code": "BAD_REQUEST", "message": "bad request: unsupported registry type quay"}]}, "msg": "Status code was 400 and not [201]: HTTP Error 400: Bad Request", "redirected": false, "server": "nginx", "set_cookie": "sid=<redacted>; Path=/; Secure; HttpOnly", "status": 400, "url": "https://harbor.k8s.internal.egon.top/api/v2.0/projects", "x_request_id": "a5f0040a-2845-4aca-8670-4197ceb65b36"}
+changed: [localhost] => (item=ghcr)
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=4    changed=1    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+# 2026-10-17 本助手脱敏：失败输出中的 Harbor 会话 cookie（sid）替换为 <redacted>（执行记录第 99 节）。

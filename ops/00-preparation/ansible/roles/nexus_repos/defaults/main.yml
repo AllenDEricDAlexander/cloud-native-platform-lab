@@ -1,0 +1,53 @@
+# Nexus 代理仓库与只读账户（00.09.04）：在管理端经 REST API 配置，口令取自管理端 ~/.cnpl-secrets/。
+# 前提：Nexus 的出站 HTTP/HTTPS 代理已在网页中设置（3.96 未提供对应的 REST 接口，见操作流程步骤 13）。
+nexus_url: https://nexus.svc.internal.egon.top
+nexus_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+nexus_admin_password: "{{ lookup('ansible.builtin.file', nexus_secrets_dir ~ '/nexus_admin_password') }}"
+# 匿名访问已关闭（用户在首次登录时的选择），客户端统一使用只读账户。
+nexus_reader_user: cnpl-reader
+nexus_reader_password: "{{ lookup('ansible.builtin.password', nexus_secrets_dir ~ '/nexus_reader_password', length=24, chars=['ascii_letters', 'digits']) }}"
+nexus_reader_role: cnpl-read
+nexus_blob_store: default
+
+# 代理仓库：名称、格式、上游与格式专属属性。上游均为官方源，经 OpenWrt 代理访问。
+# 命名约定：<生态>-proxy 为上游代理；<生态>-hosted 为内部发布（04 阶段按需建立）；<生态>-group 为组合入口。
+# maven-central 与 nuget.org-proxy 沿用 Nexus 新装时的默认名称。
+nexus_proxy_repos:
+  - name: maven-central
+    format: maven
+    remote: https://repo1.maven.org/maven2/
+    extra: {maven: {versionPolicy: RELEASE, layoutPolicy: STRICT}}
+    probe: org/apache/commons/commons-lang3/3.17.0/commons-lang3-3.17.0.pom
+  - name: npm-proxy
+    format: npm
+    remote: https://registry.npmjs.org
+    extra: {}
+    probe: left-pad
+  - name: pypi-proxy
+    format: pypi
+    remote: https://pypi.org/
+    extra: {}
+    probe: simple/requests/
+  - name: nuget.org-proxy
+    format: nuget
+    remote: https://api.nuget.org/v3/index.json
+    extra: {nugetProxy: {queryCacheItemMaxAge: 3600, nugetVersion: V3}}
+    probe: index.json
+  - name: cargo-proxy
+    format: cargo
+    remote: https://index.crates.io/
+    extra: {cargo: {requireAuthentication: true}}
+    probe: se/rd/serde
+  - name: go-proxy
+    format: go
+    remote: https://proxy.golang.org
+    extra: {}
+    probe: github.com/google/uuid/@v/v1.6.0.info
+  - name: rocky-proxy
+    format: yum
+    remote: https://dl.rockylinux.org/pub/rocky/
+    extra: {}
+    probe: 10/BaseOS/x86_64/os/repodata/repomd.xml
+
+# 通用制品（固定版本的工具包、离线物料等）。
+nexus_raw_hosted: [raw-artifacts]

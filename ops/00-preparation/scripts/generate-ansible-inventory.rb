@@ -21,10 +21,20 @@ ledger.fetch("kubernetes_nodes").each do |node|
   (groups[group] ||= {})[node.fetch("id")] = vars
 end
 
+# 集群外基础服务：只纳入已开始创建的 VM（vm_status 存在且不是 planned），避免对不存在的主机连接。
+services = {}
+ledger.fetch("bootstrap_services").each do |svc|
+  next if svc["vm_status"].nil? || svc["vm_status"] == "planned"
+  vars = { "ansible_host" => svc.fetch("ip"), "node_fqdn" => svc.fetch("fqdn") }
+  vars["node_network_connection"] = svc["network_connection"] if svc["network_connection"]
+  services[svc.fetch("id")] = vars
+end
+
 inventory = {
   "all" => {
     "children" => {
       "k8s_nodes" => { "children" => role_groups.values.each_with_object({}) { |g, h| h[g] = { "hosts" => groups.fetch(g, {}) } } },
+      "bootstrap_services" => { "hosts" => services },
     },
   },
 }
@@ -35,4 +45,4 @@ body = YAML.dump(inventory).sub(/\A---\n/, "")
 # 六十进制整数；Psych 输出时不加引号，这里统一加单引号保证读成字符串。
 body = body.gsub(/^(\s*[\w.]+: )(\d+(?::\d+)+)$/) { "#{$1}'#{$2}'" }
 File.write(target, header + body)
-puts "已生成 #{target.sub(root + "/", "")}：#{groups.values.map(&:size).sum} 台，#{groups.map { |g, h| "#{g}=#{h.size}" }.join(" ")}"
+puts "已生成 #{target.sub(root + "/", "")}：#{groups.values.map(&:size).sum} 台节点（#{groups.map { |g, h| "#{g}=#{h.size}" }.join(" ")}），基础服务 #{services.keys.join(",")}"

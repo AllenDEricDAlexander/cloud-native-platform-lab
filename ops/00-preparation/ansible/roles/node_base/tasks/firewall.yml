@@ -47,8 +47,9 @@
     permanent: true
     immediate: true
     state: enabled
+  # Kubernetes 端口只用于 k8s_nodes；基础服务 VM 由各自的服务角色开放所需端口。
   loop: >-
-    {{ node_firewall_rules_all
+    {{ (node_firewall_rules_all if 'k8s_nodes' in group_names else [])
        + (node_firewall_rules_control_plane if 'control_plane' in group_names else []) }}
   loop_control:
     label: "{{ item.port }}/{{ item.proto }} ← {{ item.source }}（{{ item.purpose }}）"

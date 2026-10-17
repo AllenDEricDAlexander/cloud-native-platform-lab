@@ -1,0 +1,473 @@
+
+PLAY [Harbor 服务器] ***********************************************************
+
+TASK [service_vm : 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）] ******
+changed: [harbor]
+
+TASK [service_vm : 移除 crictl 配置（保留 containerd 的服务 VM）] **************
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/crictl.yaml",
+-    "state": "file"
++    "state": "absent"
+ }
+
+changed: [harbor]
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+skipping: [harbor]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+skipping: [harbor]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+skipping: [harbor]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+skipping: [harbor] => (item=/etc/containerd) 
+skipping: [harbor] => (item=/etc/systemd/system/containerd.service.d) 
+skipping: [harbor] => (item=/etc/crictl.yaml) 
+skipping: [harbor] => (item=/etc/modules-load.d/90-kubernetes.conf) 
+skipping: [harbor] => (item=/etc/sysctl.d/90-kubernetes.conf) 
+skipping: [harbor]
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+skipping: [harbor]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+skipping: [harbor]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [harbor]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [harbor]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [harbor]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [harbor] => (item=vmtoolsd)
+ok: [harbor] => (item=chronyd)
+ok: [harbor] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [harbor]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [harbor]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [harbor]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [harbor]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [harbor]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [harbor]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [harbor]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [harbor]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [harbor]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [harbor]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [harbor]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [harbor]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [harbor] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [harbor]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7755615blvms2/tmp79tposlm/ipset.xml.j2
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>k8s-nodes</short>
++  <entry>192.168.9.101</entry>
++  <entry>192.168.9.102</entry>
++  <entry>192.168.9.103</entry>
++  <entry>192.168.9.104</entry>
++  <entry>192.168.9.105</entry>
++  <entry>192.168.9.106</entry>
++  <entry>192.168.9.107</entry>
++  <entry>192.168.9.108</entry>
++  <entry>192.168.9.109</entry>
++  <entry>192.168.9.110</entry>
++</ipset>
+
+changed: [harbor] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7755615blvms2/tmpzay1jx7l/ipset.xml.j2
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>k8s-control-plane</short>
++  <entry>192.168.9.101</entry>
++  <entry>192.168.9.102</entry>
++  <entry>192.168.9.103</entry>
++</ipset>
+
+changed: [harbor] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7755615blvms2/tmp25puns9v/ipset.xml.j2
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>lab-mgmt</short>
++  <entry>192.168.9.200</entry>
++</ipset>
+
+changed: [harbor] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [harbor]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [harbor] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [harbor]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [harbor]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/systemd/journald.conf.d",
+-    "state": "absent"
++    "state": "directory"
+ }
+
+changed: [harbor]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7755615blvms2/tmpvc2r_gs_/journald.conf.j2
+@@ -0,0 +1,7 @@
++# 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改。
++# 持久化到 /var/log/journal，并按容量预算限制占用与保留时间（手册第 6 节）。
++[Journal]
++Storage=persistent
++SystemMaxUse=2G
++SystemKeepFree=10G
++MaxRetentionSec=30day
+
+changed: [harbor]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+RUNNING HANDLER [node_base : 重启 journald 并转存运行时日志] *******************
+changed: [harbor]
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [harbor]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+--- before
++++ after: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt
+@@ -0,0 +1,13 @@
++-----BEGIN CERTIFICATE-----
++MIICDDCCAZKgAwIBAgIUFoklZMNDWUNOooYwXFUDxf/CFFswCgYIKoZIzj0EAwMw
++RDEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEeMBwGA1UEAwwV
++Q05QTCBMYWIgUm9vdCBDQSAyMDI2MB4XDTI2MTAxNzAxNDQzNFoXDTM2MTAxNDAx
++NDQzNFowRDEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEeMBwG
++A1UEAwwVQ05QTCBMYWIgUm9vdCBDQSAyMDI2MHYwEAYHKoZIzj0CAQYFK4EEACID
++YgAE+BmJEs9PUIFVXTYg/p9EGvEiLwiBJGtvmisCmyzbatcDblwWLLRczoYpASFv
++E/8fmgnInZBfP6UKK+xkWOuFs+8/QboXb5KN5QqVu5gsghuuJLk0XczYUkjhXQ19
++hvEXo0UwQzASBgNVHRMBAf8ECDAGAQH/AgEBMA4GA1UdDwEB/wQEAwIBBjAdBgNV
++HQ4EFgQUXRdXvAUf+e8wLoKwnkkagI0ASVYwCgYIKoZIzj0EAwMDaAAwZQIweSh0
++vELVuZCerrty5GQFZfaR/okM1Hx355Mi7fRA8ytI5q8cMZlOO/Cr9EtiqDvAAjEA
++8OifnpgjYrramB1u5v3Eirf9vwRl0OQ3qEu8E5lQsCKvItbSdtfdf7PHW74OaTvv
++-----END CERTIFICATE-----
+
+changed: [harbor]
+
+TASK [docker_host : 种子目录] **************************************************
+--- before
++++ after
+@@ -1,5 +1,5 @@
+ {
+-    "mode": "0755",
++    "mode": "0700",
+     "path": "/root/seed/docker",
+-    "state": "absent"
++    "state": "directory"
+ }
+
+changed: [harbor]
+
+TASK [docker_host : 传输 Docker RPM 与签名公钥] ********************************
+diff skipped: source file size is greater than 104448
+changed: [harbor] => (item=docker-ce-29.9.1-1.el10.x86_64.rpm)
+diff skipped: source file size is greater than 104448
+changed: [harbor] => (item=docker-ce-cli-29.9.1-1.el10.x86_64.rpm)
+diff skipped: source file size is greater than 104448
+changed: [harbor] => (item=docker-buildx-plugin-0.38.0-1.el10.x86_64.rpm)
+diff skipped: source file size is greater than 104448
+changed: [harbor] => (item=docker-compose-plugin-5.6.0-1.el10.x86_64.rpm)
+--- before
++++ after: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/docker.gpg
+@@ -0,0 +1,28 @@
++-----BEGIN PGP PUBLIC KEY BLOCK-----
++
++mQINBFit5IEBEADDt86QpYKz5flnCsOyZ/fk3WwBKxfDjwHf/GIflo+4GWAXS7wJ
++1PSzPsvSDATV10J44i5WQzh99q+lZvFCVRFiNhRmlmcXG+rk1QmDh3fsCCj9Q/yP
++w8jn3Hx0zDtz8PIB/18ReftYJzUo34COLiHn8WiY20uGCF2pjdPgfxE+K454c4G7
++gKFqVUFYgPug2CS0quaBB5b0rpFUdzTeI5RCStd27nHCpuSDCvRYAfdv+4Y1yiVh
++KKdoe3Smj+RnXeVMgDxtH9FJibZ3DK7WnMN2yeob6VqXox+FvKYJCCLkbQgQmE50
++uVK0uN71A1mQDcTRKQ2q3fFGlMTqJbbzr3LwnCBE6hV0a36t+DABtZTmz5O69xdJ
++WGdBeePCnWVqtDb/BdEYz7hPKskcZBarygCCe2Xi7sZieoFZuq6ltPoCsdfEdfbO
+++VBVKJnExqNZCcFUTEnbH4CldWROOzMS8BGUlkGpa59Sl1t0QcmWlw1EbkeMQNrN
++spdR8lobcdNS9bpAJQqSHRZh3cAM9mA3Yq/bssUS/P2quRXLjJ9mIv3dky9C3udM
+++q2unvnbNpPtIUly76FJ3s8g8sHeOnmYcKqNGqHq2Q3kMdA2eIbI0MqfOIo2+Xk0
++rNt3ctq3g+cQiorcN3rdHPsTRSAcp+NCz1QF9TwXYtH1XV24A6QMO0+CZwARAQAB
++tCtEb2NrZXIgUmVsZWFzZSAoQ0UgcnBtKSA8ZG9ja2VyQGRvY2tlci5jb20+iQI3
++BBMBCgAhBQJYrep4AhsvBQsJCAcDBRUKCQgLBRYCAwEAAh4BAheAAAoJEMUv62ti
++Hp816C0P/iP+1uhSa6Qq3TIc5sIFE5JHxOO6y0R97cUdAmCbEqBiJHUPNQDQaaRG
++VYBm0K013Q1gcJeUJvS32gthmIvhkstw7KTodwOM8Kl11CCqZ07NPFef1b2SaJ7l
++TYpyUsT9+e343ph+O4C1oUQw6flaAJe+8ATCmI/4KxfhIjD2a/Q1voR5tUIxfexC
++/LZTx05gyf2mAgEWlRm/cGTStNfqDN1uoKMlV+WFuB1j2oTUuO1/dr8mL+FgZAM3
++ntWFo9gQCllNV9ahYOON2gkoZoNuPUnHsf4Bj6BQJnIXbAhMk9H2sZzwUi9bgObZ
++XO8+OrP4D4B9kCAKqqaQqA+O46LzO2vhN74lm/Fy6PumHuviqDBdN+HgtRPMUuao
++xnuVJSvBu9sPdgT/pR1N9u/KnfAnnLtR6g+fx4mWz+ts/riB/KRHzXd+44jGKZra
++IhTMfniguMJNsyEOO0AN8Tqcl0eRBxcOArcri7xu8HFvvl+e+ILymu4buusbYEVL
++GBkYP5YMmScfKn+jnDVN4mWoN1Bq2yMhMGx6PA3hOvzPNsUoYy2BwDxNZyflzuAi
++g59mgJm2NXtzNbSRJbMamKpQ69mzLWGdFNsRd4aH7PT7uPAURaf7B5BVp3UyjERW
++5alSGnBqsZmvlRnVH5BDUhYsWZMPRQS9rRr4iGW0l+TH+O2VJ8aQ
++=0Zqq
++-----END PGP PUBLIC KEY BLOCK-----
+
+changed: [harbor] => (item=docker.gpg)
+
+TASK [docker_host : 导入 Docker 签名公钥并核对指纹] ****************************
+ok: [harbor]
+
+TASK [docker_host : 安装 Docker（本地包验签；iptables-nft 等依赖仍取自发行版软件源）] ***
+changed: [harbor]
+
+TASK [docker_host : Docker daemon 配置] ****************************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7755615blvms2/tmp3jl9nwtu/daemon.json.j2
+@@ -0,0 +1,5 @@
++{
++  "log-driver": "json-file",
++  "log-opts": {"max-size": "50m", "max-file": "3"},
++  "live-restore": true
++}
+
+changed: [harbor]
+
+TASK [docker_host : Docker 开机启动并运行] *************************************
+changed: [harbor]
+
+TASK [harbor : 管理端口令目录（仓库之外）] *************************************
+--- before
++++ after
+@@ -1,5 +1,5 @@
+ {
+-    "mode": "0755",
++    "mode": "0700",
+     "path": "/Users/mario/.cnpl-secrets",
+-    "state": "absent"
++    "state": "directory"
+ }
+
+changed: [harbor -> localhost]
+
+TASK [harbor : 已挂载的数据目录] ***********************************************
+ok: [harbor]
+
+TASK [harbor : 已带标签的数据盘] ***********************************************
+ok: [harbor]
+
+TASK [harbor : 列出磁盘] *******************************************************
+ok: [harbor]
+
+TASK [harbor : 候选必须恰好一块：容量 200 GiB、无分区、无文件系统] *************
+ok: [harbor]
+
+TASK [harbor : 不是恰好一块时停止，不猜测设备] *********************************
+ok: [harbor] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [harbor : 格式化数据盘（XFS，带标签）] ************************************
+changed: [harbor]
+
+TASK [harbor : 读取数据盘 UUID] ************************************************
+ok: [harbor]
+
+TASK [harbor : 按 UUID 挂载数据目录] *******************************************
+changed: [harbor]
+
+TASK [harbor : 证书目录] *******************************************************
+--- before
++++ after
+@@ -1,5 +1,5 @@
+ {
+-    "mode": "0755",
++    "mode": "0700",
+     "path": "/etc/harbor/tls",
+-    "state": "absent"
++    "state": "directory"
+ }
+
+changed: [harbor]
+
+TASK [harbor : 传输证书链与私钥（私钥 0600）] **********************************
+--- before
++++ after: /Users/mario/cnpl-pki/intermediate/issued/harbor.k8s.internal.egon.top/fullchain.crt
+@@ -0,0 +1,31 @@
++-----BEGIN CERTIFICATE-----
++MIICWTCCAeCgAwIBAgIUAf11TRbsFI97qVp5cCQhb6tRjBswCgYIKoZIzj0EAwIw
++RzEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEhMB8GA1UEAwwY
++Q05QTCBMYWIgSXNzdWluZyBDQSAyMDI2MB4XDTI2MTAxNzAxNDUyMFoXDTI5MDEx
++OTAxNDUyMFowSzEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEl
++MCMGA1UEAwwcaGFyYm9yLms4cy5pbnRlcm5hbC5lZ29uLnRvcDBZMBMGByqGSM49
++AgEGCCqGSM49AwEHA0IABPYRf81RZEmLREXF40t1vQqj3KeWTmycPS97NyRy10by
++sssWbIbOxD35OXR8MBuF+Grf1ld6cv19ukJcZ+vaiu+jgaUwgaIwDAYDVR0TAQH/
++BAIwADAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0O
++BBYEFDxuwYDHh3f2xfTOXs5ZsBB8JObAMB8GA1UdIwQYMBaAFJnJNxNNGtzIsZ24
++3tuEszjUZMiaMC0GA1UdEQQmMCSCHGhhcmJvci5rOHMuaW50ZXJuYWwuZWdvbi50
++b3CHBMCoCQwwCgYIKoZIzj0EAwIDZwAwZAIwBKoYrrb47XFXFMZ7p7K2wQ0HzA1Q
++It/zsCYPo+Il2Ve2dqS60ptQg555Ne730hroAjBw7T0KMiOeqAWvNWweVqrvAlM4
++uXs+e9ns4EbrAm25D9joGLYt/lKlUq1WaxNWsrA=
++-----END CERTIFICATE-----
++-----BEGIN CERTIFICATE-----
++MIICeDCCAf+gAwIBAgIUJgXcB67PVXvfGVTF2J1qA95IprQwCgYIKoZIzj0EAwMw
++RDEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEeMBwGA1UEAwwV
++Q05QTCBMYWIgUm9vdCBDQSAyMDI2MB4XDTI2MTAxNzAxNDQ1M1oXDTMxMTAxNjAx
++NDQ1M1owRzEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEhMB8G
++A1UEAwwYQ05QTCBMYWIgSXNzdWluZyBDQSAyMDI2MHYwEAYHKoZIzj0CAQYFK4EE
++ACIDYgAEdF5j9MNOk32AItEFSi1TydgMvPf+hulbEvMNWpUrFIrp1PSB9Ru1FSmv
++yUiN7KMmRHla0LDRmVLX6PQ3QlQGLeVQj0Hl7zAVn1pozusjiNEBhu0tT6mRIxkX
++dqA9KjG8o4GuMIGrMBIGA1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgEG
++MB0GA1UdDgQWBBSZyTcTTRrcyLGduN7bhLM41GTImjAfBgNVHSMEGDAWgBRdF1e8
++BR/57zAugrCeSRqAjQBJVjBFBgNVHR4BAf8EOzA5oDcwE4IRaW50ZXJuYWwuZWdv
++bi50b3AwFIISLmludGVybmFsLmVnb24udG9wMAqHCMCoCQD///8AMAoGCCqGSM49
++BAMDA2cAMGQCMFT5o4QqTwpUY0Zl66/kyNhuEfsboDLg0wbApM21qsj+g0zRowpd
++i4SuF6JwE54xyAIwemmkw1XzwvU6cBkO53LNbDY1H+RSkZ0zh5kWvtPEoz7Q23Mx
++HYqWyq0kYybDupTz
++-----END CERTIFICATE-----
+
+changed: [harbor] => (item=fullchain.crt)
+--- before
++++ after: /Users/mario/cnpl-pki/intermediate/issued/harbor.k8s.internal.egon.top/server.key
+@@ -0,0 +1,5 @@
+[已脱敏：--diff 打印的 TLS 私钥内容已从证据中删除，见执行记录第 76 节]
+
+changed: [harbor] => (item=server.key)
+
+TASK [harbor : 传输离线安装包] *************************************************
+diff skipped: source file size is greater than 104448
+changed: [harbor]
+
+TASK [harbor : 解压到 /opt/harbor] *********************************************
+changed: [harbor]
+
+TASK [harbor : 以发行模板生成 harbor.yml（已存在则不覆盖）] ********************
+changed: [harbor]
+
+TASK [harbor : 设置 harbor.yml 关键项] *****************************************
+changed: [harbor] => (item=(censored due to no_log))
+changed: [harbor] => (item=(censored due to no_log))
+changed: [harbor] => (item=(censored due to no_log))
+changed: [harbor] => (item=(censored due to no_log))
+changed: [harbor] => (item=(censored due to no_log))
+ok: [harbor] => (item=(censored due to no_log))
+
+TASK [harbor : 首次安装（加载镜像、生成配置并启动；已安装则跳过）] *************
+changed: [harbor]
+
+TASK [harbor : 只对实验网段开放 HTTPS（Docker 发布端口可能绕过区域规则，见执行记录）] ***
+changed: [harbor] => (item=192.168.9.0/24)
+
+RUNNING HANDLER [node_base : 更新系统信任] *************************************
+changed: [harbor]
+
+RUNNING HANDLER [docker_host : 重启 docker] ************************************
+changed: [harbor]
+
+RUNNING HANDLER [harbor : 重新生成 Harbor 配置] ********************************
+changed: [harbor]
+
+PLAY [从管理端验证 Harbor] *****************************************************
+
+TASK [用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）] ***
+[ERROR]: Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for '_raw_params': 'inventory_dir' is undefined
+
+Task failed.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/playbooks/harbor.yml:24:7
+
+22     root_ca: "{{ inventory_dir }}/../../../pki/public/cnpl-lab-root-ca.crt"
+23   tasks:
+24     - name: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）
+         ^ column 7
+
+<<< caused by >>>
+
+Finalization of task args for 'ansible.builtin.command' failed.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/playbooks/harbor.yml:25:7
+
+23   tasks:
+24     - name: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）
+25       ansible.builtin.command: >-
+         ^ column 7
+
+<<< caused by >>>
+
+Error while resolving value for '_raw_params'.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/playbooks/harbor.yml:25:32
+
+23   tasks:
+24     - name: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）
+25       ansible.builtin.command: >-
+                                  ^ column 32
+
+<<< caused by >>>
+
+'inventory_dir' is undefined
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/playbooks/harbor.yml:22:14
+
+20     harbor_ip: "{{ hostvars['harbor']['ansible_host'] }}"
+21     harbor_fqdn: harbor.k8s.internal.egon.top
+22     root_ca: "{{ inventory_dir }}/../../../pki/public/cnpl-lab-root-ca.crt"
+                ^ column 14
+
+fatal: [localhost]: FAILED! => {"changed": false, "msg": "Task failed: Finalization of task args for 'ansible.builtin.command' failed: Error while resolving value for '_raw_params': 'inventory_dir' is undefined"}
+
+PLAY RECAP *********************************************************************
+harbor                     : ok=47   changed=29   unreachable=0    failed=0    skipped=15   rescued=0    ignored=0   
+localhost                  : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

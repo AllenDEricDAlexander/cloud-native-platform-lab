@@ -1,0 +1,445 @@
+
+PLAY [内部 DNS 服务器] *********************************************************
+
+TASK [service_vm : 停止并禁用 containerd] **************************************
+changed: [dns]
+
+TASK [service_vm : 卸载运行时盘并移出 fstab（不格式化、不删除数据）] ***********
+changed: [dns]
+
+TASK [service_vm : 移除 Kubernetes 运行时与入群工具] ***************************
+changed: [dns]
+
+TASK [service_vm : 清理运行时与 Kubernetes 内核前置的配置残留] *****************
+--- before
++++ after
+@@ -1,13 +1,4 @@
+ {
+     "path": "/etc/containerd",
+-    "path_content": {
+-        "directories": [
+-            "/etc/containerd/certs.d"
+-        ],
+-        "files": [
+-            "/etc/containerd/config.toml.phase00.20261014224814.bak",
+-            "/etc/containerd/config.toml.rpmsave"
+-        ]
+-    },
+-    "state": "directory"
++    "state": "absent"
+ }
+
+changed: [dns] => (item=/etc/containerd)
+--- before
++++ after
+@@ -1,10 +1,4 @@
+ {
+     "path": "/etc/systemd/system/containerd.service.d",
+-    "path_content": {
+-        "directories": [],
+-        "files": [
+-            "/etc/systemd/system/containerd.service.d/10-runtime-mount.conf"
+-        ]
+-    },
+-    "state": "directory"
++    "state": "absent"
+ }
+
+changed: [dns] => (item=/etc/systemd/system/containerd.service.d)
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/crictl.yaml",
+-    "state": "file"
++    "state": "absent"
+ }
+
+changed: [dns] => (item=/etc/crictl.yaml)
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/modules-load.d/90-kubernetes.conf",
+-    "state": "file"
++    "state": "absent"
+ }
+
+changed: [dns] => (item=/etc/modules-load.d/90-kubernetes.conf)
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/sysctl.d/90-kubernetes.conf",
+-    "state": "file"
++    "state": "absent"
+ }
+
+changed: [dns] => (item=/etc/sysctl.d/90-kubernetes.conf)
+
+TASK [service_vm : 读取运行时 IPv4 转发] ***************************************
+ok: [dns]
+
+TASK [service_vm : 服务 VM 不转发 IPv4（不是路由器）] **************************
+changed: [dns]
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [dns]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [dns]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [dns]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [dns] => (item=vmtoolsd)
+ok: [dns] => (item=chronyd)
+ok: [dns] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [dns]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [dns]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [dns]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+skipping: [dns]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+skipping: [dns]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [dns]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+skipping: [dns]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+skipping: [dns]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [dns]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [dns]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [dns]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [dns]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [dns] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+changed: [dns]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmpsek1xoex/ipset.xml.j2
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>k8s-nodes</short>
++  <entry>192.168.9.101</entry>
++  <entry>192.168.9.102</entry>
++  <entry>192.168.9.103</entry>
++  <entry>192.168.9.104</entry>
++  <entry>192.168.9.105</entry>
++  <entry>192.168.9.106</entry>
++  <entry>192.168.9.107</entry>
++  <entry>192.168.9.108</entry>
++  <entry>192.168.9.109</entry>
++  <entry>192.168.9.110</entry>
++</ipset>
+
+changed: [dns] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmp7b9llqp_/ipset.xml.j2
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>k8s-control-plane</short>
++  <entry>192.168.9.101</entry>
++  <entry>192.168.9.102</entry>
++  <entry>192.168.9.103</entry>
++</ipset>
+
+changed: [dns] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmpjuz2gtrx/ipset.xml.j2
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改 -->
++<ipset type="hash:ip">
++  <short>lab-mgmt</short>
++  <entry>192.168.9.200</entry>
++</ipset>
+
+changed: [dns] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+RUNNING HANDLER [service_vm : 服务 VM 重新加载 systemd] ************************
+ok: [dns]
+
+RUNNING HANDLER [node_base : 重新加载 firewalld] *******************************
+changed: [dns]
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+changed: [dns] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+skipping: [dns]
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [dns]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+--- before
++++ after
+@@ -1,4 +1,4 @@
+ {
+     "path": "/etc/systemd/journald.conf.d",
+-    "state": "absent"
++    "state": "directory"
+ }
+
+changed: [dns]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmphdt2z9z4/journald.conf.j2
+@@ -0,0 +1,7 @@
++# 由 Ansible node_base 管理（ops/00-preparation/ansible/roles/node_base），请勿手改。
++# 持久化到 /var/log/journal，并按容量预算限制占用与保留时间（手册第 6 节）。
++[Journal]
++Storage=persistent
++SystemMaxUse=2G
++SystemKeepFree=10G
++MaxRetentionSec=30day
+
+changed: [dns]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+RUNNING HANDLER [node_base : 重启 journald 并转存运行时日志] *******************
+changed: [dns]
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [dns]
+
+TASK [dns_server : 安装 BIND（需要访问发行版软件源）] **************************
+changed: [dns]
+
+TASK [dns_server : 正向区域] ***************************************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmp5w6nb2p7/forward.zone.j2
+@@ -0,0 +1,33 @@
++; 由 Ansible dns_server 从 ops/inventory/hosts.yaml 与 networks.yaml 生成，请勿手改。
++$TTL 300
++@	IN SOA	dns.mgmt.internal.egon.top. hostmaster.internal.egon.top. (
++		2026101601	; serial
++		3600	; refresh
++		600	; retry
++		604800	; expire
++		300 )	; negative cache TTL
++	IN NS	dns.mgmt.internal.egon.top.
++admin.mgmt	IN A	192.168.9.15
++api.k8s	IN A	192.168.9.100
++cp01.k8s	IN A	192.168.9.101
++cp02.k8s	IN A	192.168.9.102
++cp03.k8s	IN A	192.168.9.103
++dns.mgmt	IN A	192.168.9.11
++esxi01.mgmt	IN A	192.168.9.61
++esxi02.mgmt	IN A	192.168.9.62
++esxi03.mgmt	IN A	192.168.9.63
++gitlab.svc	IN A	192.168.9.13
++harbor.k8s	IN A	192.168.9.12
++idrac01.mgmt	IN A	192.168.9.51
++idrac02.mgmt	IN A	192.168.9.52
++idrac03.mgmt	IN A	192.168.9.53
++infra01.k8s	IN A	192.168.9.104
++infra02.k8s	IN A	192.168.9.105
++nexus.svc	IN A	192.168.9.14
++openwrt.mgmt	IN A	192.168.9.10
++storage01.k8s	IN A	192.168.9.106
++storage02.k8s	IN A	192.168.9.107
++storage03.k8s	IN A	192.168.9.108
++vcsa.mgmt	IN A	192.168.9.5
++worker01.k8s	IN A	192.168.9.109
++worker02.k8s	IN A	192.168.9.110
+
+changed: [dns]
+
+TASK [dns_server : 反向区域] ***************************************************
+--- before
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmpt0h1orov/reverse.zone.j2
+@@ -0,0 +1,33 @@
++; 由 Ansible dns_server 从 ops/inventory/hosts.yaml 与 networks.yaml 生成，请勿手改。
++$TTL 300
++@	IN SOA	dns.mgmt.internal.egon.top. hostmaster.internal.egon.top. (
++		2026101601	; serial
++		3600	; refresh
++		600	; retry
++		604800	; expire
++		300 )	; negative cache TTL
++	IN NS	dns.mgmt.internal.egon.top.
++10	IN PTR	openwrt.mgmt.internal.egon.top.
++100	IN PTR	api.k8s.internal.egon.top.
++101	IN PTR	cp01.k8s.internal.egon.top.
++102	IN PTR	cp02.k8s.internal.egon.top.
++103	IN PTR	cp03.k8s.internal.egon.top.
++104	IN PTR	infra01.k8s.internal.egon.top.
++105	IN PTR	infra02.k8s.internal.egon.top.
++106	IN PTR	storage01.k8s.internal.egon.top.
++107	IN PTR	storage02.k8s.internal.egon.top.
++108	IN PTR	storage03.k8s.internal.egon.top.
++109	IN PTR	worker01.k8s.internal.egon.top.
++11	IN PTR	dns.mgmt.internal.egon.top.
++110	IN PTR	worker02.k8s.internal.egon.top.
++12	IN PTR	harbor.k8s.internal.egon.top.
++13	IN PTR	gitlab.svc.internal.egon.top.
++14	IN PTR	nexus.svc.internal.egon.top.
++15	IN PTR	admin.mgmt.internal.egon.top.
++5	IN PTR	vcsa.mgmt.internal.egon.top.
++51	IN PTR	idrac01.mgmt.internal.egon.top.
++52	IN PTR	idrac02.mgmt.internal.egon.top.
++53	IN PTR	idrac03.mgmt.internal.egon.top.
++61	IN PTR	esxi01.mgmt.internal.egon.top.
++62	IN PTR	esxi02.mgmt.internal.egon.top.
++63	IN PTR	esxi03.mgmt.internal.egon.top.
+
+changed: [dns]
+
+TASK [dns_server : named 主配置] ***********************************************
+--- before: /etc/named.conf
++++ after: /Users/mario/.ansible/tmp/ansible-local-7462853xzromi/tmp82j2hrqp/named.conf.j2
+@@ -1,14 +1,7 @@
+-//
+-// named.conf
+-//
+-// Provided by Red Hat bind package to configure the ISC BIND named(8) DNS
+-// server as a caching only nameserver (as a localhost DNS resolver only).
+-//
+-// See /usr/share/doc/bind*/sample/ for example named configuration files.
+-//
+-
++// 由 Ansible dns_server 管理（ops/00-preparation/ansible/roles/dns_server），请勿手改。
++// 基于 Rocky 10 bind 默认配置：增加内部区域、来源限制与上游转发。
+ options {
+-	listen-on port 53 { 127.0.0.1; };
++	listen-on port 53 { 127.0.0.1; 192.168.9.11; };
+ 	listen-on-v6 port 53 { ::1; };
+ 	directory 	"/var/named";
+ 	dump-file 	"/var/named/data/cache_dump.db";
+@@ -16,37 +9,25 @@
+ 	memstatistics-file "/var/named/data/named_mem_stats.txt";
+ 	secroots-file	"/var/named/data/named.secroots";
+ 	recursing-file	"/var/named/data/named.recursing";
+-	allow-query     { localhost; };
+-
+-	/* 
+-	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
+-	 - If you are building a RECURSIVE (caching) DNS server, you need to enable 
+-	   recursion. 
+-	 - If your recursive DNS server has a public IP address, you MUST enable access 
+-	   control to limit queries to your legitimate users. Failing to do so will
+-	   cause your server to become part of large scale DNS amplification 
+-	   attacks. Implementing BCP38 within your network would greatly
+-	   reduce such attack surface 
+-	*/
++	allow-query     { localhost; 192.168.9.0/24; };
++	allow-recursion { localhost; 192.168.9.0/24; };
++	allow-transfer  { none; };
+ 	recursion yes;
+-
+-	dnssec-validation yes;
+-
++	forwarders { 223.5.5.5; 8.8.8.8; };
++	forward only;
++	dnssec-validation auto;
+ 	managed-keys-directory "/var/named/dynamic";
+ 	geoip-directory "/usr/share/GeoIP";
+-
+ 	pid-file "/run/named/named.pid";
+ 	session-keyfile "/run/named/session.key";
+-
+-	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
+ 	include "/etc/crypto-policies/back-ends/bind.config";
+ };
+ 
+ logging {
+-        channel default_debug {
+-                file "data/named.run";
+-                severity dynamic;
+-        };
++	channel default_debug {
++		file "data/named.run";
++		severity dynamic;
++	};
+ };
+ 
+ zone "." IN {
+@@ -54,6 +35,17 @@
+ 	file "named.ca";
+ };
+ 
++zone "internal.egon.top" IN {
++	type primary;
++	file "internal.egon.top.zone";
++	allow-update { none; };
++};
++
++zone "9.168.192.in-addr.arpa" IN {
++	type primary;
++	file "9.168.192.in-addr.arpa.zone";
++	allow-update { none; };
++};
++
+ include "/etc/named.rfc1912.zones";
+ include "/etc/named.root.key";
+-
+
+changed: [dns]
+
+TASK [dns_server : 只对实验网段开放 DNS] ***************************************
+changed: [dns] => (item=['192.168.9.0/24', 'udp'])
+changed: [dns] => (item=['192.168.9.0/24', 'tcp'])
+
+TASK [dns_server : named 开机启动并运行] ***************************************
+changed: [dns]
+
+RUNNING HANDLER [dns_server : 重新加载 named] **********************************
+changed: [dns]
+
+PLAY [从管理端验证解析] ********************************************************
+
+TASK [内部名称] ****************************************************************
+ok: [localhost] => (item=cp01.k8s.internal.egon.top → 192.168.9.101)
+ok: [localhost] => (item=api.k8s.internal.egon.top → 192.168.9.100)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top → 192.168.9.12)
+ok: [localhost] => (item=esxi02.mgmt.internal.egon.top → 192.168.9.62)
+ok: [localhost] => (item=idrac03.mgmt.internal.egon.top → 192.168.9.53)
+ok: [localhost] => (item=192.168.9.109 → worker01.k8s.internal.egon.top.)
+
+TASK [外部名称经上游递归] ******************************************************
+ok: [localhost]
+
+TASK [内部区域由本服务器权威应答] **********************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+dns                        : ok=32   changed=19   unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+localhost                  : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

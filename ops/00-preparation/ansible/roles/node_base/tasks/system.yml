@@ -38,37 +38,40 @@
   ansible.builtin.command: swapoff -a
   when: node_base_swap.stdout | length > 0
 
-- name: 开机加载 overlay
-  ansible.builtin.copy:
-    dest: /etc/modules-load.d/90-kubernetes.conf
-    content: "overlay\n"
+- name: Kubernetes 节点内核前置（基础服务 VM 不需要转发与 overlay）
+  when: "'k8s_nodes' in group_names"
+  block:
+    - name: 开机加载 overlay
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/90-kubernetes.conf
+        content: "overlay\n"
 
-- name: 读取 overlay 是否已加载
-  ansible.builtin.command: grep -q '^overlay ' /proc/modules
-  register: node_base_overlay
-  changed_when: false
-  failed_when: false
-  check_mode: false
+    - name: 读取 overlay 是否已加载
+      ansible.builtin.command: grep -q '^overlay ' /proc/modules
+      register: node_base_overlay
+      changed_when: false
+      failed_when: false
+      check_mode: false
 
-- name: 加载 overlay
-  ansible.builtin.command: modprobe overlay
-  when: node_base_overlay.rc != 0
+    - name: 加载 overlay
+      ansible.builtin.command: modprobe overlay
+      when: node_base_overlay.rc != 0
 
-- name: 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）
-  ansible.builtin.copy:
-    dest: /etc/sysctl.d/90-kubernetes.conf
-    content: "net.ipv4.ip_forward = 1\n"
-  notify: 应用 sysctl 配置
+    - name: 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/90-kubernetes.conf
+        content: "net.ipv4.ip_forward = 1\n"
+      notify: 应用 sysctl 配置
 
-- name: 读取运行时 IPv4 转发
-  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
-  register: node_base_ip_forward
-  changed_when: false
-  check_mode: false
+    - name: 读取运行时 IPv4 转发
+      ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+      register: node_base_ip_forward
+      changed_when: false
+      check_mode: false
 
-- name: 运行时值不符时重新应用
-  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-kubernetes.conf
-  when: node_base_ip_forward.stdout != "1"
+    - name: 运行时值不符时重新应用
+      ansible.builtin.command: sysctl -p /etc/sysctl.d/90-kubernetes.conf
+      when: node_base_ip_forward.stdout != "1"
 
 - name: 读取 VMware 周期时间同步状态
   ansible.builtin.command: vmware-toolbox-cmd timesync status

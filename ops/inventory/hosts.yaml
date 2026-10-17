@@ -271,19 +271,32 @@ bootstrap_services:
   - id: openwrt
     fqdn: openwrt.mgmt.internal.egon.top
     ip: 192.168.9.10
-    planned_hypervisor: null
+    planned_hypervisor: esxi01
+    vm_status: planned  # 2026-10-16 准备中：OpenWrt 25.12.5 x86-64 ext4 combined-efi；无 Python，暂不纳入 Ansible inventory
+    vcpu: 2
+    memory_gib: 2
+    network_adapter: vmxnet3  # 2026-10-16 E1000E 在 25.12.5 镜像中无驱动，已改；见执行记录第 69 节
     outside_kubernetes: true
     depends_on_primary_ceph: false
   - id: dns
     fqdn: dns.mgmt.internal.egon.top
     ip: 192.168.9.11
-    planned_hypervisor: null
+    planned_hypervisor: esxi01
+    vm_status: deployed  # 2026-10-16 从 rocky10-base@sealed-2026-10-16 克隆；BIND 部署与 dig 验证通过（00.07.01）。运行时盘已卸载，vSphere 中「硬盘 2」用户暂留
+    vcpu: 2
+    memory_gib: 2
+    network_connection: ens33
     outside_kubernetes: true
     depends_on_primary_ceph: false
   - id: harbor
     fqdn: harbor.k8s.internal.egon.top
     ip: 192.168.9.12
-    planned_hypervisor: null
+    planned_hypervisor: esxi01
+    vm_status: deployed  # 2026-10-17 克隆并以 harbor.yml 部署 Harbor v2.15.4（Docker 29.9.1，/data 200G XFS）；管理端验证待重跑（执行记录第 75 节）
+    vcpu: 4
+    memory_gib: 8
+    data_disk_gib: 200
+    network_connection: ens33
     outside_kubernetes: true
     depends_on_primary_ceph: false
   - id: gitlab

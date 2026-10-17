@@ -1,0 +1,51 @@
+// 由 Ansible dns_server 管理（ops/00-preparation/ansible/roles/dns_server），请勿手改。
+// 基于 Rocky 10 bind 默认配置：增加内部区域、来源限制与上游转发。
+options {
+	listen-on port 53 { 127.0.0.1; {{ dns_listen_address }}; };
+	listen-on-v6 port 53 { ::1; };
+	directory 	"/var/named";
+	dump-file 	"/var/named/data/cache_dump.db";
+	statistics-file "/var/named/data/named_stats.txt";
+	memstatistics-file "/var/named/data/named_mem_stats.txt";
+	secroots-file	"/var/named/data/named.secroots";
+	recursing-file	"/var/named/data/named.recursing";
+	allow-query     { localhost; {% for c in dns_allowed_clients %}{{ c }}; {% endfor %}};
+	allow-recursion { localhost; {% for c in dns_allowed_clients %}{{ c }}; {% endfor %}};
+	allow-transfer  { none; };
+	recursion yes;
+	forwarders { {% for f in dns_forwarders %}{{ f }}; {% endfor %}};
+	forward only;
+	dnssec-validation auto;
+	managed-keys-directory "/var/named/dynamic";
+	geoip-directory "/usr/share/GeoIP";
+	pid-file "/run/named/named.pid";
+	session-keyfile "/run/named/session.key";
+	include "/etc/crypto-policies/back-ends/bind.config";
+};
+
+logging {
+	channel default_debug {
+		file "data/named.run";
+		severity dynamic;
+	};
+};
+
+zone "." IN {
+	type hint;
+	file "named.ca";
+};
+
+zone "{{ dns_zone }}" IN {
+	type primary;
+	file "{{ dns_zone }}.zone";
+	allow-update { none; };
+};
+
+zone "{{ dns_reverse_zone }}" IN {
+	type primary;
+	file "{{ dns_reverse_zone }}.zone";
+	allow-update { none; };
+};
+
+include "/etc/named.rfc1912.zones";
+include "/etc/named.root.key";

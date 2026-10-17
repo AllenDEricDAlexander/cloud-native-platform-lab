@@ -1,0 +1,9 @@
+# 只分发公开的根 CA 证书（仓库 ops/00-preparation/pki/public/）；私钥始终只在管理端。
+- name: 安装内部根 CA 到系统信任
+  ansible.builtin.copy:
+    src: "{{ node_ca_trust_source }}"
+    dest: /etc/pki/ca-trust/source/anchors/cnpl-lab-root-ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+  notify: 更新系统信任

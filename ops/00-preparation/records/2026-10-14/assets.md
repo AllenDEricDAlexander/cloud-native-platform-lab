@@ -1284,3 +1284,118 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 由此，手册第 11 节「以已编写并语法验证的 Playbook 为前提……第二次真实执行应无非预期变更」在十台上有了证据：手工建立的母机基线、克隆后的节点状态与仓库中的 node_base、container_runtime 一致。台账十台状态更新为 baseline_as_code_verified。仍未覆盖：权限与属主的强制；从种子物料首次安装软件包的路线；chrony 内部时间源；SSH 收紧；Harbor 就绪后的 10.2 仓库拉取。
 
 节点主线到此告一段落。按用户选择，下一步建设集群外基础服务，顺序为 DNS（.11）、CA、Harbor（.12）。
+
+## 67. 2026-10-16 提交基线编码；开始内部 DNS（00.07.01）
+
+本助手提交 d074968（基线即代码，§65–§66）并 fast-forward 合并到 main，未推送（领先 origin/main 5 个提交）。
+
+开始集群外基础服务的第一项：内部 DNS 192.168.9.11 / dns.mgmt.internal.egon.top。为减少往返，本助手先完成全部自动化与本地验证，用户只需克隆 VM、改地址、分发密钥并运行一条 playbook。
+
+- 台账：dns 计划宿主改为 esxi01（基础服务优先使用 esxi01 的内存余量），2 vCPU / 2 GiB（resources.yaml bootstrap_memory.dns），vm_status creating，连接名 ens33。Inventory 生成脚本增加 bootstrap_services 组，只纳入 vm_status 不是 planned 的服务 VM，不对尚未创建的主机发起连接。
+- node_base 区分角色：Kubernetes 端口规则、overlay 与 IPv4 转发只作用于 k8s_nodes。本地确认 cp01 仍为 6 条规则、worker01 3 条、dns 0 条，节点侧行为不变。
+- 新增 service_vm 角色：服务 VM 由节点模板克隆，带 containerd、入群工具与运行时盘。该角色停止并禁用 containerd，卸载 /var/lib/containerd 并移出 fstab（不格式化），以 disablerepo='*' 本地卸载六个运行时与入群工具包，清理运行时配置和 Kubernetes 内核前置文件，并把 ip_forward 设为 0（DNS 不是路由器）。磁盘卸载后，由用户在 vSphere 删除「硬盘 2」。
+- 新增 dns_server 角色：安装 bind 与 bind-utils（需要发行版软件源）；named.conf 以 Rocky 默认配置为基础，监听 127.0.0.1 与 .11，allow-query/allow-recursion 只限 localhost 与 192.168.9.0/24，allow-transfer none，forward only 到 223.5.5.5、8.8.8.8，dnssec-validation auto；正向区域 internal.egon.top 与反向区域 9.168.192.in-addr.arpa 由 hosts.yaml 与 networks.yaml 生成：Kubernetes 节点、基础服务、ESXi、由 esxiNN 推得的 idracNN、vCenter 目标名称 vcsa、API VIP。模板写入时分别用 named-checkzone 与 named-checkconf 校验。firewalld 只对 192.168.9.0/24 开放 53/udp 与 53/tcp。区域序列号为人工维护的 2026101601。
+- 新增 playbooks/dns.yml：service_vm → node_base → dns_server，随后在管理端用 dig 验证六个内部名称（含 API VIP、iDRAC 与 PTR）、外部名称经上游递归以及内部区域的 aa 权威标志。
+
+本地验证：两个 playbook 的 syntax-check 通过；以本地连接渲染三个模板，正向区域 24 条 A 记录，反向区域 24 条 PTR 且无重复；named.conf 的监听、来源限制与转发符合设计。首次渲染因 zip 产生的元组与字面列表混合排序而失败，已改为按名称字段排序。vcsa 的 PTR 指向目标名称，而 VCSA 当前的 PNID 仍是 vcenter.egon.local，因此在 VCSA 改名（暂缓）之前不要让 VCSA 使用本服务器。
+
+待用户执行：在 vSphere 从 rocky10-base 克隆 dns（esxi01、esxi01-sas10t5、VM Network、2 vCPU/2 GB，不自定义操作系统）；开机后按节点方式改为 dns.mgmt.internal.egon.top / 192.168.9.11；从 Mac 执行 ssh-copy-id；然后运行：
+
+```bash
+cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/dns.yml --diff 2>&1 | tee ../records/2026-10-14/evidence/00.07.01-dns-deploy.txt
+```
+
+成功后在 vSphere 删除 dns 的「硬盘 2」（同时从数据存储删除文件）。尚无输出。
+
+## 68. 2026-10-16 通过：内部 DNS 部署；OpenWrt 部署方式调整
+
+用户报告 BIND 下载很慢，曾要求先部署 OpenWrt 旁路由和 VPN；随后又报告 DNS「好像部署好了」，硬盘 2 暂不删除。本助手读取 [DNS 部署证据](evidence/00.07.01-dns-deploy.txt)：dns ok=32 changed=19 failed=0，localhost ok=3 failed=0。管理端 dig 六个用例全部符合：cp01→.101、api→.100、harbor→.12、esxi02→.62、idrac03→.53、.109 的 PTR 为 worker01；外部名称 rockylinux.org 经上游递归有 A 记录；internal.egon.top 的 SOA 带 aa 标志。00.07.01「从节点能够解析内部服务」的服务端部分完成；节点与 Mac 仍使用公共 DNS，改用 .11 由后续任务处理。台账 dns 的 vm_status 记为 deployed。service_vm 已卸载运行时盘并移出 fstab，用户暂留 vSphere「硬盘 2」，之后删除不影响开机。
+
+OpenWrt：用户选择代理订阅（Clash 类）与显式代理模式，与 00.06.02 的设计一致：默认网关保持 .1，只有显式配置代理的程序经 192.168.9.10。用户问能否直接下载 ISO 上传安装。答复：OpenWrt 官方不发布 x86 ISO，只提供磁盘镜像；第三方 ISO 来源无法核实，不采用。改用比借 DNS VM 执行 dd 更简单的方式：把镜像作为 VMFS 平面磁盘的数据文件，另写描述文件，两者经数据存储浏览器上传后作为现有硬盘挂载。
+
+本助手在 Mac 种子目录完成：官方 sha256sums 校验 openwrt-25.12.5-x86-64-generic-ext4-combined-efi.img.gz 为 OK（c8ee59ce…0290，HTTPS 获取，签名未验证）；解压为 openwrt-flat.vmdk，原始 126123520 字节（不是整 MiB），SHA256 d02a23a6…1f31；补零到 1 GiB，使容量为整 MiB 并为以后扩容留空间，补零后前 126123520 字节的 SHA256 不变；生成描述文件 openwrt.vmdk（createType vmfs，RW 2097152 扇区，几何 130/255/63）。补零后 GPT 备份头不在磁盘末尾，内核会提示，不影响启动。
+
+VM 设计：esxi01、2 vCPU、2 GiB、EFI 关闭安全引导；网卡用 E1000E，因为 OpenWrt x86 默认镜像自带 e1000e 驱动，VMXNET3 驱动是否内置未核实，这与节点统一使用 VMXNET3 不同；磁盘挂在 SATA 控制器上，因为 OpenWrt 默认内核是否带 LSI Logic/PVSCSI 驱动未核实，而 AHCI 一定内置。首次开机前断开网卡：OpenWrt 默认在 LAN 上启用 DHCP 与 IPv6 RA，接入现有 LAN 前必须在控制台关闭（00.05.02「不存在第二个 DHCP 服务抢答」），再把地址设为 .10 并设置 root 密码。OpenWrt 没有 Python，暂不纳入 Ansible inventory（vm_status planned）。若 vSphere 不接受上传的平面磁盘，退回 vmkfstools 转换或 dd 路线。订阅链接按秘密处理，不进入对话或仓库。尚无部署输出。
+
+## 69. 2026-10-16 失败与修正：OpenWrt 无网卡，原因是 E1000E 驱动不在镜像中
+
+用户报告 OpenWrt 已开机、地址已改为 .10，但 Mac 无法 ping 通；控制台 `ip -br link` 中没有 eth0。本助手核对 25.12.5 x86-64 的官方 manifest：只有 28 个 kmod，没有任何网卡驱动包。再核对 v25.12.5 标签下的内核配置：target/linux/x86/config-6.12 有 CONFIG_ATA_PIIX=y、CONFIG_FUSION_SPI=y，target/linux/x86/64/config-6.12 有 CONFIG_SATA_AHCI=y、CONFIG_VIRTIO_NET=y、CONFIG_VMWARE_PVSCSI=y、CONFIG_VMXNET3=y。可见 VMXNET3 已内置，E1000/E1000E 不在内置也不在默认包中。第 68 节「OpenWrt 默认镜像自带 e1000e，VMXNET3 驱动是否内置未核实」的判断是错的：本助手凭印象选择 E1000E，没有先核实。LSI Logic（FUSION_SPI）与 PVSCSI 也已内置，因此改挂 SATA 并无必要，但不影响使用。
+
+用户随后找到 OpenWrt 官方 wiki [OpenWrt on VMware alternative howto](https://openwrt.org/inbox/openwrt_on_vmware_alternative_howto)（基于 24.10.2 与 ESXi 6.7 U3）。该文档使用 VMXNET3 网卡、PVSCSI 控制器、BIOS 固件与非 EFI 镜像，经 qemu-img 转换后用 vmkfstools 导入；文档写明 EFI 不可用，并以双网卡作为主路由。与本次做法对照：网卡类型是唯一导致失败的差异；我们使用的是 combined-efi 镜像，已能在 EFI 固件下开机进入命令行，所以 EFI 限制不适用于本镜像；单网卡旁路由与文档的双网卡主路由用途不同。结论是保留现有 VM，只把网卡换成 VMXNET3（vSphere 不能修改现有适配器类型，需删除后重新添加，MAC 会变化）。因为 DHCP 与 RA 已在配置中关闭，新网卡可以直接连接。台账 openwrt 的 network_adapter 改为 vmxnet3。
+
+若更换网卡后 eth0 出现但 br-lan 没有地址，可能是首次开机时没有可识别网卡，生成的 /etc/config/network 未把 eth0 加入 br-lan，需要查看 `uci show network` 后补上。尚无更换后的输出。
+
+## 70. 2026-10-16 OpenWrt 改为按官方文档的组合重建
+
+用户报告按第 69 节更换网卡后，OpenWrt「好像坏了，开不了机」，未提供控制台画面或 vSphere 报错。最可能的解释是 EFI 启动项在删除和新增设备后失效，或者固件优先尝试从新网卡 PXE 启动，但未经证实。该 VM 没有需要保留的数据，不继续排查，改为按 wiki 文档已验证的组合重建：BIOS 固件、非 EFI 镜像、VMware 准虚拟（PVSCSI）控制器与 VMXNET3 网卡。磁盘导入继续采用描述文件加平面数据文件的上传方式，不需要 qemu 或 ESXi SSH。
+
+本助手在 Mac 种子目录下载 openwrt-25.12.5-x86-64-generic-ext4-combined.img.gz，按 sha256sums 校验为 OK（23e2538e…4461，HTTPS 获取，签名未验证）。解压后为 126353408 字节，首扇区以 55aa 结尾（MBR 引导盘），SHA256 c1b1fd76…2416；补零到 1 GiB 作为 openwrt-bios-flat.vmdk，补零后前 126353408 字节的 SHA256 不变；描述文件 openwrt-bios.vmdk 为 2097152 扇区。MBR 分区表不存在 GPT 备份头的问题。旧 VM 及其已首启修改过的 openwrt-disk 文件夹不再使用，由用户从磁盘删除。新镜像同样默认启用 LAN DHCP 与 RA，首次开机仍须断开网卡，并先在控制台确认 eth0 存在。尚无重建输出。
+
+## 71. 2026-10-16 OpenWrt 暂停；内部 CA 脚本与 Harbor 物料准备
+
+用户按第 70 节重建 OpenWrt。第一张截图显示 `ip -br link` 只打印 BusyBox ip 的用法：OpenWrt 的 ip 是 BusyBox applet，不支持 -br。这是本助手给错了命令。因此第 69 节「没有 eth0」的观察可能同样出自这个原因；但 E1000E 驱动确实不在镜像中，两者可以同时成立。改用 `ls /sys/class/net` 后，第二张截图显示在 OpenWrt 内 `ping 192.168.9.1` 返回 Network unreachable，说明当时没有任何接口持有 192.168.9.0/24 的地址：uci 配置未生效或 eth0 未加入 br-lan，未进一步检查。用户决定暂停 OpenWrt，先做 CA 与 Harbor。待查命令为 `ip addr` 与 `uci show network`。
+
+内部 CA（00.08.01）：新增 [create-ca.sh](../../pki/create-ca.sh) 与 [issue-cert.sh](../../pki/issue-cert.sh)，在管理 Mac 运行（OpenSSL 3.6.3）。根 CA 为 ECDSA P-384、10 年、pathlen 1，只签中间 CA；中间 CA 为 ECDSA P-384、5 年、pathlen 0，带关键的名称约束，只允许 internal.egon.top、.internal.egon.top 与 IP 192.168.9.0/24。私钥以 AES-256 加密，运行时输入口令，写在仓库外的 ~/cnpl-pki；仓库只保存公开证书 ops/00-preparation/pki/public/。服务端证书为 ECDSA P-256、825 天，每个服务单独私钥，SAN 写实际访问名称，并生成含中间 CA 的 fullchain。已存在的 CA 与证书不覆盖。
+
+在临时目录用测试口令完整验证：第一次运行发现 OpenSSL 3 的 genpkey 口令参数应为 -pass 而不是 -passout，已修正。修正后根 CA 与中间 CA 生成且 verify OK；harbor.k8s.internal.egon.top（含 IP 192.168.9.12）证书签发且链验证通过，fullchain 含两张证书；为 evil.example.com 签发的证书在验证时报 `permitted subtree violation` 而失败，名称约束有效；重复运行拒绝覆盖；两个 CA 私钥均为 ENCRYPTED PRIVATE KEY。测试产物已删除，未在用户的 ~/cnpl-pki 生成任何文件。
+
+Harbor 物料：GitHub 最新发布为 v2.15.4，提供 harbor-offline-installer-v2.15.4.tgz、sigstore 签名与 md5sum。Docker CE 的 el10 仓库元数据为 zstd 压缩，用 Python 3.14 的 compression.zstd 解析：docker-ce 3:29.9.1-1.el10、docker-ce-cli 1:29.9.1-1.el10、docker-buildx-plugin 0.38.0-1.el10、docker-compose-plugin 5.6.0-1.el10、containerd.io 2.4.2-2.el10（与节点一致，种子目录已有）。docker-ce 依赖 iptables-nft 或 iptables、nftables、container-selinux、containerd.io ≥ 2.1.5、tar、xz。四个 RPM 的 SHA256 已写入种子目录 docker-29.9.1-rpms.sha256。Harbor VM 计划为 esxi01、4 vCPU、8 GiB、另加 200G 数据盘、地址 .12；esxi01 的内存预计为节点 52 + dns 2 + openwrt 2 + harbor 8 + VCSA，仍在 128 GiB 内。Harbor 按官方方式使用 Docker 与 compose，只装在 Harbor VM，不进入 Kubernetes 节点。
+
+待用户执行：运行 create-ca.sh 与 issue-cert.sh（harbor）；在 vSphere 克隆 harbor 并改地址、分发密钥；在 Mac 下载 Harbor 离线包与四个 Docker RPM。尚无输出。
+
+## 72. 2026-10-16 失败与修正：CA 脚本在 macOS bash 3.2 下的两个缺陷
+
+用户运行 create-ca.sh，在第 41 行报 `pass_out[@]: unbound variable` 后退出。失败发生在根 CA 私钥生成之前；本助手只读确认 ~/cnpl-pki 只有空目录与 root/root.cnf，没有私钥，可直接重跑。
+
+缺陷一：macOS 自带的 bash 3.2 在 `set -u` 下展开空数组 `"${arr[@]}"` 会报 unbound variable（bash 4.4 起修复）。第 71 节的测试设置了 CNPL_PKI_PASS，数组非空，因此没有覆盖用户实际的交互输入路径。两个脚本的数组展开改为 `${arr[@]+"${arr[@]}"}`，并加注释说明；bash 3.2 下验证空数组展开为空、非空数组按元素展开。
+
+缺陷二：修正缺陷一后复测，第 60 行报 `PKI?: unbound variable`。`$PKI` 后紧跟全角括号，与第 52 节收集脚本的问题相同：bash 3.2 在 UTF-8 下把多字节字符的首字节并入变量名。本助手写新脚本时没有沿用第 52 节的检查，属于重复犯错。已用脚本把紧邻非 ASCII 字符的变量统一改为 `${VAR}` 形式，扫描两个 PKI 脚本已无残留。
+
+验证：在 /bin/bash 3.2、en_US.UTF-8 下以导出的测试口令完整运行 create-ca.sh，退出码 0，根 CA、中间 CA、verify、公开证书复制与指纹输出全部完成；issue-cert.sh 也能成功签发。交互输入口令的路径需要终端，无法在本助手的环境中端到端运行；但在无终端时，脚本已越过第 41 行，进入 openssl 的口令提示阶段，说明不再被数组展开阻断。一次复测因测试命令传递口令的方式不当而失败，与脚本无关。今后在 macOS 运行的 shell 脚本，发布前都以 /bin/bash 3.2 加 UTF-8 并覆盖空数组路径测试。尚未在用户的 ~/cnpl-pki 生成 CA。
+
+## 73. 2026-10-16 内部 CA 建成；Harbor 部署自动化
+
+用户运行修正后的 create-ca.sh 与 issue-cert.sh。本助手只读核对，不读取私钥内容：
+
+- 根 CA：CN=CNPL Lab Root CA 2026，2026-10-17 至 2036-10-14（GMT），pathlen 1，SHA-256 指纹 04:39:0E:06:D8:FB:A9:54:A1:55:01:B0:BA:D2:3B:7B:59:62:AF:26:41:13:2B:0D:3B:A8:05:74:1A:B2:D8:14。
+- 中间 CA：CN=CNPL Lab Issuing CA 2026，由根 CA 签发，有效期至 2031-10-16，pathlen 0，关键名称约束为 internal.egon.top、.internal.egon.top 与 192.168.9.0/24，指纹 36:51:42:E3:80:05:79:F9:9F:3D:E3:78:0D:EF:BD:A7:C2:1C:F3:AD:C2:7F:89:D0:30:2A:52:19:3E:88:D5:EC。
+- Harbor 证书：SAN 为 DNS:harbor.k8s.internal.egon.top 与 IP:192.168.9.12，EKU serverAuth，有效期至 2029-01-19，经根 CA 与中间 CA 验证 OK；fullchain 含两张证书；server.key 与证书公钥一致。
+- 两个 CA 私钥均为 ENCRYPTED PRIVATE KEY，三个私钥权限都是 0600，均位于仓库外的 ~/cnpl-pki。仓库中的公开证书由 0600 改为 0644。
+
+00.08.01「内部 PKI 信任链、根私钥离线、签发权限分离」在管理端完成；分发信任（00.08.02）随 Harbor 与节点角色执行。用户尚未开始克隆 Harbor VM 与下载物料，本助手先编写部署自动化：
+
+- service_vm 增加 service_vm_keep_containerd：为 true 时只移除 Kubernetes 入群工具与 crictl.yaml，保留 containerd、运行时盘、配置与 IPv4 转发，供 Docker 使用；DNS 仍走原来的完整清理路径（dns.yml 语法检查通过）。
+- node_base 增加 ca_trust（标签 ca_trust）：把仓库中的公开根 CA 安装到 /etc/pki/ca-trust/source/anchors/，变化时执行 update-ca-trust extract。
+- 新增 docker_host 角色：从管理端种子目录传输四个 Docker RPM 与 docker.gpg，rpm_key 导入并核对指纹 060A…9F35，dnf 本地安装并验签（iptables-nft 等依赖仍取自发行版软件源）；daemon.json 设置 json-file 日志上限与 live-restore。
+- 新增 harbor 角色：数据盘只在恰好有一块 200 GiB、无分区、无文件系统的磁盘时才格式化为 XFS（标签 harbor-data），按 UUID 挂载到 /data；已带标签时直接复用。证书链与私钥从 ~/cnpl-pki 传到 /etc/harbor/tls（私钥 0600）。传输离线包并解压到 /opt/harbor；harbor.yml 以发行模板为基础，只替换 hostname、证书、私钥、管理员口令、数据库口令与 data_volume（no_log）。install.sh 只在 docker-compose.yml 不存在时运行；配置或证书变化时由处理器执行 prepare 与 docker compose up -d。firewalld 对 192.168.9.0/24 开放 443。管理员与数据库口令由 password lookup 在管理端 ~/.cnpl-secrets（0700，仓库外）随机生成，文件内容即完整口令。
+- 新增 playbooks/harbor.yml：service_vm（保留 containerd）→ node_base → docker_host → harbor，随后在 Mac 上用内部根 CA 校验证书链访问 /api/v2.0/ping（Pong）、/api/v2.0/health（healthy）与 /v2/（401）。Mac 尚未使用内部 DNS，因此用 curl --resolve 指定地址。
+
+本地验证：三个 playbook 的 syntax-check 通过，Harbor 任务列表完整。用五种模拟磁盘布局测试数据盘选择：只有「系统盘 + 运行时盘 + 一块新 200G 空盘」得到唯一候选；新盘已有文件系统、已有分区、容量为 100G 时没有候选，有两块 200G 空盘时得到两个候选，这些情况都会被断言拦下，不会格式化。
+
+已知限制，均未在本次处理：Docker 默认不启用 SELinux 标签（selinux-enabled false），Harbor 容器以非受限域运行，主机仍为 Enforcing；Docker 发布的端口通过它自己的 nftables/iptables 规则放行，可能绕过 firewalld 的来源限制，目前依赖 VM 只接入实验 LAN；Trivy 未启用（00.09.06）；节点仍使用公共 DNS，不能用名称访问 Harbor，containerd 的 hosts.toml 也还没有配置（10.2）。尚无部署输出。
+
+## 74. 2026-10-17 Harbor 部署卡在 Docker 依赖下载；改为全离线安装
+
+用户首次运行 harbor.yml，在 docker_host「安装 Docker」一步停留数分钟。用户回传的 harbor 日志显示：/var/log/dnf.librepo.log 在 09:52:50（客体时间）开始从 mirrors.ustc.edu.cn 下载 BaseOS 元数据（primary、comps、updateinfo），之后没有新记录；dnf.log 显示 repo: downloading from remote: baseos；rpm -q 显示 iptables-nft 未安装，iptables-libs-1.8.11-13.el10 已安装。mirrors.ustc.edu.cn 正是第 51 节 worker01 失败时低于 1000 B/s 的镜像。
+
+本助手在 Mac 读取 Rocky 10.2 官方元数据：docker-ce 29.9.1 的全部依赖中，除 iptables-nft 外均为模板已有的系统组件（glibc、libsystemd、shadow-utils 的 groupadd、nftables、tar、xz、container-selinux、containerd.io）。iptables-nft 位于 AppStream，有 1.8.11-13.el10、-15.el10_2 与 -16.el10_2 三个版本。-13 与已装的 iptables-libs-13 匹配，但带有 `(kernel-modules-extra if kernel-modules-core)` 富依赖，会要求额外的大型内核模块包；-15/-16 没有该依赖，但要求同版本的 iptables-libs。因此选用 iptables-nft-1.8.11-16.el10_2 与 iptables-libs-1.8.11-16.el10_2（SHA256 a8072c48…dfc9 与 b2d94196…720c，取自官方 primary 元数据，写入种子目录 rocky-iptables-1.8.11-16.sha256），由系统已有的 Rocky 公钥验签。
+
+docker_host 角色改为传输并离线安装 Docker 四个 RPM 与这两个依赖包，dnf 使用 disablerepo='*'，不再访问镜像站。注意：Harbor VM 的 iptables-libs 将从 -13 更新到 -16，与十个节点的版本不同。harbor.yml 语法检查通过。当前运行中的 dnf 仍处在下载元数据阶段，尚未进入事务，中断是安全的；重跑时已完成的步骤会跳过。尚无重跑输出。
+
+## 75. 2026-10-17 Harbor 服务端部署完成；管理端验证因剧本缺陷未执行
+
+用户报告 harbor.yml 执行完毕且「都是 ok 的」。本助手读取 [Harbor 部署证据](evidence/00.09.02-harbor-deploy.txt)：harbor ok=47 changed=29 failed=0 skipped=15，其中 Docker 安装、数据盘格式化（XFS，标签 harbor-data）、按 UUID 挂载 /data 与首次安装 install.sh 均为 changed。第 74 节的离线安装改动当时尚未告知用户，这次运行仍按原方式从镜像站取得依赖并成功完成，未被中断。
+
+但 localhost ok=0 failed=1：管理端验证的第一个任务报 `'inventory_dir' is undefined`。隐式 localhost 不在 inventory 中，没有 inventory_dir，是本助手的剧本缺陷，与 Harbor 无关。因此 ping、health 与 /v2/ 401 三项验证都没有执行，「都是 ok」不成立，Harbor 的 HTTPS 与证书链尚未从管理端验证。已改为 `hostvars['harbor']['inventory_dir']`，本地确认路径可解析到根 CA 文件，syntax-check 通过。
+
+种子物料核对：harbor-offline-installer-v2.15.4.tgz 共 747317006 字节，md5 1dab0faa…dc99 与发布页 md5sum 一致；本地 SHA256 为 ec4152a6…5ccfc；sigstore 签名已下载，未用 cosign 验证。补下载的 iptables-libs 与 iptables-nft 1.8.11-16.el10_2 两个 RPM 按种子目录校验文件均为 OK。管理端 ~/.cnpl-secrets 下已生成 harbor_admin_password 与 harbor_db_password（0600）。版本锁新增 harbor v2.15.4（installed_unvalidated）与 registry_runtime（Docker 29.9.1 及 iptables 依赖），台账 harbor 记为 deployed、验证待重跑。
+
+Harbor VM 实际安装的 iptables-nft 版本未取证；重跑时 docker_host 会用种子目录的 -16 版离线安装，若当前为 -13 则会更新。下一步重跑完整 harbor.yml：同时完成管理端三项验证，并检查服务端第二次执行的变更（预期只有 docker_host 新增的两个依赖 RPM 传输，以及可能的 iptables 更新）。
+
+## 76. 2026-10-17 安全修正：--diff 把 Harbor TLS 私钥写入证据文件
+
+用户要求提交。提交前的检查发现 00.09.02-harbor-deploy.txt 中有一个 PEM 私钥块：部署命令带 --diff，harbor 角色传输 /etc/harbor/tls/server.key 的 copy 任务把文件内容作为差异打印出来，tee 随之写入证据文件。管理员与数据库口令的替换任务设置了 no_log（日志中为 censored），私钥传输任务却遗漏了同等保护。这是本助手的缺陷。
+
+处理：用脚本把证据中的私钥块整体替换为脱敏说明，过程中不输出原内容，替换 1 处；全仓库扫描已无私钥内容（执行记录中只有描述私钥格式的文字）。harbor 角色的证书与私钥传输任务增加 `diff: false`，以后即使带 --diff 也不打印。复查其余带 --diff 的传输任务：Docker RPM 为二进制，docker.gpg 与根 CA 为公开内容，harbor.yml 模板复制时尚未写入口令，均不涉及秘密。
+
+影响评估：该文件未提交、未推送，私钥只出现在管理端本地的这个文件和用户终端的滚动记录中；同一私钥本来就以明文形式保存在同一用户主目录的 ~/cnpl-pki 中，因此没有产生新类别的暴露。暂不轮换证书；若终端记录或该文件曾被复制到其他位置，应使用 issue-cert.sh 重新签发并重跑 harbor.yml。今后部署记录先检查 PEM 与口令再提交，后续涉及私钥的任务一律加 diff: false 或 no_log。

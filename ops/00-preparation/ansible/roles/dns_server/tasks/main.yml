@@ -1,0 +1,49 @@
+- name: 安装 BIND（需要访问发行版软件源）
+  ansible.builtin.dnf:
+    name: [bind, bind-utils]
+    state: present
+
+- name: 正向区域
+  ansible.builtin.template:
+    src: forward.zone.j2
+    dest: /var/named/{{ dns_zone }}.zone
+    owner: root
+    group: named
+    mode: "0640"
+    validate: named-checkzone {{ dns_zone }} %s
+  notify: 重新加载 named
+
+- name: 反向区域
+  ansible.builtin.template:
+    src: reverse.zone.j2
+    dest: /var/named/{{ dns_reverse_zone }}.zone
+    owner: root
+    group: named
+    mode: "0640"
+    validate: named-checkzone {{ dns_reverse_zone }} %s
+  notify: 重新加载 named
+
+- name: named 主配置
+  ansible.builtin.template:
+    src: named.conf.j2
+    dest: /etc/named.conf
+    owner: root
+    group: named
+    mode: "0640"
+    validate: named-checkconf %s
+  notify: 重新加载 named
+
+- name: 只对实验网段开放 DNS
+  ansible.posix.firewalld:
+    zone: "{{ node_firewall_zone | default('public') }}"
+    rich_rule: rule family="ipv4" source address="{{ item.0 }}" port port="53" protocol="{{ item.1 }}" accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ dns_allowed_clients | product(['udp', 'tcp']) | list }}"
+
+- name: named 开机启动并运行
+  ansible.builtin.systemd_service:
+    name: named
+    enabled: true
+    state: started

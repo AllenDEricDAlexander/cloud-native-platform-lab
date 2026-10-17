@@ -1,0 +1,40 @@
+- name: 种子目录
+  ansible.builtin.file:
+    path: /root/seed/docker
+    state: directory
+    mode: "0700"
+
+- name: 传输 Docker RPM 与签名公钥
+  ansible.builtin.copy:
+    src: "{{ docker_seed_dir }}/{{ item }}"
+    dest: /root/seed/docker/{{ item }}
+    mode: "0600"
+  loop: "{{ docker_rpms + docker_dependency_rpms + ['docker.gpg'] }}"
+
+- name: 导入 Docker 签名公钥并核对指纹
+  ansible.builtin.rpm_key:
+    key: /root/seed/docker/docker.gpg
+    fingerprint: "{{ docker_gpg_fingerprint }}"
+    state: present
+
+- name: 安装 Docker 及其依赖（本地包验签，禁用全部软件源，不受镜像站速度影响）
+  ansible.builtin.dnf:
+    name: "{{ (docker_rpms + docker_dependency_rpms) | map('regex_replace', '^', '/root/seed/docker/') | list }}"
+    state: present
+    disable_gpg_check: false
+    disablerepo: "*"
+
+- name: Docker daemon 配置
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: 重启 docker
+
+- name: Docker 开机启动并运行
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started

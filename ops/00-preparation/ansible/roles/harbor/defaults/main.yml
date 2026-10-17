@@ -1,0 +1,15 @@
+# Harbor（00.09.02）：官方离线安装包 + Docker Compose，HTTPS 证书由内部中间 CA 签发。
+harbor_version: v2.15.4
+harbor_fqdn: harbor.k8s.internal.egon.top
+harbor_seed_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/Downloads/cloud-native-lab-seed-2026-10-14/harbor"
+harbor_tls_dir_local: "{{ lookup('ansible.builtin.env', 'HOME') }}/cnpl-pki/intermediate/issued/{{ harbor_fqdn }}"
+harbor_install_parent: /opt
+harbor_data_dir: /data
+# 克隆时新增的数据盘：精确按容量识别，且只格式化没有分区、没有文件系统的那一块。
+harbor_data_disk_bytes: "{{ 200 * 1024 * 1024 * 1024 }}"
+harbor_data_label: harbor-data
+harbor_allowed_clients: ["192.168.9.0/24"]
+# 口令只保存在管理端仓库之外（~/.cnpl-secrets，0700），首次运行时随机生成；文件内容即完整口令。
+harbor_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+harbor_admin_password: "{{ lookup('ansible.builtin.password', harbor_secrets_dir ~ '/harbor_admin_password', length=24, chars=['ascii_letters', 'digits']) }}"
+harbor_db_password: "{{ lookup('ansible.builtin.password', harbor_secrets_dir ~ '/harbor_db_password', length=24, chars=['ascii_letters', 'digits']) }}"

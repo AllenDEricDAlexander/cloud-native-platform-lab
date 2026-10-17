@@ -1,0 +1,60 @@
+# 集群外基础服务 VM 由 Kubernetes 节点模板克隆（模板带 containerd、入群工具与 100G 运行时盘）。
+# 这里去掉服务 VM 不需要的部分；运行时盘卸载并移出 fstab 后，再由用户在 vSphere 中删除「硬盘 2」。
+# 只做本地操作：软件包卸载禁用全部软件源，不访问网络。
+# service_vm_keep_containerd=true（如 Harbor 用 Docker）时保留 containerd、运行时盘、配置与 IPv4 转发，
+# 只移除 Kubernetes 入群工具与 crictl。
+- name: 移除 Kubernetes 入群工具（保留 containerd 的服务 VM）
+  ansible.builtin.dnf:
+    name: [cri-tools, kubeadm, kubelet, kubectl, kubernetes-cni]
+    state: absent
+    disablerepo: "*"
+  when: service_vm_keep_containerd
+
+- name: 移除 crictl 配置（保留 containerd 的服务 VM）
+  ansible.builtin.file:
+    path: /etc/crictl.yaml
+    state: absent
+  when: service_vm_keep_containerd
+
+- name: 不需要容器运行时的服务 VM
+  when: not service_vm_keep_containerd
+  block:
+    - name: 停止并禁用 containerd
+      ansible.builtin.systemd_service:
+        name: containerd
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: 卸载运行时盘并移出 fstab（不格式化、不删除数据）
+      ansible.posix.mount:
+        path: /var/lib/containerd
+        state: absent
+
+    - name: 移除 Kubernetes 运行时与入群工具
+      ansible.builtin.dnf:
+        name: [containerd.io, cri-tools, kubeadm, kubelet, kubectl, kubernetes-cni]
+        state: absent
+        disablerepo: "*"
+
+    - name: 清理运行时与 Kubernetes 内核前置的配置残留
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/containerd
+        - /etc/systemd/system/containerd.service.d
+        - /etc/crictl.yaml
+        - /etc/modules-load.d/90-kubernetes.conf
+        - /etc/sysctl.d/90-kubernetes.conf
+      notify: 服务 VM 重新加载 systemd
+
+    - name: 读取运行时 IPv4 转发
+      ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+      register: service_vm_ip_forward
+      changed_when: false
+      check_mode: false
+
+    - name: 服务 VM 不转发 IPv4（不是路由器）
+      ansible.builtin.command: sysctl -w net.ipv4.ip_forward=0
+      when: service_vm_ip_forward.stdout != "0"

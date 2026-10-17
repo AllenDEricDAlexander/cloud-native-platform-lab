@@ -1,0 +1,15 @@
+# Harbor 等集群外服务的 Docker 运行环境（手册第 1 节：只装在服务 VM，不进入 Kubernetes 节点）。
+# RPM 来自管理端种子目录（Docker 官方 el10 仓库，SHA256 见种子目录 docker-29.9.1-rpms.sha256）。
+docker_seed_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/Downloads/cloud-native-lab-seed-2026-10-14"
+docker_rpms:
+  - docker-ce-29.9.1-1.el10.x86_64.rpm
+  - docker-ce-cli-29.9.1-1.el10.x86_64.rpm
+  - docker-buildx-plugin-0.38.0-1.el10.x86_64.rpm
+  - docker-compose-plugin-5.6.0-1.el10.x86_64.rpm
+docker_gpg_fingerprint: 060A61C51B558A7F742B77AAC52FEB6B621E9F35
+# docker-ce 唯一缺少的依赖是 iptables-nft（Rocky 10 中位于 AppStream）。1.8.11-13 版额外要求
+# kernel-modules-extra，因此用 -16.el10_2，并同步更新 iptables-libs；两者由 Rocky 签名（系统已有公钥），
+# 校验值见种子目录 rocky-iptables-1.8.11-16.sha256。连同 Docker RPM 一起离线安装，不访问软件源。
+docker_dependency_rpms:
+  - iptables-libs-1.8.11-16.el10_2.x86_64.rpm
+  - iptables-nft-1.8.11-16.el10_2.x86_64.rpm

@@ -354,14 +354,43 @@ components:
       - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
       - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
     status: installed_unvalidated
+  registry_runtime:
+    phase: "00"
+    candidate: "docker-ce 29.9.1"
+    version: "29.9.1"
+    note: 只用于集群外服务 VM（Harbor），不进入 Kubernetes 节点；containerd.io 沿用 2.4.2-2.el10
+    artifacts:
+      - {name: docker-ce-29.9.1-1.el10.x86_64.rpm, sha256: 651711d2f9004fa22cc5cb9e26502669777b925ad48b2bf83d78410d818174e0}
+      - {name: docker-ce-cli-29.9.1-1.el10.x86_64.rpm, sha256: e0b9cfc217c06d770f0e1bb651e30158cfcd940094dcc5f320ec3cb4b9ed9a5e}
+      - {name: docker-buildx-plugin-0.38.0-1.el10.x86_64.rpm, sha256: a3bd0b25ac5ecbe673007cd94e27c06bd680d83ecfb5b0d02dbad96b6fcd603e}
+      - {name: docker-compose-plugin-5.6.0-1.el10.x86_64.rpm, sha256: 5edb62a60f8e3e5a54e40deaceac7b8c56a333072284c61f9c0eb62437d766c8}
+      - {name: iptables-nft-1.8.11-16.el10_2.x86_64.rpm, sha256: a8072c4858de87a1e10226d0eaa04a7d6bd9cd455ff75958ccfc08ee4a38dfc9, source: Rocky 10.2 AppStream}
+      - {name: iptables-libs-1.8.11-16.el10_2.x86_64.rpm, sha256: b2d94196b2adb6fc8e1dd1aa898fa6d8b9eba250000c156cb13f6f846fbe720c, source: Rocky 10.2 BaseOS}
+    checksum_source: Docker el10 stable 与 Rocky 10.2 官方 primary 元数据（2026-10-16/17）
+    local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.02-harbor-deploy.txt
+    status: installed_management_side
   harbor:
     phase: "00"
-    candidate: null
-    version: null
-    artifacts: []
+    candidate: "v2.15.4"
+    version: "v2.15.4"
+    artifacts:
+      - name: harbor-offline-installer-v2.15.4.tgz
+        type: tarball
+        source: https://github.com/goharbor/harbor/releases/download/v2.15.4/harbor-offline-installer-v2.15.4.tgz
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/harbor/harbor-offline-installer-v2.15.4.tgz
+        size_bytes: 747317006
+        md5: 1dab0faabfb308d51ccd901c536ddc99  # 与发布页 md5sum 一致
+        sha256: ec4152a644cedc627c747b84e91ba0f44c1d44576b43b8d1f73e2e51b3b5ccfc  # 本地计算
+        signature: harbor-offline-installer-v2.15.4.tgz.sigstore.json（已下载，未用 cosign 验证）
+        checksum_verified_at: '2026-10-17'
     compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.02-harbor-deploy.txt
+    status: installed_unvalidated  # 管理端验证尚未通过（执行记录第 75 节）
   nexus:
     phase: "00"
     candidate: null
@@ -456,7 +485,7 @@ components:
 pending_by_phase:
   # pause 与 cri_smoke_image 已于 2026-10-16 提升为上方 components 记录；
   # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。
-  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider, registry_runtime]
+  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider]
   # cni_plugins 因 kubelet RPM 依赖于 2026-10-16 提升到 00 的 components 记录。
   "01": [etcd, coredns, metrics_server]
   "02": [istio, spire, ingress_comparison_controller]

@@ -12,7 +12,7 @@ node_firewall_ipsets:
   k8s-control-plane: "{{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | list }}"
   lab-mgmt: "{{ lab_mgmt_sources }}"
 
-# 所有节点。Cilium 基础 Overlay 采用 VXLAN（8472/udp），未选用的 Geneve 6081 不开放。
+# 所有 Kubernetes 节点（k8s_nodes）。Cilium 基础 Overlay 采用 VXLAN（8472/udp），未选用的 Geneve 6081 不开放。
 node_firewall_rules_all:
   - {source: k8s-nodes, port: "10250", proto: tcp, purpose: kubelet API}
   - {source: k8s-nodes, port: "8472", proto: udp, purpose: Cilium VXLAN}
@@ -39,3 +39,6 @@ node_base_packages:
    policycoreutils-python-utils, audit, gnupg2, parted, xfsprogs]
 node_base_services: [vmtoolsd, chronyd, firewalld]
 # chrony.conf 保持发行版默认（2.rocky.pool.ntp.org），内部时间源（networks.yaml planned_time_servers）就绪后再由本角色管理。
+
+# 内部根 CA 公开证书（create-ca.sh 生成，仓库 ops/00-preparation/pki/public/）。
+node_ca_trust_source: "{{ inventory_dir }}/../../../pki/public/cnpl-lab-root-ca.crt"

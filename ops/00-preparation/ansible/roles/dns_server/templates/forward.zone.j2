@@ -1,0 +1,12 @@
+; 由 Ansible dns_server 从 ops/inventory/hosts.yaml 与 networks.yaml 生成，请勿手改。
+$TTL 300
+@	IN SOA	{{ dns_server_fqdn }}. hostmaster.{{ dns_zone }}. (
+		{{ dns_zone_serial }}	; serial
+		3600	; refresh
+		600	; retry
+		604800	; expire
+		300 )	; negative cache TTL
+	IN NS	{{ dns_server_fqdn }}.
+{% for fqdn, ip in dns_records | sort(attribute='0') %}
+{{ fqdn | regex_replace('\\.' ~ (dns_zone | regex_escape) ~ '$', '') }}	IN A	{{ ip }}
+{% endfor %}

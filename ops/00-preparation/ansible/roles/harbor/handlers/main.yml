@@ -1,0 +1,6 @@
+# harbor.yml 或证书变更后：重新生成各组件配置并按需重建容器。
+# 处理器在 play 末尾运行，此时首次安装已完成；首次安装时会多执行一次 prepare，结果相同。
+- name: 重新生成 Harbor 配置
+  ansible.builtin.shell: ./prepare && docker compose up -d
+  args:
+    chdir: "{{ harbor_install_parent }}/harbor"

@@ -1,0 +1,55 @@
+# Harbor（00.09.02）：从封装模板克隆的服务 VM。
+# 保留 containerd（Docker 使用）→ 系统基线与根 CA 信任 → Docker → Harbor；最后从管理端验证 HTTPS 与证书链。
+# 前提：VM 已改为 harbor.k8s.internal.egon.top / 192.168.9.12、已分发管理端密钥、已新增 200G 数据盘；
+# 管理端已有内部 CA 签发的证书（issue-cert.sh）与种子物料（Harbor 离线包、Docker RPM）。
+- name: Harbor 服务器
+  hosts: harbor
+  gather_facts: false
+  vars:
+    service_vm_keep_containerd: true
+  roles:
+    - role: service_vm
+    - role: node_base
+    - role: docker_host
+    - role: harbor
+
+- name: 从管理端验证 Harbor
+  hosts: localhost
+  gather_facts: false
+  vars:
+    harbor_ip: "{{ hostvars['harbor']['ansible_host'] }}"
+    harbor_fqdn: harbor.k8s.internal.egon.top
+    root_ca: "{{ hostvars['harbor']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"  # 隐式 localhost 不在 inventory 中，没有 inventory_dir
+  tasks:
+    - name: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）
+      ansible.builtin.command: >-
+        curl -sS --fail --max-time 10 --cacert {{ root_ca }}
+        --resolve {{ harbor_fqdn }}:443:{{ harbor_ip }}
+        https://{{ harbor_fqdn }}/api/v2.0/ping
+      register: harbor_ping
+      changed_when: false
+      failed_when: harbor_ping.rc != 0 or 'Pong' not in harbor_ping.stdout
+      retries: 12
+      delay: 10
+      until: harbor_ping.rc == 0
+
+    - name: 各组件健康
+      ansible.builtin.command: >-
+        curl -sS --fail --max-time 10 --cacert {{ root_ca }}
+        --resolve {{ harbor_fqdn }}:443:{{ harbor_ip }}
+        https://{{ harbor_fqdn }}/api/v2.0/health
+      register: harbor_health
+      changed_when: false
+      failed_when: (harbor_health.stdout | from_json).status != 'healthy'
+      retries: 12
+      delay: 10
+      until: harbor_health.rc == 0 and (harbor_health.stdout | from_json).status == 'healthy'
+
+    - name: Registry 端点未认证时返回 401（证明 TLS 与端点可达，不代表已有拉取权限）
+      ansible.builtin.command: >-
+        curl -sS -o /dev/null -w '%{http_code}' --max-time 10 --cacert {{ root_ca }}
+        --resolve {{ harbor_fqdn }}:443:{{ harbor_ip }}
+        https://{{ harbor_fqdn }}/v2/
+      register: harbor_v2
+      changed_when: false
+      failed_when: harbor_v2.stdout != '401'

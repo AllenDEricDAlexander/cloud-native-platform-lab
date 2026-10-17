@@ -1,0 +1,142 @@
+- name: 管理端口令目录（仓库之外）
+  ansible.builtin.file:
+    path: "{{ harbor_secrets_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+# ---------- 数据盘 ----------
+- name: 已挂载的数据目录
+  ansible.builtin.command: findmnt -n -o SOURCE {{ harbor_data_dir }}
+  register: harbor_data_mounted
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: 已带标签的数据盘
+  ansible.builtin.command: blkid -L {{ harbor_data_label }}
+  register: harbor_data_labeled
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: 准备新数据盘（只在尚无标签盘时）
+  when: harbor_data_labeled.rc != 0
+  block:
+    - name: 列出磁盘
+      ansible.builtin.command: lsblk -J -b -o NAME,PATH,SIZE,TYPE,FSTYPE
+      register: harbor_lsblk
+      changed_when: false
+      check_mode: false
+
+    - name: 候选必须恰好一块：容量 200 GiB、无分区、无文件系统
+      ansible.builtin.set_fact:
+        harbor_disk_candidates: >-
+          {{ (harbor_lsblk.stdout | from_json).blockdevices
+             | selectattr('type', 'equalto', 'disk')
+             | selectattr('size', 'equalto', harbor_data_disk_bytes | int)
+             | rejectattr('children', 'defined')
+             | selectattr('fstype', 'none')
+             | map(attribute='path') | list }}
+
+    - name: 不是恰好一块时停止，不猜测设备
+      ansible.builtin.assert:
+        that: harbor_disk_candidates | length == 1
+        fail_msg: "找到 {{ harbor_disk_candidates | length }} 块符合条件的空盘：{{ harbor_disk_candidates }}"
+
+    - name: 格式化数据盘（XFS，带标签）
+      ansible.builtin.command: mkfs.xfs -L {{ harbor_data_label }} {{ harbor_disk_candidates[0] }}
+
+- name: 读取数据盘 UUID
+  ansible.builtin.shell: blkid -s UUID -o value "$(blkid -L {{ harbor_data_label }})"
+  register: harbor_data_uuid
+  changed_when: false
+  check_mode: false
+
+- name: 按 UUID 挂载数据目录
+  ansible.posix.mount:
+    path: "{{ harbor_data_dir }}"
+    src: UUID={{ harbor_data_uuid.stdout }}
+    fstype: xfs
+    opts: defaults,nodev,nosuid
+    state: mounted
+
+# ---------- 证书 ----------
+- name: 证书目录
+  ansible.builtin.file:
+    path: /etc/harbor/tls
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: 传输证书链与私钥（私钥 0600）
+  ansible.builtin.copy:
+    src: "{{ harbor_tls_dir_local }}/{{ item.src }}"
+    dest: /etc/harbor/tls/{{ item.dest }}
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {src: fullchain.crt, dest: fullchain.crt, mode: "0644"}
+    - {src: server.key, dest: server.key, mode: "0600"}
+  loop_control:
+    label: "{{ item.dest }}"
+  # 即使运行时带 --diff，也不打印私钥内容（第 76 节：曾被写入证据文件）。
+  diff: false
+  notify: 重新生成 Harbor 配置
+
+# ---------- 安装包 ----------
+- name: 传输离线安装包
+  ansible.builtin.copy:
+    src: "{{ harbor_seed_dir }}/harbor-offline-installer-{{ harbor_version }}.tgz"
+    dest: /root/seed/harbor-offline-installer-{{ harbor_version }}.tgz
+    mode: "0600"
+
+- name: 解压到 /opt/harbor
+  ansible.builtin.unarchive:
+    src: /root/seed/harbor-offline-installer-{{ harbor_version }}.tgz
+    dest: "{{ harbor_install_parent }}"
+    remote_src: true
+    creates: "{{ harbor_install_parent }}/harbor/install.sh"
+
+- name: 以发行模板生成 harbor.yml（已存在则不覆盖）
+  ansible.builtin.copy:
+    src: "{{ harbor_install_parent }}/harbor/harbor.yml.tmpl"
+    dest: "{{ harbor_install_parent }}/harbor/harbor.yml"
+    remote_src: true
+    force: false
+    mode: "0600"
+
+- name: 设置 harbor.yml 关键项
+  ansible.builtin.replace:
+    path: "{{ harbor_install_parent }}/harbor/harbor.yml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - {regexp: '^hostname: .*$', replace: 'hostname: {{ harbor_fqdn }}'}
+    - {regexp: '^  certificate: .*$', replace: '  certificate: /etc/harbor/tls/fullchain.crt'}
+    - {regexp: '^  private_key: .*$', replace: '  private_key: /etc/harbor/tls/server.key'}
+    - {regexp: '^harbor_admin_password: .*$', replace: 'harbor_admin_password: {{ harbor_admin_password }}'}
+    - {regexp: '^  password: root123$', replace: '  password: {{ harbor_db_password }}'}
+    - {regexp: '^data_volume: .*$', replace: 'data_volume: {{ harbor_data_dir }}'}
+  loop_control:
+    label: "{{ item.regexp }}"
+  no_log: true
+  notify: 重新生成 Harbor 配置
+
+- name: 首次安装（加载镜像、生成配置并启动；已安装则跳过）
+  ansible.builtin.command: ./install.sh
+  args:
+    chdir: "{{ harbor_install_parent }}/harbor"
+    creates: "{{ harbor_install_parent }}/harbor/docker-compose.yml"
+
+- name: 只对实验网段开放 HTTPS（Docker 发布端口可能绕过区域规则，见执行记录）
+  ansible.posix.firewalld:
+    zone: "{{ node_firewall_zone | default('public') }}"
+    rich_rule: rule family="ipv4" source address="{{ item }}" port port="443" protocol="tcp" accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ harbor_allowed_clients }}"

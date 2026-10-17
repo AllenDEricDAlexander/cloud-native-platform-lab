@@ -1,0 +1,46 @@
+# 内部 DNS（00.07.01）：从封装模板克隆的服务 VM。
+# 去除 Kubernetes 运行时 → 系统基线（防火墙、日志）→ BIND；最后从管理端验证解析。
+# 前提：VM 已改为 dns.mgmt.internal.egon.top / 192.168.9.11，并已分发管理端密钥。
+- name: 内部 DNS 服务器
+  hosts: dns
+  gather_facts: false
+  roles:
+    - role: service_vm
+    - role: node_base
+    - role: dns_server
+
+- name: 从管理端验证解析
+  hosts: localhost
+  gather_facts: false
+  vars:
+    server: "{{ hostvars['dns']['ansible_host'] }}"
+    cases:
+      - {query: "cp01.k8s.internal.egon.top", type: A, want: "192.168.9.101"}
+      - {query: "api.k8s.internal.egon.top", type: A, want: "192.168.9.100"}
+      - {query: "harbor.k8s.internal.egon.top", type: A, want: "192.168.9.12"}
+      - {query: "esxi02.mgmt.internal.egon.top", type: A, want: "192.168.9.62"}
+      - {query: "idrac03.mgmt.internal.egon.top", type: A, want: "192.168.9.53"}
+      - {query: "192.168.9.109", type: PTR, want: "worker01.k8s.internal.egon.top."}
+  tasks:
+    - name: 内部名称
+      ansible.builtin.command: >-
+        dig @{{ server }} +short +time=3 +tries=1
+        {{ '-x ' ~ item.query if item.type == 'PTR' else item.query ~ ' ' ~ item.type }}
+      register: dns_answer
+      changed_when: false
+      failed_when: dns_answer.stdout != item.want
+      loop: "{{ cases }}"
+      loop_control:
+        label: "{{ item.query }} → {{ item.want }}"
+
+    - name: 外部名称经上游递归
+      ansible.builtin.command: dig @{{ server }} +short +time=5 +tries=1 rockylinux.org A
+      register: dns_recursive
+      changed_when: false
+      failed_when: dns_recursive.stdout_lines | select('match', '^[0-9.]+$') | list | length == 0
+
+    - name: 内部区域由本服务器权威应答
+      ansible.builtin.command: dig @{{ server }} +norecurse +time=3 +tries=1 internal.egon.top SOA
+      register: dns_soa
+      changed_when: false
+      failed_when: "'flags: qr aa' not in dns_soa.stdout"

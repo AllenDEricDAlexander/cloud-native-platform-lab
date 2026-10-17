@@ -1,0 +1,223 @@
+# 断网验收（00.10.04）：干净客户端 build01 只经内部服务完成 DNS/TLS、RPM、镜像、Git 与七类语言最小构建。
+#   -e stage=warm     阶段 A（默认）：代理正常，在线预热，内部服务缓存所需内容
+#   -e stage=offline  阶段 B：停止 OpenWrt 代理（内部服务失去外网），切断 build01 的默认路由并拒绝其访问代理端口，
+#                     清空 build01 的全部本地缓存后重做；无论成败，最后都恢复代理、路由与规则。
+# 前提：nexus-repos.yml 已含 conan-proxy；build-client.yml 已完成；用例与项目见 tests/smoke/offline/。
+- name: GitLab 自动化令牌（只创建一次，令牌只保存在管理端）
+  hosts: gitlab
+  gather_facts: false
+  vars:
+    gitlab_automation_token: "glpat-{{ lookup('ansible.builtin.password', lookup('ansible.builtin.env', 'HOME') ~ '/.cnpl-secrets/gitlab_automation_token', length=32, chars=['ascii_letters', 'digits']) }}"
+  tasks:
+    - name: 为 root 建立 api 范围的个人访问令牌（有效期一年）
+      ansible.builtin.shell: >-
+        gitlab-rails runner '
+        u = User.find_by_username("root");
+        u.personal_access_tokens.where(name: "cnpl-automation").each { |t| t.revoke! unless t.revoked? };
+        attrs = {name: "cnpl-automation", scopes: [:api], expires_at: 365.days.from_now};
+        attrs[:organization_id] = Organizations::Organization.first.id if PersonalAccessToken.column_names.include?("organization_id");
+        t = u.personal_access_tokens.build(attrs); t.set_token(ENV.fetch("CNPL_TOKEN")); t.save!'
+        && touch /etc/gitlab/.cnpl-automation-token-set
+      args:
+        creates: /etc/gitlab/.cnpl-automation-token-set
+      environment:
+        CNPL_TOKEN: "{{ gitlab_automation_token }}"
+      no_log: true
+
+- name: GitLab 测试仓库 lab/offline-smoke（公开，内容与 tests/smoke/offline/projects 一致）
+  hosts: localhost
+  gather_facts: false
+  vars:
+    api: https://gitlab.svc.internal.egon.top/api/v4
+    root_ca: "{{ hostvars['gitlab']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"
+    token: "glpat-{{ lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') ~ '/.cnpl-secrets/gitlab_automation_token') }}"
+    src_dir: "{{ playbook_dir }}/../../tests/smoke/offline/projects"
+  module_defaults:
+    ansible.builtin.uri:
+      headers: {PRIVATE-TOKEN: "{{ token }}"}
+      ca_path: "{{ root_ca }}"
+      use_proxy: false
+  tasks:
+    - name: 群组 lab
+      ansible.builtin.uri:
+        url: "{{ api }}/groups/lab"
+        status_code: [200, 404]
+      register: gl_group
+      no_log: true
+
+    - name: 创建群组 lab（公开）
+      ansible.builtin.uri:
+        url: "{{ api }}/groups"
+        method: POST
+        body_format: json
+        body: {name: lab, path: lab, visibility: public}
+        status_code: 201
+      register: gl_group_created
+      when: gl_group.status == 404
+      changed_when: true
+      no_log: true
+
+    - name: 项目 offline-smoke
+      ansible.builtin.uri:
+        url: "{{ api }}/projects/lab%2Foffline-smoke"
+        status_code: [200, 404]
+      register: gl_project
+      no_log: true
+
+    - name: 创建项目 offline-smoke（公开，可匿名克隆）
+      ansible.builtin.uri:
+        url: "{{ api }}/projects"
+        method: POST
+        body_format: json
+        body:
+          name: offline-smoke
+          path: offline-smoke
+          namespace_id: "{{ (gl_group_created.json if gl_group.status == 404 else gl_group.json).id }}"
+          visibility: public
+          default_branch: main
+          initialize_with_readme: false
+        status_code: 201
+      register: gl_project_created
+      when: gl_project.status == 404
+      changed_when: true
+      no_log: true
+
+    - name: 本地项目文件
+      ansible.builtin.find:
+        paths: "{{ src_dir }}"
+        recurse: true
+        file_type: file
+      register: gl_local_files
+
+    - name: 仓库中的同名文件
+      ansible.builtin.uri:
+        url: "{{ api }}/projects/{{ project_id }}/repository/files/{{ item.path | relpath(src_dir) | urlencode | replace('/', '%2F') }}?ref=main"
+        status_code: [200, 404]
+      loop: "{{ gl_local_files.files | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path | relpath(src_dir) }}"
+      vars:
+        project_id: "{{ (gl_project_created.json if gl_project.status == 404 else gl_project.json).id }}"
+      register: gl_remote_files
+      no_log: true
+
+    # 逐个比较（GitLab 返回 base64 内容），只把新增或内容不同的文件加入同一次提交。
+    - name: 需要提交的文件
+      ansible.builtin.set_fact:
+        gl_actions: >-
+          {{ gl_actions | default([]) + [{'action': 'create' if item.status == 404 else 'update',
+             'file_path': item.item.path | relpath(src_dir), 'content': local_b64, 'encoding': 'base64'}] }}
+      loop: "{{ gl_remote_files.results }}"
+      loop_control:
+        label: "{{ item.item.path | relpath(src_dir) }}"
+      vars:
+        local_b64: "{{ lookup('ansible.builtin.file', item.item.path, rstrip=false) | b64encode }}"
+      when: item.status == 404 or item.json.content != local_b64
+      no_log: true
+
+    - name: 提交到 main
+      ansible.builtin.uri:
+        url: "{{ api }}/projects/{{ project_id }}/repository/commits"
+        method: POST
+        body_format: json
+        body:
+          branch: main
+          commit_message: 同步断网验收项目（Ansible offline-acceptance.yml）
+          actions: "{{ gl_actions }}"
+        status_code: 201
+      vars:
+        project_id: "{{ (gl_project_created.json if gl_project.status == 404 else gl_project.json).id }}"
+      when: gl_actions | default([]) | length > 0
+      changed_when: true
+      no_log: true
+
+    - name: 同步结果
+      ansible.builtin.debug:
+        msg: "提交了 {{ gl_actions | default([]) | length }} 个文件：{{ gl_actions | default([]) | map(attribute='file_path') | list }}"
+
+- name: 构建客户端
+  hosts: build01
+  gather_facts: false
+  roles:
+    - role: build_client
+
+- name: 执行验收
+  hosts: build01
+  gather_facts: false
+  vars:
+    # 由 -e stage=... 传入；不在此处定义同名变量（自引用会导致递归）。
+    acceptance_stage: "{{ stage | default('warm') }}"
+    offline: "{{ acceptance_stage == 'offline' }}"
+  tasks:
+    - name: 阶段
+      ansible.builtin.debug:
+        msg: "阶段 {{ acceptance_stage }}（{{ '断网：停止代理、切断外网、清空缓存后重做' if offline else '在线预热' }}）"
+
+    - name: 阶段参数有效
+      ansible.builtin.assert:
+        that: acceptance_stage in ['warm', 'offline']
+        fail_msg: "-e stage=warm 或 -e stage=offline"
+        quiet: true
+
+    - name: 验收
+      block:
+        - name: 停止 OpenWrt 代理（内部服务失去外网出口）
+          ansible.builtin.command: ssh openwrt -o BatchMode=yes '/etc/init.d/mihomo stop; sleep 1; pidof mihomo || echo stopped'
+          delegate_to: localhost
+          register: offline_proxy_stop
+          changed_when: true
+          failed_when: "'stopped' not in offline_proxy_stop.stdout"
+          when: offline
+
+        - name: 切断 build01 的默认路由，并拒绝其访问代理端口（只改运行时状态，重启即恢复）
+          ansible.builtin.shell: |
+            ip route del default || true
+            nft add table inet cnpl_offline
+            nft add chain inet cnpl_offline out '{ type filter hook output priority 0; }'
+            nft add rule inet cnpl_offline out ip daddr 192.168.9.10 tcp dport 7890 reject
+          changed_when: true
+          when: offline
+
+        - name: 运行用例
+          ansible.builtin.command: /usr/local/sbin/cnpl-offline-smoke {{ '--clean --expect-offline' if offline else '' }}
+          register: offline_result
+          changed_when: false
+          failed_when: false
+          async: 5400
+          poll: 15
+
+        - name: 结果
+          ansible.builtin.debug:
+            msg: "{{ offline_result.stdout_lines }}"
+      always:
+        - name: 恢复 build01 的默认路由与规则
+          ansible.builtin.shell: |
+            nft delete table inet cnpl_offline 2>/dev/null || true
+            ip route replace default via 192.168.9.1 dev {{ node_network_connection }} proto static metric 100
+          changed_when: true
+          when: offline
+
+        - name: 恢复 OpenWrt 代理
+          ansible.builtin.command: ssh openwrt -o BatchMode=yes '/etc/init.d/mihomo start; sleep 5; pidof mihomo >/dev/null && echo running'
+          delegate_to: localhost
+          register: offline_proxy_start
+          changed_when: true
+          failed_when: "'running' not in offline_proxy_start.stdout"
+          when: offline
+
+        - name: 代理已恢复（经 OpenWrt 访问外网返回 204）
+          ansible.builtin.command: curl -sS -m 20 -x http://192.168.9.10:7890 -o /dev/null -w '%{http_code}' https://www.google.com/generate_204
+          delegate_to: localhost
+          register: offline_proxy_check
+          changed_when: false
+          failed_when: offline_proxy_check.stdout != '204'
+          retries: 6
+          delay: 10
+          until: offline_proxy_check.stdout == '204'
+          when: offline
+
+    - name: 全部用例通过
+      ansible.builtin.assert:
+        that: offline_result.rc == 0
+        fail_msg: 有未通过的用例，见上面的结果
+        quiet: true

@@ -26,6 +26,48 @@
   register: nexus_blobstores
   failed_when: nexus_blob_store not in (nexus_blobstores.json | map(attribute='name') | list)
 
+# ---------- 认证域 ----------
+# Conan 2 客户端先以用户名口令换取令牌，再以 Bearer 令牌访问；Nexus 需要启用 Conan Bearer Token Realm，
+# 否则令牌不被接受，客户端反复重新认证，直到 Nexus 返回 429（执行记录第 109 节）。
+- name: 可用的认证域
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/realms/available"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+  register: nexus_realms_available
+
+- name: 已启用的认证域
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/realms/active"
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+  register: nexus_realms_active
+
+- name: Conan 令牌认证域
+  ansible.builtin.set_fact:
+    nexus_conan_realm: "{{ (nexus_realms_available.json | selectattr('name', 'search', '(?i)conan') | first).id }}"
+
+- name: 启用 Conan 令牌认证域（追加在已启用的认证域之后，不改变原有顺序）
+  ansible.builtin.uri:
+    url: "{{ nexus_url }}/service/rest/v1/security/realms/active"
+    method: PUT
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ nexus_root_ca }}"
+    use_proxy: false
+    body_format: json
+    body: "{{ nexus_realms_active.json + [nexus_conan_realm] }}"
+    status_code: 204
+  when: nexus_conan_realm not in nexus_realms_active.json
+  changed_when: true
+
 # ---------- 代理仓库 ----------
 - name: 读取代理仓库现状
   ansible.builtin.uri:

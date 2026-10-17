@@ -1836,3 +1836,136 @@ restic 口令的保管方式已在操作流程中提示：必须另存到 Mac �
 - 证据中没有私钥块或会话 cookie。
 
 至此，全部基础服务（DNS、Harbor、GitLab、Nexus、备份目标）都有「重启后服务本身恢复」的证据；OpenWrt 本批未重启。下一步是断网验收（00.10.04）。计划 04 定义的七类语言为 Java、Rust、C、C++、C#、JS/TS、Python。
+
+## 107. 2026-10-17 断网验收设计确认；build01 加入台账
+
+用户同意第 106 节之后给出的断网验收设计：干净客户端 build01；阶段 A 在线预热，阶段 B 暂停 OpenWrt 代理（约 20–30 分钟）并切断 build01 的外网，清空本地缓存后重做；七类语言为 Java、Rust、C、C++、C#、JS/TS、Python，C++ 依赖经 Conan。用户报告 build01 已克隆，DHCP 地址为 192.168.9.30。
+
+- 台账：hosts.yaml 新增 lab_clients 段（构建与验收用的普通 VM，不属于集群，也不是基础服务），build01 为 build01.svc.internal.egon.top / .160（CI 与构建段 .160–.179），esxi02，4 vCPU、8 GiB，vm_status cloned。resources.yaml 新增 lab_client_memory_gib。
+- 生成器、set-vm-identity.sh 与 DNS 记录都纳入 lab_clients。重新生成后，inventory 增加 lab_clients 组（build01）。DNS 区域序号递增为 2026101702。
+- 新增 playbooks/build-client.yml：service_vm 与 node_base，不设置 dnf 代理，工具链一律经 Nexus 获取。
+- 本助手经 Mac 的代理读取 Rocky 10 官方 BaseOS、AppStream、CRB 的 primary 元数据（AppStream 为 zstd 压缩），确认所需工具链都在发行版仓库中：java-21-openjdk-devel 21.0.12、maven-openjdk21 3.9.9、nodejs 22.23 与 nodejs-npm 10.9、python3 3.12.15 与 python3-pip 23.3、dotnet-sdk-8.0/9.0/10.0、rust 与 cargo 1.92、gcc 与 gcc-c++ 14.3、cmake 3.31、make 4.4、podman 5.8、git 2.52。因此全部可以经 Nexus 的 rocky-proxy 安装，不需要额外的上游。
+
+待用户执行：set-vm-identity.sh build01 192.168.9.30 → dns.yml → build-client.yml。断网验收的角色、测试项目与剧本由本助手随后编写。
+
+## 108. 2026-10-17 build01 基线完成；断网验收自动化
+
+**build01**：用户运行 set-vm-identity.sh（输出未单独保存）、dns.yml 与 build-client.yml，见[DNS 证据](evidence/00.07.01-dns-build01.txt)与[基线证据](evidence/00.10.04-build01-base.txt)。dns ok=29 changed=3 failed=0，管理端验证通过；build01 ok=33 changed=16 failed=0。本助手从管理端 dig 确认 build01.svc.internal.egon.top 解析为 .160，PTR 正确。又只读检查了 build01：dnf 4.20.0；仓库定义在 rocky.repo、rocky-extras.repo 等文件中，启用的是 baseos、appstream、extras，使用 mirrorlist；签名公钥为 /etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-10；git、podman、JDK 都未安装，可以视为干净客户端。
+
+**上游核实**（经管理端代理，只读）：
+- Conan 2.33.0 发布于 2026-09-29，满两周；
+- requests 2.32.3、urllib3 2.2.3、commons-lang3 3.17.0 的 jar、typescript 5.6.3、Newtonsoft.Json 13.0.3、itoa 1.0.11 在各自的官方源中都存在；
+- center2.conan.io 的 `/v2/conans/nlohmann_json/3.11.3/_/_/latest` 返回 revision 45828be2…，`/v1/ping` 返回 200；
+- Nexus 3.96 的 conan proxy 接口支持 conanVersion V2。
+
+**新增内容**：
+- tests/smoke/offline/projects/：七个最小项目，每个只固定一个依赖。Java 的 Maven 插件版本也固定（clean 3.4.0、resources 3.3.1、compiler 3.13.0、surefire 3.5.2、jar 3.4.2、dependency 3.8.1）；Python 连同传递依赖一起固定；C# 关闭 NuGetAudit（审计会访问 nuget.org）；C 无依赖；C++ 用 Conan 的 nlohmann_json/3.11.3，这是只有头文件的包，不需要从 GitHub 下载源码编译。
+- tests/smoke/offline/offline-smoke.sh：以 root 运行，构建以 builder 执行。每项一行 PASS/FAIL，一项失败不影响后续。`--clean` 清空各语言缓存、dnf 缓存、本地镜像与 tree；`--expect-offline` 先确认既不能直连外网，也不能经代理出网。编写时发现并修正一个问题：`runuser -u` 不改 HOME，各工具会读取 /root 下的配置，已显式设置 HOME。
+- roles/build_client：
+  - 停用 rocky.repo 与 rocky-extras.repo，新增 cnpl-nexus.repo（BaseOS、AppStream、CRB 经 rocky-proxy，只读账户，gpgcheck，0600）；
+  - 安装工具链；
+  - 为 builder 写入 Maven settings.xml、.npmrc（_auth、cafile）、pip.conf 与 .netrc（pip 从 netrc 取口令，索引地址中不含口令）、NuGet.Config、Cargo 的 config.toml 与 credentials.toml（token 为 `Basic <base64>`，sparse 注册表，以 replace-with 替换 crates-io）、Conan 的 global.conf（CA 路径）；
+  - 构建环境文件中放 Conan 远端口令环境变量与 .NET 的遥测、工作负载、证书吊销离线设置。所有含口令的文件为 0600，相关任务 no_log。
+- nexus_repos 增加 conan-proxy（center2.conan.io，V2），探测上面的 latest 接口。
+- playbooks/offline-acceptance.yml：
+  - GitLab：rails runner 为 root 建立 api 范围的个人访问令牌，只建一次，令牌值来自 ~/.cnpl-secrets/gitlab_automation_token；兼容带 organization_id 的版本。随后经 API 建立公开群组 lab 与项目 offline-smoke，逐文件比较 base64 内容，只把新增或不同的文件放入同一次提交。
+  - build_client 角色。
+  - 执行验收：阶段 B 停止 mihomo、删除默认路由、以 nftables 拒绝 build01 访问 :7890、带 `--clean --expect-offline` 运行；always 中恢复路由（`ip route replace default via .1 ... metric 100`）、删除 nft 表、启动 mihomo，并确认经代理访问外网返回 204。最后断言全部用例通过。
+
+**本地检查**：
+- 两个剧本的 syntax-check 通过；用例脚本 bash -n 通过。
+- 发现并修正两处缺陷：一是播放变量 stage 自引用，不传 -e 时会递归，已改名为 acceptance_stage；二是用 Jinja 语句块拼出的提交列表在 ansible-core 2.21 中是字符串，改为 set_fact 逐项累加，已用测试剧本确认结果为 list，文件末尾换行保留，路径编码为 %2F。
+
+**未经验证的假设**：
+- Cargo 能以 `Basic` 令牌通过 Nexus 的认证；
+- `replace-with` 可以指向 [registries] 中的认证注册表；
+- GitLab 19.4 允许用 commits API 在空仓库上建立 main；
+- Nexus 的 conan V2 代理能为 Conan 2.33 提供 nlohmann_json 的二进制包。
+
+尚无执行输出，以上文件未提交。
+
+## 109. 2026-10-17 conan-proxy 建立；断网验收阶段 A：12 项中 10 项通过
+
+**nexus-repos.yml**（[证据](evidence/00.09.05-nexus-conan.txt)）：localhost ok=10 changed=1 failed=0。新建 conan-proxy；以 cnpl-reader 用 HTTP 基本认证探测 nlohmann_json 的 latest 接口，返回 200。
+
+**offline-acceptance.yml 阶段 A**（[证据](evidence/00.10.04-offline-warm.txt)）：gitlab changed=1（令牌建立）；localhost 建立群组 lab 与项目 offline-smoke，一次提交 16 个文件（commit d865415），说明可以用 commits API 在空仓库上建立 main。build01 的 build_client 角色执行完成。用例结果：
+
+| 用例 | 结果 | 用时 | 输出 |
+| --- | --- | --- | --- |
+| dns-tls | PASS | 3 秒 | 三个服务证书校验通过 |
+| rpm | PASS | 6 秒 | tree-2.1.0-8.el10 |
+| image | PASS | 11 秒 | busybox 经 Harbor 代理缓存拉取并运行 |
+| git | PASS | 1 秒 | 克隆 d865415 |
+| java | PASS | 92 秒 | commons-lang3 与固定版本的插件经 maven-central |
+| js | PASS | 16 秒 | typescript 5.6.3 编译并运行 |
+| python | PASS | 19 秒 | requests 2.32.3 |
+| csharp | FAIL | 14 秒 | 还原成功，编译报 CS0103 `Console` 不存在 |
+| rust | PASS | 4 秒 | itoa 经 cargo-proxy |
+| c | PASS | 0 秒 | — |
+| cpp | FAIL | 91 秒 | Conan 反复认证后，Nexus 返回 `429 Too many authentication attempts` |
+
+第 108 节的四个假设中，前三个由 rust 与 git 两项证实：Cargo 能以 `Basic` 令牌通过认证；replace-with 可以指向认证注册表；commits API 可以在空仓库上建立分支。第四个（Conan）未通过。
+
+**原因与修正**（都是本助手的缺陷）：
+- csharp：Program.cs 使用顶层语句，没有 `using System;`，而 csproj 未开启 ImplicitUsings。修正：csproj 加 `<ImplicitUsings>enable</ImplicitUsings>`。下次运行时，GitLab 同步只会提交这一个文件。
+- cpp：Conan 2 先用用户名口令到 /v2/users/authenticate 换取令牌，再用 Bearer 令牌访问。Nexus 需要启用 Conan Bearer Token Realm 才接受这种令牌，否则每次请求都被要求重新认证；三次之后，Nexus 以 429 拒绝。之前用 HTTP 基本认证的探测能通过，所以没有暴露这个问题。修正：nexus_repos 角色读取可用与已启用的认证域，在可用列表中按名称匹配 Conan，若尚未启用，则追加到已启用列表末尾（不改变原有顺序）。认证域的接口取自 OpenAPI 描述：/v1/security/realms/available 与 /v1/security/realms/active。
+
+用户口令没有出现在输出中（Conan 显示为 `******`），证据中没有私钥块或会话 cookie。429 可能是按账户的短时限制，重跑前等待几分钟。待用户执行：重跑 nexus-repos.yml，再重跑阶段 A。
+
+## 110. 2026-10-17 阶段 A 第二次：11 项通过；Conan 仍为 429，原因是 Nexus 按令牌限流
+
+**nexus-repos.yml**（[证据](evidence/00.09.05-nexus-conan.txt) 后半部分）：Conan 令牌认证域已启用（changed），其余无变化，failed=0。
+
+**阶段 A 第二次**（[证据](evidence/00.10.04-offline-warm-2.txt)）：GitLab 同步提交了修改后的 csproj（commit fca7abc）。dns-tls、rpm、image、git、java（5 秒，依赖已缓存）、js、python、csharp（7 秒，输出 `{"status":"offline-ok"}`）、rust、c 共 11 项 PASS；cpp 仍以 `Server exception 429: Too many authentication attempts` 失败。
+
+本助手从管理端只读查看了 Nexus 的 request.log 与 nexus.log：
+- 第一次运行（15:36:04–15:36:05）：Conan 的循环为「/v1/ping 返回 401 → /v2/users/authenticate 返回 200（取得令牌）→ 带令牌访问 /v1/ping 仍为 401」，重复四次。第五次 /v1/ping 返回 429；nexus.log 记录 `AuthRateLimiterServiceImpl - Rate limiting key 'token::<哈希>': attempt=4, retryAfter=30s`。由此确认第 109 节的分析：令牌被签发了，但 Conan 令牌认证域尚未启用，所以不被接受。
+- 15:39:22 认证域生效：`realmNames=[NexusAuthenticatingRealm, ConanToken, NexusAuthorizingRealm]`。管理端以基本认证访问 latest 接口仍为 200。
+- 第二次运行（15:41:46 起）：Conan 直接使用本地保存的旧令牌，每 30 秒访问一次 /v1/ping，均为 429，没有重新认证。Nexus 的限流键是**令牌**（token::哈希），不是用户或来源地址；Conan 遇到 429 不会换令牌，因此一直被拒。
+
+修正：用例在添加远端之后先执行 `conan remote logout nexus`，每次运行都用口令换取新令牌，不再沿用可能被限流的旧令牌。阶段 B 的 `--clean` 也会经过这一步。不需要修改 Nexus 的限流设置。待用户重跑阶段 A。
+
+## 111. 2026-10-17 阶段 A 第三次：Conan 仍被限流；查明 Nexus 的认证限流参数
+
+**第三次运行**（[证据](evidence/00.10.04-offline-warm-3.txt)）：11 项 PASS，结果与第 110 节相同。cpp 这次先显示「Connecting to remote 'nexus' anonymously」，说明第 110 节加入的登出生效了；随后用口令认证成功，但第一次带令牌的请求就返回 429。
+
+**日志**（管理端只读读取）：15:54:32 /v2/users/authenticate 返回 200，紧接着带令牌的 /v1/ping 返回 429；之后 15:55:02、15:55:32 两次重试同样是 429。nexus.log 中整个下午只有 15:36:05 那一条限流记录。因此，重新认证拿到的是**同一个令牌**：Nexus 为每个用户保存一个 Conan 令牌，登出再登录并不会换新令牌，限流键 token::<哈希> 不变。
+
+**限流参数**：本助手在 nexus 上用 Python 读取启动 jar 内 nexus-security-3.96.4-01.jar 中 AuthRateLimiterServiceImpl 的常量，只读，不需要口令：
+- `nexus.auth.ratelimit.max-attempts`，默认 3；
+- `nexus.auth.ratelimit.base-delay-seconds`，默认 30；
+- `nexus.auth.ratelimit.max-delay-seconds`，默认 900；
+- `nexus.auth.ratelimit.max-tracked-keys`，默认 10000。
+
+日志字符串显示，计数在令牌认证成功时清零（cleared on success for token hash prefix）；AuthRateLimiterResetListener 在用户更新或口令修改时重置计数。
+
+结论：失败 3 次后开始锁定，延迟从 30 秒递增，最长 900 秒；锁定期间的每次尝试都会延长锁定。Conan 默认每 30 秒重试，三次运行之间的间隔（约 4.7 分钟与 11.8 分钟）都小于当时的锁定时间，所以一直没有解除。现在 Conan 令牌认证域已经启用，锁定到期后的第一次请求会成功，计数随即清零。
+
+**处理**：
+- Conan 的 global.conf 增加 `core.net.http:max_retries=1`，失败时只重试一次，避免再次把锁定延长到上限。
+- 不修改 Nexus 的限流参数，也不为此修改 cnpl-reader 的口令（那会触发计数重置，但会改变已分发到各处的口令）。
+- 让锁定自然到期：最后一次尝试在 15:55:32（管理 Mac 时间 03:55:32），等待 20 分钟以上再重跑阶段 A。
+
+## 112. 2026-10-17 断网验收阶段 A 全部通过
+
+用户在锁定到期后（16:16:41 开始）重跑阶段 A，见[证据](evidence/00.10.04-offline-warm-4.txt)：build01 ok=13 failed=0；gitlab、localhost 都没有变化，GitLab 内容已是最新。十二项全部 PASS：
+
+| 用例 | 用时 | 输出 |
+| --- | --- | --- |
+| dns-tls | 1 秒 | 三个服务证书校验通过 |
+| rpm | 1 秒 | tree-2.1.0-8.el10 |
+| image | 4 秒 | busybox 经 Harbor 运行 |
+| git | 1 秒 | fca7abc |
+| java | 5 秒 | `java Offline-ok` |
+| js | 9 秒 | `ts offline-ok` |
+| python | 13 秒 | `python requests 2.32.3 offline-ok` |
+| csharp | 11 秒 | `csharp {"status":"offline-ok"}` |
+| rust | 1 秒 | `rust itoa 2026 offline-ok` |
+| c | 0 秒 | `c offline-ok` |
+| cpp | 23 秒 | `cpp {"status":"offline-ok"}`，nlohmann_json 经 conan-proxy |
+
+第 111 节的判断由此得到证实：锁定到期后，第一次令牌请求即成功。第 108 节的四个假设全部成立，其中第四个（Conan）的前提是启用 Conan 令牌认证域。
+
+在线条件下，build01 只经内部服务完成了全部项目：dnf 只用 Nexus，各语言客户端只用 Nexus 与只读账户，镜像来自 Harbor，源码来自 GitLab，没有任何外网代理设置。Nexus 与 Harbor 已缓存这些内容。四份阶段 A 证据中都没有私钥块、会话 cookie、GitLab 令牌，与 ~/.cnpl-secrets 下全部 8 个文件比对均无匹配。
+
+下一步：阶段 B（`-e stage=offline`）。

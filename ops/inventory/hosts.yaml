@@ -340,6 +340,18 @@ bootstrap_services:
     planned_hypervisor: null
     outside_kubernetes: true
     depends_on_primary_ceph: false
+# 实验客户端：构建与验收用的普通 Rocky VM，不属于集群，也不是基础服务（地址取自 .160–.179 的 CI 与构建段）。
+lab_clients:
+  - id: build01
+    fqdn: build01.svc.internal.egon.top
+    ip: 192.168.9.160
+    planned_hypervisor: esxi02
+    vm_status: cloned  # 2026-10-17 用户克隆，DHCP 取得 .30；用途：00.10.04 断网验收的干净客户端，之后留作构建机
+    vcpu: 4
+    memory_gib: 8
+    network_connection: ens33
+    outside_kubernetes: true
+    depends_on_primary_ceph: false
 reserved_endpoints:
   - id: independent_backup
     ip: null  # 2026-10-17 .16 改由 bootstrap_services.backup（esxi01 上的 VM）使用；真正独立的介质尚未提供

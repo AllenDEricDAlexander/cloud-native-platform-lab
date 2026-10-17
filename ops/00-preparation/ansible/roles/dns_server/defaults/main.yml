@@ -2,7 +2,7 @@
 dns_zone: internal.egon.top
 dns_reverse_zone: 9.168.192.in-addr.arpa
 # 修改台账中的主机或地址后递增（YYYYMMDDnn）；当前没有从服务器，但仍按惯例保持单调递增。
-dns_zone_serial: 2026101701
+dns_zone_serial: 2026101702
 dns_server_fqdn: dns.mgmt.internal.egon.top
 dns_listen_address: "{{ ansible_host }}"
 dns_allowed_clients: ["{{ dns_networks.lan.cidr }}"]
@@ -15,6 +15,7 @@ dns_networks: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../../../../i
 dns_records: >-
   {{ (dns_ledger.kubernetes_nodes | map(attribute='fqdn') | zip(dns_ledger.kubernetes_nodes | map(attribute='ip')) | list)
      + (dns_ledger.bootstrap_services | map(attribute='fqdn') | zip(dns_ledger.bootstrap_services | map(attribute='ip')) | list)
+     + (dns_ledger.lab_clients | default([]) | map(attribute='fqdn') | zip(dns_ledger.lab_clients | default([]) | map(attribute='ip')) | list)
      + (dns_ledger.hypervisors | map(attribute='fqdn') | zip(dns_ledger.hypervisors | map(attribute='management_ip')) | list)
      + (dns_ledger.hypervisors | map(attribute='fqdn') | map('regex_replace', '^esxi', 'idrac')
         | zip(dns_ledger.hypervisors | map(attribute='bmc_ip')) | list)

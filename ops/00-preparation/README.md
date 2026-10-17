@@ -42,7 +42,7 @@
 | 13 | Nexus 与代理仓库 | 00.09.04 | 5、6、7 |
 | 14 | 备份与恢复 | 00.10.03 | 5–13 |
 | 15 | 重启复验与幂等 | 00.10.02 | 9–12 |
-| 16 | 断网验收 | 00.10.04 | 全部（待编写） |
+| 16 | 断网验收 | 00.10.04 | 全部 |
 | 17 | 阶段交接 | 00.10.05 | 全部 |
 
 ## 步骤 1：管理端
@@ -358,9 +358,37 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 
 reboot-nodes.yml 每次重启一台，任何一台失败即停止；重启后检查 SELinux、firewalld、DNS、失败单元，节点另查运行时盘与 containerd。之后重跑步骤 11 的矩阵。**预期**：重启全部通过；矩阵 27/27；检查模式十台 changed=0。系统级检查通过不代表服务已恢复，因此服务 VM 重启后运行 `playbooks/verify-services.yml`：内部 DNS、Harbor（API、健康、/v2/）、GitLab 登录页、Nexus 状态、备份定时器与经 SFTP 访问备份仓库，都是只读检查，可在任何变更后用来复查。
 
-## 步骤 16：断网验收（待编写）
+## 步骤 16：断网验收
 
-在一台干净的测试客户端上限制外网访问，依次验证：内部 DNS 与 TLS、Git 克隆、Harbor 镜像拉取、RPM 安装、指定语言依赖经 Nexus 获取与构建；记录任何未缓存的下载并补充物料，完成后恢复网络限制。交付 `tests/smoke/` 下的离线用例与物料缺口清单。
+**作用**：证明一台干净的客户端只依靠内部服务（DNS、CA、Harbor、GitLab、Nexus）就能完成软件安装与七类语言的最小构建，并且在代理（出网）失效时，内部服务提供的已缓存内容仍然可用。七类语言为 Java、Rust、C、C++、C#、JS/TS、Python（计划 04 的定义）。
+
+**前提**：build01（.160，lab_clients）已用 `set-vm-identity.sh` 设置身份，并运行过 `playbooks/build-client.yml`；`playbooks/dns.yml` 已加入 build01 的记录。
+
+1. Nexus 增加 conan-proxy（ConanCenter，Conan 2 协议）：
+   ```bash
+   cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/nexus-repos.yml | tee ../records/2026-10-14/evidence/00.09.05-nexus-conan.txt
+   ```
+2. 阶段 A，在线预热（首次安装工具链约 1–2 GB，经 Nexus 下载）：
+   ```bash
+   ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/offline-acceptance.yml | tee ../records/2026-10-14/evidence/00.10.04-offline-warm.txt
+   ```
+3. 阶段 B，断网（阶段 A 全部通过后再执行；期间整个实验网经 OpenWrt 的出网中断约 20–30 分钟）：
+   ```bash
+   ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/offline-acceptance.yml -e stage=offline | tee ../records/2026-10-14/evidence/00.10.04-offline-cut.txt
+   ```
+
+剧本内容：
+- 在 GitLab 建立公开项目 lab/offline-smoke，内容与 `tests/smoke/offline/projects/` 一致，只提交有变化的文件。用于提交的令牌只创建一次，保存在 `~/.cnpl-secrets/gitlab_automation_token`。
+- build01：默认的 Rocky 软件源停用，dnf 改用 Nexus 的 rocky-proxy；安装工具链；为用户 builder 配置 Maven、npm、pip、NuGet、Cargo、Conan，全部指向 Nexus 并使用只读账户；不配置任何外网代理。
+- 运行 `tests/smoke/offline/offline-smoke.sh`，每项一行 PASS/FAIL：
+  - dns-tls：三个服务的证书校验，不加 `-k`；
+  - rpm：经 Nexus 安装 tree；
+  - image：经 Harbor 代理缓存拉取并运行 busybox；
+  - git：从 GitLab 克隆；
+  - java、js、python、csharp、rust、c、cpp：每类构建一个只含一个固定依赖的最小项目并运行。
+- 阶段 B 另外：先停止 OpenWrt 上的 mihomo，删除 build01 的默认路由，并以 nftables 拒绝其访问 :7890；确认 build01 既不能直连外网，也不能经代理出网；清空所有本地缓存后重做全部用例。最后在 always 中恢复路由、规则与代理，并确认经代理访问外网返回 204。路由与规则只改运行时状态，即使剧本中断，重启 build01 也会恢复；代理需要手工执行 `ssh openwrt /etc/init.d/mihomo start`。
+
+**预期**：两个阶段都是 failed=0，输出「全部通过」。某项失败时，输出会附该项最后 15 行。阶段 B 失败说明该内容没有被内部服务缓存：记为物料缺口，补充后重测，不能宣称任意新依赖都可以离线获取。
 
 ## 步骤 17：阶段交接
 
@@ -446,12 +474,14 @@ echo 'export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.internal.egon.top,192.168.9.0/24"
 | | `service-base.yml` | Nexus、备份的基线与数据盘 |
 | | `backup.yml`、`restore-drill.yml` | 备份部署与第一次备份；恢复演练 |
 | | `reboot-nodes.yml`、`verify-services.yml` | 逐台重启复验；基础服务只读验证 |
-| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus`、`nexus_repos`、`harbor_projects`、`backup_server`、`backup_client` | 见各步骤 |
+| | `build-client.yml`、`offline-acceptance.yml` | 构建客户端基线；断网验收（阶段 A 预热、阶段 B 断网） |
+| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus`、`nexus_repos`、`harbor_projects`、`backup_server`、`backup_client`、`build_client` | 见各步骤 |
 | 管理端脚本 | `scripts/generate-ansible-inventory.rb` | 台账生成 Inventory |
 | | `scripts/set-vm-identity.sh` | 新克隆设置名称、地址与密钥 |
 | | `scripts/fetch-restic.sh`、`scripts/backup-mac.sh` | 下载并校验 restic；管理端备份与仓库检查 |
 | | `scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 节点检查矩阵 |
 | 节点检查 | `tests/smoke/node-readiness.sh`、`tests/smoke/cri-smoke.sh` | 只读检查；host-network CRI 自测 |
+| 离线用例 | `tests/smoke/offline/offline-smoke.sh`、`tests/smoke/offline/projects/` | 断网验收用例与七类最小项目 |
 | PKI | `pki/create-ca.sh`、`pki/issue-cert.sh` | 内部 CA 与服务证书 |
 | OpenWrt | `openwrt/apply-base.sh`、`openwrt/install-mihomo.sh`、`openwrt/mihomo/` | 旁路由基线与显式代理 |
 

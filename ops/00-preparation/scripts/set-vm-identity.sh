@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 把刚克隆、仍是 DHCP 的 VM 改为台账中的主机名与静态地址，并分发管理端密钥（在管理 Mac 上运行）。
-# 名称、地址、网卡连接取自 ops/inventory/hosts.yaml（kubernetes_nodes 与 bootstrap_services），
+# 名称、地址、网卡连接取自 ops/inventory/hosts.yaml（kubernetes_nodes、bootstrap_services 与 lab_clients），
 # 网关、掩码、DNS 取自 networks.yaml。
 #
 # 用法：bash ops/00-preparation/scripts/set-vm-identity.sh <台账 id> <当前 DHCP 地址>
@@ -19,7 +19,7 @@ SSH_OPTS=(-i "$KEY" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o
 read -r FQDN IP CONN PREFIX GW DNS <<<"$(cd "$ROOT" && ruby -ryaml -e '
   id = ARGV[0]
   h = YAML.load_file("ops/inventory/hosts.yaml")
-  svc = (h["kubernetes_nodes"] + h["bootstrap_services"]).find { |s| s["id"] == id } or abort "台账中没有 #{id}"
+  svc = (h["kubernetes_nodes"] + h["bootstrap_services"] + h.fetch("lab_clients", [])).find { |s| s["id"] == id } or abort "台账中没有 #{id}"
   lan = YAML.load_file("ops/inventory/networks.yaml")["lan"]
   puts [svc["fqdn"], svc["ip"], svc["network_connection"] || "ens33", lan["cidr"].split("/").last,
         lan["default_gateway"], Array(lan["planned_dns_servers"]).join(",")].join(" ")

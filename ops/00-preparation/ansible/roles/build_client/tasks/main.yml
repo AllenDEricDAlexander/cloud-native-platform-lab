@@ -1,0 +1,124 @@
+# ---------- dnf 只经 Nexus ----------
+- name: 停用默认的 Rocky 软件源（直连外网的 mirrorlist）
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '^enabled=1$'
+    replace: enabled=0
+  loop: "{{ build_default_repo_files }}"
+
+- name: 经 Nexus rocky-proxy 的软件源（只读账户，验签）
+  ansible.builtin.yum_repository:
+    name: "{{ item.id }}"
+    description: "Rocky 10 {{ item.name }}（经 Nexus）"
+    baseurl: "{{ build_nexus_url }}/repository/rocky-proxy/{{ item.path }}/$basearch/os/"
+    username: "{{ build_reader_user }}"
+    password: "{{ build_reader_password }}"
+    gpgcheck: true
+    gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-10
+    sslcacert: "{{ build_ca_bundle }}"
+    enabled: true
+    file: cnpl-nexus
+  loop: "{{ build_rocky_repos }}"
+  loop_control:
+    label: "{{ item.id }}"
+  no_log: true
+
+- name: 软件源文件只有 root 可读（含只读账户口令）
+  ansible.builtin.file:
+    path: /etc/yum.repos.d/cnpl-nexus.repo
+    mode: "0600"
+
+- name: 安装工具链（经 Nexus，首次约 1–2 GB）
+  ansible.builtin.dnf:
+    name: "{{ build_packages }}"
+    state: present
+  async: 3600
+  poll: 15
+
+# ---------- 构建用户与客户端配置 ----------
+- name: 构建用户
+  ansible.builtin.user:
+    name: "{{ build_user }}"
+    shell: /bin/bash
+
+- name: 配置目录
+  ansible.builtin.file:
+    path: "/home/{{ build_user }}/{{ item }}"
+    state: directory
+    owner: "{{ build_user }}"
+    group: "{{ build_user }}"
+    mode: "0700"
+  loop: [.m2, .config, .config/pip, .nuget, .nuget/NuGet, .cargo, .conan2, work]
+
+- name: 客户端配置（口令只给 builder 本人读取）
+  ansible.builtin.copy:
+    dest: "/home/{{ build_user }}/{{ item.dest }}"
+    content: "{{ item.content }}"
+    owner: "{{ build_user }}"
+    group: "{{ build_user }}"
+    mode: "0600"
+  loop:
+    - dest: .m2/settings.xml
+      content: "{{ lookup('ansible.builtin.template', 'settings.xml.j2') }}"
+    - dest: .nuget/NuGet/NuGet.Config
+      content: "{{ lookup('ansible.builtin.template', 'NuGet.Config.j2') }}"
+    - dest: .npmrc
+      content: |
+        registry={{ build_nexus_url }}/repository/npm-proxy/
+        //{{ build_nexus_host }}/repository/npm-proxy/:_auth={{ (build_reader_user ~ ':' ~ build_reader_password) | b64encode }}
+        cafile={{ build_ca_bundle }}
+        audit=false
+        fund=false
+        update-notifier=false
+    # pip 从 ~/.netrc 读取口令，索引地址中不含口令（避免出现在日志里）。
+    - dest: .netrc
+      content: |
+        machine {{ build_nexus_host }} login {{ build_reader_user }} password {{ build_reader_password }}
+    - dest: .config/pip/pip.conf
+      content: |
+        [global]
+        index-url = {{ build_nexus_url }}/repository/pypi-proxy/simple
+        cert = {{ build_ca_bundle }}
+        disable-pip-version-check = true
+    - dest: .cargo/config.toml
+      content: |
+        [registries.nexus]
+        index = "sparse+{{ build_nexus_url }}/repository/cargo-proxy/"
+
+        [source.crates-io]
+        replace-with = "nexus"
+
+        [registry]
+        global-credential-providers = ["cargo:token"]
+
+        [http]
+        cainfo = "{{ build_ca_bundle }}"
+    - dest: .cargo/credentials.toml
+      content: |
+        [registries.nexus]
+        token = "Basic {{ (build_reader_user ~ ':' ~ build_reader_password) | b64encode }}"
+    # 失败时只重试一次：Nexus 按令牌限流（失败 3 次后从 30 秒起递增，最长 900 秒），
+    # Conan 默认每 30 秒重试，会不断延长锁定（执行记录第 111 节）。
+    - dest: .conan2/global.conf
+      content: |
+        core.net.http:cacert_path={{ build_ca_bundle }}
+        core.net.http:max_retries=1
+    # 构建环境：Conan 的远端口令经环境变量提供；.NET 不做遥测、不检查工作负载更新。
+    - dest: .cnpl-build-env
+      content: |
+        export CONAN_LOGIN_USERNAME_NEXUS={{ build_reader_user }}
+        export CONAN_PASSWORD_NEXUS={{ build_reader_password }}
+        export DOTNET_CLI_TELEMETRY_OPTOUT=1
+        export DOTNET_NOLOGO=1
+        export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+        export DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE=1
+        export NUGET_CERT_REVOCATION_MODE=offline
+  loop_control:
+    label: "{{ item.dest }}"
+  no_log: true
+
+- name: 断网验收脚本
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../tests/smoke/offline/offline-smoke.sh"
+    dest: /usr/local/sbin/cnpl-offline-smoke
+    mode: "0700"

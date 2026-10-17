@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 由 Ansible build_client 角色管理：只使用 Nexus 的 NuGet 代理。 -->
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="nexus" value="{{ build_nexus_url }}/repository/nuget.org-proxy/index.json" protocolVersion="3" />
+  </packageSources>
+  <packageSourceCredentials>
+    <nexus>
+      <add key="Username" value="{{ build_reader_user }}" />
+      <add key="ClearTextPassword" value="{{ build_reader_password }}" />
+    </nexus>
+  </packageSourceCredentials>
+</configuration>

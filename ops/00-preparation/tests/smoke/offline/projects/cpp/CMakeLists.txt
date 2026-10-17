@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(offline_smoke CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(nlohmann_json REQUIRED)
+add_executable(hello main.cpp)
+target_link_libraries(hello nlohmann_json::nlohmann_json)

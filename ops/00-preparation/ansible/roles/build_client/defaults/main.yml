@@ -1,0 +1,33 @@
+# 构建客户端（00.10.04 断网验收）：dnf 与各语言客户端只经 Nexus（只读账户），系统信任内部 CA；
+# 不配置任何外网代理。构建以普通用户 builder 执行。
+build_nexus_host: nexus.svc.internal.egon.top
+build_nexus_url: https://{{ build_nexus_host }}
+build_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+build_reader_user: cnpl-reader
+build_reader_password: "{{ lookup('ansible.builtin.file', build_secrets_dir ~ '/nexus_reader_password') }}"
+build_user: builder
+build_ca_bundle: /etc/pki/tls/certs/ca-bundle.crt
+
+# Rocky 10 的 BaseOS、AppStream、CRB 经 Nexus 的 rocky-proxy；默认的 Rocky 软件源停用。
+build_rocky_repos:
+  - {id: cnpl-baseos, name: BaseOS, path: 10/BaseOS}
+  - {id: cnpl-appstream, name: AppStream, path: 10/AppStream}
+  - {id: cnpl-crb, name: CRB, path: 10/CRB}
+build_default_repo_files: [/etc/yum.repos.d/rocky.repo, /etc/yum.repos.d/rocky-extras.repo]
+
+# 七类语言的工具链（均来自 Rocky 10 发行版仓库，执行记录第 107 节）
+build_packages:
+  - git
+  - podman
+  - java-21-openjdk-devel
+  - maven-openjdk21
+  - nodejs
+  - nodejs-npm
+  - python3-pip
+  - dotnet-sdk-8.0
+  - rust
+  - cargo
+  - gcc
+  - gcc-c++
+  - cmake
+  - make

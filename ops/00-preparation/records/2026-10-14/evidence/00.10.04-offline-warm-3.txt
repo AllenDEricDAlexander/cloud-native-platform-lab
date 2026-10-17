@@ -1,0 +1,199 @@
+
+PLAY [GitLab 自动化令牌（只创建一次，令牌只保存在管理端）] *********************
+
+TASK [为 root 建立 api 范围的个人访问令牌（有效期一年）] ***********************
+ok: [gitlab]
+
+PLAY [GitLab 测试仓库 lab/offline-smoke（公开，内容与 tests/smoke/offline/projects 一致）] ***
+
+TASK [群组 lab] ****************************************************************
+ok: [localhost]
+
+TASK [创建群组 lab（公开）] ****************************************************
+skipping: [localhost]
+
+TASK [项目 offline-smoke] ******************************************************
+ok: [localhost]
+
+TASK [创建项目 offline-smoke（公开，可匿名克隆）] ******************************
+skipping: [localhost]
+
+TASK [本地项目文件] ************************************************************
+ok: [localhost]
+
+TASK [仓库中的同名文件] ********************************************************
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+
+TASK [需要提交的文件] **********************************************************
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost]
+
+TASK [提交到 main] *************************************************************
+skipping: [localhost]
+
+TASK [同步结果] ****************************************************************
+ok: [localhost] => {
+    "msg": "提交了 0 个文件：[]"
+}
+
+PLAY [构建客户端] **************************************************************
+
+TASK [build_client : 停用默认的 Rocky 软件源（直连外网的 mirrorlist）] *********
+ok: [build01] => (item=/etc/yum.repos.d/rocky.repo)
+ok: [build01] => (item=/etc/yum.repos.d/rocky-extras.repo)
+
+TASK [build_client : 经 Nexus rocky-proxy 的软件源（只读账户，验签）] **********
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+
+TASK [build_client : 软件源文件只有 root 可读（含只读账户口令）] ***************
+ok: [build01]
+
+TASK [build_client : 安装工具链（经 Nexus，首次约 1–2 GB）] ********************
+ASYNC OK on build01: jid=j538553353585.15353
+ok: [build01]
+
+TASK [build_client : 构建用户] *************************************************
+ok: [build01]
+
+TASK [build_client : 配置目录] *************************************************
+ok: [build01] => (item=.m2)
+ok: [build01] => (item=.config)
+ok: [build01] => (item=.config/pip)
+ok: [build01] => (item=.nuget)
+ok: [build01] => (item=.nuget/NuGet)
+ok: [build01] => (item=.cargo)
+ok: [build01] => (item=.conan2)
+ok: [build01] => (item=work)
+
+TASK [build_client : 客户端配置（口令只给 builder 本人读取）] ******************
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+ok: [build01] => (item=(censored due to no_log))
+
+TASK [build_client : 断网验收脚本] *********************************************
+changed: [build01]
+
+PLAY [执行验收] ****************************************************************
+
+TASK [阶段] ********************************************************************
+ok: [build01] => {
+    "msg": "阶段 warm（在线预热）"
+}
+
+TASK [阶段参数有效] ************************************************************
+ok: [build01]
+
+TASK [停止 OpenWrt 代理（内部服务失去外网出口）] *******************************
+skipping: [build01]
+
+TASK [切断 build01 的默认路由，并拒绝其访问代理端口（只改运行时状态，重启即恢复）] ***
+skipping: [build01]
+
+TASK [运行用例] ****************************************************************
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC POLL on build01: jid=j808318070817.17165 started=True finished=False
+ASYNC FAILED on build01: jid=j808318070817.17165
+ok: [build01]
+
+TASK [结果] ********************************************************************
+ok: [build01] => {
+    "msg": [
+        "== 断网验收 2026-10-17T15:53:36+08:00 clean=no expect_offline=no",
+        "check=dns-tls result=PASS seconds=1 harbor gitlab nexus 证书校验通过",
+        "check=rpm result=PASS seconds=2 tree-2.1.0-8.el10.x86_64",
+        "check=image result=PASS seconds=3 image offline-ok",
+        "check=git result=PASS seconds=1 commit fca7abc 同步断网验收项目（Ansible offline-acceptance.yml）",
+        "check=java result=PASS seconds=5 java Offline-ok",
+        "check=js result=PASS seconds=9 ts offline-ok",
+        "check=python result=PASS seconds=11 python requests 2.32.3 offline-ok",
+        "check=csharp result=PASS seconds=10 csharp {\"status\":\"offline-ok\"}",
+        "check=rust result=PASS seconds=2 rust itoa 2026 offline-ok",
+        "check=c result=PASS seconds=0 c offline-ok",
+        "check=cpp result=FAIL seconds=72 rc=1",
+        "    | [conf]",
+        "    | ",
+        "    | ",
+        "    | ",
+        "    | ======== Computing dependency graph ========",
+        "    | nlohmann_json/3.11.3: Not found in local cache, looking in remotes...",
+        "    | nlohmann_json/3.11.3: Checking remote: nexus",
+        "    | Connecting to remote 'nexus' anonymously",
+        "    | Remote 'nexus' needs authentication, obtaining credentials",
+        "    | Got username 'cnpl-reader' from environment",
+        "    | Got password '******' from environment",
+        "    | Authenticated in remote 'nexus' with user 'cnpl-reader'",
+        "    | Graph root",
+        "    |     conanfile.txt: /home/builder/work/offline-smoke/cpp/conanfile.txt",
+        "    | ERROR: Package 'nlohmann_json/3.11.3' not resolved: Server exception 429: 429: Too many authentication attempts. [Remote: nexus]. Required by 'cli'",
+        "== 有未通过项"
+    ]
+}
+
+TASK [恢复 build01 的默认路由与规则] *******************************************
+skipping: [build01]
+
+TASK [恢复 OpenWrt 代理] *******************************************************
+skipping: [build01]
+
+TASK [代理已恢复（经 OpenWrt 访问外网返回 204）] *******************************
+skipping: [build01]
+
+TASK [全部用例通过] ************************************************************
+[ERROR]: Task failed: Action failed: 有未通过的用例，见上面的结果
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/playbooks/offline-acceptance.yml:219:7
+
+217           when: offline
+218
+219     - name: 全部用例通过
+          ^ column 7
+
+fatal: [build01]: FAILED! => {"assertion": "offline_result.rc == 0", "changed": false, "evaluated_to": false, "msg": "有未通过的用例，见上面的结果"}
+
+PLAY RECAP *********************************************************************
+build01                    : ok=12   changed=1    unreachable=0    failed=1    skipped=5    rescued=0    ignored=0   
+gitlab                     : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=5    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+

@@ -1,0 +1,125 @@
+- name: 本机有备份定义
+  ansible.builtin.assert:
+    that: inventory_hostname in backup_jobs
+    fail_msg: "backup_jobs 中没有 {{ inventory_hostname }}"
+    quiet: true
+
+- name: 本地 restic 已下载并校验（先运行 scripts/fetch-restic.sh）
+  ansible.builtin.stat:
+    path: "{{ backup_restic_binary }}.sha256"
+  register: backup_binary_sha_file
+  delegate_to: localhost
+  become: false
+
+- name: 缺少时停止
+  ansible.builtin.assert:
+    that: backup_binary_sha_file.stat.exists
+    fail_msg: 请先在 Mac 上运行 bash ops/00-preparation/scripts/fetch-restic.sh
+    quiet: true
+
+- name: 安装 restic
+  ansible.builtin.copy:
+    src: "{{ backup_restic_binary }}"
+    dest: /usr/local/bin/restic
+    mode: "0755"
+
+- name: 服务器上的 restic 与管理端校验过的文件一致
+  ansible.builtin.command: sha256sum /usr/local/bin/restic
+  register: backup_binary_sha
+  changed_when: false
+  failed_when: backup_binary_sha.stdout.split()[0] != lookup('ansible.builtin.file', backup_restic_binary ~ '.sha256')
+
+- name: 配置目录
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop: [/etc/restic, /var/cache/restic, /root/.ssh]
+
+- name: 仓库口令（0600）
+  ansible.builtin.copy:
+    dest: /etc/restic/password
+    content: "{{ backup_restic_password }}"
+    mode: "0600"
+  no_log: true
+
+- name: 仓库地址与口令文件
+  ansible.builtin.copy:
+    dest: /etc/restic/env
+    mode: "0600"
+    content: |
+      RESTIC_REPOSITORY={{ backup_repository }}
+      RESTIC_PASSWORD_FILE=/etc/restic/password
+      RESTIC_CACHE_DIR=/var/cache/restic
+
+- name: 连接备份仓库的 SSH 设置（专用密钥，非交互）
+  ansible.builtin.blockinfile:
+    path: /root/.ssh/config
+    create: true
+    mode: "0600"
+    marker: "# {mark} cnpl backup（Ansible backup_client 角色管理）"
+    block: |
+      Host {{ backup_repo_host }}
+          User {{ backup_repo_user }}
+          IdentityFile /root/.ssh/id_restic
+          IdentitiesOnly yes
+          BatchMode yes
+
+- name: 备份仓库的主机密钥（取自 backup VM 本身）
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ backup_repo_host }}"
+    key: "{{ backup_repo_host }} {{ backup_server_host_key }}"
+
+- name: 备份脚本
+  ansible.builtin.template:
+    src: cnpl-backup.sh.j2
+    dest: /usr/local/sbin/cnpl-backup
+    mode: "0700"
+  vars:
+    job: "{{ backup_jobs[inventory_hostname] }}"
+
+- name: systemd 服务与定时器
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: cnpl-backup.service
+      content: |
+        # 由 Ansible backup_client 角色管理。
+        [Unit]
+        Description=restic 备份到 backup VM
+        Wants=network-online.target
+        After=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/cnpl-backup
+        Nice=10
+        IOSchedulingClass=idle
+    - name: cnpl-backup.timer
+      content: |
+        # 由 Ansible backup_client 角色管理。
+        [Unit]
+        Description=每日 restic 备份
+
+        [Timer]
+        OnCalendar={{ backup_schedule }}
+        RandomizedDelaySec=1800
+        Persistent=true
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  notify: 重新加载 systemd
+
+- name: 立即重新加载 systemd
+  ansible.builtin.meta: flush_handlers
+
+- name: 启用每日定时器
+  ansible.builtin.systemd_service:
+    name: cnpl-backup.timer
+    enabled: true
+    state: started

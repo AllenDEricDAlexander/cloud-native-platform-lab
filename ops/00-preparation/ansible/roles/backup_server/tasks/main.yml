@@ -1,0 +1,69 @@
+# 账户主目录放在 /home（SELinux 对 ~/.ssh 默认标为 ssh_home_t，sshd 可以读取 authorized_keys）；
+# 仓库在数据盘 /srv/backup/restic 上。
+- name: 仓库账户（只能 SFTP，见下面的 sshd 设置）
+  ansible.builtin.user:
+    name: "{{ backup_repo_user }}"
+    system: true
+    create_home: true
+    shell: /sbin/nologin
+
+- name: 仓库目录（只有仓库账户可读写）
+  ansible.builtin.file:
+    path: "{{ backup_repo_root }}"
+    state: directory
+    owner: "{{ backup_repo_user }}"
+    group: "{{ backup_repo_user }}"
+    mode: "0700"
+
+- name: 允许的公钥（restrict：禁止终端、转发等，只剩 SFTP）
+  ansible.posix.authorized_key:
+    user: "{{ backup_repo_user }}"
+    key: "{{ backup_authorized_keys | join('\n') }}"
+    key_options: restrict
+    exclusive: true
+
+- name: sshd 设置与检查
+  block:
+    - name: 仓库账户只能使用 SFTP
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/60-cnpl-restic.conf
+        mode: "0600"
+        content: |
+          # 由 Ansible backup_server 角色管理。仓库账户只能 SFTP，不能登录 shell、转发端口或使用口令。
+          Match User {{ backup_repo_user }}
+              ForceCommand internal-sftp
+              PasswordAuthentication no
+              AllowTcpForwarding no
+              X11Forwarding no
+              PermitTTY no
+      notify: 重新加载 sshd
+
+    - name: sshd 配置语法正确
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    # 引入的文件中的 Match 不得影响其他账户：root（Ansible 使用）仍不受 ForceCommand 限制。
+    - name: Match 只作用于仓库账户
+      ansible.builtin.shell: |
+        sshd -T -C user=root,host=mgmt,addr=192.168.9.200 | grep -i '^forcecommand'
+        sshd -T -C user={{ backup_repo_user }},host=mgmt,addr=192.168.9.200 | grep -i '^forcecommand'
+      register: backup_sshd_match
+      changed_when: false
+      failed_when: backup_sshd_match.stdout_lines != ['forcecommand none', 'forcecommand internal-sftp']
+  rescue:
+    - name: 检查失败时移除设置，保持原有 sshd 配置
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d/60-cnpl-restic.conf
+        state: absent
+
+    - name: 停止
+      ansible.builtin.fail:
+        msg: "sshd 设置检查失败，已移除 60-cnpl-restic.conf：{{ backup_sshd_match.stdout_lines | default(ansible_failed_result.msg | default('')) }}"
+
+- name: 立即生效
+  ansible.builtin.meta: flush_handlers
+
+- name: 读取本机 SSH 主机公钥（客户端据此写入 known_hosts，不使用首次信任）
+  ansible.builtin.slurp:
+    src: /etc/ssh/ssh_host_ed25519_key.pub
+  register: backup_host_key

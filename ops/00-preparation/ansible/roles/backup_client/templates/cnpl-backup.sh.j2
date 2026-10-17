@@ -1,0 +1,26 @@
+#!/bin/bash
+# 由 Ansible backup_client 角色管理（ops/00-preparation/ansible/roles/backup_client），请勿手改。
+# 把本机数据备份到 restic 仓库，再按保留策略清理本机的旧快照（不 prune；prune 由管理端执行）。
+# 多台主机共用一个仓库：forget 需要独占锁，--retry-lock 让它等待其他主机的备份结束。
+set -euo pipefail
+set -a; . /etc/restic/env; set +a
+
+post() {
+  :
+{% for line in job.post.splitlines() %}
+  {{ line }}
+{% endfor %}
+}
+trap post EXIT
+
+{% for line in job.pre.splitlines() %}
+{{ line }}
+{% endfor %}
+
+/usr/local/bin/restic --retry-lock 30m backup --host {{ node_fqdn }} --tag {{ inventory_hostname }} \
+{% for e in job.excludes | default([]) %}
+  --exclude {{ e }} \
+{% endfor %}
+  {{ job.paths | join(' ') }}
+
+/usr/local/bin/restic --retry-lock 30m forget --host {{ node_fqdn }} {{ backup_keep }}

@@ -1,0 +1,97 @@
+# 备份（00.10.03）：restic 加密仓库在 backup VM（SFTP）上；dns、harbor、gitlab、nexus 每日自动备份，
+# 管理 Mac 备份 CA、口令与 OpenWrt 配置。仓库口令只在管理端与客户端，backup VM 只保存密文。
+# 前提：scripts/fetch-restic.sh 已下载并校验 restic；backup VM 已完成 service-base.yml。
+# 偏差：backup 与被备份的服务同在 esxi01，不满足「独立备份」，仅用于学习（执行记录第 86 节）。
+- name: 客户端生成备份专用密钥
+  hosts: dns:harbor:gitlab:nexus
+  gather_facts: false
+  tasks:
+    - name: /root/.ssh
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        mode: "0700"
+
+    - name: 生成 id_restic（只用于写入备份仓库）
+      ansible.builtin.command: ssh-keygen -q -t ed25519 -N "" -C "restic@{{ inventory_hostname }}" -f /root/.ssh/id_restic
+      args:
+        creates: /root/.ssh/id_restic
+
+    - name: 读取公钥
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_restic.pub
+      register: backup_client_pub
+
+- name: 备份目标
+  hosts: backup
+  gather_facts: false
+  vars:
+    backup_authorized_keys: >-
+      {{ groups['all'] | select('in', ['dns', 'harbor', 'gitlab', 'nexus'])
+         | map('extract', hostvars, ['backup_client_pub', 'content']) | map('b64decode') | map('trim') | list
+         + [lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') ~ '/.ssh/cnpl_lab_ed25519.pub') | trim] }}
+  roles:
+    - role: data_disk
+    - role: backup_server
+
+- name: 初始化仓库（在管理端执行，口令不进入 backup VM）
+  hosts: localhost
+  gather_facts: false
+  vars:
+    backup_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+    backup_scripts: "{{ hostvars['backup']['inventory_dir'] }}/../../../scripts"
+  tasks:
+    - name: 生成仓库口令（已存在则不变）
+      ansible.builtin.set_fact:
+        backup_password_ready: "{{ lookup('ansible.builtin.password', backup_secrets_dir ~ '/restic_password', length=32, chars=['ascii_letters', 'digits']) | length > 0 }}"
+      no_log: true
+
+    - name: 仓库不存在时初始化
+      ansible.builtin.command: bash {{ backup_scripts }}/backup-mac.sh --init
+      register: backup_init
+      changed_when: "'created restic repository' in backup_init.stdout"
+
+- name: 客户端配置并执行第一次备份
+  hosts: dns:harbor:gitlab:nexus
+  gather_facts: false
+  serial: 1
+  vars:
+    backup_server_host_key: "{{ hostvars['backup']['backup_host_key']['content'] | b64decode | trim }}"
+  roles:
+    - role: backup_client
+  post_tasks:
+    - name: 执行一次备份（gitlab 与 nexus 需要数分钟；nexus 在备份期间短暂不可用）
+      ansible.builtin.command: systemctl start cnpl-backup.service
+      async: 3600
+      poll: 15
+      changed_when: true
+
+    - name: 本次备份成功
+      ansible.builtin.command: systemctl show -p Result --value cnpl-backup.service
+      register: backup_result
+      changed_when: false
+      failed_when: backup_result.stdout != 'success'
+
+    - name: 备份摘要
+      ansible.builtin.shell: journalctl -u cnpl-backup.service -n 60 --no-pager -o cat | grep -E '^(Files|Dirs|Added to the repository|processed|snapshot .* saved)' | tail -6
+      register: backup_summary
+      changed_when: false
+
+    - name: 显示
+      ansible.builtin.debug:
+        msg: "{{ backup_summary.stdout_lines }}"
+
+- name: 管理端备份并检查仓库
+  hosts: localhost
+  gather_facts: false
+  vars:
+    backup_scripts: "{{ hostvars['backup']['inventory_dir'] }}/../../../scripts"
+  tasks:
+    - name: 备份 CA、口令与 OpenWrt 配置；prune；列出快照；检查仓库
+      ansible.builtin.command: bash {{ backup_scripts }}/backup-mac.sh
+      register: backup_mac
+      changed_when: true
+
+    - name: 显示
+      ansible.builtin.debug:
+        msg: "{{ backup_mac.stdout_lines }}"

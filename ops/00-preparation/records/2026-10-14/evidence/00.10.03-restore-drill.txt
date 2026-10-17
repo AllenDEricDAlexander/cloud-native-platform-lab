@@ -1,0 +1,59 @@
+
+PLAY [恢复演练：内部 DNS] ******************************************************
+
+TASK [清空临时目录] ************************************************************
+ok: [dns]
+
+TASK [从仓库恢复 dns 的最新快照] ***********************************************
+changed: [dns]
+
+TASK [恢复出的主配置语法正确] **************************************************
+ok: [dns]
+
+TASK [恢复出的区域可以加载] ****************************************************
+ok: [dns] => (item=internal.egon.top)
+ok: [dns] => (item=9.168.192.in-addr.arpa)
+
+TASK [与在用文件逐字节相同] ****************************************************
+ok: [dns] => (item=/etc/named.conf)
+ok: [dns] => (item=/var/named/internal.egon.top.zone)
+ok: [dns] => (item=/var/named/9.168.192.in-addr.arpa.zone)
+
+TASK [显示] ********************************************************************
+ok: [dns] => {
+    "msg": [
+        "Timestamps shown in local time",
+        "1 snapshots",
+        "restoring snapshot 99eb85ff of [/etc/named.conf /etc/named.rfc1912.zones /var/named] at 2026-10-17 14:26:00.978539849 +0800 CST by root@dns.mgmt.internal.egon.top to /var/tmp/cnpl-restore-drill",
+        "Summary: Restored 17 files/dirs (16.151 KiB) in 0:00",
+        "zone internal.egon.top/IN: loaded serial 2026101701",
+        "OK",
+        "zone 9.168.192.in-addr.arpa/IN: loaded serial 2026101701",
+        "OK"
+    ]
+}
+
+TASK [删除临时目录] ************************************************************
+changed: [dns]
+
+PLAY [恢复演练：内部 CA（管理端）] *********************************************
+
+TASK [临时目录] ****************************************************************
+changed: [localhost]
+
+TASK [只恢复 CA 目录] **********************************************************
+changed: [localhost]
+
+TASK [与 ~/cnpl-pki 逐文件相同] ************************************************
+ok: [localhost]
+
+TASK [恢复出的根 CA 证书指纹与仓库中的公开证书一致] ****************************
+ok: [localhost]
+
+TASK [删除临时目录] ************************************************************
+changed: [localhost]
+
+PLAY RECAP *********************************************************************
+dns                        : ok=7    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=5    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

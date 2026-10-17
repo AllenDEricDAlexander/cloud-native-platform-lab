@@ -36,7 +36,7 @@
 | 00.09.04–06 Nexus、构建缓存、镜像扫描 | Nexus 3.96.4-01 已部署；Maven、npm、PyPI、NuGet、Cargo、Go、Rocky 代理仓库与只读账户可用（仓库层面验证）；客户端构建验证、构建缓存、镜像扫描未开始 | 第 91–98 节 |
 | 00.10.01 管理工具 | Ansible 控制端完成；OpenTofu 未开始 | 第 56–57 节 |
 | 00.10.02 十节点初始化 | 完成：矩阵 27/27、经 Harbor 拉取的 CRI 自测 PASS、逐台重启复验、全量检查 changed=0 | 第 83–86 节；[重启后矩阵](evidence/00.10.02-node-readiness-20261016-234651/matrix.md) |
-| 00.10.03 备份与恢复 | backup VM 已设身份；与被备份服务同在 esxi01（记录在案的偏差）；未部署 | 第 86、91 节 |
+| 00.10.03 备份与恢复 | restic 加密仓库（backup VM，SFTP）；dns、harbor、gitlab、nexus 每日备份，管理端备份 CA、口令与 OpenWrt 配置；restic check 无错误；恢复演练通过（DNS 配置与区域、CA 目录与原件一致）。偏差：与被备份服务同在 esxi01 | 第 101–104 节 |
 | 00.10.04 断网验收 | 未做 | — |
 | 00.10.05 交接 | 未做（acceptance.md 尚未建立） | — |
 

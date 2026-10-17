@@ -40,7 +40,7 @@
 | 11 | 节点检查矩阵与 CRI 自测 | 00.10.02 | 10 |
 | 12 | GitLab | 00.09.01 | 5、6、7 |
 | 13 | Nexus 与代理仓库 | 00.09.04 | 5、6、7 |
-| 14 | 备份与恢复 | 00.10.03 | 5–13（剧本待编写） |
+| 14 | 备份与恢复 | 00.10.03 | 5–13 |
 | 15 | 重启复验与幂等 | 00.10.02 | 9–12 |
 | 16 | 断网验收 | 00.10.04 | 全部（待编写） |
 | 17 | 阶段交接 | 00.10.05 | 全部 |
@@ -311,9 +311,36 @@ cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venv
 
 命名约定：`<生态>-proxy` 为上游代理，`<生态>-hosted` 为内部发布（04 阶段按需建立），`<生态>-group` 为组合入口；maven-central、nuget.org-proxy 沿用 Nexus 默认名称。匿名访问已关闭，客户端一律使用只读账户。只需要 nexus 与 backup 的系统基线和数据盘时，也可单独运行 `playbooks/service-base.yml`。
 
-## 步骤 14：备份与恢复（剧本待编写）
+## 步骤 14：备份与恢复
 
-backup VM（.16，/srv/backup 500 GiB）已由 service-base.yml 完成基线。待交付：restic 0.19.1（版本锁 backup_tool，签名核对后使用）以 SFTP 仓库保存到 backup；备份范围为 CA（Mac 的 `~/cnpl-pki`）、DNS 配置与区域、Harbor（配置、数据库导出、镜像数据）、GitLab（`gitlab-backup` 与 /etc/gitlab）、Nexus、OpenWrt 配置（`sysupgrade -b`）；至少演练一次恢复并验证数据。restic 口令另存一份到 Mac 之外。
+**设计**：restic 加密仓库放在 backup VM（.16，/srv/backup，只提供 SFTP）；仓库口令只在管理端与各客户端，backup VM 只保存密文。dns、harbor、gitlab、nexus 每天 02:30 前后自动备份，管理 Mac 手动或按需备份只存在于 Mac 与 OpenWrt 上的内容。仓库地址使用 IP，备份不依赖内部 DNS。
+
+| 主机 | 备份内容 | 说明 |
+| --- | --- | --- |
+| dns | /etc/named.conf、/etc/named.rfc1912.zones、/var/named | — |
+| harbor | harbor.yml、/etc/harbor（证书）、/data（不含 database、redis）、数据库逻辑导出 | 数据库用 pg_dumpall 导出，不复制在线文件 |
+| gitlab | /etc/gitlab（含 gitlab-secrets.json）、gitlab-backup 生成的备份包 | 本机只保留最近的备份包 |
+| nexus | /opt/sonatype-work/nexus3（不含 log、tmp、cache） | 内置数据库需要停服务，备份期间约 1–2 分钟不可用，结束时自动重新启动 |
+| 管理 Mac | ~/cnpl-pki、~/.cnpl-secrets、OpenWrt 配置包（`sysupgrade -b`） | 订阅地址不在配置包中 |
+
+1. 在 Mac 上下载并校验 restic（验证发布者签名与 SHA256，可重复运行）：
+   ```bash
+   cd ~/SelfProject/cloud-native-platform-lab && bash ops/00-preparation/scripts/fetch-restic.sh
+   ```
+2. 部署并执行第一次备份：
+   ```bash
+   cd ~/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible && ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/backup.yml | tee ../records/2026-10-14/evidence/00.10.03-backup.txt
+   ```
+   剧本：各客户端生成专用密钥 id_restic → backup VM 建立只能 SFTP 的 restic 账户（authorized_keys 带 restrict；sshd 的 Match 设置经 `sshd -T` 确认只作用于该账户，否则回退）→ Mac 初始化仓库（口令生成在 `~/.cnpl-secrets/restic_password`）→ 客户端逐台安装 restic（与 Mac 上校验过的文件比对 SHA256）、写入口令与连接设置（known_hosts 取自 backup VM 的主机公钥）、备份脚本与每日定时器，并立即备份一次 → Mac 备份、prune、列出快照并检查仓库。
+3. 恢复演练（只恢复到临时目录，不覆盖在用文件）：
+   ```bash
+   ~/.venvs/cnpl-ansible/bin/ansible-playbook playbooks/restore-drill.yml | tee ../records/2026-10-14/evidence/00.10.03-restore-drill.txt
+   ```
+   DNS：恢复 dns 的最新快照，用 named-checkconf、named-checkzone 检查，并与在用文件逐字节比较；CA：恢复 ~/cnpl-pki，与原目录逐文件比较，根证书指纹与仓库中的公开证书一致。
+
+**预期**：两个剧本都是 failed=0；`restic check` 显示 no errors were found。
+
+**务必**：把 `~/.cnpl-secrets/restic_password` 另存一份到 Mac 之外（密码管理器或纸面）。Mac 损坏时，这个口令是解密全部备份的唯一途径，而它自己也只备份在这个仓库里。
 
 偏差：backup 与被备份的服务同在 esxi01，不满足「独立备份」，验收中如实标注。
 
@@ -417,10 +444,12 @@ echo 'export NO_PROXY="${NO_PROXY:+$NO_PROXY,}.internal.egon.top,192.168.9.0/24"
 | | `gitlab.yml` | GitLab 部署与验证 |
 | | `nexus.yml`、`nexus-repos.yml` | Nexus 部署与验证；代理仓库与只读账户 |
 | | `service-base.yml` | Nexus、备份的基线与数据盘 |
+| | `backup.yml`、`restore-drill.yml` | 备份部署与第一次备份；恢复演练 |
 | | `reboot-nodes.yml` | 逐台重启复验 |
-| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus`、`nexus_repos`、`harbor_projects` | 见各步骤 |
+| 角色 | `ansible/roles/service_vm`、`node_base`、`container_runtime`、`data_disk`、`dns_server`、`docker_host`、`harbor`、`gitlab`、`nexus`、`nexus_repos`、`harbor_projects`、`backup_server`、`backup_client` | 见各步骤 |
 | 管理端脚本 | `scripts/generate-ansible-inventory.rb` | 台账生成 Inventory |
 | | `scripts/set-vm-identity.sh` | 新克隆设置名称、地址与密钥 |
+| | `scripts/fetch-restic.sh`、`scripts/backup-mac.sh` | 下载并校验 restic；管理端备份与仓库检查 |
 | | `scripts/collect-node-readiness.sh`、`summarize-node-readiness.py` | 节点检查矩阵 |
 | 节点检查 | `tests/smoke/node-readiness.sh`、`tests/smoke/cri-smoke.sh` | 只读检查；host-network CRI 自测 |
 | PKI | `pki/create-ca.sh`、`pki/issue-cert.sh` | 内部 CA 与服务证书 |

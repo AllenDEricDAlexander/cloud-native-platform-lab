@@ -1,0 +1,40 @@
+# restic 备份客户端（00.10.03）：本机数据经 SFTP 备份到 backup VM 上的加密仓库。
+# 仓库地址使用 IP：备份不依赖内部 DNS（dns VM 本身也不使用内部 DNS）。
+backup_repo_host: 192.168.9.16
+backup_repo_user: restic
+backup_repo_path: /srv/backup/restic/lab
+backup_repository: "sftp:{{ backup_repo_user }}@{{ backup_repo_host }}:{{ backup_repo_path }}"
+backup_secrets_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+# 仓库口令：只在管理端与客户端保存；务必另存一份到 Mac 之外（丢失则无法解密任何备份）。
+backup_restic_password: "{{ lookup('ansible.builtin.password', backup_secrets_dir ~ '/restic_password', length=32, chars=['ascii_letters', 'digits']) }}"
+backup_restic_version: 0.19.1
+backup_seed_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/Downloads/cloud-native-lab-seed-2026-10-14/restic"
+backup_restic_binary: "{{ backup_seed_dir }}/restic_{{ backup_restic_version }}_linux_amd64"
+backup_keep: --keep-daily 7 --keep-weekly 4 --keep-monthly 6
+backup_schedule: "*-*-* 02:30:00"
+
+# 各主机的备份内容。pre 在备份前执行，post 无论成败都在结束时执行（trap）。
+backup_jobs:
+  dns:
+    paths: [/etc/named.conf, /etc/named.rfc1912.zones, /var/named]
+    pre: ""
+    post: ""
+  harbor:
+    # 数据库在线文件不直接备份，改用逻辑导出；Redis 只是缓存。
+    pre: |
+      install -d -m 0700 /var/backups/cnpl
+      docker exec harbor-db pg_dumpall -U postgres > /var/backups/cnpl/harbor-db.sql
+    paths: [/opt/harbor/harbor.yml, /etc/harbor, /data, /var/backups/cnpl]
+    excludes: [/data/database, /data/redis]
+    post: rm -f /var/backups/cnpl/harbor-db.sql
+  gitlab:
+    # gitlab-backup 生成仓库、数据库与上传文件的备份包；/etc/gitlab 含恢复必需的 gitlab-secrets.json。
+    pre: gitlab-backup create STRATEGY=copy CRON=1
+    paths: [/etc/gitlab, /var/opt/gitlab/backups]
+    post: find /var/opt/gitlab/backups -name '*_gitlab_backup.tar' -mmin +60 -delete
+  nexus:
+    # 内置数据库需要停服务才能得到一致的副本（约 1–2 分钟不可用）；结束时无论成败都重新启动。
+    pre: systemctl stop nexus
+    paths: [/opt/sonatype-work/nexus3]
+    excludes: [/opt/sonatype-work/nexus3/log, /opt/sonatype-work/nexus3/tmp, /opt/sonatype-work/nexus3/cache]
+    post: systemctl start nexus

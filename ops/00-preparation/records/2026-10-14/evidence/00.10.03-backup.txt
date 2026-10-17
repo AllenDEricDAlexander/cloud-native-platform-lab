@@ -1,0 +1,446 @@
+
+PLAY [客户端生成备份专用密钥] **************************************************
+
+TASK [/root/.ssh] **************************************************************
+ok: [gitlab]
+ok: [nexus]
+ok: [harbor]
+ok: [dns]
+
+TASK [生成 id_restic（只用于写入备份仓库）] ************************************
+changed: [gitlab]
+changed: [nexus]
+changed: [dns]
+changed: [harbor]
+
+TASK [读取公钥] ****************************************************************
+ok: [gitlab]
+ok: [harbor]
+ok: [nexus]
+ok: [dns]
+
+PLAY [备份目标] ****************************************************************
+
+TASK [data_disk : 数据盘参数齐全] **********************************************
+ok: [backup]
+
+TASK [data_disk : 已带标签的数据盘] ********************************************
+ok: [backup]
+
+TASK [data_disk : 列出磁盘] ****************************************************
+skipping: [backup]
+
+TASK [data_disk : 候选必须恰好一块：容量等于台账值、无分区、无文件系统] ********
+skipping: [backup]
+
+TASK [data_disk : 不是恰好一块时停止，不猜测设备] ******************************
+skipping: [backup]
+
+TASK [data_disk : 格式化数据盘（XFS，带标签）] *********************************
+skipping: [backup]
+
+TASK [data_disk : 读取数据盘 UUID] *********************************************
+ok: [backup]
+
+TASK [data_disk : 按 UUID 挂载] ************************************************
+ok: [backup]
+
+TASK [data_disk : 挂载点按策略恢复 SELinux 标签] *******************************
+ok: [backup]
+
+TASK [backup_server : 仓库账户（只能 SFTP，见下面的 sshd 设置）] ***************
+changed: [backup]
+
+TASK [backup_server : 仓库目录（只有仓库账户可读写）] **************************
+changed: [backup]
+
+TASK [backup_server : 允许的公钥（restrict：禁止终端、转发等，只剩 SFTP）] *****
+changed: [backup]
+
+TASK [backup_server : 仓库账户只能使用 SFTP] ***********************************
+changed: [backup]
+
+TASK [backup_server : sshd 配置语法正确] ***************************************
+ok: [backup]
+
+TASK [backup_server : Match 只作用于仓库账户] **********************************
+ok: [backup]
+
+TASK [backup_server : 立即生效] ************************************************
+
+RUNNING HANDLER [backup_server : 重新加载 sshd] ********************************
+changed: [backup]
+
+TASK [backup_server : 读取本机 SSH 主机公钥（客户端据此写入 known_hosts，不使用首次信任）] ***
+ok: [backup]
+
+PLAY [初始化仓库（在管理端执行，口令不进入 backup VM）] ************************
+
+TASK [生成仓库口令（已存在则不变）] ********************************************
+ok: [localhost]
+
+TASK [仓库不存在时初始化] ******************************************************
+changed: [localhost]
+
+PLAY [客户端配置并执行第一次备份] **********************************************
+
+TASK [backup_client : 本机有备份定义] ******************************************
+ok: [dns]
+
+TASK [backup_client : 本地 restic 已下载并校验（先运行 scripts/fetch-restic.sh）] ***
+ok: [dns -> localhost]
+
+TASK [backup_client : 缺少时停止] **********************************************
+ok: [dns]
+
+TASK [backup_client : 安装 restic] *********************************************
+changed: [dns]
+
+TASK [backup_client : 服务器上的 restic 与管理端校验过的文件一致] **************
+ok: [dns]
+
+TASK [backup_client : 配置目录] ************************************************
+changed: [dns] => (item=/etc/restic)
+changed: [dns] => (item=/var/cache/restic)
+ok: [dns] => (item=/root/.ssh)
+
+TASK [backup_client : 仓库口令（0600）] ****************************************
+changed: [dns]
+
+TASK [backup_client : 仓库地址与口令文件] **************************************
+changed: [dns]
+
+TASK [backup_client : 连接备份仓库的 SSH 设置（专用密钥，非交互）] *************
+changed: [dns]
+
+TASK [backup_client : 备份仓库的主机密钥（取自 backup VM 本身）] ***************
+changed: [dns]
+
+TASK [backup_client : 备份脚本] ************************************************
+changed: [dns]
+
+TASK [backup_client : systemd 服务与定时器] ************************************
+changed: [dns] => (item=cnpl-backup.service)
+changed: [dns] => (item=cnpl-backup.timer)
+
+TASK [backup_client : 立即重新加载 systemd] ************************************
+
+RUNNING HANDLER [backup_client : 重新加载 systemd] *****************************
+ok: [dns]
+
+TASK [backup_client : 启用每日定时器] ******************************************
+changed: [dns]
+
+TASK [执行一次备份（gitlab 与 nexus 需要数分钟；nexus 在备份期间短暂不可用）] ***
+ASYNC OK on dns: jid=j757688005056.4907
+changed: [dns]
+
+TASK [本次备份成功] ************************************************************
+ok: [dns]
+
+TASK [备份摘要] ****************************************************************
+ok: [dns]
+
+TASK [显示] ********************************************************************
+ok: [dns] => {
+    "msg": [
+        "Files:           7 new,     0 changed,     0 unmodified",
+        "Dirs:            6 new,     0 changed,     0 unmodified",
+        "Added to the repository: 23.977 KiB (8.840 KiB stored)",
+        "processed 7 files, 16.151 KiB in 0:04",
+        "snapshot 99eb85ff saved"
+    ]
+}
+
+PLAY [客户端配置并执行第一次备份] **********************************************
+
+TASK [backup_client : 本机有备份定义] ******************************************
+ok: [harbor]
+
+TASK [backup_client : 本地 restic 已下载并校验（先运行 scripts/fetch-restic.sh）] ***
+ok: [harbor -> localhost]
+
+TASK [backup_client : 缺少时停止] **********************************************
+ok: [harbor]
+
+TASK [backup_client : 安装 restic] *********************************************
+changed: [harbor]
+
+TASK [backup_client : 服务器上的 restic 与管理端校验过的文件一致] **************
+ok: [harbor]
+
+TASK [backup_client : 配置目录] ************************************************
+changed: [harbor] => (item=/etc/restic)
+changed: [harbor] => (item=/var/cache/restic)
+ok: [harbor] => (item=/root/.ssh)
+
+TASK [backup_client : 仓库口令（0600）] ****************************************
+changed: [harbor]
+
+TASK [backup_client : 仓库地址与口令文件] **************************************
+changed: [harbor]
+
+TASK [backup_client : 连接备份仓库的 SSH 设置（专用密钥，非交互）] *************
+changed: [harbor]
+
+TASK [backup_client : 备份仓库的主机密钥（取自 backup VM 本身）] ***************
+changed: [harbor]
+
+TASK [backup_client : 备份脚本] ************************************************
+changed: [harbor]
+
+TASK [backup_client : systemd 服务与定时器] ************************************
+changed: [harbor] => (item=cnpl-backup.service)
+changed: [harbor] => (item=cnpl-backup.timer)
+
+TASK [backup_client : 立即重新加载 systemd] ************************************
+
+RUNNING HANDLER [backup_client : 重新加载 systemd] *****************************
+ok: [harbor]
+
+TASK [backup_client : 启用每日定时器] ******************************************
+changed: [harbor]
+
+TASK [执行一次备份（gitlab 与 nexus 需要数分钟；nexus 在备份期间短暂不可用）] ***
+ASYNC OK on harbor: jid=j822798253684.46484
+changed: [harbor]
+
+TASK [本次备份成功] ************************************************************
+ok: [harbor]
+
+TASK [备份摘要] ****************************************************************
+ok: [harbor]
+
+TASK [显示] ********************************************************************
+ok: [harbor] => {
+    "msg": [
+        "Files:         168 new,     0 changed,     0 unmodified",
+        "Dirs:          297 new,     0 changed,     0 unmodified",
+        "Added to the repository: 141.704 MiB (141.444 MiB stored)",
+        "processed 168 files, 141.493 MiB in 0:07",
+        "snapshot 458c4a96 saved"
+    ]
+}
+
+PLAY [客户端配置并执行第一次备份] **********************************************
+
+TASK [backup_client : 本机有备份定义] ******************************************
+ok: [gitlab]
+
+TASK [backup_client : 本地 restic 已下载并校验（先运行 scripts/fetch-restic.sh）] ***
+ok: [gitlab -> localhost]
+
+TASK [backup_client : 缺少时停止] **********************************************
+ok: [gitlab]
+
+TASK [backup_client : 安装 restic] *********************************************
+changed: [gitlab]
+
+TASK [backup_client : 服务器上的 restic 与管理端校验过的文件一致] **************
+ok: [gitlab]
+
+TASK [backup_client : 配置目录] ************************************************
+changed: [gitlab] => (item=/etc/restic)
+changed: [gitlab] => (item=/var/cache/restic)
+ok: [gitlab] => (item=/root/.ssh)
+
+TASK [backup_client : 仓库口令（0600）] ****************************************
+changed: [gitlab]
+
+TASK [backup_client : 仓库地址与口令文件] **************************************
+changed: [gitlab]
+
+TASK [backup_client : 连接备份仓库的 SSH 设置（专用密钥，非交互）] *************
+changed: [gitlab]
+
+TASK [backup_client : 备份仓库的主机密钥（取自 backup VM 本身）] ***************
+changed: [gitlab]
+
+TASK [backup_client : 备份脚本] ************************************************
+changed: [gitlab]
+
+TASK [backup_client : systemd 服务与定时器] ************************************
+changed: [gitlab] => (item=cnpl-backup.service)
+changed: [gitlab] => (item=cnpl-backup.timer)
+
+TASK [backup_client : 立即重新加载 systemd] ************************************
+
+RUNNING HANDLER [backup_client : 重新加载 systemd] *****************************
+ok: [gitlab]
+
+TASK [backup_client : 启用每日定时器] ******************************************
+changed: [gitlab]
+
+TASK [执行一次备份（gitlab 与 nexus 需要数分钟；nexus 在备份期间短暂不可用）] ***
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC POLL on gitlab: jid=j982525989140.20444 started=True finished=False
+ASYNC OK on gitlab: jid=j982525989140.20444
+changed: [gitlab]
+
+TASK [本次备份成功] ************************************************************
+ok: [gitlab]
+
+TASK [备份摘要] ****************************************************************
+ok: [gitlab]
+
+TASK [显示] ********************************************************************
+ok: [gitlab] => {
+    "msg": [
+        "Files:           9 new,     0 changed,     0 unmodified",
+        "Dirs:            8 new,     0 changed,     0 unmodified",
+        "Added to the repository: 858.291 KiB (832.581 KiB stored)",
+        "processed 9 files, 850.084 KiB in 0:04",
+        "snapshot 909e6760 saved"
+    ]
+}
+
+PLAY [客户端配置并执行第一次备份] **********************************************
+
+TASK [backup_client : 本机有备份定义] ******************************************
+ok: [nexus]
+
+TASK [backup_client : 本地 restic 已下载并校验（先运行 scripts/fetch-restic.sh）] ***
+ok: [nexus -> localhost]
+
+TASK [backup_client : 缺少时停止] **********************************************
+ok: [nexus]
+
+TASK [backup_client : 安装 restic] *********************************************
+changed: [nexus]
+
+TASK [backup_client : 服务器上的 restic 与管理端校验过的文件一致] **************
+ok: [nexus]
+
+TASK [backup_client : 配置目录] ************************************************
+changed: [nexus] => (item=/etc/restic)
+changed: [nexus] => (item=/var/cache/restic)
+ok: [nexus] => (item=/root/.ssh)
+
+TASK [backup_client : 仓库口令（0600）] ****************************************
+changed: [nexus]
+
+TASK [backup_client : 仓库地址与口令文件] **************************************
+changed: [nexus]
+
+TASK [backup_client : 连接备份仓库的 SSH 设置（专用密钥，非交互）] *************
+changed: [nexus]
+
+TASK [backup_client : 备份仓库的主机密钥（取自 backup VM 本身）] ***************
+changed: [nexus]
+
+TASK [backup_client : 备份脚本] ************************************************
+changed: [nexus]
+
+TASK [backup_client : systemd 服务与定时器] ************************************
+changed: [nexus] => (item=cnpl-backup.service)
+changed: [nexus] => (item=cnpl-backup.timer)
+
+TASK [backup_client : 立即重新加载 systemd] ************************************
+
+RUNNING HANDLER [backup_client : 重新加载 systemd] *****************************
+ok: [nexus]
+
+TASK [backup_client : 启用每日定时器] ******************************************
+changed: [nexus]
+
+TASK [执行一次备份（gitlab 与 nexus 需要数分钟；nexus 在备份期间短暂不可用）] ***
+ASYNC POLL on nexus: jid=j60422876926.11356 started=True finished=False
+ASYNC POLL on nexus: jid=j60422876926.11356 started=True finished=False
+ASYNC OK on nexus: jid=j60422876926.11356
+changed: [nexus]
+
+TASK [本次备份成功] ************************************************************
+ok: [nexus]
+
+TASK [备份摘要] ****************************************************************
+ok: [nexus]
+
+TASK [显示] ********************************************************************
+ok: [nexus] => {
+    "msg": [
+        "Files:         264 new,     0 changed,     0 unmodified",
+        "Dirs:           35 new,     0 changed,     0 unmodified",
+        "Added to the repository: 40.380 MiB (38.204 MiB stored)",
+        "processed 264 files, 42.092 MiB in 0:06",
+        "snapshot cb818c26 saved"
+    ]
+}
+
+PLAY [管理端备份并检查仓库] ****************************************************
+
+TASK [备份 CA、口令与 OpenWrt 配置；prune；列出快照；检查仓库] *****************
+changed: [localhost]
+
+TASK [显示] ********************************************************************
+ok: [localhost] => {
+    "msg": [
+        "OpenWrt 配置包：    8713 字节",
+        "no parent snapshot found, will read all files",
+        "",
+        "Files:          31 new,     0 changed,     0 unmodified",
+        "Dirs:           11 new,     0 changed,     0 unmodified",
+        "Added to the repository: 35.791 KiB (23.701 KiB stored)",
+        "",
+        "processed 31 files, 22.834 KiB in 0:01",
+        "snapshot 4ebfcf47 saved",
+        "Applying Policy: keep 7 daily, 4 weekly, 6 monthly snapshots",
+        "keep 1 snapshots:",
+        "ID        Time                 Host           Tags        Reasons           Paths                              Size",
+        "-------------------------------------------------------------------------------------------------------------------------",
+        "4ebfcf47  2026-10-17 02:31:02  cnpl-mgmt-mac  mac         daily snapshot    /Users/mario/.cnpl-backup-staging  22.834 KiB",
+        "                                                          weekly snapshot   /Users/mario/.cnpl-secrets",
+        "                                                          monthly snapshot  /Users/mario/cnpl-pki",
+        "-------------------------------------------------------------------------------------------------------------------------",
+        "Timestamps shown in local time",
+        "1 snapshots",
+        "",
+        "loading all snapshots...",
+        "finding data that is still in use for 5 snapshots",
+        "[0:00] 100.00%  5 / 5 snapshots",
+        "searching used packs...",
+        "collecting packs for deletion and repacking",
+        "[0:00] 100.00%  20 / 20 packs processed",
+        "",
+        "to repack:             0 blobs / 0 B",
+        "this removes:          0 blobs / 0 B",
+        "to delete:             0 blobs / 0 B",
+        "total prune:           0 blobs / 0 B",
+        "remaining:           823 blobs / 180.460 MiB",
+        "unused size after prune: 0 B (0.00% of remaining size)",
+        "",
+        "done",
+        "== 快照",
+        "ID        Time                 Host                          Tags    Size",
+        "--------------------------------------------------------------------------------",
+        "99eb85ff  2026-10-17 02:26:00  dns.mgmt.internal.egon.top    dns     16.151 KiB",
+        "458c4a96  2026-10-17 02:26:49  harbor.k8s.internal.egon.top  harbor  141.493 MiB",
+        "909e6760  2026-10-17 02:29:22  gitlab.svc.internal.egon.top  gitlab  850.084 KiB",
+        "cb818c26  2026-10-17 02:30:36  nexus.svc.internal.egon.top   nexus   42.092 MiB",
+        "4ebfcf47  2026-10-17 02:31:02  cnpl-mgmt-mac                 mac     22.834 KiB",
+        "--------------------------------------------------------------------------------",
+        "Timestamps shown in local time",
+        "5 snapshots",
+        "== 仓库检查",
+        "using temporary cache in /var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/restic-check-cache-769499509",
+        "create exclusive lock for repository",
+        "load indexes",
+        "check all packs",
+        "check snapshots, trees and blobs",
+        "[0:00] 100.00%  5 / 5 snapshots",
+        "no errors were found"
+    ]
+}
+
+PLAY RECAP *********************************************************************
+backup                     : ok=13   changed=5    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+dns                        : ok=21   changed=11   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+gitlab                     : ok=21   changed=11   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+harbor                     : ok=21   changed=11   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=4    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+nexus                      : ok=21   changed=11   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

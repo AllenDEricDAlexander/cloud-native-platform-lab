@@ -1,0 +1,92 @@
+# 恢复演练（00.10.03「至少恢复一个服务并验证数据」）：只恢复到临时目录，不覆盖任何在用文件。
+#   1. DNS：把 dns 的最新快照恢复到 dns VM 的临时目录，用 BIND 自带工具检查主配置与两个区域，
+#      并确认与在用文件逐字节相同。
+#   2. CA：把管理端的最新快照恢复到 Mac 的临时目录，与 ~/cnpl-pki 逐文件比较。
+# 前提：playbooks/backup.yml 已成功执行。可重复运行，结束时删除临时目录。
+- name: 恢复演练：内部 DNS
+  hosts: dns
+  gather_facts: false
+  vars:
+    drill_dir: /var/tmp/cnpl-restore-drill
+    zones: [internal.egon.top, 9.168.192.in-addr.arpa]
+  tasks:
+    - name: 演练
+      block:
+        - name: 清空临时目录
+          ansible.builtin.file:
+            path: "{{ drill_dir }}"
+            state: absent
+
+        - name: 从仓库恢复 dns 的最新快照
+          ansible.builtin.shell: |
+            set -euo pipefail
+            set -a; . /etc/restic/env; set +a
+            restic --retry-lock 10m snapshots --host {{ node_fqdn }} --latest 1 --compact
+            restic --retry-lock 10m restore latest --host {{ node_fqdn }} --target {{ drill_dir }}
+          register: drill_restore
+          changed_when: true
+
+        - name: 恢复出的主配置语法正确
+          ansible.builtin.command: named-checkconf {{ drill_dir }}/etc/named.conf
+          changed_when: false
+
+        - name: 恢复出的区域可以加载
+          ansible.builtin.command: named-checkzone {{ item }} {{ drill_dir }}/var/named/{{ item }}.zone
+          loop: "{{ zones }}"
+          register: drill_zone
+          changed_when: false
+
+        - name: 与在用文件逐字节相同
+          ansible.builtin.command: cmp {{ drill_dir }}{{ item }} {{ item }}
+          loop: "{{ ['/etc/named.conf'] + (zones | map('regex_replace', '^(.*)$', '/var/named/\\1.zone') | list) }}"
+          changed_when: false
+
+        - name: 显示
+          ansible.builtin.debug:
+            msg: "{{ drill_restore.stdout_lines[-4:] + (drill_zone.results | map(attribute='stdout_lines') | flatten | list) }}"
+      always:
+        - name: 删除临时目录
+          ansible.builtin.file:
+            path: "{{ drill_dir }}"
+            state: absent
+
+- name: 恢复演练：内部 CA（管理端）
+  hosts: localhost
+  gather_facts: false
+  vars:
+    seed: "{{ lookup('ansible.builtin.env', 'HOME') }}/Downloads/cloud-native-lab-seed-2026-10-14/restic"
+    restic: "{{ seed }}/restic_0.19.1_darwin_arm64"
+    pki_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/cnpl-pki"
+    key: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/cnpl_lab_ed25519"
+  environment:
+    RESTIC_REPOSITORY: sftp:restic@192.168.9.16:/srv/backup/restic/lab
+    RESTIC_PASSWORD_FILE: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets/restic_password"
+  tasks:
+    - name: 临时目录
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: cnpl-restore-drill.
+      register: drill_tmp
+
+    - name: 演练
+      block:
+        - name: 只恢复 CA 目录
+          ansible.builtin.command: >-
+            {{ restic }} -o "sftp.command=ssh -i {{ key }} -o IdentitiesOnly=yes -o BatchMode=yes restic@192.168.9.16 -s sftp"
+            --retry-lock 10m restore latest --host cnpl-mgmt-mac --include {{ pki_dir }} --target {{ drill_tmp.path }}
+          changed_when: true
+
+        - name: 与 ~/cnpl-pki 逐文件相同
+          ansible.builtin.command: diff -r {{ drill_tmp.path }}{{ pki_dir }} {{ pki_dir }}
+          changed_when: false
+
+        - name: 恢复出的根 CA 证书指纹与仓库中的公开证书一致
+          ansible.builtin.shell: >-
+            test "$(openssl x509 -noout -fingerprint -sha256 -in {{ drill_tmp.path }}{{ pki_dir }}/root/root.crt)"
+            = "$(openssl x509 -noout -fingerprint -sha256 -in {{ playbook_dir }}/../../pki/public/cnpl-lab-root-ca.crt)"
+          changed_when: false
+      always:
+        - name: 删除临时目录
+          ansible.builtin.file:
+            path: "{{ drill_tmp.path }}"
+            state: absent

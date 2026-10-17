@@ -1731,3 +1731,80 @@ syntax-check 通过。待用户重跑 harbor-projects.yml（harbor.yml 不需要
 - 证据中没有私钥块、会话 cookie，与 ~/.cnpl-secrets 下全部 6 个文件比对均无匹配。
 
 00.09.03 的上游代理缓存与 00.09.02 的只读账户完成。批次进度表与根目录 README 已同步。
+
+## 101. 2026-10-17 备份与恢复自动化（00.10.03）
+
+**restic 物料**：本助手经 HTTPS 获取 restic v0.19.1 的 SHA256SUMS 与 SHA256SUMS.asc。签名声明的密钥为 RSA CF8F18F2844575973F79D4E191A6868BD3F7A907。keys.openpgp.org 按指纹查询返回 404，改从 keyserver.ubuntu.com 取得公钥，uid 为 Alexander Neumann（restic 维护者），gpg 验证为 Good signature。公钥存入 ops/00-preparation/scripts/keys/。linux_amd64 与 darwin_arm64 两个压缩包的 SHA256 取自已验签的 SHA256SUMS，写入版本锁 backup_tool（selected）。新增 scripts/fetch-restic.sh：在 Mac 上下载，用临时 GNUPGHOME 导入固定公钥，并以 `--status-fd` 的 VALIDSIG 匹配指纹（本地测试：原文件通过，篡改后不通过）；压缩包 SHA256 须同时与签名文件和版本锁一致；解压后另存每个文件的 SHA256，供剧本核对传到服务器的文件。
+
+**设计**：
+- 一个 restic 仓库，位于 backup VM 的 /srv/backup/restic/lab，以 SFTP 访问。仓库口令只在管理端（~/.cnpl-secrets/restic_password）与各客户端（/etc/restic/password，0600），backup VM 只保存密文，并且不需要安装 restic。
+- 地址使用 IP，备份不依赖内部 DNS。dns VM 本身也不使用内部 DNS。
+- 多台主机共用一个仓库，便于去重与集中检查；代价是任一客户端都能读取全部快照，实验环境接受这一点。forget 需要独占锁，所有 restic 命令都带 `--retry-lock`。
+
+**backup_server 角色**：
+- 系统账户 restic 的主目录放在 /home。SELinux 对 ~/.ssh 默认标为 ssh_home_t，若放在 /srv 下，sshd 无法读取 authorized_keys。
+- 仓库目录 0700。authorized_keys 带 restrict，包含四个客户端的 id_restic 与 Mac 的实验密钥，exclusive。
+- sshd 增加 60-cnpl-restic.conf：Match User restic，ForceCommand internal-sftp，禁止口令、转发与 TTY。写入后执行 `sshd -t`，并用 `sshd -T -C` 确认 root 的 forcecommand 仍为 none、restic 为 internal-sftp，不符时删除该文件并停止。这样处理是因为 Include 文件中 Match 的作用范围需要确认，不能想当然。
+- 读取本机 ed25519 主机公钥，供客户端写入 known_hosts，不使用首次信任。
+
+**backup_client 角色与 backup.yml**：
+- 客户端生成 id_restic。restic 二进制从种子复制，并与 Mac 上记录的 SHA256 比对。写入口令、仓库地址、root 的 SSH 设置（专用密钥、BatchMode）与 known_hosts。
+- 备份脚本 /usr/local/sbin/cnpl-backup：post 以 trap 保证执行（例如 nexus 一定重新启动）。备份之后按 7 天、4 周、6 个月保留，只 forget，不 prune。
+- systemd 定时器每日 02:30，随机延迟 30 分钟，Persistent。
+- 第一次备份逐台执行（serial 1），检查服务的 Result 为 success，并摘取 restic 的统计行。
+- 最后由 backup-mac.sh 备份 ~/cnpl-pki、~/.cnpl-secrets 与 OpenWrt 的 `sysupgrade -b -` 配置包，然后 forget、prune、列出快照、`restic check`。
+- 各主机的备份内容见操作流程步骤 14。Harbor 数据库用 `docker exec harbor-db pg_dumpall` 导出，不复制在线文件；Nexus 备份期间停服务约 1–2 分钟。
+
+**restore-drill.yml**：
+- DNS：把 dns 的最新快照恢复到 /var/tmp 下的临时目录，执行 named-checkconf 与两个区域的 named-checkzone，再用 cmp 与在用文件逐字节比较。
+- CA：在 Mac 上只恢复 ~/cnpl-pki 到临时目录，与原目录 diff -r，并确认恢复出的根证书 SHA-256 指纹与仓库中的公开证书一致。
+- 两项都在 always 中删除临时目录，不覆盖任何在用文件。
+
+本地检查：三个剧本的 syntax-check 通过；四台主机的备份脚本渲染后 bash -n 通过（检查了 nexus 的 stop/trap start 与 harbor 的导出与清理）。
+
+未经验证的假设：
+- harbor-db 容器内 postgres 用户可以免口令执行 pg_dumpall；
+- `gitlab-backup create STRATEGY=copy CRON=1` 在当前版本可用；
+- OpenWrt 25.12 的 `sysupgrade -b -` 输出到标准输出。
+
+restic 口令的保管方式已在操作流程中提示：必须另存到 Mac 之外。偏差仍为：backup 与被备份的服务同在 esxi01。尚无执行输出，以上备份相关文件未提交。
+
+## 102. 2026-10-17 口令导出脚本；bash 3.2 全角标点问题再次出现
+
+用户要求把各服务口令按服务一一对应整理成文本文件，放在桌面，自行保存。本助手先尝试只读查看桌面是否开启 iCloud 同步，并列出 ~/.cnpl-secrets 中的文件名，被 Claude Code 的安全检查以凭据泄露为由拒绝。按项目约定，本助手不读取、不导出口令，因此改为编写 scripts/export-secrets.sh，由用户本人运行：把 ~/.cnpl-secrets 中的口令按 Harbor（admin、robot$cnpl-pull、内部数据库）、GitLab（root）、Nexus（admin、cnpl-reader）、restic 仓库列出，附访问地址与用户名，输出文件为 0600；末尾列出不在 ~/.cnpl-secrets 中、需要用户自行保管的口令（CA 私钥口令、OpenWrt root、模板 root、vCenter/ESXi/iDRAC、订阅地址）。桌面开启 iCloud 同步时，可指定其他输出路径。
+
+用户运行默认路径与 ~/cnpl-passwords.txt 两次，都报 `line 45: OUT?: unbound variable`。最后一行 echo 写成了 `$OUT（`，macOS 自带的 bash 3.2 把全角括号的首字节当成变量名的一部分。这与第 52、72 节是同一个问题，本助手再次违反了已记录的写法。由于 set -u 只在最后一行触发，**两个输出文件在报错前都已写入并设为 0600**：~/Desktop/cnpl-passwords.txt 与 ~/cnpl-passwords.txt。修正：改为 `${OUT}`。同时用正则检查本批新写的 Mac 端脚本（export-secrets、fetch-restic、backup-mac、OpenWrt 两个脚本、set-vm-identity），又发现三处同样的写法：fetch-restic.sh 的签名失败提示（`$FPR）`）与 backup-mac.sh 的两条前置检查提示（`$RESTIC，`、`$RESTIC_PASSWORD_FILE（`）。三处都只在出错时执行，所以不影响正常运行，但会用 unbound variable 掩盖真正的错误。已全部改为 `${var}`。用户此时正在运行 backup.yml，剧本末尾会调用 backup-mac.sh，因此修改时先写入临时文件再原子替换（新 inode），已在执行的 bash 仍读取旧文件，不会被中途改动。
+
+## 103. 2026-10-17 备份部署与第一次备份通过
+
+用户先运行 fetch-restic.sh（输出未单独保存），再运行 backup.yml，见[证据](evidence/00.10.03-backup.txt)：backup ok=13 changed=5、dns/harbor/gitlab/nexus 各 ok=21 changed=11、localhost ok=4 changed=2，全部 failed=0。
+
+- **backup VM**：数据盘已挂载，data_disk 无变化。restic 账户、仓库目录、authorized_keys、sshd 设置为 changed；`sshd -t` 通过；`sshd -T -C` 确认 root 的 forcecommand 为 none、restic 为 internal-sftp，sshd 随即重新加载。
+- **仓库初始化**：在管理端执行（changed），口令生成在 ~/.cnpl-secrets/restic_password。
+- **第一次备份**：逐台执行，服务 Result 均为 success：
+
+  | 主机 | 快照 | 文件 | 大小 | 用时 |
+  | --- | --- | --- | --- | --- |
+  | dns | 99eb85ff | 7 | 16.151 KiB | 4 秒 |
+  | harbor | 458c4a96 | 168 | 141.493 MiB | 7 秒 |
+  | gitlab | 909e6760 | 9 | 850.084 KiB | 4 秒 |
+  | nexus | cb818c26 | 264 | 42.092 MiB | 6 秒 |
+
+  GitLab 目前几乎没有数据，备份包很小，属于预期。Nexus 在备份期间停止，结束后由 trap 重新启动。第 101 节的三个假设中，harbor-db 的 pg_dumpall 与 gitlab-backup 的参数在这次运行中得到证实（两台的服务结果均为 success）。
+- **管理端**：OpenWrt 配置包 8713 字节，`sysupgrade -b -` 可以输出到标准输出，第三个假设也成立。快照 4ebfcf47 包含 ~/cnpl-pki、~/.cnpl-secrets 与暂存目录，共 31 个文件、22.834 KiB。保留策略之后执行 prune，没有可删除的数据，剩余 823 个 blob、180.460 MiB。五个快照全部列出，`restic check` 为 no errors were found。
+- **大小核对**：本助手从管理端只读执行 du：harbor 的 /data 共 209M，排除 database 与 redis 后为 142M，与快照的 141.493 MiB 一致，说明镜像数据都已备份。
+- **安全**：证据中没有私钥块、会话 cookie 或 warning、error 行。
+
+台账 backup 记为 deployed，版本锁 backup_tool 记为 deployed，批次进度表已同步。恢复演练（restore-drill.yml）待用户执行。用户导出口令时备份尚在运行，restic 口令那一行可能是「尚未生成」，需要在备份完成后重跑一次 export-secrets.sh。
+
+## 104. 2026-10-17 恢复演练通过；用户已重新导出口令清单
+
+用户运行 restore-drill.yml，见[证据](evidence/00.10.03-restore-drill.txt)：dns ok=7 changed=2、localhost ok=5 changed=3，均 failed=0。
+
+- **DNS**：从仓库恢复快照 99eb85ff（/etc/named.conf、/etc/named.rfc1912.zones、/var/named，17 个文件或目录，16.151 KiB）到 /var/tmp/cnpl-restore-drill。named-checkconf 通过；named-checkzone 加载 internal.egon.top 与 9.168.192.in-addr.arpa，序号都是 2026101701，结果为 OK。restored 的 named.conf 与两个区域文件和在用文件逐字节相同（cmp）。临时目录已删除。
+- **CA**：在 Mac 上只恢复 ~/cnpl-pki 到临时目录，`diff -r` 与原目录无差异；恢复出的 root.crt 与仓库 pki/public/cnpl-lab-root-ca.crt 的 SHA-256 指纹相同。临时目录已删除。
+- 证据中没有私钥块或会话 cookie。
+
+00.10.03「至少恢复一个服务并验证数据」完成：DNS 配置与区域可以从备份恢复，并通过 BIND 工具校验；CA 材料可以从备份完整取回。未演练整台服务的重建（例如在新 VM 上恢复 Harbor 或 GitLab），留作以后的扩展。偏差仍为：backup 与被备份的服务同在 esxi01。
+
+用户报告已在备份完成后重新运行 export-secrets.sh，口令清单已更新（包含 restic 仓库口令）；清单内容本助手未见到。版本锁 backup_tool 记为 deployed_verified，批次进度表与根目录 README 已同步。

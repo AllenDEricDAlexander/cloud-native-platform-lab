@@ -466,16 +466,27 @@ components:
     candidate: "restic 0.19.1"
     version: "0.19.1"
     purpose: 00.10.03 加密备份到 backup VM（SFTP），抽样恢复
+    signing_key: {fingerprint: CF8F18F2844575973F79D4E191A6868BD3F7A907, uid: Alexander Neumann, file: ops/00-preparation/scripts/keys/restic-CF8F18F2844575973F79D4E191A6868BD3F7A907.asc}
     artifacts:
       - name: restic_0.19.1_linux_amd64.bz2
         type: binary_bzip2
-        architecture: x86_64
+        architecture: x86_64（备份客户端）
+        sha256: f415415624dcc452f2a02b8c33641791a8c6d6d3b65bbb3543fcf9a25151585c
         source: https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_linux_amd64.bz2
-        checksum_source: 同一发布的 SHA256SUMS 与 SHA256SUMS.asc（签名待核对）
+        checksum_source: SHA256SUMS，其签名 SHA256SUMS.asc 已用上方公钥验证（2026-10-17，Good signature）
+        released_at: '2026-07-05'
+      - name: restic_0.19.1_darwin_arm64.bz2
+        type: binary_bzip2
+        architecture: arm64（管理 Mac）
+        sha256: 7be0a144ccc377880f294204aa271d76e4b79554b42a751151d425ce6ebac143
+        source: https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_darwin_arm64.bz2
+        checksum_source: 同上
         released_at: '2026-07-05'
     compatibility_evidence: []
-    execution_evidence: []
-    status: candidate
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.03-backup.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.03-restore-drill.txt
+    status: deployed_verified  # 2026-10-17 第一次备份、restic check 与恢复演练（DNS、CA）均通过
   cilium:
     phase: "01"
     candidate: "1.20.x"

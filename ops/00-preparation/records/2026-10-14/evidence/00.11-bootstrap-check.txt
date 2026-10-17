@@ -1,0 +1,712 @@
+
+PLAY [Phase 00 节点基线] *******************************************************
+
+TASK [node_base : 收集已安装软件包] ********************************************
+ok: [worker02]
+ok: [worker01]
+ok: [storage01]
+ok: [cp03]
+ok: [infra01]
+ok: [cp02]
+ok: [storage03]
+ok: [cp01]
+ok: [infra02]
+ok: [storage02]
+
+TASK [node_base : 基础工具已安装（缺失时停止，不在这里联网安装）] **************
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+ok: [infra01]
+ok: [infra02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [worker01]
+ok: [worker02]
+
+TASK [node_base : SELinux 保持 Enforcing（本实验硬性要求，不得降级）] **********
+ok: [worker01]
+ok: [storage03]
+ok: [storage02]
+ok: [cp03]
+ok: [worker02]
+ok: [cp01]
+ok: [infra02]
+ok: [infra01]
+ok: [cp02]
+ok: [storage01]
+
+TASK [node_base : 基础服务开机启动并运行] **************************************
+ok: [worker01] => (item=vmtoolsd)
+ok: [storage02] => (item=vmtoolsd)
+ok: [worker02] => (item=vmtoolsd)
+ok: [storage01] => (item=vmtoolsd)
+ok: [cp02] => (item=vmtoolsd)
+ok: [infra01] => (item=vmtoolsd)
+ok: [cp03] => (item=vmtoolsd)
+ok: [storage03] => (item=vmtoolsd)
+ok: [cp01] => (item=vmtoolsd)
+ok: [infra02] => (item=vmtoolsd)
+ok: [worker01] => (item=chronyd)
+ok: [infra01] => (item=chronyd)
+ok: [storage02] => (item=chronyd)
+ok: [storage01] => (item=chronyd)
+ok: [worker02] => (item=chronyd)
+ok: [cp02] => (item=chronyd)
+ok: [storage03] => (item=chronyd)
+ok: [cp03] => (item=chronyd)
+ok: [cp01] => (item=chronyd)
+ok: [infra02] => (item=chronyd)
+ok: [worker01] => (item=firewalld)
+ok: [infra01] => (item=firewalld)
+ok: [cp01] => (item=firewalld)
+ok: [storage02] => (item=firewalld)
+ok: [worker02] => (item=firewalld)
+ok: [storage01] => (item=firewalld)
+ok: [cp02] => (item=firewalld)
+ok: [storage03] => (item=firewalld)
+ok: [cp03] => (item=firewalld)
+ok: [infra02] => (item=firewalld)
+
+TASK [node_base : fstab 中的 swap 条目保持注释（保留 LV 与原条目，不删除）] ****
+ok: [cp02]
+ok: [worker01]
+ok: [storage03]
+ok: [storage02]
+ok: [worker02]
+ok: [cp01]
+ok: [storage01]
+ok: [infra02]
+ok: [infra01]
+ok: [cp03]
+
+TASK [node_base : 读取当前启用的 swap] *****************************************
+ok: [worker01]
+ok: [infra02]
+ok: [worker02]
+ok: [cp02]
+ok: [cp01]
+ok: [infra01]
+ok: [storage02]
+ok: [storage01]
+ok: [cp03]
+ok: [storage03]
+
+TASK [node_base : 关闭当前启用的 swap] *****************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [node_base : 开机加载 overlay] ********************************************
+ok: [worker02]
+ok: [storage01]
+ok: [storage02]
+ok: [worker01]
+ok: [infra01]
+ok: [storage03]
+ok: [cp01]
+ok: [cp03]
+ok: [infra02]
+ok: [cp02]
+
+TASK [node_base : 读取 overlay 是否已加载] *************************************
+ok: [storage03]
+ok: [infra01]
+ok: [cp01]
+ok: [cp03]
+ok: [cp02]
+ok: [worker01]
+ok: [storage01]
+ok: [infra02]
+ok: [storage02]
+ok: [worker02]
+
+TASK [node_base : 加载 overlay] ************************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [node_base : 持久化内核参数（只开 IPv4 转发；桥接、rp_filter 等不预设，手册第 7 节）] ***
+ok: [infra01]
+ok: [worker01]
+ok: [storage03]
+ok: [infra02]
+ok: [cp01]
+ok: [storage02]
+ok: [storage01]
+ok: [worker02]
+ok: [cp02]
+ok: [cp03]
+
+TASK [node_base : 读取运行时 IPv4 转发] ****************************************
+ok: [infra02]
+ok: [cp02]
+ok: [infra01]
+ok: [cp01]
+ok: [worker01]
+ok: [storage01]
+ok: [cp03]
+ok: [storage03]
+ok: [worker02]
+ok: [storage02]
+
+TASK [node_base : 运行时值不符时重新应用] **************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [node_base : 读取 VMware 周期时间同步状态] ********************************
+ok: [cp02]
+ok: [cp01]
+ok: [infra02]
+ok: [worker01]
+ok: [cp03]
+ok: [storage01]
+ok: [storage02]
+ok: [worker02]
+ok: [storage03]
+ok: [infra01]
+
+TASK [node_base : 关闭 VMware 周期时间同步（时间由 chrony 负责，避免两套持续纠偏）] ***
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [node_base : 确认业务网卡位于预期区域] ************************************
+ok: [infra01]
+ok: [worker01]
+ok: [storage02]
+ok: [cp01]
+ok: [cp03]
+ok: [storage03]
+ok: [worker02]
+ok: [cp02]
+ok: [storage01]
+ok: [infra02]
+
+TASK [node_base : 区域不符时停止，不在未知区域上改规则] ************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [infra02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [storage03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [node_base : 首次运行前备份原 firewalld 配置（保留回退入口）] *************
+ok: [infra02]
+ok: [cp01]
+ok: [cp03]
+ok: [infra01]
+ok: [cp02]
+ok: [storage03]
+ok: [storage02]
+ok: [storage01]
+ok: [worker01]
+ok: [worker02]
+
+TASK [node_base : 写入 ipset 定义] *********************************************
+ok: [worker01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [infra01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [cp02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [worker02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [cp03] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [cp01] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [infra02] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage03] => (item=k8s-nodes: 192.168.9.101 192.168.9.102 192.168.9.103 192.168.9.104 192.168.9.105 192.168.9.106 192.168.9.107 192.168.9.108 192.168.9.109 192.168.9.110)
+ok: [storage02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [worker01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [infra01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [cp03] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [worker02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [storage01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [cp01] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [storage03] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [infra02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [cp02] => (item=k8s-control-plane: 192.168.9.101 192.168.9.102 192.168.9.103)
+ok: [worker01] => (item=lab-mgmt: 192.168.9.200)
+ok: [infra01] => (item=lab-mgmt: 192.168.9.200)
+ok: [worker02] => (item=lab-mgmt: 192.168.9.200)
+ok: [storage02] => (item=lab-mgmt: 192.168.9.200)
+ok: [cp03] => (item=lab-mgmt: 192.168.9.200)
+ok: [cp01] => (item=lab-mgmt: 192.168.9.200)
+ok: [cp02] => (item=lab-mgmt: 192.168.9.200)
+ok: [storage03] => (item=lab-mgmt: 192.168.9.200)
+ok: [infra02] => (item=lab-mgmt: 192.168.9.200)
+ok: [storage01] => (item=lab-mgmt: 192.168.9.200)
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 让新的 ipset 在添加规则前生效] *******************************
+
+TASK [node_base : 移除不使用的服务放行] ****************************************
+ok: [worker01] => (item=cockpit)
+ok: [worker02] => (item=cockpit)
+ok: [cp01] => (item=cockpit)
+ok: [cp03] => (item=cockpit)
+ok: [cp02] => (item=cockpit)
+ok: [infra01] => (item=cockpit)
+ok: [infra02] => (item=cockpit)
+ok: [storage03] => (item=cockpit)
+ok: [storage02] => (item=cockpit)
+ok: [storage01] => (item=cockpit)
+
+TASK [node_base : 按来源放行端口] **********************************************
+ok: [cp01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [cp02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [worker01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [infra01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [infra02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [storage02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [storage03] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [storage01] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [worker02] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [cp03] => (item=10250/tcp ← k8s-nodes（kubelet API）)
+ok: [worker01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [cp03] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [infra01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [cp01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [cp02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [worker02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [storage03] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [storage02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [storage01] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [infra02] => (item=8472/udp ← k8s-nodes（Cilium VXLAN）)
+ok: [infra01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [worker01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp03] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [worker02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [storage03] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [storage02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [storage01] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [infra02] => (item=4240/tcp ← k8s-nodes（Cilium 健康检查）)
+ok: [cp01] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+ok: [cp03] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+ok: [cp02] => (item=6443/tcp ← k8s-nodes（kube-apiserver（节点与 VIP））)
+ok: [cp03] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+ok: [cp02] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+ok: [cp01] => (item=6443/tcp ← lab-mgmt（kube-apiserver（管理端））)
+ok: [cp02] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+ok: [cp03] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+ok: [cp01] => (item=2379-2380/tcp ← k8s-control-plane（etcd 客户端与成员）)
+
+TASK [node_base : 校验永久配置] ************************************************
+ok: [infra01]
+ok: [cp02]
+ok: [storage01]
+ok: [cp03]
+ok: [worker01]
+ok: [worker02]
+ok: [cp01]
+ok: [storage03]
+ok: [infra02]
+ok: [storage02]
+
+TASK [node_base : 准备 journald drop-in 目录] **********************************
+ok: [cp01]
+ok: [worker01]
+ok: [infra01]
+ok: [cp03]
+ok: [cp02]
+ok: [infra02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [worker02]
+
+TASK [node_base : journald 持久化与容量上限] ***********************************
+ok: [cp02]
+ok: [storage01]
+ok: [worker01]
+ok: [infra02]
+ok: [infra01]
+ok: [storage03]
+ok: [worker02]
+ok: [cp01]
+ok: [cp03]
+ok: [storage02]
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 让 journald 配置立即生效] ************************************
+
+TASK [node_base : 确认日志已写入持久目录] **************************************
+ok: [cp02]
+ok: [cp01]
+ok: [storage02]
+ok: [infra01]
+ok: [storage01]
+ok: [infra02]
+ok: [worker02]
+ok: [worker01]
+ok: [storage03]
+ok: [cp03]
+
+TASK [node_base : 安装内部根 CA 到系统信任] ************************************
+ok: [cp01]
+ok: [worker01]
+ok: [cp02]
+ok: [infra01]
+ok: [cp03]
+ok: [storage01]
+ok: [worker02]
+ok: [infra02]
+ok: [storage02]
+ok: [storage03]
+
+TASK [node_base : 读取当前 DNS 与搜索域] ***************************************
+ok: [worker01]
+ok: [cp02]
+ok: [cp01]
+ok: [infra01]
+ok: [cp03]
+ok: [storage01]
+ok: [storage02]
+ok: [infra02]
+ok: [worker02]
+ok: [storage03]
+
+TASK [node_base : 改用内部 DNS（写入 NetworkManager 连接配置）] ****************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 让 DNS 设置立即生效] *****************************************
+
+TASK [node_base : 确认能解析内部与外部名称] ************************************
+ok: [cp01] => (item=harbor.k8s.internal.egon.top)
+ok: [cp02] => (item=harbor.k8s.internal.egon.top)
+ok: [infra01] => (item=harbor.k8s.internal.egon.top)
+ok: [storage02] => (item=harbor.k8s.internal.egon.top)
+ok: [storage03] => (item=harbor.k8s.internal.egon.top)
+ok: [worker02] => (item=harbor.k8s.internal.egon.top)
+ok: [storage01] => (item=harbor.k8s.internal.egon.top)
+ok: [worker01] => (item=harbor.k8s.internal.egon.top)
+ok: [infra02] => (item=harbor.k8s.internal.egon.top)
+ok: [cp03] => (item=harbor.k8s.internal.egon.top)
+ok: [infra01] => (item=rockylinux.org)
+ok: [cp02] => (item=rockylinux.org)
+ok: [worker01] => (item=rockylinux.org)
+ok: [cp01] => (item=rockylinux.org)
+ok: [storage03] => (item=rockylinux.org)
+ok: [cp03] => (item=rockylinux.org)
+ok: [storage01] => (item=rockylinux.org)
+ok: [storage02] => (item=rockylinux.org)
+ok: [infra02] => (item=rockylinux.org)
+ok: [worker02] => (item=rockylinux.org)
+
+TASK [container_runtime : 收集已安装软件包] ************************************
+ok: [storage03]
+ok: [cp01]
+ok: [worker01]
+ok: [storage02]
+ok: [cp03]
+ok: [storage01]
+ok: [cp02]
+ok: [infra01]
+ok: [infra02]
+ok: [worker02]
+
+TASK [container_runtime : 运行时与入群工具版本与版本锁一致（首次安装路线尚未编码，缺失时停止）] ***
+ok: [cp01] => (item=containerd.io=2.4.2-2.el10)
+ok: [cp01] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [cp03] => (item=containerd.io=2.4.2-2.el10)
+ok: [infra01] => (item=containerd.io=2.4.2-2.el10)
+ok: [cp01] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [infra02] => (item=containerd.io=2.4.2-2.el10)
+ok: [storage01] => (item=containerd.io=2.4.2-2.el10)
+ok: [cp02] => (item=containerd.io=2.4.2-2.el10)
+ok: [infra01] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [cp01] => (item=kubelet=1.36.5-150500.1.1)
+ok: [cp03] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [cp01] => (item=kubectl=1.36.5-150500.1.1)
+ok: [infra01] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [storage03] => (item=containerd.io=2.4.2-2.el10)
+ok: [storage02] => (item=containerd.io=2.4.2-2.el10)
+ok: [infra01] => (item=kubelet=1.36.5-150500.1.1)
+ok: [cp03] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [storage03] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [storage01] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [cp02] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [infra02] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [cp02] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [cp01] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [infra01] => (item=kubectl=1.36.5-150500.1.1)
+ok: [infra02] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [storage01] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [cp02] => (item=kubelet=1.36.5-150500.1.1)
+ok: [infra01] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [cp03] => (item=kubelet=1.36.5-150500.1.1)
+ok: [infra02] => (item=kubelet=1.36.5-150500.1.1)
+ok: [worker01] => (item=containerd.io=2.4.2-2.el10)
+ok: [storage03] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [storage02] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [cp03] => (item=kubectl=1.36.5-150500.1.1)
+ok: [cp02] => (item=kubectl=1.36.5-150500.1.1)
+ok: [storage02] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [worker02] => (item=containerd.io=2.4.2-2.el10)
+ok: [storage01] => (item=kubelet=1.36.5-150500.1.1)
+ok: [worker01] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [storage02] => (item=kubelet=1.36.5-150500.1.1)
+ok: [cp02] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [infra02] => (item=kubectl=1.36.5-150500.1.1)
+ok: [cp03] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [storage03] => (item=kubelet=1.36.5-150500.1.1)
+ok: [storage01] => (item=kubectl=1.36.5-150500.1.1)
+ok: [storage02] => (item=kubectl=1.36.5-150500.1.1)
+ok: [worker01] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [worker02] => (item=cri-tools=1.36.0-150500.1.1)
+ok: [infra02] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [storage03] => (item=kubectl=1.36.5-150500.1.1)
+ok: [storage01] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [worker01] => (item=kubelet=1.36.5-150500.1.1)
+ok: [worker02] => (item=kubeadm=1.36.5-150500.1.1)
+ok: [storage03] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [worker01] => (item=kubectl=1.36.5-150500.1.1)
+ok: [storage02] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [worker02] => (item=kubelet=1.36.5-150500.1.1)
+ok: [worker01] => (item=kubernetes-cni=1.9.1-150500.1.1)
+ok: [worker02] => (item=kubectl=1.36.5-150500.1.1)
+ok: [worker02] => (item=kubernetes-cni=1.9.1-150500.1.1)
+
+TASK [container_runtime : 运行时盘按 UUID 挂载到 /var/lib/containerd（只挂载，从不格式化）] ***
+ok: [worker02]
+ok: [worker01]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [infra01]
+ok: [cp02]
+ok: [infra02]
+ok: [cp01]
+ok: [cp03]
+
+TASK [container_runtime : containerd 配置目录] *********************************
+ok: [cp01] => (item=/etc/containerd/certs.d)
+ok: [storage03] => (item=/etc/containerd/certs.d)
+ok: [cp03] => (item=/etc/containerd/certs.d)
+ok: [infra01] => (item=/etc/containerd/certs.d)
+ok: [storage02] => (item=/etc/containerd/certs.d)
+ok: [infra02] => (item=/etc/containerd/certs.d)
+ok: [worker02] => (item=/etc/containerd/certs.d)
+ok: [worker01] => (item=/etc/containerd/certs.d)
+ok: [storage01] => (item=/etc/containerd/certs.d)
+ok: [cp02] => (item=/etc/containerd/certs.d)
+ok: [storage03] => (item=/etc/systemd/system/containerd.service.d)
+ok: [cp03] => (item=/etc/systemd/system/containerd.service.d)
+ok: [worker01] => (item=/etc/systemd/system/containerd.service.d)
+ok: [infra01] => (item=/etc/systemd/system/containerd.service.d)
+ok: [worker02] => (item=/etc/systemd/system/containerd.service.d)
+ok: [storage02] => (item=/etc/systemd/system/containerd.service.d)
+ok: [cp01] => (item=/etc/systemd/system/containerd.service.d)
+ok: [infra02] => (item=/etc/systemd/system/containerd.service.d)
+ok: [storage01] => (item=/etc/systemd/system/containerd.service.d)
+ok: [cp02] => (item=/etc/systemd/system/containerd.service.d)
+
+TASK [container_runtime : containerd 配置（version 3、SystemdCgroup、enable_selinux）] ***
+ok: [cp01]
+ok: [worker01]
+ok: [infra01]
+ok: [worker02]
+ok: [storage01]
+ok: [cp03]
+ok: [storage02]
+ok: [infra02]
+ok: [cp02]
+ok: [storage03]
+
+TASK [container_runtime : containerd 依赖运行时盘挂载（盘缺失时不启动，避免写入根盘）] ***
+ok: [infra01]
+ok: [storage01]
+ok: [worker01]
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+ok: [worker02]
+ok: [infra02]
+ok: [storage03]
+ok: [storage02]
+
+TASK [container_runtime : Harbor 的 registry hosts 目录] ***********************
+ok: [cp01]
+ok: [worker01]
+ok: [cp02]
+ok: [worker02]
+ok: [infra01]
+ok: [cp03]
+ok: [storage02]
+ok: [storage01]
+ok: [infra02]
+ok: [storage03]
+
+TASK [container_runtime : Harbor 端点与内部根 CA（containerd 按 config_path 动态读取，无需重启；只配置拉取，不提供认证）] ***
+ok: [cp01]
+ok: [worker02]
+ok: [infra01]
+ok: [storage01]
+ok: [storage02]
+ok: [worker01]
+ok: [infra02]
+ok: [cp02]
+ok: [cp03]
+ok: [storage03]
+
+TASK [container_runtime : crictl 端点] *****************************************
+ok: [infra02]
+ok: [cp02]
+ok: [cp03]
+ok: [cp01]
+ok: [worker01]
+ok: [storage01]
+ok: [storage02]
+ok: [infra01]
+ok: [worker02]
+ok: [storage03]
+
+TASK [container_runtime : containerd 开机启动并运行] ***************************
+ok: [worker01]
+ok: [storage02]
+ok: [infra01]
+ok: [cp02]
+ok: [cp03]
+ok: [infra02]
+ok: [storage01]
+ok: [worker02]
+ok: [storage03]
+ok: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+cp02                       : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+cp03                       : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+infra01                    : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+infra02                    : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage01                  : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage02                  : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage03                  : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+worker01                   : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+worker02                   : ok=34   changed=0    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+

@@ -47,6 +47,8 @@ kv nm_connection "$CONN"
 kv ipv4_method "$( [ -n "$CONN" ] && nmcli -g ipv4.method connection show "$CONN" 2>/dev/null)"
 kv ipv4 "$(ip -4 -o addr show dev "$NIC" 2>/dev/null | awk '{print $4}' | paste -sd, -)"
 kv gateway "$(ip -4 route show default 2>/dev/null | awk '{print $3; exit}')"
+# 只作记录：路由器经 RA 下发的 IPv6 全局/ULA 地址（00 不关闭 IPv6，01 选择节点地址时参考）。
+kv ipv6_global "$(ip -6 -o addr show dev "$NIC" scope global 2>/dev/null | awk '{print $4}' | paste -sd, -)"
 kv dns "$(awk '/^nameserver/ {print $2}' /etc/resolv.conf 2>/dev/null | paste -sd, -)"
 kv ssh_ed25519_fp "$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null | awk '{print $2}')"
 
@@ -78,6 +80,9 @@ CRI_INFO=$(crictl info 2>/dev/null)
 kv runtime_ready "$(jq -r '.status.conditions[] | select(.type == "RuntimeReady") | .status' <<<"$CRI_INFO" 2>/dev/null)"
 kv network_ready "$(jq -r '.status.conditions[] | select(.type == "NetworkReady") | .status' <<<"$CRI_INFO" 2>/dev/null)"
 kv cri_images "$(crictl images -o json 2>/dev/null | jq -r '[.images[].repoTags[]] | sort | join(",")' 2>/dev/null)"
+SANDBOX_IMAGE=$(containerd config dump 2>/dev/null | grep -A3 'pinned_images' | sed -nE "s/^[[:space:]]*sandbox = ['\"]([^'\"]+)['\"].*/\1/p" | head -n1)
+kv sandbox_image "$SANDBOX_IMAGE"
+kv sandbox_image_present "$( [ -n "$SANDBOX_IMAGE" ] && crictl inspecti "$SANDBOX_IMAGE" >/dev/null 2>&1 && echo yes || echo no)"
 
 # 入群工具（00 只安装，不 init/join）
 kv kubeadm_version "$(kubeadm version -o short 2>/dev/null)"

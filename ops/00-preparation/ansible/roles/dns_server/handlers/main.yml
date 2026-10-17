@@ -2,3 +2,9 @@
   ansible.builtin.systemd_service:
     name: named
     state: reloaded
+
+# 主配置改变（如递归或验证策略）时重启：reload 会保留缓存，按旧策略缓存的失败结果不会立即清除。
+- name: 重启 named
+  ansible.builtin.systemd_service:
+    name: named
+    state: restarted

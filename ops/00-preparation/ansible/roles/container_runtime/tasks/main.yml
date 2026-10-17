@@ -45,6 +45,21 @@
     dest: /etc/systemd/system/containerd.service.d/10-runtime-mount.conf
   notify: [重新加载 systemd, 重启 containerd]
 
+- name: Harbor 的 registry hosts 目录
+  ansible.builtin.file:
+    path: /etc/containerd/certs.d/{{ container_runtime_harbor }}
+    state: directory
+    mode: "0755"
+
+- name: Harbor 端点与内部根 CA（containerd 按 config_path 动态读取，无需重启；只配置拉取，不提供认证）
+  ansible.builtin.copy:
+    dest: /etc/containerd/certs.d/{{ container_runtime_harbor }}/hosts.toml
+    content: |
+      server = "https://{{ container_runtime_harbor }}"
+      [host."https://{{ container_runtime_harbor }}"]
+        capabilities = ["pull", "resolve"]
+        ca = "/etc/pki/ca-trust/source/anchors/cnpl-lab-root-ca.crt"
+
 - name: crictl 端点
   ansible.builtin.copy:
     src: crictl.yaml

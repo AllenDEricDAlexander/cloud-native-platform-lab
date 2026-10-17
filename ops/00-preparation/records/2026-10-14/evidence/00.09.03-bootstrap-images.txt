@@ -1,0 +1,66 @@
+
+PLAY [复制引导镜像到 Harbor（管理端）] *****************************************
+
+TASK [创建公开项目 bootstrap（已存在时返回 409，视为成功）] ********************
+ok: [localhost]
+
+TASK [crane 登录 Harbor（口令经标准输入，不出现在命令行）] *********************
+ok: [localhost]
+
+TASK [复制 linux/amd64 镜像] ***************************************************
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-apiserver:v1.36.5)
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-controller-manager:v1.36.5)
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-scheduler:v1.36.5)
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-proxy:v1.36.5)
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/coredns:v1.14.2)
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/pause:3.10.2)
+changed: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/etcd:3.6.8-0)
+
+TASK [源与目标摘要一致] ********************************************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-apiserver:v1.36.5)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-controller-manager:v1.36.5)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-scheduler:v1.36.5)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/kube-proxy:v1.36.5)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/coredns:v1.14.2)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/pause:3.10.2)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/etcd:3.6.8-0)
+
+PLAY [节点经 CRI 从 Harbor 预拉引导镜像] ***************************************
+
+TASK [kubeadm 按自定义仓库预拉全部控制面镜像（只拉取，不初始化集群）] **********
+changed: [cp02]
+changed: [worker01]
+changed: [cp01]
+changed: [storage02]
+changed: [storage03]
+changed: [worker02]
+changed: [infra02]
+changed: [storage01]
+changed: [cp03]
+changed: [infra01]
+
+TASK [列出来自 Harbor 的镜像] **************************************************
+ok: [cp02]
+ok: [cp03]
+ok: [cp01]
+ok: [worker02]
+ok: [infra02]
+ok: [worker01]
+ok: [storage01]
+ok: [infra01]
+ok: [storage03]
+ok: [storage02]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra01                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=4    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage01                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage02                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+storage03                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker01                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,0 +1,67 @@
+harbor | CHANGED | rc=0 >>
+search k8s.internal.egon.top
+nameserver 192.168.9.11
+== dig  rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: SERVFAIL, id: 7691
+;; SERVER: 192.168.9.11#53(192.168.9.11) (UDP)
+== dig @127.0.0.1 rockylinux.org A
+;; communications error to 127.0.0.1#53: connection refused
+== dig @223.5.5.5 rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 13133
+rockylinux.org.		1	IN	A	76.223.126.88
+;; SERVER: 223.5.5.5#53(223.5.5.5) (UDP)
+== dig @8.8.8.8 rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 43139
+rockylinux.org.		120	IN	A	76.223.126.88
+;; SERVER: 8.8.8.8#53(8.8.8.8) (UDP)
+== dig @127.0.0.1 +cd rockylinux.org A
+;; communications error to 127.0.0.1#53: connection refused
+-- No entries --
+dns | CHANGED | rc=0 >>
+search mgmt.internal.egon.top
+nameserver 8.8.8.8
+nameserver 223.5.5.5
+== dig  rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 22984
+rockylinux.org.		120	IN	A	76.223.126.88
+;; SERVER: 8.8.8.8#53(8.8.8.8) (UDP)
+== dig @127.0.0.1 rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: SERVFAIL, id: 60788
+;; SERVER: 127.0.0.1#53(127.0.0.1) (UDP)
+== dig @223.5.5.5 rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 54778
+rockylinux.org.		119	IN	A	76.223.126.88
+;; SERVER: 223.5.5.5#53(223.5.5.5) (UDP)
+== dig @8.8.8.8 rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 54873
+rockylinux.org.		120	IN	A	76.223.126.88
+;; SERVER: 8.8.8.8#53(8.8.8.8) (UDP)
+== dig @127.0.0.1 +cd rockylinux.org A
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 25451
+rockylinux.org.		118	IN	A	76.223.126.88
+;; SERVER: 127.0.0.1#53(127.0.0.1) (UDP)
+Oct 17 10:47:37 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving '172.in-addr.arpa/DNSKEY/IN': 223.5.5.5#53
+Oct 17 10:47:37 dns.mgmt.internal.egon.top named[1069]: validating 172.in-addr.arpa/DNSKEY: got insecure response; parent indicates it should be secure
+Oct 17 10:47:37 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving '172.in-addr.arpa/DNSKEY/IN': 8.8.8.8#53
+Oct 17 10:47:37 dns.mgmt.internal.egon.top named[1069]: broken trust chain resolving '172.in-addr.arpa/NS/IN': 223.5.5.5#53
+Oct 17 10:47:38 dns.mgmt.internal.egon.top named[1069]: validating in-addr.arpa/NS: got insecure response; parent indicates it should be secure
+Oct 17 10:47:38 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving 'in-addr.arpa/NS/IN': 8.8.8.8#53
+Oct 17 10:47:38 dns.mgmt.internal.egon.top named[1069]: no valid RRSIG resolving '18.172.in-addr.arpa/DS/IN': 8.8.8.8#53
+Oct 17 10:47:38 dns.mgmt.internal.egon.top named[1069]: broken trust chain resolving '1.0.18.172.in-addr.arpa/PTR/IN': 223.5.5.5#53
+Oct 17 10:47:38 dns.mgmt.internal.egon.top named[1069]:   validating ./SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:47:38 dns.mgmt.internal.egon.top named[1069]:   validating ./SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]:   validating ./SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]: no valid RRSIG resolving 'jobservice/DS/IN': 8.8.8.8#53
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving 'jobservice/AAAA/IN': 8.8.8.8#53
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving 'jobservice/A/IN': 8.8.8.8#53
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]:   validating ./SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving 'jobservice/A/IN': 223.5.5.5#53
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]:   validating ./SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:47:39 dns.mgmt.internal.egon.top named[1069]: insecurity proof failed resolving 'jobservice/AAAA/IN': 223.5.5.5#53
+Oct 17 10:48:42 dns.mgmt.internal.egon.top named[1069]:   validating org/SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:48:42 dns.mgmt.internal.egon.top named[1069]: no valid RRSIG resolving 'rockylinux.org/DS/IN': 223.5.5.5#53
+Oct 17 10:48:42 dns.mgmt.internal.egon.top named[1069]:   validating org/SOA: got insecure response; parent indicates it should be secure
+Oct 17 10:48:42 dns.mgmt.internal.egon.top named[1069]: no valid RRSIG resolving 'rockylinux.org/DS/IN': 8.8.8.8#53
+Oct 17 10:48:42 dns.mgmt.internal.egon.top named[1069]: broken trust chain resolving 'rockylinux.org/A/IN': 223.5.5.5#53
+Oct 17 10:48:43 dns.mgmt.internal.egon.top named[1069]: validating rockylinux.org/A: bad cache hit (rockylinux.org/DS)
+Oct 17 10:48:43 dns.mgmt.internal.egon.top named[1069]: broken trust chain resolving 'rockylinux.org/A/IN': 223.5.5.5#53

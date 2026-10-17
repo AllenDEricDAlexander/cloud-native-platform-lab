@@ -1,0 +1,33 @@
+=== Mac 到 harbor 443 端口
+nc: connectx to 192.168.9.12 port 443 (tcp) failed: Connection refused
+=== Mac 直连 HTTPS（不走代理）
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 192.168.9.12:443...
+* connect to 192.168.9.12 port 443 from 192.168.9.200 port 63148 failed: Connection refused
+* Failed to connect to 192.168.9.12 port 443 after 1003 ms: Couldn't connect to server
+  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0
+* Closing connection
+curl: (7) Failed to connect to 192.168.9.12 port 443 after 1003 ms: Couldn't connect to server
+=== harbor 服务器内部
+harbor | CHANGED | rc=0 >>
+NAME                IMAGE                                 COMMAND                  SERVICE       CREATED          STATUS                             PORTS
+harbor-core         goharbor/harbor-core:v2.15.4          "/harbor/entrypoint.…"   core          26 minutes ago   Up 51 seconds (health: starting)   
+harbor-db           goharbor/harbor-db:v2.15.4            "/docker-entrypoint.…"   postgresql    27 minutes ago   Up 27 minutes (health: starting)   
+harbor-jobservice   goharbor/harbor-jobservice:v2.15.4    "/harbor/entrypoint.…"   jobservice    26 minutes ago   Restarting (2) 11 seconds ago      
+harbor-log          goharbor/harbor-log:v2.15.4           "/bin/sh -c /usr/loc…"   log           27 minutes ago   Up 27 minutes (healthy)            127.0.0.1:1514->10514/tcp
+harbor-portal       goharbor/harbor-portal:v2.15.4        "nginx -g 'daemon of…"   portal        27 minutes ago   Up 27 minutes (health: starting)   
+nginx               goharbor/nginx-photon:v2.15.4         "nginx -g 'daemon of…"   proxy         27 minutes ago   Up 26 minutes (health: starting)   0.0.0.0:80->8080/tcp, [::]:80->8080/tcp, 0.0.0.0:443->8443/tcp, [::]:443->8443/tcp
+redis               goharbor/valkey-photon:v2.15.4        "valkey-server /etc/…"   redis         27 minutes ago   Up 27 minutes (health: starting)   
+registry            goharbor/registry-photon:v2.15.4      "/home/harbor/entryp…"   registry      27 minutes ago   Up 27 minutes (health: starting)   
+registryctl         goharbor/harbor-registryctl:v2.15.4   "/home/harbor/start.…"   registryctl   26 minutes ago   Up 26 minutes (healthy)            
+--- 监听端口
+--- 本机访问
+000
+--- 防火墙
+docker
+  interfaces: docker0 br-f8dc05c36631
+public (default)
+  interfaces: ens33
+rule family="ipv4" source address="192.168.9.0/24" port port="443" protocol="tcp" accept
+--- nginx 日志curl: (7) Failed to connect to harbor.k8s.internal.egon.top port 443 after 1 ms: Could not connect to server

@@ -21,33 +21,34 @@
     harbor_fqdn: harbor.k8s.internal.egon.top
     root_ca: "{{ hostvars['harbor']['inventory_dir'] }}/../../../pki/public/cnpl-lab-root-ca.crt"  # 隐式 localhost 不在 inventory 中，没有 inventory_dir
   tasks:
+    # --noproxy '*'：验证局域网直连路径，不受管理端 HTTPS_PROXY 影响（第 77 节：经 Clash 时内部域名无法解析，握手被中断）。
     - name: 用内部根 CA 校验证书链访问 API（Mac 尚未使用内部 DNS，用 --resolve 指定地址）
       ansible.builtin.command: >-
-        curl -sS --fail --max-time 10 --cacert {{ root_ca }}
+        curl -sS --noproxy '*' --fail --max-time 10 --cacert {{ root_ca }}
         --resolve {{ harbor_fqdn }}:443:{{ harbor_ip }}
         https://{{ harbor_fqdn }}/api/v2.0/ping
       register: harbor_ping
       changed_when: false
       failed_when: harbor_ping.rc != 0 or 'Pong' not in harbor_ping.stdout
-      retries: 12
+      retries: 30
       delay: 10
       until: harbor_ping.rc == 0
 
     - name: 各组件健康
       ansible.builtin.command: >-
-        curl -sS --fail --max-time 10 --cacert {{ root_ca }}
+        curl -sS --noproxy '*' --fail --max-time 10 --cacert {{ root_ca }}
         --resolve {{ harbor_fqdn }}:443:{{ harbor_ip }}
         https://{{ harbor_fqdn }}/api/v2.0/health
       register: harbor_health
       changed_when: false
       failed_when: (harbor_health.stdout | from_json).status != 'healthy'
-      retries: 12
+      retries: 30
       delay: 10
       until: harbor_health.rc == 0 and (harbor_health.stdout | from_json).status == 'healthy'
 
     - name: Registry 端点未认证时返回 401（证明 TLS 与端点可达，不代表已有拉取权限）
       ansible.builtin.command: >-
-        curl -sS -o /dev/null -w '%{http_code}' --max-time 10 --cacert {{ root_ca }}
+        curl -sS --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 10 --cacert {{ root_ca }}
         --resolve {{ harbor_fqdn }}:443:{{ harbor_ip }}
         https://{{ harbor_fqdn }}/v2/
       register: harbor_v2

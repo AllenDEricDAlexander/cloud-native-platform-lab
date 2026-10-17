@@ -1,0 +1,50 @@
+# 逐台重启复验（手册第 11 节「在阶段实施窗口逐台重启」）：每次一台，任何一台失败即停止，不继续重启其余主机。
+# 重启后只做快速判定（SSH、SELinux、firewalld、DNS、失败单元；Kubernetes 节点另查运行时盘与 containerd），
+# 完整复查由 collect-node-readiness.sh --with-cri-smoke 完成；Harbor 由 harbor.yml --limit localhost 验证。
+#
+# 用法（在 ops/00-preparation/ansible/ 下）：
+#   ansible-playbook playbooks/reboot-nodes.yml                    # 十台 Kubernetes 节点
+#   ansible-playbook playbooks/reboot-nodes.yml -e target=dns,harbor
+- name: 逐台重启并快速复查
+  hosts: "{{ target | default('k8s_nodes') }}"
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    dns_servers: "{{ (lookup('ansible.builtin.file', inventory_dir ~ '/../../../../inventory/networks.yaml') | from_yaml).lan.planned_dns_servers }}"
+  tasks:
+    - name: 重启（等待 SSH 恢复，最长 10 分钟）
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+        post_reboot_delay: 15
+
+    - name: 等待开机完成（systemd 不再有排队的启动任务）
+      ansible.builtin.command: systemctl is-system-running --wait
+      register: boot_state
+      changed_when: false
+      failed_when: false
+
+    - name: 读取重启后的状态
+      ansible.builtin.shell: |
+        echo "boot_id=$(cat /proc/sys/kernel/random/boot_id)"
+        echo "selinux=$(getenforce)"
+        echo "firewalld=$(firewall-cmd --state 2>&1)"
+        echo "dns=$(awk '/^nameserver/ {print $2}' /etc/resolv.conf | paste -sd, -)"
+        echo "failed_units=$(systemctl --failed --no-legend --plain | awk '{print $1}' | paste -sd, -)"
+        echo "runtime_mount=$(findmnt -nr -M /var/lib/containerd -o FSTYPE 2>/dev/null)"
+        echo "containerd=$(systemctl is-active containerd 2>/dev/null)"
+      register: after_boot
+      changed_when: false
+
+    - name: 重启后基线保持
+      ansible.builtin.assert:
+        that:
+          - state.selinux == 'Enforcing'
+          - state.firewalld == 'running'
+          - state.dns == dns_servers | join(',') or inventory_hostname == 'dns'
+          - state.failed_units == ''
+          - "'k8s_nodes' not in group_names or (state.runtime_mount == 'xfs' and state.containerd == 'active')"
+        fail_msg: "{{ inventory_hostname }} 重启后不符：{{ state | to_json }}（systemd：{{ boot_state.stdout }}）"
+        success_msg: "{{ state | to_json }}"
+      vars:
+        state: "{{ dict(after_boot.stdout_lines | map('split', '=', 1)) }}"

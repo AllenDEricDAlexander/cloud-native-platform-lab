@@ -15,7 +15,9 @@ options {
 	recursion yes;
 	forwarders { {% for f in dns_forwarders %}{{ f }}; {% endfor %}};
 	forward only;
-	dnssec-validation auto;
+	// 不在本地做 DNSSEC 验证：到上游转发器的路径会去掉签名（根与 org 的 SOA 都没有 RRSIG），
+	// 本地验证必然失败并返回 SERVFAIL（执行记录第 81 节）。外部应答的可信度等同于上游及其路径。
+	dnssec-validation no;
 	managed-keys-directory "/var/named/dynamic";
 	geoip-directory "/usr/share/GeoIP";
 	pid-file "/run/named/named.pid";

@@ -132,6 +132,13 @@
     chdir: "{{ harbor_install_parent }}/harbor"
     creates: "{{ harbor_install_parent }}/harbor/docker-compose.yml"
 
+- name: 确保 Harbor 全部组件运行（已运行时不做改动；容器缺失或停止时由 compose 创建、启动）
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: "{{ harbor_install_parent }}/harbor"
+  register: harbor_compose_up
+  changed_when: harbor_compose_up.stderr is search('Creat|Start|Recreat')
+
 - name: 只对实验网段开放 HTTPS（Docker 发布端口可能绕过区域规则，见执行记录）
   ansible.posix.firewalld:
     zone: "{{ node_firewall_zone | default('public') }}"

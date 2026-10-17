@@ -1,0 +1,95 @@
+harbor | CHANGED | rc=0 >>
+--- docker-proxy
+9011 /usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 1514 -container-ip 172.18.0.2 -container-port 10514 -use-listen-fd
+--- docker info
+ Storage Driver: overlayfs
+ Cgroup Driver: systemd
+ Cgroup Version: 2
+ Security Options:
+  cgroupns
+ Firewall Backend: iptables+firewalld
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "50m", "max-file": "3"},
+  "live-restore": true
+}
+--- 健康检查最近一次结果
+[harbor-db]
+{"Status":"running","Running":true,"Paused":false,"Restarting":false,"OOMKilled":false,"Dead":false,"Pid":6509,"ExitCode":0,"Error":"","StartedAt":"2026-10-17T02:05:44.692639841Z","FinishedAt":"0001-01-01T00:00:00Z","Health":{"Status":"starting","FailingStreak":0,"Log":[]}}
+[redis]
+{"Status":"running","Running":true,"Paused":false,"Restarting":false,"OOMKilled":false,"Dead":false,"Pid":6786,"ExitCode":0,"Error":"","StartedAt":"2026-10-17T02:05:46.496914611Z","FinishedAt":"0001-01-01T00:00:00Z","Health":{"Status":"starting","FailingStreak":0,"Log":[]}}
+[nginx]
+{"Status":"running","Running":true,"Paused":false,"Restarting":false,"OOMKilled":false,"Dead":false,"Pid":7018,"ExitCode":0,"Error":"","StartedAt":"2026-10-17T02:05:47.860986514Z","FinishedAt":"0001-01-01T00:00:00Z","Health":{"Status":"starting","FailingStreak":0,"Log":[]}}
+[harbor-core]
+{"Start":"2026-10-17T10:34:54.573236284+08:00","End":"2026-10-17T10:34:54.759233691+08:00","ExitCode":1,"Output":""}
+--- harbor 日志
+[core]
+Oct 17 10:34:45 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:45 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:47 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:47 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:49 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:49 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:52 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:52 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:52 172.18.0.1 core[8759]: 2026-10-17T02:34:52Z [ERROR] [/lib/cache/cache.go:126]: failed to ping redis://redis:6379?idle_timeout_seconds=30, retry after 561.477447ms : dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:54 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:54 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:56 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:56 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+Oct 17 10:34:59 172.18.0.1 core[8759]: redis: 2026/10/17 02:34:59 pool.go:419: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis on 127.0.0.11:53: no such host
+[jobservice]
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: 2026-10-17T02:34:37Z [INFO] [/pkg/reg/adapter/volcenginecr/adapter.go:40]: the factory for adapter volcengine-cr registered
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: 2026-10-17T02:34:37Z [INFO] [/pkg/reg/adapter/harbor/adaper.go:31]: the factory for adapter harbor registered
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: 2026-10-17T02:34:37Z [INFO] [/pkg/config/rest/rest.go:47]: get configuration from url: http://core:8080/api/v2.0/internalconfig
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: 2026-10-17T02:34:37Z [ERROR] [/pkg/config/rest/rest.go:50]: Failed on load rest config err:Get "http://core:8080/api/v2.0/internalconfig": dial tcp 172.18.0.3:8080: connect: connection refused, url:http://core:8080/api/v2.0/internalconfig
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: panic: failed to load configuration, error: failed to load rest config
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: goroutine 1 [running]:
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: main.main()
+Oct 17 10:34:37 172.18.0.1 jobservice[8759]: #011/harbor/src/jobservice/main.go:50 +0x3b4
+[postgresql]
+Oct 17 10:05:47 172.18.0.1 postgresql[4537]: server stopped
+Oct 17 10:05:47 172.18.0.1 postgresql[4537]: PostgreSQL init process complete; ready for start up.
+Oct 17 10:05:48 172.18.0.1 postgresql[4537]: 2026-10-17 02:05:48.091 UTC [1] LOG:  starting PostgreSQL 18.6 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 12.2.0, 64-bit
+Oct 17 10:05:48 172.18.0.1 postgresql[4537]: 2026-10-17 02:05:48.092 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+Oct 17 10:05:48 172.18.0.1 postgresql[4537]: 2026-10-17 02:05:48.092 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+Oct 17 10:05:48 172.18.0.1 postgresql[4537]: 2026-10-17 02:05:48.094 UTC [1] LOG:  listening on Unix socket "/run/postgresql/.s.PGSQL.5432"
+Oct 17 10:05:48 172.18.0.1 postgresql[4537]: 2026-10-17 02:05:48.103 UTC [41] LOG:  database system was shut down at 2026-10-17 02:05:47 UTC
+Oct 17 10:05:48 172.18.0.1 postgresql[4537]: 2026-10-17 02:05:48.112 UTC [1] LOG:  database system is ready to accept connections
+[proxy]
+tail: cannot open '/var/log/harbor/proxy.log' for reading: No such file or directory
+[redis]
+Oct 17 10:05:46 172.18.0.1 redis[4537]:  |####+.     +##|   |#+'     .+####|                                 
+Oct 17 10:05:46 172.18.0.1 redis[4537]:  '#######+   |##|        .+########'                                 
+Oct 17 10:05:46 172.18.0.1 redis[4537]:     '+###|   |##|    .+########+'                                    
+Oct 17 10:05:46 172.18.0.1 redis[4537]:         '|   |####+########+'                                        
+Oct 17 10:05:46 172.18.0.1 redis[4537]:              +#########+'                                            
+Oct 17 10:05:46 172.18.0.1 redis[4537]:                 '+v+'                                                
+Oct 17 10:05:46 172.18.0.1 redis[4537]: 1:M 17 Oct 2026 02:05:46.893 * Server initialized
+Oct 17 10:05:46 172.18.0.1 redis[4537]: 1:M 17 Oct 2026 02:05:46.893 * Ready to accept connections tcp
+[registry]
+Oct 17 10:05:45 172.18.0.1 registry[4537]: Appending internal tls trust CA to ca-bundle ...
+Oct 17 10:05:45 172.18.0.1 registry[4537]: Internal tls trust CA appending is Done.
+Oct 17 10:05:45 172.18.0.1 registry[4537]: find: '/etc/harbor/ssl': No such file or directory
+Oct 17 10:05:45 172.18.0.1 registry[4537]: time="2026-10-17T02:05:45.702295757Z" level=info msg="debug server listening localhost:5001"
+Oct 17 10:05:45 172.18.0.1 registry[4537]: time="2026-10-17T02:05:45.705485006Z" level=info msg="using redis blob descriptor cache" go.version=go1.26.7 instance.id=ac32447e-c008-4d97-bd4b-73e746d667dc service=registry version=v2.8.3-55-gac7c4ced
+Oct 17 10:05:45 172.18.0.1 registry[4537]: time="2026-10-17T02:05:45.706093024Z" level=info msg="listening on [::]:5000" go.version=go1.26.7 instance.id=ac32447e-c008-4d97-bd4b-73e746d667dc service=registry version=v2.8.3-55-gac7c4ced
+Oct 17 10:05:45 172.18.0.1 registry[4537]: time="2026-10-17T02:05:45.706195163Z" level=info msg="Starting upload purge in 16m0s" go.version=go1.26.7 instance.id=ac32447e-c008-4d97-bd4b-73e746d667dc service=registry version=v2.8.3-55-gac7c4ced
+Oct 17 10:05:50 172.18.0.1 registry[4537]: 172.18.0.8 - - [17/Oct/2026:02:05:50 +0000] "GET / HTTP/1.1" 200 0 "" "Go-http-client/1.1"
+--- SELinux 拒绝记录
+<no matches>
+--- docker 服务日志
+Oct 17 10:31:35 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:31:35.993490883+08:00" level=info msg="restarting container" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef exitCode=2 exitedAt="2026-10-17 02:31:35.783051856 +0000 UTC" manualRestart=false restartCount=34 restartPolicy="{always 0}"
+Oct 17 10:31:49 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:31:49.521520335+08:00" level=error msg="[resolver] failed to query external DNS server" client-addr="udp:192.168.9.12:56072" dns-server="udp:8.8.8.8:53" error="read udp 192.168.9.12:56072->8.8.8.8:53: i/o timeout" question=";redis.\tIN\t AAAA"
+Oct 17 10:31:56 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:31:56.433663853+08:00" level=info msg="received task-delete event from containerd" container=73eba35347d67cbc0278c18c337e9111b05c774a11488d1a8d5726e30460eae1 module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 17 10:31:56 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:31:56.618988761+08:00" level=info msg="restarting container" container=73eba35347d67cbc0278c18c337e9111b05c774a11488d1a8d5726e30460eae1 exitCode=1 exitedAt="2026-10-17 02:31:56.392899817 +0000 UTC" manualRestart=false restartCount=21 restartPolicy="{always 0}"
+Oct 17 10:31:57 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:31:57.013822381+08:00" level=info msg="sbJoin: gwep4 ''->'5e2f338224af', gwep6 ''->''" eid=5e2f338224af ep=harbor-core net=harbor_harbor nid=f8dc05c36631
+Oct 17 10:32:36 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:32:36.218318243+08:00" level=info msg="sbJoin: gwep4 ''->'22dcbbdbf10c', gwep6 ''->''" eid=22dcbbdbf10c ep=harbor-jobservice net=harbor_harbor nid=f8dc05c36631
+Oct 17 10:32:36 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:32:36.453617736+08:00" level=info msg="received task-delete event from containerd" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 17 10:32:36 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:32:36.635571048+08:00" level=info msg="restarting container" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef exitCode=2 exitedAt="2026-10-17 02:32:36.412958637 +0000 UTC" manualRestart=false restartCount=35 restartPolicy="{always 0}"
+Oct 17 10:33:07 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:33:07.643392123+08:00" level=info msg="received task-delete event from containerd" container=73eba35347d67cbc0278c18c337e9111b05c774a11488d1a8d5726e30460eae1 module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 17 10:33:07 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:33:07.826395396+08:00" level=info msg="restarting container" container=73eba35347d67cbc0278c18c337e9111b05c774a11488d1a8d5726e30460eae1 exitCode=1 exitedAt="2026-10-17 02:33:07.600041744 +0000 UTC" manualRestart=false restartCount=22 restartPolicy="{always 0}"
+Oct 17 10:33:08 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:33:08.217022370+08:00" level=info msg="sbJoin: gwep4 ''->'80b38c6dda96', gwep6 ''->''" eid=80b38c6dda96 ep=harbor-core net=harbor_harbor nid=f8dc05c36631
+Oct 17 10:33:36 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:33:36.860804940+08:00" level=info msg="sbJoin: gwep4 ''->'db6da89145a7', gwep6 ''->''" eid=db6da89145a7 ep=harbor-jobservice net=harbor_harbor nid=f8dc05c36631
+Oct 17 10:33:37 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:33:37.097553564+08:00" level=info msg="received task-delete event from containerd" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 17 10:33:37 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:33:37.283399060+08:00" level=info msg="restarting container" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef exitCode=2 exitedAt="2026-10-17 02:33:37.058082393 +0000 UTC" manualRestart=false restartCount=36 restartPolicy="{always 0}"
+Oct 17 10:34:23 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:34:23.922009663+08:00" level=info msg="received task-delete event from containerd" container=73eba35347d67cbc0278c18c337e9111b05c774a11488d1a8d5726e30460eae1 module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 17 10:34:24 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:34:24.107812906+08:00" level=info msg="restarting container" container=73eba35347d67cbc0278c18c337e9111b05c774a11488d1a8d5726e30460eae1 exitCode=1 exitedAt="2026-10-17 02:34:23.881279969 +0000 UTC" manualRestart=false restartCount=23 restartPolicy="{always 0}"
+Oct 17 10:34:24 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:34:24.497074402+08:00" level=info msg="sbJoin: gwep4 ''->'150b3d6466b2', gwep6 ''->''" eid=150b3d6466b2 ep=harbor-core net=harbor_harbor nid=f8dc05c36631
+Oct 17 10:34:37 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:34:37.491133994+08:00" level=info msg="sbJoin: gwep4 ''->'1a806ebe0869', gwep6 ''->''" eid=1a806ebe0869 ep=harbor-jobservice net=harbor_harbor nid=f8dc05c36631
+Oct 17 10:34:37 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:34:37.725939020+08:00" level=info msg="received task-delete event from containerd" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"
+Oct 17 10:34:37 harbor.k8s.internal.egon.top dockerd[8759]: time="2026-10-17T10:34:37.918694563+08:00" level=info msg="restarting container" container=c09fb599b4729c11723e660c97ae28d328eb48007920dcbcd006ba4dd6f0a6ef exitCode=2 exitedAt="2026-10-17 02:34:37.687297087 +0000 UTC" manualRestart=false restartCount=37 restartPolicy="{always 0}"

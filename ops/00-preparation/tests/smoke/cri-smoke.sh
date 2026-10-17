@@ -2,13 +2,15 @@
 # Phase 00 host-network CRI 自测：在目标节点以 root 运行，逐项输出 smoke_*=value。
 #
 # 会创建并删除一个 sandbox 和一个容器（不是只读），因此必须显式确认：CRI_SMOKE_CONFIRM=yes。
-# 只使用节点上已有的 pause 与 smoke 镜像，不拉取镜像；sandbox 使用主机网络，不需要 CNI。
+# 默认只使用节点上已有的 pause 与 smoke 镜像（10.1 种子导入路线）；SMOKE_PULL=yes 时先经 CRI 拉取
+# smoke 镜像（10.2 内网仓库路线，验证 registry 配置与 CA 信任）。sandbox 使用主机网络，不需要 CNI。
 # 每次运行使用唯一的 uid/attempt，只清理本次创建的对象；工作文件放在 /run 下的临时目录。
 #
 # 用法（管理端，经 SSH 推送执行）：
 #   ssh root@<节点 IP> 'CRI_SMOKE_CONFIRM=yes bash -s' < ops/00-preparation/tests/smoke/cri-smoke.sh
 # 可选：SMOKE_IMAGE（默认 registry.k8s.io/e2e-test-images/busybox:1.38.0-1）、
-#       CGROUP_PARENT（默认 phase00.slice；containerd 使用 SystemdCgroup=true 时必须是 .slice）。
+#       CGROUP_PARENT（默认 phase00.slice；containerd 使用 SystemdCgroup=true 时必须是 .slice）、
+#       SMOKE_PULL=yes（先执行 crictl pull "$SMOKE_IMAGE"）。
 #
 # 对应：ops/00-preparation/README.md 第 10.1、10.3 节；汇总入口
 #   ops/00-preparation/scripts/collect-node-readiness.sh --with-cri-smoke
@@ -50,6 +52,16 @@ trap cleanup EXIT
 kv schema cri-smoke/v1
 kv started_at "$(date -Is)"
 kv image "$IMAGE"
+
+if [ "${SMOKE_PULL:-no}" = yes ]; then
+  if crictl pull "$IMAGE" >/dev/null 2>"$WORK/err"; then
+    kv pull ok
+  else
+    kv pull fail
+    REASON="pull 失败：$(head -c 300 "$WORK/err")"
+    exit 1
+  fi
+fi
 
 if ! crictl inspecti "$IMAGE" >/dev/null 2>&1; then
   REASON="镜像不在本地：$IMAGE"

@@ -38,3 +38,8 @@
     name: docker
     enabled: true
     state: started
+
+# daemon.json 变化后立即重启 Docker，必须早于 Harbor 等应用的安装（第 79 节：处理器拖到 play 末尾，
+# 在 Harbor 已运行后才重启，且当时启用了 live-restore，导致续接的容器丢失内置 DNS 记录与端口映射）。
+- name: 在部署应用前让 Docker 配置生效
+  ansible.builtin.meta: flush_handlers

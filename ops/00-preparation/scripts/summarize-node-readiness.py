@@ -41,7 +41,6 @@ def checks(e, f):
     mem = to_int(f.get("mem_mib"))
     ipv4s = [a for a in f.get("ipv4", "").split(",") if a]
     want_ip = f'{e.get("expect_ip")}/{e.get("expect_prefix")}'
-    images = f.get("cri_images", "").split(",")
     versions = [
         ("containerd", "containerd_version", "expect_containerd"),
         ("runc", "runc_version", "expect_runc"),
@@ -62,6 +61,8 @@ def checks(e, f):
         ("地址", ipv4s == [want_ip], f.get("ipv4", "")),
         ("静态配置", f.get("ipv4_method") == "manual", f.get("ipv4_method", "")),
         ("网关", f.get("gateway") == e.get("expect_gateway"), f.get("gateway", "")),
+        # 00.07.03 起节点只使用内部 DNS（networks.yaml planned_dns_servers）。
+        ("DNS", f.get("dns") == e.get("expect_dns"), f.get("dns", "")),
         ("vCPU", to_int(f.get("vcpu")) == to_int(e.get("expect_vcpu")), f.get("vcpu", "")),
         # MemTotal 扣除内核保留，约为配置值的九成以上，不会超过配置值。
         ("内存", 0.85 * mem_expect <= mem <= mem_expect, f'{mem} MiB'),
@@ -86,18 +87,22 @@ def checks(e, f):
         ("版本", not bad_versions, ", ".join(bad_versions) or "与版本锁一致"),
         ("RuntimeReady", f.get("runtime_ready") == "true", f.get("runtime_ready", "")),
         ("NetworkReady", f.get("network_ready") == "false", f'{f.get("network_ready", "")}（{NETWORK_READY_NOTE}）'),
-        ("sandbox 镜像", e.get("expect_pause") in images, e.get("expect_pause", "")),
+        # 实际生效的 pinned_images.sandbox 与期望一致（10.2 后为 Harbor Digest 引用），且镜像已在本地。
+        ("sandbox 镜像", f.get("sandbox_image") == e.get("expect_pause") and f.get("sandbox_image_present") == "yes",
+         f'{f.get("sandbox_image", "")} present={f.get("sandbox_image_present", "")}'),
         ("kubelet 未启用", f.get("kubelet_enabled") == "disabled", f.get("kubelet_enabled", "")),
         ("无 CNI 配置", f.get("cni_netd_files") == "0", f.get("cni_netd_files", "")),
         ("无失败单元", f.get("failed_units") == "0", f.get("failed_unit_names") or f.get("failed_units", "")),
     ]
     if e.get("expect_cri_smoke") == "yes":
         # 由 --with-cri-smoke 请求；结果 PASS 已包含日志、退出码与无 AVC 的判断。
+        pull_ok = e.get("expect_smoke_pull") != "yes" or f.get("smoke_pull") == "ok"
         results.append((
             "CRI 自测",
             f.get("smoke_schema") == "cri-smoke/v1" and f.get("smoke_result") == "PASS"
-            and f.get("smoke_cleanup") == "yes" and f.get("smoke_sandbox_network") == "NODE",
-            f'result={f.get("smoke_result", "无")} network={f.get("smoke_sandbox_network", "")} '
+            and f.get("smoke_cleanup") == "yes" and f.get("smoke_sandbox_network") == "NODE" and pull_ok,
+            f'result={f.get("smoke_result", "无")} pull={f.get("smoke_pull", "未要求")} '
+            f'network={f.get("smoke_sandbox_network", "")} '
             f'cleanup={f.get("smoke_cleanup", "")} ssh_exit={f.get("smoke_collect_exit", "无")} '
             f'{f.get("smoke_reason", "")}'.strip(),
         ))

@@ -1,0 +1,85 @@
+# 引导镜像（00.09.03、手册第 10.2 节）：把 kubeadm 所需镜像从官方仓库复制到 Harbor 的公开项目 bootstrap，
+# 再让十个节点经 CRI 从 Harbor 预拉。镜像列表取自版本锁 kubeadm.required_images_v1_36_5，另加 CRI 自测镜像
+# cri_smoke_image；pause 与自测镜像在节点上按 Digest 引用（版本锁 internal_source），复制后逐一核对。
+# 前提：管理 Mac 已信任内部根 CA（钥匙串）、/etc/resolver 指向内部 DNS、内部域名不经代理；节点已执行
+# bootstrap-nodes.yml 的 dns、ca_trust、runtime 标签（内部 DNS、根 CA、containerd hosts.toml）。
+- name: 复制引导镜像到 Harbor（管理端）
+  hosts: localhost
+  gather_facts: false
+  vars:
+    harbor_fqdn: harbor.k8s.internal.egon.top
+    harbor_project: bootstrap
+    repo_root: "{{ hostvars['harbor']['inventory_dir'] }}/../../../.."
+    root_ca: "{{ repo_root }}/00-preparation/pki/public/cnpl-lab-root-ca.crt"
+    lock: "{{ lookup('ansible.builtin.file', repo_root ~ '/versions.lock.yaml') | from_yaml }}"
+    secrets: "{{ lookup('ansible.builtin.env', 'HOME') }}/.cnpl-secrets"
+    # registry.k8s.io/coredns/coredns:TAG → bootstrap/coredns:TAG（kubeadm 在自定义仓库下使用 <repo>/coredns）
+    copies: >-
+      {{ (lock.components.kubeadm.required_images_v1_36_5 + [lock.components.cri_smoke_image.reference])
+         | map('regex_replace', '^(registry\.k8s\.io/(?:[^/]+/)*([^/:]+):(.+))$', '\1 ' ~ harbor_fqdn ~ '/' ~ harbor_project ~ '/\2:\3')
+         | list }}
+    pinned: "{{ [lock.components.pause, lock.components.cri_smoke_image] | map(attribute='artifacts') | map('first') | list }}"
+  environment:
+    # 源仓库经管理端代理访问；Harbor 必须直连（经 Clash 时内部域名无法解析）。
+    NO_PROXY: "{{ lookup('ansible.builtin.env', 'NO_PROXY') }},.internal.egon.top,192.168.9.0/24"
+    no_proxy: "{{ lookup('ansible.builtin.env', 'NO_PROXY') }},.internal.egon.top,192.168.9.0/24"
+  tasks:
+    - name: 创建公开项目 bootstrap（已存在时返回 409，视为成功）
+      ansible.builtin.uri:
+        url: https://{{ harbor_fqdn }}/api/v2.0/projects
+        method: POST
+        url_username: admin
+        url_password: "{{ lookup('ansible.builtin.file', secrets ~ '/harbor_admin_password') }}"
+        force_basic_auth: true
+        body_format: json
+        body: {project_name: "{{ harbor_project }}", metadata: {public: "true"}}
+        ca_path: "{{ root_ca }}"
+        use_proxy: false
+        status_code: [201, 409]
+      no_log: true
+
+    - name: crane 登录 Harbor（口令经标准输入，不出现在命令行）
+      ansible.builtin.shell: crane auth login {{ harbor_fqdn }} -u admin --password-stdin < {{ secrets }}/harbor_admin_password
+      changed_when: false
+      no_log: true
+
+    - name: 复制 linux/amd64 镜像
+      ansible.builtin.command: crane copy --platform linux/amd64 {{ item.split(' ')[0] }} {{ item.split(' ')[1] }}
+      loop: "{{ copies }}"
+      loop_control:
+        label: "{{ item.split(' ')[1] }}"
+      changed_when: true
+
+    - name: 源与目标摘要一致
+      ansible.builtin.shell: >-
+        test "$(crane digest --platform linux/amd64 {{ item.split(' ')[0] }})"
+        = "$(crane digest {{ item.split(' ')[1] }})" && crane digest {{ item.split(' ')[1] }}
+      loop: "{{ copies }}"
+      loop_control:
+        label: "{{ item.split(' ')[1] }}"
+      changed_when: false
+
+    - name: 按 Digest 引用的镜像在 Harbor 中存在且与版本锁一致（containerd sandbox 与 CRI 自测使用）
+      ansible.builtin.command: crane digest {{ item.internal_source }}
+      register: pinned_digest
+      changed_when: false
+      failed_when: >-
+        pinned_digest.rc != 0 or pinned_digest.stdout != item.platform_manifest_digest
+        or item.internal_source.split('@')[1] != item.platform_manifest_digest
+      loop: "{{ pinned }}"
+      loop_control:
+        label: "{{ item.internal_source }}"
+
+- name: 节点经 CRI 从 Harbor 预拉引导镜像
+  hosts: k8s_nodes
+  gather_facts: false
+  tasks:
+    - name: kubeadm 按自定义仓库预拉全部控制面镜像（只拉取，不初始化集群）
+      ansible.builtin.command: >-
+        kubeadm config images pull --kubernetes-version v1.36.5
+        --image-repository harbor.k8s.internal.egon.top/bootstrap
+      changed_when: true
+
+    - name: 列出来自 Harbor 的镜像
+      ansible.builtin.shell: crictl images | grep harbor.k8s.internal.egon.top/bootstrap
+      changed_when: false

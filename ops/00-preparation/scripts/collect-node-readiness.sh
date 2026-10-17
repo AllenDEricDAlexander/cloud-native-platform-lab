@@ -3,7 +3,9 @@
 #
 # 节点侧：默认只经 SSH 推送运行 ops/00-preparation/tests/smoke/node-readiness.sh（只读）。
 #   加 --with-cri-smoke 时，再运行 tests/smoke/cri-smoke.sh：创建并删除一个 host-network
-#   sandbox 与容器，不拉取镜像、不改配置；结果追加到同一节点文件，汇总增加「CRI 自测」一项。
+#   sandbox 与容器，不改配置；结果追加到同一节点文件，汇总增加「CRI 自测」一项。版本锁中
+#   cri_smoke_image 有 internal_source（Harbor）时，按该 Digest 引用先经 CRI 拉取（手册 10.2），
+#   否则使用节点上已导入的官方引用（10.1）。sandbox 期望值同理取 pause 的 internal_source。
 # 管理端：只写输出目录（每节点 <id>.expect / <id>.txt，以及 matrix.md）。
 # 期望值来自 ops/inventory/hosts.yaml、resources.yaml 与 ops/versions.lock.yaml；
 # 台账变更后重跑即可，脚本内不复制节点清单。
@@ -51,14 +53,22 @@ NODES=$(cd "$ROOT" && ruby -ryaml -e '
       "expect_hypervisor" => n["planned_hypervisor"],
       "expect_vcpu" => p["vcpu"], "expect_mem_gib" => p["memory_gib"],
       "expect_gateway" => net["default_gateway"], "expect_runtime_uuid" => runtime_uuid,
+      "expect_dns" => Array(net["planned_dns_servers"]).join(","),
       "expect_containerd" => lock["containerd"]["version"], "expect_runc" => lock["runc"]["version"],
       "expect_crictl" => lock["cri_tools"]["version"], "expect_kubeadm" => lock["kubeadm"]["version"],
       "expect_kubelet" => lock["kubelet"]["version"], "expect_kubectl" => lock["kubectl"]["version"],
-      "expect_pause" => lock["pause"]["reference"],
+      "expect_pause" => lock["pause"]["artifacts"][0]["internal_source"] || lock["pause"]["reference"],
     }.map { |k, v| "#{k}=#{v}\n" }.join)
     puts "#{n["id"]} #{n["ip"]}"
   end
 ' "$OUT")
+
+# CRI 自测镜像：有内部来源时按 Digest 从 Harbor 拉取（10.2），否则用已导入的官方引用（10.1）。
+SMOKE_REF=$(cd "$ROOT" && ruby -ryaml -e '
+  c = YAML.load_file("ops/versions.lock.yaml")["components"]["cri_smoke_image"]
+  puts(c["artifacts"][0]["internal_source"] || c["reference"])')
+SMOKE_PULL=no
+case "$SMOKE_REF" in *@sha256:*) SMOKE_PULL=yes ;; esac
 
 echo "输出目录：$OUT"
 while read -r id ip; do
@@ -70,11 +80,11 @@ while read -r id ip; do
   echo "collect_exit=$ssh_rc" >> "$OUT/$id.txt"
   if [ "$ssh_rc" -eq 0 ]; then printf '已采集'; else printf '采集失败（ssh 退出码 %s，见 %s.err）' "$ssh_rc" "$id"; fi
   if [ "$WITH_SMOKE" = yes ]; then
-    echo "expect_cri_smoke=yes" >> "$OUT/$id.expect"
+    printf 'expect_cri_smoke=yes\nexpect_smoke_pull=%s\n' "$SMOKE_PULL" >> "$OUT/$id.expect"
     smoke_rc=0
     if [ "$ssh_rc" -eq 0 ]; then
       ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=5 \
-        "$USER_NAME@$ip" 'CRI_SMOKE_CONFIRM=yes bash -s' < "$SMOKE_SCRIPT" >> "$OUT/$id.txt" 2>> "$OUT/$id.err" || smoke_rc=$?
+        "$USER_NAME@$ip" "CRI_SMOKE_CONFIRM=yes SMOKE_IMAGE=$SMOKE_REF SMOKE_PULL=$SMOKE_PULL bash -s" < "$SMOKE_SCRIPT" >> "$OUT/$id.txt" 2>> "$OUT/$id.err" || smoke_rc=$?
     else
       smoke_rc=255
     fi

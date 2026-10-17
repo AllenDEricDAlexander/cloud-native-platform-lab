@@ -10,3 +10,7 @@
 
 - name: 更新系统信任
   ansible.builtin.command: update-ca-trust extract
+
+# reapply 只重新应用已修改的连接属性（这里是 DNS），不断开链路、不改变地址。
+- name: 重新应用网络连接
+  ansible.builtin.command: nmcli device reapply {{ node_network_connection }}

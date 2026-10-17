@@ -42,3 +42,8 @@ node_base_services: [vmtoolsd, chronyd, firewalld]
 
 # 内部根 CA 公开证书（create-ca.sh 生成，仓库 ops/00-preparation/pki/public/）。
 node_ca_trust_source: "{{ inventory_dir }}/../../../pki/public/cnpl-lab-root-ca.crt"
+
+# 内部 DNS（00.07.03）：地址取自 networks.yaml planned_dns_servers；DNS 服务器自身不改。
+# 只配置内部 DNS：单点风险已记录，第二台 DNS（.17）部署到另一宿主机前不算冗余。
+node_dns_servers: "{{ (lookup('ansible.builtin.file', inventory_dir ~ '/../../../../inventory/networks.yaml') | from_yaml).lan.planned_dns_servers }}"
+node_dns_search: ["k8s.internal.egon.top"]

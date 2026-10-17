@@ -1399,3 +1399,103 @@ Harbor VM 实际安装的 iptables-nft 版本未取证；重跑时 docker_host �
 处理：用脚本把证据中的私钥块整体替换为脱敏说明，过程中不输出原内容，替换 1 处；全仓库扫描已无私钥内容（执行记录中只有描述私钥格式的文字）。harbor 角色的证书与私钥传输任务增加 `diff: false`，以后即使带 --diff 也不打印。复查其余带 --diff 的传输任务：Docker RPM 为二进制，docker.gpg 与根 CA 为公开内容，harbor.yml 模板复制时尚未写入口令，均不涉及秘密。
 
 影响评估：该文件未提交、未推送，私钥只出现在管理端本地的这个文件和用户终端的滚动记录中；同一私钥本来就以明文形式保存在同一用户主目录的 ~/cnpl-pki 中，因此没有产生新类别的暴露。暂不轮换证书；若终端记录或该文件曾被复制到其他位置，应使用 issue-cert.sh 重新签发并重跑 harbor.yml。今后部署记录先检查 PEM 与口令再提交，后续涉及私钥的任务一律加 diff: false 或 no_log。
+
+## 77. 2026-10-17 Harbor 验证仍失败：管理端代理拦截内部域名；后续节点与镜像自动化
+
+用户报告重跑「脚本成功了」，并要求继续，同时希望在 Mac 上登录 Harbor。本助手读取 [重跑证据](evidence/00.09.02-harbor-verify.txt)：harbor ok=37 changed=2 failed=0 skipped=20，只有 docker_host 新增的两个 iptables RPM 传输与本地安装为 changed，其余服务端任务均无变化，第二次执行符合预期。但 localhost failed=1：访问 /api/v2.0/ping 重试 12 次，均报 `curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL`。因此「成功」不成立，Harbor 仍未从管理端验证。
+
+原因：管理端 shell 设置了 HTTPS_PROXY/HTTP_PROXY（Clash，127.0.0.1:7897），而 NO_PROXY 只有 localhost、127.0.0.1、::1、.local。curl 经代理发送 CONNECT harbor.k8s.internal.egon.top:443，Clash 无法解析内部域名，随即断开连接；--resolve 只作用于直连，对经代理的请求无效。macOS 系统代理的例外列表包含 192.168.0.0/16，但不包含 *.internal.egon.top，浏览器按名称访问会遇到同样的问题。第 67 节的 DNS 验证使用 dig，不经代理，因此未受影响。
+
+修正：harbor.yml 的三个 curl 都加 `--noproxy '*'`，验证局域网直连路径，不受管理端代理设置影响。Mac 端需要用户处理：/etc/resolver/internal.egon.top 指向 192.168.9.11（00.07.02）；把根 CA 加入登录钥匙串并设为信任（浏览器与 crane 使用，Go 在 macOS 上使用系统钥匙串，不读取 SSL_CERT_FILE）；在 Clash Verge 的系统代理绕过中加入 *.internal.egon.top；在 shell 的 NO_PROXY 中加入 .internal.egon.top 与 192.168.9.0/24。
+
+同时编写后续自动化（均已通过 syntax-check）：
+
+- node_base 新增 dns（标签 dns）：DNS 地址取自 networks.yaml 的 planned_dns_servers（.11），搜索域 k8s.internal.egon.top；值不同时用 nmcli 修改连接，并以 `nmcli device reapply` 生效（不断开链路、不改变地址），随后用 getent 确认能解析 harbor 与 rockylinux.org。DNS 服务器自身跳过（本地确认 cp01、harbor 应用，dns 跳过）。只配置内部 DNS，单点风险如实保留。
+- container_runtime 新增 Harbor 的 /etc/containerd/certs.d/harbor.k8s.internal.egon.top/hosts.toml：capabilities 为 pull、resolve，ca 指向系统锚点中的根 CA；containerd 按 config_path 动态读取，无需重启；只配置端点与信任，不提供认证。
+- 新增 playbooks/harbor-bootstrap-images.yml：管理端用 Harbor API 创建公开项目 bootstrap（已存在时返回 409 视为成功，no_log）；crane 以 --password-stdin 登录（no_log）；按版本锁 kubeadm.required_images_v1_36_5 以 --platform linux/amd64 复制七个镜像，coredns/coredns 映射为 bootstrap/coredns，符合 kubeadm 对自定义仓库的约定（本地确认映射正确）；逐一比较源与目标摘要。随后十个节点执行 `kubeadm config images pull --image-repository harbor.k8s.internal.egon.top/bootstrap`，经 CRI 从 Harbor 预拉，即手册 10.2 路线。源仓库经代理访问，Harbor 通过 NO_PROXY 直连。
+
+尚未处理：containerd 的 pinned_images.sandbox 仍是 registry.k8s.io/pause:3.10.2，与 kubeadm 在自定义仓库下期望的 Harbor 路径不同，init 时会出现 sandbox 镜像不一致告警；手册第 8 节要求 Harbor 投产后改为固定 Digest 并重做自测，留到下一步。公开项目允许匿名拉取，依赖 Harbor 只在实验 LAN 中可达；只读机器人账号留待后续。crane 登录凭据会写入管理端 ~/.docker/config.json。尚无执行输出。
+
+## 78. 2026-10-17 更正：Harbor 服务未正常运行，不是管理端代理问题
+
+用户按第 77 节设置 Mac：/etc/resolver/internal.egon.top 生效，系统解析 harbor.k8s.internal.egon.top 为 .12；根 CA 已加入登录钥匙串（SHA-256 04390E06…D814，trust settings 为空，即对所有用途作为根信任）；~/.zshrc 已追加 NO_PROXY。macOS 系统代理例外中没有 *.internal.egon.top，用户在 Clash Verge 中找不到代理绕过设置。本助手查到 Clash Verge 开启了 enable_proxy_guard，proxy_guard_duration 为 30，会定期重置系统代理，因此 networksetup 的修改会被覆盖；随后由用户退出 Clash Verge，备份 verge.yaml，并把 system_proxy_bypass 从 null 改为 '*.internal.egon.top'（use_default_bypass 为 true，保留默认列表；TUN 模式关闭）。
+
+用户反映域名和 IP 都无法访问。直接用 IP 访问不经代理，说明第 77 节「SSL_ERROR_SYSCALL 由代理导致」的结论不完整。只读诊断见 [诊断证据](evidence/00.09.02-harbor-diagnose.txt)：Mac 到 192.168.9.12:443 为 Connection refused；harbor 上 `ss -lntp` 没有 80/443 监听，本机经 127.0.0.1 访问 443 同样被拒绝。部署约 27 分钟后，harbor-core 为「Up 51 seconds (health: starting)」，即在反复重启；harbor-jobservice 为 Restarting (2)；harbor-db、redis、registry、portal、nginx 仍为 health: starting；只有 harbor-log 与 registryctl 为 healthy。nginx 映射 0.0.0.0:443->8443，但主机上没有对应监听。firewalld 中 docker 区域包含 docker0 与 harbor 网桥，public 区域有对 192.168.9.0/24 放行 443 的富规则。
+
+结论：Harbor 服务端没有正常运行，这才是两次管理端验证失败与浏览器无法访问的直接原因；第 77 节把 SSL_ERROR_SYSCALL 归因于代理，是在没有先查看服务端状态时下的结论。管理端代理确实也会拦截内部域名，对应的修正保留。根因尚未确定，可能与容器间网络、数据库初始化、Docker 端口发布方式或 SELinux 有关，均未证实。下一步只读收集 docker-proxy、docker info、健康检查最近一次结果、/var/log/harbor 下各组件日志、AVC 与 docker 服务日志。
+
+## 79. 2026-10-17 Harbor 未运行的原因：Docker 在 Harbor 安装后才重启（live-restore）
+
+第二次只读诊断见 [诊断证据](evidence/00.09.02-harbor-diagnose-2.txt)。harbor-core 日志反复出现 `dial tcp: lookup redis on 127.0.0.11:53: no such host`，即容器内置 DNS 无法解析同一 compose 网络中的服务名 redis；dockerd 日志对应地把 `redis.` 的查询转发到外部 8.8.8.8。jobservice 因连不上 core:8080 而 panic，重启计数为 core 23 次、jobservice 37 次。postgres 与 redis 进程本身正常。harbor-db、redis、nginx 的健康状态为 starting，FailingStreak 为 0，Log 为空，说明健康检查从未执行。主机上只有 127.0.0.1:1514 的 docker-proxy，没有 80/443 的转发进程。无 AVC；Docker 防火墙后端为 iptables+firewalld，cgroup v2 与 systemd 驱动；daemon.json 含 `"live-restore": true`。
+
+对照[部署证据](evidence/00.09.02-harbor-deploy.txt)的执行顺序：docker_host 写入 daemon.json 后，「重启 docker」作为处理器被推迟到 play 末尾执行，此时 harbor 的 install.sh 已经创建并启动了全部容器；随后 harbor 处理器执行 `./prepare && docker compose up -d`，但配置未变，compose 没有重建容器。判断（推断，与证据一致，未单独复现）：dockerd 在 live-restore 下重启后续接了运行中的容器，但这些容器在 compose 网络内置 DNS 中的名称记录、健康检查与发布端口的转发没有恢复，于是出现上述现象。这是本助手编写角色时处理器顺序的缺陷。
+
+修正：
+
+- docker_host 末尾增加 `meta: flush_handlers`，daemon.json 有变化时在安装任何应用之前重启 Docker。
+- daemon.json 去掉 live-restore。单机 Harbor 不需要在 dockerd 升级或重启时保持容器运行，去掉后行为更可预期。
+- harbor 角色在 install.sh 之后增加一次幂等的 `docker compose up -d`：已运行时不做改动，容器缺失或停止时创建并启动。
+- 管理端验证的重试从 12 次增加到 30 次（间隔 10 秒），覆盖首次启动时数据库初始化所需的时间。
+
+本地 syntax-check 与 list-tasks 已通过：「在部署应用前让 Docker 配置生效」位于 Docker 启动之后、Harbor 任务之前。现有错误状态的容器需要先由用户执行 `docker compose down` 删除（数据在 /data 的绑定挂载中，不删除；没有使用 -v），再重跑 harbor.yml：daemon.json 变化后 Docker 在空载时重启，compose 重新创建容器，最后执行管理端验证。尚无执行输出。
+
+## 80. 2026-10-17 重建 Harbor 中断：harbor 改用内部 DNS 后外部名称解析失败
+
+用户按第 79 节执行。`docker compose down` 成功。重跑 harbor.yml 时，node_base 新增的 dns 任务（第 77 节）首次作用于 harbor：nmcli 把 DNS 改为 192.168.9.11、搜索域改为 k8s.internal.egon.top，并执行 reapply（changed）。随后的解析确认中，harbor.k8s.internal.egon.top 解析成功，rockylinux.org 失败（getent rc=2，耗时约 1.5 秒），play 在 node_base 中止（ok=22 changed=2 failed=1），docker_host 与 harbor 均未执行。因此容器没有重建，用户第三条 `docker compose ps` 为空、`ss | grep` 返回 1，见[证据](evidence/00.09.02-harbor-recreate.txt)。
+
+现状：harbor 的 DNS 已经切换到内部 DNS，没有回退。内部名称可用，说明网络与 53 端口可达。外部名称失败的原因未确定：00.07.01 部署时从管理端 dig rockylinux.org 成功，但从节点经 BIND 递归尚未验证过。可能的原因包括转发器（223.5.5.5、8.8.8.8）在 dns VM 上不可达、DNSSEC 验证失败或 BIND 递归异常，均未证实。检查任务按设计在切换后立即暴露问题，这是期望的行为。Harbor 自身运行不依赖外部解析（容器之间由 Docker 内置 DNS 解析），可以先用 `--skip-tags dns` 恢复 Harbor；十台 Kubernetes 节点在外部解析修好之前不切换 DNS。下一步对 harbor 与 dns 只读采集 resolv.conf、经各服务器的 dig 结果与 named 日志。
+
+## 81. 2026-10-17 Harbor 重建并通过管理端验证；内部 DNS 外部解析失败的原因是 DNSSEC 验证
+
+**Harbor**：用户以 `--skip-tags dns` 重跑 harbor.yml，见[证据](evidence/00.09.02-harbor-recreate-2.txt)。daemon.json（去掉 live-restore）为 changed，「重启 docker」在 docker_host 末尾的 flush_handlers 处执行，早于 Harbor 任务，顺序符合第 79 节的修正。install.sh 已安装而跳过，新增的 `docker compose up -d` 为 changed，重新创建了全部容器。管理端验证全部通过：/api/v2.0/ping 返回 Pong；/api/v2.0/health 在一次重试后为 healthy；/v2/ 未认证时返回 401。harbor failed=0，localhost failed=0。这是 Harbor 第一次从管理端经内部根 CA 校验证书链并通过 API 验证，第 79 节的推断得到间接支持：重启顺序改正后问题没有再出现。证据中没有私钥块。
+
+**DNS**：只读诊断见[证据](evidence/00.07.03-dns-external-diagnose.txt)。harbor 经 192.168.9.11 查询 rockylinux.org 为 SERVFAIL，直接查询 223.5.5.5 与 8.8.8.8 均为 NOERROR（76.223.126.88）。dns VM 上经本机 named 查询为 SERVFAIL，加 +cd（不做验证）则为 NOERROR，说明递归与转发本身正常，失败来自 DNSSEC 验证。named 日志中对根、org、in-addr.arpa 都报 `got insecure response; parent indicates it should be secure`、`no valid RRSIG`、`broken trust chain`，两个转发器表现相同。
+
+判断：到上游的路径（家庭路由器或运营商）会拦截或改写 53 端口的查询，去掉 DNSSEC 签名，因此本地验证对所有已签名区域都会失败。两个不同的公共转发器同样缺少根区签名，这一判断有较强依据，但拦截发生在哪一跳未证实。00.07.01 从管理端 dig rockylinux.org 能成功的原因未确定，可能是当时的缓存或拦截时有时无。
+
+修正：named.conf 改为 `dnssec-validation no`。主配置变化的处理器从 reload 改为 restart，因为 reload 会保留缓存，按旧策略缓存的验证失败结果不会立即清除；区域文件变化仍为 reload。取舍如实记录：外部应答的可信度等同于上游转发器及其路径，本地不再能发现篡改。内部区域由本服务器权威应答，不受影响。若以后需要恢复验证，可以改用 DoT 转发，绕过 53 端口的拦截，届时再评估 BIND 版本是否支持。此外日志显示 Docker 网桥的反向查询（如 1.0.18.172.in-addr.arpa）与 jobservice 这类单标签名称会被转发到公共 DNS，不影响功能，暂不处理。本地 syntax-check 通过，尚无执行输出。
+
+## 82. 2026-10-17 Mac 浏览器：IP 可以访问 Harbor，域名不行；系统层面已确认正常
+
+用户报告浏览器用 IP 能打开 Harbor，用域名打不开，并指出 Mac 是经 USB 网卡接入实验网的。本助手在管理端只读确认：
+
+- 网络：默认路由走 Wi-Fi（en0，网关 192.168.0.1），这是主服务。到 192.168.9.0/24 的路由走 USB 网卡（en5，192.168.9.200）。macOS 对所有连接使用主服务的代理设置。scutil --proxy 的有效配置为 Clash 127.0.0.1:7897，例外列表已包含 *.internal.egon.top。USB 网卡服务本身没有配置代理，不需要修改。
+- 解析：dscacheutil 把 harbor.k8s.internal.egon.top 解析为 192.168.9.12，scutil --dns 中有 internal.egon.top → 192.168.9.11 的作用域解析器。
+- 访问：在 shell 中按域名直连，/api/v2.0/ping 返回 200；http:// 返回 308，跳转到 https。证书链由系统信任通过。
+- 浏览器设置：Chrome 与 Brave 的 Local State 中都没有自定义安全 DNS；Chrome 没有 DNS 或代理相关的托管策略。
+
+结论：系统层面的解析、代理例外、路由与证书都正常，问题出在浏览器内部，可能是切换前缓存的失败结果或代理状态，尚未确定。下一步请用户用 Safari 对照，清空浏览器的主机缓存或彻底重启浏览器，并提供浏览器显示的错误码。
+
+## 83. 2026-10-17 内部 DNS 修复、十节点切换 DNS/CA/hosts.toml、引导镜像经 Harbor 预拉；转入 10.2 路线
+
+用户确认 Mac 浏览器已能按域名打开 Harbor（第 82 节的浏览器问题随之消失，具体原因未确认，最可能是浏览器缓存了之前失败的结果），并执行了第 81 节的四步：
+
+1. [dns.yml](evidence/00.07.03-dns-fix.txt)：dns ok=30 changed=4，即 named.conf（dnssec-validation no）、根 CA 首次写入 dns VM 的系统信任及两个处理器（更新系统信任、重启 named）。管理端验证中内部名称、外部递归 rockylinux.org 与权威应答全部通过。同一文件中 `harbor.yml --tags dns` 为 ok=2 changed=0：harbor 能解析内部与外部名称。
+2. [bootstrap-nodes.yml --tags dns,ca_trust,runtime](evidence/00.09.03-nodes-dns-ca-harbor.txt)：十台均为 ok=16 changed=6 failed=0。变更依次为根 CA 锚点、nmcli 改 DNS、更新系统信任、reapply、certs.d/harbor 目录与 hosts.toml。其余运行时任务无变化，containerd 未重启。十台的 getent 都解析成功（harbor 与 rockylinux.org）。
+3. [harbor-bootstrap-images.yml](evidence/00.09.03-bootstrap-images.txt)：bootstrap 项目可用（创建或已存在），crane 登录成功；七个镜像复制完成，源与目标的平台摘要逐一相等。十台都执行了 `kubeadm config images pull --image-repository harbor.k8s.internal.egon.top/bootstrap` 且 failed=0，即每台节点都经 CRI、内部 DNS、hosts.toml 与内部根 CA 从 Harbor 拉取了全部控制面镜像。这是 Harbor 拉取路径的第一次十节点证据。
+4. 三份证据中均没有私钥块。
+
+接着按手册第 8 节与第 10.2 节切换 sandbox 镜像，并重做 CRI 自测：
+
+- 版本锁：pause 与 cri_smoke_image 的 internal_source 填为 Harbor 中按平台 Digest 的引用（pause@sha256:412c4a72…、busybox@sha256:7d31f97b…）。由于 `crane copy --platform linux/amd64` 只复制该平台的清单，Harbor 中的 Digest 等于版本锁中的 platform_manifest_digest，而不是 index_digest。
+- 镜像剧本：在复制列表中加入 CRI 自测镜像（映射为 bootstrap/busybox:1.38.0-1），新增一项检查：按 Digest 引用能在 Harbor 中取到，且等于版本锁记录的平台 Digest。本地已确认映射与查找结果正确。
+- containerd config.toml：增加 `pinned_images.sandbox = harbor.k8s.internal.egon.top/bootstrap/pause@sha256:412c…`。取舍：本地缺少该镜像时，新 sandbox 依赖 Harbor 可用。
+- cri-smoke.sh 增加 SMOKE_PULL=yes：先经 CRI 拉取自测镜像，记录 smoke_pull。采集脚本在版本锁有 internal_source 时，传入 Harbor 的 Digest 引用并要求拉取成功；sandbox 期望值同样取 pause 的 internal_source。
+- node-readiness 新增 sandbox_image（containerd config dump 中实际生效的 pinned_images.sandbox）、sandbox_image_present，以及 DNS 一项（期望为 planned_dns_servers）。矩阵的「sandbox 镜像」检查改为比对实际生效的引用，不再只看镜像列表。用最近一次 cp01 采集加上合成字段做了本地测试，通过 26/26。
+
+尚无执行输出。下一步由用户依次执行：复制剧本（补自测镜像并核对 Digest）、`bootstrap-nodes.yml --tags runtime`（config.toml 变化，十台重启 containerd）、`collect-node-readiness.sh --with-cri-smoke`，最后对 bootstrap-nodes.yml 全量 `--check` 确认幂等。
+
+## 84. 2026-10-17 10.2 路线通过：sandbox 切换为 Harbor Digest，十节点经 Harbor 拉取的 CRI 自测 PASS；DNS 检查发现 IPv6 RA 下发的 DNS
+
+用户执行第 83 节的四步：
+
+1. [镜像剧本](evidence/00.10.02-harbor-images-pinned.txt)：八个镜像复制完成（新增 busybox），源与目标的摘要逐一相等。按 Digest 引用的 pause@sha256:412c4a72… 与 busybox@sha256:7d31f97b… 都能在 Harbor 中取到，且等于版本锁记录的平台 Digest。十台再次预拉，failed=0。
+2. [bootstrap-nodes.yml --tags runtime](evidence/00.10.02-sandbox-harbor.txt)：十台均为 ok=11 changed=2，即 config.toml 与「重启 containerd」处理器，其余无变化。
+3. [十节点矩阵](evidence/00.10.02-node-readiness-20261016-231349/matrix.md)（含 CRI 自测）：十台均为 26/27。sandbox_image 为实际生效的 Harbor Digest 引用，且镜像在本地。smoke_image 为 Harbor 中的 busybox Digest 引用，smoke_pull=ok，即经 CRI、内部 DNS、hosts.toml 与内部根 CA 从 Harbor 拉取成功。CRI 自测全部 PASS：sandbox 为 SANDBOX_READY，网络为 NODE，pause 进程标签为 container_t，容器正常退出（退出码 0），日志为 phase00-cri-ok，AVC 为 0，清理完成。六项身份字段唯一，没有 .err 文件。手册 10.2 要求的「registry 配置、CA 信任」验收证据由此产生。只读认证未验收：bootstrap 为公开项目，拉取是匿名的。
+4. [全量检查模式](evidence/00.11-bootstrap-check.txt)：十台均为 ok=34 changed=0 failed=0，基线、防火墙、journald、CA、DNS、运行时全部幂等。
+
+唯一的未通过项是新增的 DNS 检查：十台的 resolv.conf 都是 `192.168.9.11,fd5c:c6b4:3ca2::1`。第二个地址是家庭路由器经 IPv6 RA 下发的 ULA DNS。NetworkManager 只替换了 IPv4 DNS，IPv6 的自动 DNS 仍然写入 resolv.conf。影响：内部 DNS 超时时，glibc 会转而查询路由器，内部名称就会失败，解析结果不确定。harbor 的 resolv.conf 中没有这一项（原因未查）。新增检查发现了第 83 节「十台 getent 成功」没有暴露的问题。
+
+修正：node_base dns 任务增加 `ipv6.ignore-auto-dns yes`，只忽略 IPv6 自动 DNS，不关闭 IPv6（手册第 7 节明确不盲目关闭 IPv6），幂等判断加入该字段。新增「resolv.conf 中只有内部 DNS」的检查。node-readiness 增加 ipv6_global，只作记录，供 01 选择节点地址时参考。
+
+新增 playbooks/reboot-nodes.yml（手册第 11 节）：serial 1、any_errors_fatal，每次重启一台，失败即停止。重启后等待 systemd 完成启动，判定 SELinux、firewalld、DNS、失败单元，Kubernetes 节点另查运行时盘与 containerd；`-e target=dns,harbor` 可用于基础服务。完整复查仍由矩阵完成。本地 syntax-check 与表达式测试通过。下一步：dns 标签修正，然后逐台重启十节点并在重启后采集矩阵（含 CRI 自测），再重启 dns 与 harbor 并验证 Harbor。

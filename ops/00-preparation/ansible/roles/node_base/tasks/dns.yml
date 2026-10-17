@@ -1,0 +1,35 @@
+- name: 客户端 DNS（DNS 服务器自身跳过）
+  when: ansible_host not in node_dns_servers
+  block:
+    - name: 读取当前 DNS 与搜索域
+      ansible.builtin.command: nmcli -g ipv4.dns,ipv4.dns-search,ipv6.ignore-auto-dns connection show {{ node_network_connection }}
+      register: node_dns_current
+      changed_when: false
+      check_mode: false
+
+    # 路由器经 IPv6 RA 下发的 DNS（如 fd5c:c6b4:3ca2::1）也会写入 resolv.conf，内部 DNS 超时时
+    # glibc 会转而查询它，内部名称随之失败。只忽略 IPv6 自动 DNS，不关闭 IPv6（手册第 7 节）。
+    - name: 改用内部 DNS（写入 NetworkManager 连接配置）
+      ansible.builtin.command: >-
+        nmcli connection modify {{ node_network_connection }}
+        ipv4.dns "{{ node_dns_servers | join(' ') }}"
+        ipv4.dns-search "{{ node_dns_search | join(' ') }}"
+        ipv6.ignore-auto-dns yes
+      when: node_dns_current.stdout_lines != [node_dns_servers | join(','), node_dns_search | join(','), 'yes']
+      notify: 重新应用网络连接
+
+    - name: 让 DNS 设置立即生效
+      ansible.builtin.meta: flush_handlers
+
+    - name: 确认能解析内部与外部名称
+      ansible.builtin.command: getent hosts {{ item }}
+      loop: [harbor.k8s.internal.egon.top, rockylinux.org]
+      changed_when: false
+      check_mode: false
+
+    - name: 系统解析只使用内部 DNS（resolv.conf 中没有其他 nameserver）
+      ansible.builtin.command: awk '/^nameserver/ {print $2}' /etc/resolv.conf
+      register: node_resolv
+      changed_when: false
+      check_mode: false
+      failed_when: node_resolv.stdout_lines != node_dns_servers

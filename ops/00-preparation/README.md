@@ -383,7 +383,7 @@ reboot-nodes.yml 每次重启一台，任何一台失败即停止；重启后检
 - 运行 `tests/smoke/offline/offline-smoke.sh`，每项一行 PASS/FAIL：
   - dns-tls：三个服务的证书校验，不加 `-k`；
   - rpm：经 Nexus 安装 tree；
-  - image：经 Harbor 代理缓存拉取并运行 busybox；
+  - image-proxy-digest、image-bootstrap-tag：分别经 Harbor 代理缓存（按平台 Digest）与 bootstrap 项目（按 tag）拉取并运行 busybox；
   - git：从 GitLab 克隆；
   - java、js、python、csharp、rust、c、cpp：每类构建一个只含一个固定依赖的最小项目并运行。
 - 阶段 B 另外：先停止 OpenWrt 上的 mihomo，删除 build01 的默认路由，并以 nftables 拒绝其访问 :7890；确认 build01 既不能直连外网，也不能经代理出网；清空所有本地缓存后重做全部用例。最后在 always 中恢复路由、规则与代理，并确认经代理访问外网返回 204。路由与规则只改运行时状态，即使剧本中断，重启 build01 也会恢复；代理需要手工执行 `ssh openwrt /etc/init.d/mihomo start`。
@@ -439,6 +439,7 @@ kube-controller-manager 与 kube-scheduler 绑定在 127.0.0.1，不开放；Cep
 - sandbox 镜像固定为 Harbor 中的 Digest；Harbor 尚未就绪时不能写入，否则新 sandbox 在拉取阶段失败。
 - hosts.toml 只提供端点与 CA 信任，不提供认证；bootstrap 项目为公开项目。
 - CRI 自测失败先区分：镜像不在 k8s.io 命名空间、sandbox 指向不可达的仓库、Enforcing 下的真实拒绝（`ausearch -m AVC -ts recent`）；架构不符表现为 `exec format error`。
+- **Harbor 代理缓存只加速，不保证离线**：对多架构镜像只缓存拉取过的平台，以裁剪后的新 index 保存（摘要与上游不同），并且不保存 tag。上游不可达时，按 tag 或按上游 index 摘要都取不到（执行记录第 113 节）。离线必需的镜像有两种做法：按**平台清单 Digest** 引用（与上游相同，可以离线取得）；或者用 crane 复制到 bootstrap 这类普通项目（tag 正常保存，kubeadm 镜像即是如此）。
 
 ## 附录 B：管理端访问路径与常见问题
 

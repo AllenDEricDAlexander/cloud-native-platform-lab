@@ -1969,3 +1969,50 @@ restic 口令的保管方式已在操作流程中提示：必须另存到 Mac �
 在线条件下，build01 只经内部服务完成了全部项目：dnf 只用 Nexus，各语言客户端只用 Nexus 与只读账户，镜像来自 Harbor，源码来自 GitLab，没有任何外网代理设置。Nexus 与 Harbor 已缓存这些内容。四份阶段 A 证据中都没有私钥块、会话 cookie、GitLab 令牌，与 ~/.cnpl-secrets 下全部 8 个文件比对均无匹配。
 
 下一步：阶段 B（`-e stage=offline`）。
+
+## 113. 2026-10-17 断网验收阶段 B：13 项通过；Harbor 代理缓存不能按 tag 离线取用
+
+**阶段 B**（[证据](evidence/00.10.04-offline-cut.txt)）：
+- 停止 mihomo、切断 build01 的默认路由并添加 nft 拒绝规则，均为 changed。
+- no-internet、no-proxy 均 PASS：直连外网（google、dl.rockylinux.org）与经 OpenWrt 代理出网都失败，符合预期。
+- 清空 Maven、npm、pip、NuGet、Cargo、Conan 缓存，dnf 缓存，本地镜像与 tree 之后重做：dns-tls、rpm（17 秒，元数据与软件包全部来自 Nexus 缓存）、git、java、js、python、csharp、rust、c、cpp 均 PASS。其中 cpp 用时 31 秒：Conan 本身经 pypi-proxy 重新安装，nlohmann_json 经 conan-proxy。
+- 恢复步骤全部执行：路由与 nft 表恢复，mihomo 启动，经代理访问外网返回 204。
+- **image 失败**：podman 报 `artifact dockerhub/library/busybox:1.37.0 not found`。
+
+**原因**（本助手从管理端匿名读取公开项目的 Harbor API，并用 crane 比较上游）：
+- dockerhub 项目中的 library/busybox 只有一个 artifact。它是 OCI index，摘要 92fb81527108…，**tags 为空**，只引用一个子清单 amd64 66a6306db78b…，缓存时间为 15:39（阶段 A 的 podman pull）。
+- 上游当前的 index 摘要仍是 bdf57e528e45…（与第 98–100 节的验证相同），但上游 amd64 平台清单的摘要正是 66a6306db78b…，与 Harbor 缓存的子清单相同。
+- 结论：Harbor 2.15.4 的代理缓存对多架构镜像只缓存拉取过的平台，以裁剪后的新 index 保存，摘要与上游不同，并且不保存 tag。上游可达时，Harbor 按 tag 向上游解析，所以阶段 A 能通过；上游不可达时，按 tag 与按上游 index 摘要都无法解析，只有平台清单可以按其 Digest 从本地取得。第 100 节「摘要与上游一致」只比较了在线时的解析结果，没有覆盖离线。
+
+**处理**：这是对离线方案有影响的事实，不只是用例问题。
+- 用例拆成两项：image-proxy-digest 按平台 Digest 从 dockerhub 代理缓存拉取（66a6306d…）；image-bootstrap-tag 按 tag 从 bootstrap 拉取 busybox:1.38.0-1（crane 复制的普通项目，tag 正常保存）。
+- 操作流程附录 A.4 写入规则：代理缓存只用于加速，不保证离线；离线必需的镜像，或者按平台清单 Digest 引用，或者用 crane 复制到普通项目。01 及以后的集群组件镜像，按后一种方式进入 bootstrap 等项目，并在版本锁中登记 Digest。
+- 这不属于缺少物料：所需内容都已缓存，只是不能按 tag 引用。
+
+待用户重跑阶段 B（`-e stage=offline`）。两个镜像在 Harbor 中都已存在，不需要先重跑阶段 A。
+
+## 114. 2026-10-17 断网验收阶段 B 全部通过
+
+用户重跑阶段 B，见[证据](evidence/00.10.04-offline-cut-2.txt)：build01 ok=18 changed=5 failed=0。五项变更为：停止代理、切断路由、恢复路由、启动代理，以及 build_client 部署更新后的用例脚本。gitlab、localhost 无变化。
+
+| 用例 | 结果 | 用时 | 说明 |
+| --- | --- | --- | --- |
+| no-internet | PASS | 1 秒 | 直连 google 与 dl.rockylinux.org 失败 |
+| no-proxy | PASS | 0 秒 | 经 OpenWrt :7890 出网失败 |
+| dns-tls | PASS | 1 秒 | — |
+| rpm | PASS | 17 秒 | dnf 缓存清空后，元数据与 tree 全部来自 Nexus |
+| image-proxy-digest | PASS | 1 秒 | 代理缓存按平台 Digest |
+| image-bootstrap-tag | PASS | 2 秒 | bootstrap 按 tag |
+| git | PASS | 0 秒 | — |
+| java、js、python、csharp | PASS | 10–14 秒 | 本地缓存清空后，依赖全部来自 Nexus |
+| rust、c | PASS | 0–1 秒 | — |
+| cpp | PASS | 32 秒 | Conan 2.33.0 经 pypi-proxy 重新安装，nlohmann_json 经 conan-proxy |
+
+always 中路由、nft 表与 mihomo 均已恢复，经代理访问外网返回 204。证据中没有私钥块、会话 cookie、GitLab 令牌，与 ~/.cnpl-secrets 下全部文件比对均无匹配。
+
+结论：
+- 00.10.04「干净客户端断网后完成指定物料的安装及七类最小构建」完成，物料缺口为零（本批选定的固定依赖范围内）。
+- 计划验收用例「VPN 故障下内网可用」以停止出网代理的方式得到证据：代理停止期间，DNS、Harbor、GitLab、Nexus 仍提供全部所需内容。本实验没有独立的 VPN 隧道，出网由订阅代理承担。
+- 不宣称任意新依赖都可以离线获取：只有经阶段 A 拉取过的固定版本才在缓存中；代理缓存中的多架构镜像只能按平台 Digest 离线取用（第 113 节）。
+
+批次进度表与根目录 README 已同步。下一步：建立阶段验收文档 acceptance.md。

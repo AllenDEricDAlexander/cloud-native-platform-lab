@@ -13,7 +13,12 @@ export LC_ALL=C.UTF-8
 B=builder
 WORK=/home/$B/work/offline-smoke
 GIT_URL=https://gitlab.svc.internal.egon.top/lab/offline-smoke.git
-IMAGE=harbor.k8s.internal.egon.top/dockerhub/library/busybox:1.37.0
+# 镜像两条离线路径（第 113 节）：
+#   代理缓存按平台 Digest 引用：Harbor 对多架构镜像只缓存拉取过的平台，并以裁剪后的新 index 保存、不保存 tag，
+#     上游不可达时按 tag 取不到；平台清单的 Digest 与上游相同，可以离线取得。
+#   bootstrap 项目按 tag：crane 复制进来的普通项目，tag 正常保存。
+IMAGE_PROXY=harbor.k8s.internal.egon.top/dockerhub/library/busybox@sha256:66a6306db78bf2dbf3487f293aa8d6990d8e506fdffab9cc43fe422becf886e4
+IMAGE_BOOTSTRAP=harbor.k8s.internal.egon.top/bootstrap/busybox:1.38.0-1
 CLEAN=no EXPECT_OFFLINE=no FAILED=0
 for a in "$@"; do
   case $a in
@@ -51,7 +56,7 @@ fi
 if [ "$CLEAN" = yes ]; then
   as_b 'rm -rf ~/.m2/repository ~/.npm ~/.cache/pip ~/.nuget/packages ~/.local/share/NuGet ~/.cargo/registry ~/.cargo/git ~/.conan2/p ~/.venvs ~/work/offline-smoke'
   dnf clean all >/dev/null 2>&1
-  podman rmi -f "$IMAGE" >/dev/null 2>&1
+  podman rmi -f "$IMAGE_PROXY" "$IMAGE_BOOTSTRAP" >/dev/null 2>&1
   dnf -y remove tree >/dev/null 2>&1
   echo "已清空：Maven、npm、pip、NuGet、Cargo、Conan 缓存，dnf 缓存，本地镜像，tree"
 fi
@@ -62,8 +67,9 @@ run dns-tls bash -c 'for u in https://harbor.k8s.internal.egon.top/api/v2.0/ping
 # 2. RPM：元数据与软件包都经 Nexus
 run rpm bash -c 'dnf -y -q install tree && rpm -q tree'
 
-# 3. 镜像：经 Harbor 代理缓存拉取并运行
-run image bash -c "podman pull -q $IMAGE >/dev/null && podman run --rm --network none $IMAGE echo image offline-ok"
+# 3. 镜像：经 Harbor 拉取并运行（代理缓存按 Digest；bootstrap 按 tag）
+run image-proxy-digest bash -c "podman pull -q $IMAGE_PROXY >/dev/null && podman run --rm --network none $IMAGE_PROXY echo proxy-cache offline-ok"
+run image-bootstrap-tag bash -c "podman pull -q $IMAGE_BOOTSTRAP >/dev/null && podman run --rm --network none $IMAGE_BOOTSTRAP echo bootstrap offline-ok"
 
 # 4. Git：从 GitLab 克隆测试项目（公开项目，匿名 HTTPS）
 run git as_b "rm -rf $WORK && git clone -q $GIT_URL $WORK && git -C $WORK log -1 --format='commit %h %s'"

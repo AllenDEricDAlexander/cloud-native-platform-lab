@@ -489,20 +489,65 @@ components:
     status: deployed_verified  # 2026-10-17 第一次备份、restic check 与恢复演练（DNS、CA）均通过
   cilium:
     phase: "01"
-    candidate: "1.20.x"
-    version: null
-    artifacts: []
-    compatibility_evidence: []
+    candidate: "1.20.2"
+    version: "1.20.2"
+    selected_by: 2026-10-17 1.20 系列支持 Kubernetes 1.31–1.36（docs.cilium.io v1.20 兼容性页）；1.20.3 于 2026-10-15 发布、未满两周，选 1.20.2（2026-09-16）
+    chart:
+      name: cilium-1.20.2.tgz
+      sha256: b2afd87b7f75f875f92a14559f14f59b7babbb479d968e3fd625a20bf30ec20e
+      source: https://helm.cilium.io/cilium-1.20.2.tgz
+      checksum_source: https://helm.cilium.io/index.yaml 中该版本的 digest（created 2026-09-16）
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/cilium/cilium-1.20.2.tgz
+    # Chart 默认启用的镜像：agent、operator-generic、cilium-envoy（hubble-relay/ui、clustermesh、nodeinit 等默认关闭）。
+    # index_digest 为 Chart values 中固定的值（与上游一致）；复制到 Harbor 时只取 linux/amd64，节点按平台 Digest 引用。
+    artifacts:
+      - name: cilium
+        type: oci_image
+        source: quay.io/cilium/cilium:v1.20.2
+        index_digest: sha256:2939231d0d3e3ebddcd80fffa168b7ddcc78fdf0dc864d1c8c126ff523c54f01
+        platform_manifest_digest: sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2
+      - name: operator-generic
+        type: oci_image
+        source: quay.io/cilium/operator-generic:v1.20.2
+        index_digest: sha256:64d8798350e8569b8e7622563fed6e44dce2625f311e4651b774816516c744fc
+        platform_manifest_digest: sha256:5bb0f9d871dd7b80461f8e3056896daa51e7d9b70ffe51c3e2126b4c35c02b5e
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/operator-generic:v1.20.2
+      - name: cilium-envoy
+        type: oci_image
+        source: quay.io/cilium/cilium-envoy:v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82
+        index_digest: sha256:af7382699576b9e65e9184efa52eeca0b58aea70ad6e511bf260c91d9f740463
+        platform_manifest_digest: sha256:33b00117d392f24ee5161f66242d12f58ceb62bf80a2bdd66eaf505d77933cb0
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/cilium-envoy:v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82
+    compatibility_evidence: ["https://docs.cilium.io/en/v1.20/network/kubernetes/compatibility/"]
     execution_evidence: []
-    status: pending
+    status: selected
   kube_vip:
     phase: "01"
-    candidate: null
-    version: null
-    artifacts: []
+    candidate: "v1.2.4"
+    version: "1.2.4"
+    selected_by: 2026-10-17 v1.3.0 于 2026-10-16 发布、未满两周，选 v1.2.4（2026-09-16）；ARP 模式、控制平面 VIP 192.168.9.100
+    artifacts:
+      - name: kube-vip
+        type: oci_image
+        source: ghcr.io/kube-vip/kube-vip:v1.2.4
+        index_digest: sha256:dde4c0669d9058c74c69c0bc2f0122e26900e1e4b913c03577cb6e4e28083079
+        platform_manifest_digest: sha256:26ead1e4f7ce486d1e60351181957f35ae54d30c11e8ae0a30d8e9ca1d8acb51
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/kube-vip:v1.2.4
     compatibility_evidence: []
     execution_evidence: []
-    status: pending
+    status: selected
+  k8s_clients:
+    phase: "01"
+    runs_on: 管理 Mac（darwin/arm64），安装到 ~/.cnpl/bin（scripts/fetch-k8s-clients.sh）
+    purpose: kubectl 与集群同一次版本（Mac 自带的 1.34 超出客户端偏差范围）；helm 安装 Cilium；cilium-cli 检查状态
+    artifacts:
+      - {name: kubectl, version: v1.36.5, sha256: c5850a4a6b9469b26cce47c1ab456285f58e308283dcdf72b4ddda3db49b0ec0, source: "https://dl.k8s.io/release/v1.36.5/bin/darwin/arm64/kubectl", checksum_source: 同路径 .sha256}
+      - {name: helm, version: v4.3.0, sha256: d3870437e1e95b67f8edbde964156c84a26503f560821d40c542441658934fba, source: "https://get.helm.sh/helm-v4.3.0-darwin-arm64.tar.gz", checksum_source: 同路径 .sha256sum, released_at: '2026-09-09'}
+      - {name: cilium-cli, version: v0.20.1, sha256: 3521cb6af8f621d64dac63c7537fd9aa2ff878fb1f7a6f50e69b31bf45c02cb8, source: "https://github.com/cilium/cilium-cli/releases/download/v0.20.1/cilium-darwin-arm64.tar.gz", checksum_source: 同一发布的 .sha256sum, released_at: '2026-09-24'}
+    compatibility_evidence: []
+    execution_evidence: []
+    status: selected
   metallb:
     phase: "02"
     candidate: null

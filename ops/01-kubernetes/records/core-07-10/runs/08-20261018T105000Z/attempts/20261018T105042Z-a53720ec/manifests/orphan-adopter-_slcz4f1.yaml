@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: 'ReplicaSet'
+metadata:
+  name: 'p08-adopter'
+  namespace: 'lab-p08'
+  labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a', app.kubernetes.io/name: 'p08-orphan'}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a', app.kubernetes.io/name: 'p08-orphan'}
+  template:
+    metadata:
+      labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a', app.kubernetes.io/name: 'p08-orphan'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms: [{matchExpressions: [{key: kubernetes.io/hostname, operator: In, values: ["worker01.k8s.internal.egon.top", "worker02.k8s.internal.egon.top"]}]}]
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: app
+        image: 'cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc'
+        imagePullPolicy: Never
+        command: [/core-lab, serve]
+        env:
+        - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+        - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+        - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+        ports: [{name: http, containerPort: 8080}]
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        resources: {requests: {cpu: 20m, memory: 32Mi, ephemeral-storage: 1Mi}, limits: {cpu: 500m, memory: 192Mi, ephemeral-storage: 32Mi}}
+        readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+        volumeMounts: [{name: work, mountPath: /work}]
+      volumes: [{name: work, emptyDir: {sizeLimit: 32Mi}}]

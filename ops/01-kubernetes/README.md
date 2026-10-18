@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03–01.06 已完成源码 YAML + Ansible 的真实重跑验收，26 个成功断点与验收、清理两个总 PASS 齐全，详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。01.07 StatefulSet/DaemonSet 实验与清理也已实际通过，详见[07 验收归档](records/core-07-10/runs/07-20261018T102322Z/README.md)；下一专题为 01.08。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03–01.06 已完成源码 YAML + Ansible 的真实重跑验收，26 个成功断点与验收、清理两个总 PASS 齐全，详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。01.07 StatefulSet/DaemonSet、01.08 删除传播/所有权/Finalizer 实验与清理均已实际通过，详见[07 验收归档](records/core-07-10/runs/07-20261018T102322Z/README.md)、[08 验收归档](records/core-07-10/runs/08-20261018T105000Z/README.md)；下一专题为 01.09。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -392,6 +392,8 @@ bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/script
 ## 01.08 删除传播、所有权与 Finalizer
 
 分别实测 foreground/background/orphan、原 Pod 接管和模拟外部清理顺序，按 UID 验收。
+
+本轮已实际验收并完成清理：五组快照证明传播顺序、原 Pod UID 接管与 Finalizer 清理顺序；两个总 PASS、全部主机失败数为零，十节点健康且实验空间已删除，详见[08 验收归档](records/core-07-10/runs/08-20261018T105000Z/README.md)。以下命令保留为复现入口，当前继续 01.09 即可。
 
 独立源码、逐条命令解释、预期结果和恢复说明见 [01.08 完整手册](examples/garbage-collection/README.md)。每阶段只执行自己；正式运行前检查上一阶段的真实回执。
 

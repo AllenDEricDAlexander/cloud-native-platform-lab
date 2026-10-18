@@ -1,0 +1,1129 @@
+
+PLAY [单阶段源码、输入与工具链前检] ********************************************
+
+TASK [校验阶段、模式与受控证据目录] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建记录与公共进度目录] **************************************************
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/core-07-10/runs/08-20261018T105000Z)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/core-07-10/runs/08-20261018T105000Z/state)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/core-07-10/completed)
+
+TASK [查询原上下文和完成断点] **************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+
+TASK [绑定是否已有执行上下文] **************************************************
+ok: [localhost]
+
+TASK [cleanup 只能处理已有批次] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取已有上下文] **********************************************************
+ok: [localhost]
+
+TASK [产生此次执行的独立身份] **************************************************
+ok: [localhost]
+
+TASK [产生执行随机后缀] ********************************************************
+ok: [localhost]
+
+TASK [绑定本批和此次 attempt] **************************************************
+ok: [localhost]
+
+TASK [创建此次独立证据目录] ****************************************************
+changed: [localhost] => (item=manifests)
+changed: [localhost] => (item=observations)
+changed: [localhost] => (item=snapshots)
+changed: [localhost] => (item=artifacts)
+
+TASK [绑定管理端私有材料目录] **************************************************
+ok: [localhost]
+
+TASK [创建私有材料目录，不进入仓库] ********************************************
+ok: [localhost]
+
+TASK [审计实际源码并复核原始执行记录] ******************************************
+ok: [localhost]
+
+TASK [绑定实际源码 SHA] ********************************************************
+ok: [localhost]
+
+TASK [绑定本轮版本锁原字节 SHA] ************************************************
+ok: [localhost]
+
+TASK [源码上下文同时覆盖版本锁] ************************************************
+ok: [localhost]
+
+TASK [同目录不得混用源码或其他阶段] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [已有 07 维护状态先恢复，再做健康前检] ************************************
+skipping: [localhost]
+
+TASK [十节点、角色、安全策略和系统负载只读前检] ********************************
+ok: [localhost]
+
+TASK [绑定原集群] **************************************************************
+ok: [localhost]
+
+TASK [原集群不可改变] **********************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [成功断点必须有同一运行、阶段、集群和恢复结果] ****************************
+skipping: [localhost]
+
+TASK [核对 03–06 的真实完成回执] ***********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本阶段运行前必须完成上一阶段] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [镜像及证书准备所需的既有工具前检] ****************************************
+skipping: [localhost]
+
+TASK [沿用已有镜像工具，不隐式升级] ********************************************
+skipping: [localhost]
+
+TASK [检查管理端证书工具] ******************************************************
+skipping: [localhost]
+
+TASK [记录当前上下文（新批次，不覆盖历史）] ************************************
+skipping: [localhost]
+
+TASK [查询本阶段命名空间] ******************************************************
+ok: [localhost]
+
+TASK [绑定空间是否存在] ********************************************************
+ok: [localhost]
+
+TASK [已存在的空间必须归属于原运行；正式重试需明确 resume] *********************
+skipping: [localhost]
+
+TASK [已通过阶段必须仍保持本批空间已清理] **************************************
+skipping: [localhost]
+
+TASK [核对锁定工具链归档 SHA] **************************************************
+ok: [localhost]
+
+TASK [拒绝非锁定工具链] ********************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [有限应用单元测试] ********************************************************
+ok: [localhost]
+
+TASK [编译静态 linux amd64 测试应用] *******************************************
+changed: [localhost]
+
+TASK [用现有打包工具生成两个精确版本] ******************************************
+changed: [localhost]
+
+TASK [绑定不可变镜像引用] ******************************************************
+ok: [localhost]
+
+TASK [按当前阶段渲染并结构核验全部清单及策略变体] ******************************
+skipping: [localhost]
+
+TASK [本阶段源码和输入前检结果] ************************************************
+skipping: [localhost]
+
+PLAY [在两个 worker 准备本阶段精确镜像，不启动容器] ****************************
+
+TASK [为本阶段创建物料目录] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [逐个导入两个已核验版本] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/import-image.yml for worker01, worker02 => (item=v1)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/import-image.yml for worker01, worker02 => (item=v2)
+
+TASK [精确引用必须属于本测试应用] **********************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [复制当前版本 OCI 归档] ***************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [原生核对远端 SHA] ********************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [拒绝损坏物料] ************************************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询完整摘要引用] ********************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [导入指定平台] ************************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [建立完整 Digest 引用] ****************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [CRI 必须能够按 Digest 查到镜像] ******************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [精确引用必须属于本测试应用] **********************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [复制当前版本 OCI 归档] ***************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [原生核对远端 SHA] ********************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [拒绝损坏物料] ************************************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询完整摘要引用] ********************************************************
+ok: [worker01]
+ok: [worker02]
+
+TASK [导入指定平台] ************************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [建立完整 Digest 引用] ****************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [CRI 必须能够按 Digest 查到镜像] ******************************************
+ok: [worker02]
+ok: [worker01]
+
+PLAY [独立执行、取证、恢复和清理当前专题] **************************************
+
+TASK [已验收阶段保持原断点] ****************************************************
+skipping: [localhost]
+
+TASK [已通过阶段也可修复中断的进度指针发布，不重跑实验] ************************
+skipping: [localhost]
+
+TASK [先撤销上次中断遗留的外部临时凭据] ****************************************
+skipping: [localhost]
+
+TASK [原空间已经消失时也处理遗留的私有镜像别名] ********************************
+skipping: [localhost]
+
+TASK [重试前取证并回收本批未完成空间] ******************************************
+skipping: [localhost]
+
+TASK [创建受限空间及实验运维授权] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/resource.yml for localhost
+
+TASK [校验源码入口与证据文件名] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [每次渲染使用独立文件，保留之前版本] **************************************
+changed: [localhost]
+
+TASK [从源码渲染 Kubernetes YAML] **********************************************
+changed: [localhost]
+
+TASK [按文档顺序校验与执行，先建立引用依赖] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=Namespace/lab-p08)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=Role/core-operator)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=RoleBinding/core-operator)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=ResourceQuota/core-budget)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=LimitRange/core-limits)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=NetworkPolicy/core-isolation)
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+changed: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [读取 Namespace 实际 UID] *************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/get.yml for localhost
+
+TASK [读取 namespace/lab-p08 的公开对象] ***************************************
+ok: [localhost]
+
+TASK [保存当前公开结果] ********************************************************
+ok: [localhost]
+
+TASK [绑定空间 UID，后续恢复和清理拒绝同名重建] ********************************
+ok: [localhost]
+
+TASK [执行当前专题的显式步骤] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/stage-08.yml for localhost
+
+TASK [01.08.01 比较两种真实删除传播] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/stage-08-cascade.yml for localhost => (item=foreground)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/stage-08-cascade.yml for localhost => (item=background)
+
+TASK [创建 foreground 的独立父子对象] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/resource.yml for localhost
+
+TASK [校验源码入口与证据文件名] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [每次渲染使用独立文件，保留之前版本] **************************************
+changed: [localhost]
+
+TASK [从源码渲染 Kubernetes YAML] **********************************************
+changed: [localhost]
+
+TASK [按文档顺序校验与执行，先建立引用依赖] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=Deployment/p08-foreground)
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [等父子 UID 与真实副本共同收敛] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [foreground 父子链就绪] ***************************************************
+FAILED - RETRYING: [localhost]: foreground 父子链就绪 (89 retries left).
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [绑定父对象和受控子对象 UID] **********************************************
+ok: [localhost]
+
+TASK [确认子对象没有其他 finalizer] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [给本次子对象加唯一观测 finalizer] ****************************************
+changed: [localhost]
+
+TASK [触发明确的删除传播策略] **************************************************
+changed: [localhost]
+
+TASK [Foreground 父对象必须仍在等待子对象] *************************************
+ok: [localhost]
+
+TASK [Background 父对象实际消失而非只是提交删除] *******************************
+skipping: [localhost]
+
+TASK [等同一子对象进入删除而仍被本实验标记保留] ********************************
+ok: [localhost]
+
+TASK [保存传播顺序中的完整现场] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/snapshot.yml for localhost
+
+TASK [保存公开对象、owner UID、状态、事件和测试日志（不导出 Secret/Token）] ****
+ok: [localhost]
+
+TASK [只解除本实验对子对象的观测标记] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/release-finalizer.yml for localhost
+
+TASK [读取被本实验阻挡的当前对象] **********************************************
+ok: [localhost]
+
+TASK [名称相同不等于原对象] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [原子校验 UID 和 finalizer 列表后移除自己的一个标记] **********************
+changed: [localhost]
+
+TASK [最终父子对象必须全部消失] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [foreground 最终清理] *****************************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [创建 background 的独立父子对象] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/resource.yml for localhost
+
+TASK [校验源码入口与证据文件名] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [每次渲染使用独立文件，保留之前版本] **************************************
+changed: [localhost]
+
+TASK [从源码渲染 Kubernetes YAML] **********************************************
+changed: [localhost]
+
+TASK [按文档顺序校验与执行，先建立引用依赖] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=Deployment/p08-background)
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [等父子 UID 与真实副本共同收敛] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [background 父子链就绪] ***************************************************
+FAILED - RETRYING: [localhost]: background 父子链就绪 (89 retries left).
+FAILED - RETRYING: [localhost]: background 父子链就绪 (88 retries left).
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [绑定父对象和受控子对象 UID] **********************************************
+ok: [localhost]
+
+TASK [确认子对象没有其他 finalizer] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [给本次子对象加唯一观测 finalizer] ****************************************
+changed: [localhost]
+
+TASK [触发明确的删除传播策略] **************************************************
+changed: [localhost]
+
+TASK [Foreground 父对象必须仍在等待子对象] *************************************
+skipping: [localhost]
+
+TASK [Background 父对象实际消失而非只是提交删除] *******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [Background 父对象消失] ***************************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [等同一子对象进入删除而仍被本实验标记保留] ********************************
+ok: [localhost]
+
+TASK [保存传播顺序中的完整现场] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/snapshot.yml for localhost
+
+TASK [保存公开对象、owner UID、状态、事件和测试日志（不导出 Secret/Token）] ****
+ok: [localhost]
+
+TASK [只解除本实验对子对象的观测标记] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/release-finalizer.yml for localhost
+
+TASK [读取被本实验阻挡的当前对象] **********************************************
+ok: [localhost]
+
+TASK [名称相同不等于原对象] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [原子校验 UID 和 finalizer 列表后移除自己的一个标记] **********************
+changed: [localhost]
+
+TASK [最终父子对象必须全部消失] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [background 最终清理] *****************************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [01.08.02 为 Orphan 创建独立链] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/resource.yml for localhost
+
+TASK [校验源码入口与证据文件名] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [每次渲染使用独立文件，保留之前版本] **************************************
+changed: [localhost]
+
+TASK [从源码渲染 Kubernetes YAML] **********************************************
+changed: [localhost]
+
+TASK [按文档顺序校验与执行，先建立引用依赖] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=Deployment/p08-orphan)
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [绑定 Orphan 前真实父子关系] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [Orphan 原父子链就绪] *****************************************************
+FAILED - RETRYING: [localhost]: Orphan 原父子链就绪 (89 retries left).
+FAILED - RETRYING: [localhost]: Orphan 原父子链就绪 (88 retries left).
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [保存原 Deployment UID、Pod UID 集合] *************************************
+ok: [localhost]
+
+TASK [读取原 ReplicaSet] *******************************************************
+ok: [localhost]
+
+TASK [原链必须只有一个 RS] *****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [绑定原 RS 身份] **********************************************************
+ok: [localhost]
+
+TASK [Orphan 删除 Deployment] **************************************************
+changed: [localhost]
+
+TASK [直接子对象 RS 留存并解除原 Deployment 引用] ******************************
+ok: [localhost]
+
+TASK [留存 RS 仍控制原 Pod] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [Orphan 只影响直接所有权边] ***********************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [Pod 不是重新创建的替代品] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [再 Orphan 删除 RS，得到真正无控制器的 Pod] *******************************
+changed: [localhost]
+
+TASK [等原 Pod 的 RS ownerReferences 移除] *************************************
+ok: [localhost]
+
+TASK [明确 Selector 的新 RS 接管原孤儿] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/resource.yml for localhost
+
+TASK [校验源码入口与证据文件名] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [每次渲染使用独立文件，保留之前版本] **************************************
+changed: [localhost]
+
+TASK [从源码渲染 Kubernetes YAML] **********************************************
+changed: [localhost]
+
+TASK [按文档顺序校验与执行，先建立引用依赖] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=ReplicaSet/p08-adopter)
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [按真实 owner UID 确认接管] ***********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [新 ReplicaSet 接管原 Pod] ************************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [接管保持原两个 Pod UID] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [01.08.03 Finalizer 外部资源清理顺序] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/resource.yml for localhost
+
+TASK [校验源码入口与证据文件名] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [每次渲染使用独立文件，保留之前版本] **************************************
+changed: [localhost]
+
+TASK [从源码渲染 Kubernetes YAML] **********************************************
+changed: [localhost]
+
+TASK [按文档顺序校验与执行，先建立引用依赖] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=ConfigMap/p08-external)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/document.yml for localhost => (item=ConfigMap/p08-finalizer)
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [校验资源类型、归属与命名空间] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名资源，避免接管其他运行] ******************************************
+ok: [localhost]
+
+TASK [同名对象必须属于本次运行或已登记的同集群指标组件] ************************
+skipping: [localhost]
+
+TASK [只读验证源码结构（现存对象不会造成 create 冲突）] ************************
+ok: [localhost]
+
+TASK [实际变更前使用相同语义的服务端准入] **************************************
+ok: [localhost]
+
+TASK [按源码执行当前资源] ******************************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复] **********************
+skipping: [localhost]
+
+TASK [保存临时授权对象引用] ****************************************************
+skipping: [localhost]
+
+TASK [记录精确清理索引] ********************************************************
+skipping: [localhost]
+
+TASK [删除带实验保护的对象] ****************************************************
+changed: [localhost]
+
+TASK [读取仍在等待清理的对象] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/get.yml for localhost
+
+TASK [读取 configmap/p08-finalizer 的公开对象] *********************************
+ok: [localhost]
+
+TASK [保存当前公开结果] ********************************************************
+ok: [localhost]
+
+TASK [确认删除已开始且只含本实验标记] ******************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [绑定保护对象 UID] ********************************************************
+ok: [localhost]
+
+TASK [先清理本批模拟外部资源] **************************************************
+changed: [localhost]
+
+TASK [外部模拟对象必须实际消失] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [模拟外部清理完成] ********************************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [保存清理外部之后仍被保护的现场] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/snapshot.yml for localhost
+
+TASK [保存公开对象、owner UID、状态、事件和测试日志（不导出 Secret/Token）] ****
+ok: [localhost]
+
+TASK [核验后解除自己的 Finalizer] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/release-finalizer.yml for localhost
+
+TASK [读取被本实验阻挡的当前对象] **********************************************
+ok: [localhost]
+
+TASK [名称相同不等于原对象] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [原子校验 UID 和 finalizer 列表后移除自己的一个标记] **********************
+changed: [localhost]
+
+TASK [对象最终删除完成] ********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [Finalizer 顺序验收] ******************************************************
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [保存最终实验现场] ********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/snapshot.yml for localhost
+
+TASK [保存公开对象、owner UID、状态、事件和测试日志（不导出 Secret/Token）] ****
+ok: [localhost]
+
+TASK [回收本次测试对象与临时授权] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cleanup.yml for localhost
+
+TASK [先恢复本次节点试验标签与污点] ********************************************
+skipping: [localhost]
+
+TASK [检查空间 UID、全部对象归属与 finalizer] **********************************
+ok: [localhost]
+
+TASK [绑定清理清单] ************************************************************
+ok: [localhost]
+
+TASK [删除前保全现场] **********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/snapshot.yml for localhost
+
+TASK [保存公开对象、owner UID、状态、事件和测试日志（不导出 Secret/Token）] ****
+ok: [localhost]
+
+TASK [Finalizer 模拟外部资源先按本批归属回收] **********************************
+changed: [localhost]
+
+TASK [删除本批 Namespace，先禁止控制器再创建内容] ******************************
+changed: [localhost]
+
+TASK [仅解除本实验 finalizer，保留 Kubernetes 自己的标记] **********************
+skipping: [localhost]
+
+TASK [等待整个空间实际消失] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/wait.yml for localhost
+
+TASK [Namespace 和本批资源完全清理] ********************************************
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (119 retries left).
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (118 retries left).
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (117 retries left).
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (116 retries left).
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (115 retries left).
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [更新当前空间存在状态] ****************************************************
+ok: [localhost]
+
+TASK [回收仅属于本次的临时集群授权] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/cluster-cleanup.yml for localhost
+
+TASK [查询本批是否存在临时集群级授权索引] **************************************
+ok: [localhost]
+
+TASK [按精确 UID 回收临时授权] *************************************************
+skipping: [localhost]
+
+TASK [已处理的授权索引归档到此次证据] ******************************************
+skipping: [localhost]
+
+TASK [清除已完成的临时授权待办] ************************************************
+skipping: [localhost]
+
+TASK [回收本次 Harbor 凭据与实验项目] ******************************************
+skipping: [localhost]
+
+TASK [只清理本次私有镜像别名] **************************************************
+skipping: [localhost]
+
+TASK [全局健康复核] ************************************************************
+ok: [localhost]
+
+TASK [清理之后指标服务仍须正常] ************************************************
+skipping: [localhost]
+
+TASK [回收本批已经失效的私有测试凭据文件] **************************************
+skipping: [localhost]
+
+TASK [保存实际清理后的 Phase 02 交接索引] **************************************
+skipping: [localhost]
+
+TASK [写入本阶段真实成功回执] **************************************************
+changed: [localhost]
+
+TASK [发布本阶段完成指针，供下一阶段核验] **************************************
+changed: [localhost]
+
+TASK [本阶段验收与清理结果] ****************************************************
+ok: [localhost] => {
+    "msg": "01.08 ACCEPTANCE PASS；01.08 CLEANUP PASS"
+}
+
+TASK [显式清理已有本批空间] ****************************************************
+skipping: [localhost]
+
+TASK [显式放弃 10 时一并删除本批失效的私有测试材料] ****************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=229  changed=43   unreachable=0    failed=0    skipped=76   rescued=0    ignored=0   
+worker01                   : ok=15   changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+worker02                   : ok=15   changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+

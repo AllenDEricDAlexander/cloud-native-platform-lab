@@ -1,0 +1,89 @@
+# 命名空间先落地；Ansible 按文档顺序执行后续引用依赖。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: 'lab-p08'
+  labels:
+    cnpl.io/core-run: '20261018T105012Z-db7abb6a'
+    cnpl.io/core-stage: '08'
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: core-operator
+  namespace: 'lab-p08'
+  labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a'}
+rules:
+- apiGroups: ['']
+  resources: [pods, replicationcontrollers, services, configmaps, resourcequotas, limitranges]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: ['']
+  resources: [pods/log]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [pods/exec]
+  verbs: [get, create]
+- apiGroups: [apps]
+  resources: [deployments, deployments/scale, replicasets, statefulsets, statefulsets/scale, daemonsets, controllerrevisions]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [batch]
+  resources: [jobs, cronjobs]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [autoscaling]
+  resources: [horizontalpodautoscalers]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [networking.k8s.io]
+  resources: [networkpolicies]
+  verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: core-operator
+  namespace: 'lab-p08'
+  labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: core-operator}
+subjects: [{kind: User, apiGroup: rbac.authorization.k8s.io, name: 'cnpl-mac-operator'}]
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: core-budget
+  namespace: 'lab-p08'
+  labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a'}
+spec:
+  hard: {pods: '24', requests.cpu: '4', requests.memory: 2Gi, limits.cpu: '8', limits.memory: 4Gi, requests.ephemeral-storage: 1Gi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: core-limits
+  namespace: 'lab-p08'
+  labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a'}
+spec:
+  limits:
+  - type: Container
+    default: {cpu: 500m, memory: 192Mi, ephemeral-storage: 32Mi}
+    defaultRequest: {cpu: 20m, memory: 32Mi, ephemeral-storage: 1Mi}
+    max: {cpu: '1', memory: 256Mi, ephemeral-storage: 128Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: core-isolation
+  namespace: 'lab-p08'
+  labels: {cnpl.io/core-run: '20261018T105012Z-db7abb6a'}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress: [{from: [{podSelector: {}}]}]
+  egress:
+  - to: [{podSelector: {}}]
+  - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  - to: [{ipBlock: {cidr: 192.168.20.1/32}}]
+    ports: [{protocol: TCP, port: 443}]
+  - to: [{ipBlock: {cidr: 192.168.9.101/32}}, {ipBlock: {cidr: 192.168.9.102/32}}, {ipBlock: {cidr: 192.168.9.103/32}}]
+    ports: [{protocol: TCP, port: 6443}]

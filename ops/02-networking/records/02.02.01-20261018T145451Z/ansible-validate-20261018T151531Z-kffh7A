@@ -1,0 +1,104 @@
+
+PLAY [02.02.01 原集群、前序完成状态和本批次输入检查] ***************************
+
+TASK [限定步骤、模式与记录目录] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成此次取证时间和随机后缀] **********************************************
+ok: [localhost]
+
+TASK [绑定独立 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建本机记录目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-20261018T145451Z/attempts/20261018T151532Z-5cd4619f-validate)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-20261018T145451Z/state)
+
+TASK [清理必须使用原批次] ******************************************************
+ok: [localhost]
+
+TASK [禁止凭空创建清理身份] ****************************************************
+skipping: [localhost]
+
+TASK [校验 02.01 的原始回执和集群身份，正常运行前复验十节点健康] ***************
+ok: [localhost]
+
+TASK [绑定本次运行身份] ********************************************************
+ok: [localhost]
+
+TASK [查询运行、关闭与源码回执] ************************************************
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [已通过或关闭的批次不能重跑] **********************************************
+skipping: [localhost]
+
+TASK [保存当前源码和输入摘要] **************************************************
+ok: [localhost]
+
+TASK [重跑必须使用同一套源码] **************************************************
+skipping: [localhost]
+
+TASK [只读验证客户端固定摘要可从内网 Harbor 获取] ******************************
+ok: [localhost]
+
+PLAY [两台 worker 的安全状态与现有镜像只读检查] ********************************
+
+TASK [确认原 VM 和安全基线] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [查询必须预置的后端 OCI 镜像] *********************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [校验缓存的非空 ID 和完整 RepoDigest，不以退出码代替内容校验] *************
+ok: [worker01 -> localhost]
+ok: [worker02 -> localhost]
+
+PLAY [02.02.01 配置校验、实验与清理] *******************************************
+
+TASK [生成完整 Namespace、Deployment、Service 与两个客户端 Pod] ****************
+changed: [localhost]
+
+TASK [在既有 restricted 空间做同规格严格服务端 dry-run] ************************
+ok: [localhost]
+
+TASK [完整源码和前置校验通过] **************************************************
+ok: [localhost] => {
+    "msg": "02.02.01 SOURCE VALIDATION PASS；没有创建实验对象、调整 Cilium 或更改主机配置。"
+}
+
+TASK [只读前检通过] ************************************************************
+skipping: [localhost]
+
+TASK [记录首次运行源码，后续不覆盖] ********************************************
+skipping: [localhost]
+
+TASK [用户发起运行后才创建并操作实验] ******************************************
+skipping: [localhost]
+
+TASK [生成精确清理计划，拒绝删除空间内的外来对象] ******************************
+skipping: [localhost]
+
+TASK [删除本批实验空间] ********************************************************
+skipping: [localhost]
+
+TASK [验证空间确实已消失] ******************************************************
+skipping: [localhost]
+
+TASK [保存独立清理回执，不改写实验通过状态] ************************************
+skipping: [localhost]
+
+TASK [报告清理结果] ************************************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=2    unreachable=0    failed=0    skipped=11   rescued=0    ignored=0   
+worker01                   : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

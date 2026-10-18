@@ -1,0 +1,28 @@
+---
+- name: 限定对象类型、空间和运行标签
+  ansible.builtin.assert:
+    that:
+      - svc_document.kind in ['Namespace','Deployment','Service','Pod']
+      - svc_document.metadata.labels['cnpl.io/service-run'] == svc_run
+      - (svc_document.kind == 'Namespace' and svc_document.metadata.name == svc_namespace) or svc_document.metadata.namespace | default('') == svc_namespace
+- name: 查询同名对象，禁止接管外来运行
+  ansible.builtin.command:
+    argv: '{{ svc_k + ["get",svc_document.kind | lower,svc_document.metadata.name,"--ignore-not-found","-o","json"] + (["-n",svc_namespace] if svc_document.kind != "Namespace" else []) }}'
+  register: svc_existing
+  changed_when: false
+- name: 原对象必须属于本运行
+  ansible.builtin.assert: {that: "(svc_existing.stdout | from_json).metadata.get('labels', {}).get('cnpl.io/service-run') == svc_run"}
+  when: svc_existing.stdout | trim | length > 0
+- name: 在实际目标空间做严格准入
+  ansible.builtin.command: {argv: '{{ svc_k + ["apply","--dry-run=server","--validate=strict","-f","-"] }}', stdin: '{{ svc_document | to_json }}'}
+  changed_when: false
+- name: 应用当前源码对象
+  ansible.builtin.command: {argv: '{{ svc_k + ["apply","-f","-","-o","json"] }}', stdin: '{{ svc_document | to_json }}'}
+  register: svc_applied
+  changed_when: true
+- name: 创建空间后立即绑定 UID，供中断后清理
+  ansible.builtin.copy:
+    content: '{{ {"run":svc_run,"uid":(svc_applied.stdout | from_json).metadata.uid} | to_nice_json }}'
+    dest: '{{ svc_records }}/state/namespace.json'
+    mode: '0600'
+  when: svc_document.kind == 'Namespace'

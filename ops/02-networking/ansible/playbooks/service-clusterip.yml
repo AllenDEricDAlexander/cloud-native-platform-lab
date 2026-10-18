@@ -1,0 +1,143 @@
+---
+- name: 02.02.01 原集群、前序完成状态和本批次输入检查
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/service-clusterip.yml]
+  tasks:
+    - name: 限定步骤、模式与记录目录
+      ansible.builtin.assert:
+        that:
+          - svc_mode in ['preflight','validate','run','cleanup']
+          - svc_records.startswith(svc_root ~ '/ops/02-networking/records/02.02.01-')
+          - svc_records | realpath == svc_records
+    - name: 生成此次取证时间和随机后缀
+      ansible.builtin.command: {argv: ['{{ svc_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']}
+      register: svc_clock
+      changed_when: false
+    - name: 绑定独立 attempt
+      ansible.builtin.set_fact: {svc_attempt: '{{ svc_records }}/attempts/{{ svc_clock.stdout }}-{{ svc_mode }}'}
+    - name: 创建本机记录目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ svc_attempt }}', '{{ svc_records }}/state']
+    - name: 清理必须使用原批次
+      ansible.builtin.stat: {path: '{{ svc_records }}/context.json'}
+      register: svc_context_stat
+    - name: 禁止凭空创建清理身份
+      ansible.builtin.assert: {that: svc_context_stat.stat.exists}
+      when: svc_mode == 'cleanup'
+    - name: 校验 02.01 的原始回执和集群身份，正常运行前复验十节点健康
+      ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', '{{ "identity" if svc_mode == "cleanup" else "preflight" }}', --records, '{{ svc_records }}', --output, '{{ svc_attempt }}/preflight.json']}
+      register: svc_preflight
+      changed_when: false
+    - name: 绑定本次运行身份
+      ansible.builtin.set_fact:
+        svc_context: '{{ svc_preflight.stdout | from_json }}'
+        svc_run: '{{ (svc_preflight.stdout | from_json).run }}'
+    - name: 查询运行、关闭与源码回执
+      ansible.builtin.stat: {path: '{{ svc_records }}/{{ item }}'}
+      loop: [passed.json, state/closed.json, state/source.json]
+      register: svc_prior
+    - name: 已通过或关闭的批次不能重跑
+      ansible.builtin.assert:
+        that:
+          - not svc_prior.results[0].stat.exists
+          - not svc_prior.results[1].stat.exists
+      when: svc_mode == 'run'
+    - name: 保存当前源码和输入摘要
+      ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', source, --records, '{{ svc_records }}', --output, '{{ svc_attempt }}/source.json']}
+      changed_when: false
+    - name: 重跑必须使用同一套源码
+      ansible.builtin.assert:
+        that: lookup('file', svc_attempt ~ '/source.json') | from_json == lookup('file', svc_records ~ '/state/source.json') | from_json
+      when: svc_mode == 'run' and svc_prior.results[2].stat.exists
+    - name: 只读验证客户端固定摘要可从内网 Harbor 获取
+      ansible.builtin.command: {argv: ['{{ svc_crane }}', digest, --platform, linux/amd64, '{{ svc_client_image }}']}
+      register: svc_registry_digest
+      changed_when: false
+      failed_when: svc_registry_digest.rc != 0 or svc_registry_digest.stdout | trim != svc_client_image.split('@')[1]
+      when: svc_mode != 'cleanup'
+
+- name: 两台 worker 的安全状态与现有镜像只读检查
+  hosts: worker01:worker02
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/service-clusterip.yml]
+  tasks:
+    - name: 确认原 VM 和安全基线
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname)" = '{{ node_fqdn }}'
+        test "$(getenforce)" = Enforcing
+        systemctl is-active firewalld containerd kubelet
+      args: {executable: /bin/bash}
+      changed_when: false
+      when: svc_mode != 'cleanup'
+    - name: 查询必须预置的后端 OCI 镜像
+      ansible.builtin.command: {argv: [/usr/bin/crictl, inspecti, '{{ svc_backend_image }}']}
+      register: svc_backend_cache
+      changed_when: false
+      no_log: true
+      when: svc_mode != 'cleanup'
+    - name: 校验缓存的非空 ID 和完整 RepoDigest，不以退出码代替内容校验
+      ansible.builtin.command:
+        argv: ['{{ svc_python }}', '{{ svc_check }}', backend-cache, --records, '{{ svc_records }}', --output, '{{ hostvars.localhost.svc_attempt }}/cache-{{ inventory_hostname }}.json']
+        stdin: '{{ svc_backend_cache.stdout }}'
+      delegate_to: localhost
+      changed_when: false
+      no_log: true
+      when: svc_mode != 'cleanup'
+
+- name: 02.02.01 配置校验、实验与清理
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/service-clusterip.yml]
+  tasks:
+    - name: 生成完整 Namespace、Deployment、Service 与两个客户端 Pod
+      ansible.builtin.template:
+        src: '../../networking/services/clusterip.yaml.j2'
+        dest: '{{ svc_attempt }}/clusterip.yaml'
+        mode: '0600'
+      when: svc_mode in ['validate','run']
+    - name: 在既有 restricted 空间做同规格严格服务端 dry-run
+      ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', validate, --records, '{{ svc_records }}', --manifest, '{{ svc_attempt }}/clusterip.yaml', --output, '{{ svc_attempt }}/admission.json']}
+      changed_when: false
+      when: svc_mode in ['validate','run']
+    - name: 完整源码和前置校验通过
+      ansible.builtin.debug: {msg: '02.02.01 SOURCE VALIDATION PASS；没有创建实验对象、调整 Cilium 或更改主机配置。'}
+      when: svc_mode == 'validate'
+    - name: 只读前检通过
+      ansible.builtin.debug: {msg: '02.02.01 PREFLIGHT PASS；02.01 回执、十节点健康、后端 OCI 缓存及客户端内网摘要已验证。'}
+      when: svc_mode == 'preflight'
+    - name: 记录首次运行源码，后续不覆盖
+      ansible.builtin.copy: {src: '{{ svc_attempt }}/source.json', dest: '{{ svc_records }}/state/source.json', mode: '0600', force: false}
+      when: svc_mode == 'run'
+    - name: 用户发起运行后才创建并操作实验
+      ansible.builtin.include_tasks: ../tasks/service-clusterip-run.yml
+      when: svc_mode == 'run'
+    - name: 按 UID 和归属检查后清理本批次空间
+      when: svc_mode == 'cleanup'
+      block:
+        - name: 生成精确清理计划，拒绝删除空间内的外来对象
+          ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', cleanup-plan, --records, '{{ svc_records }}', --output, '{{ svc_attempt }}/cleanup-plan.json']}
+          register: svc_cleanup
+          changed_when: false
+        - name: 删除本批实验空间
+          ansible.builtin.command: {argv: '{{ svc_k + ["delete","namespace",svc_namespace,"--wait=true","--timeout=180s"] }}'}
+          when: (svc_cleanup.stdout | from_json).namespace_exists
+          changed_when: true
+        - name: 验证空间确实已消失
+          ansible.builtin.command: {argv: '{{ svc_k + ["get","namespace",svc_namespace,"--ignore-not-found","-o","name"] }}'}
+          register: svc_absent
+          changed_when: false
+          failed_when: svc_absent.stdout | trim | length > 0
+        - name: 保存独立清理回执，不改写实验通过状态
+          ansible.builtin.copy:
+            content: '{{ {"run":svc_run,"cluster_uid":svc_context.cluster_uid,"stage":"02.02.01","cleanup_passed":true,"attempt":svc_attempt} | to_nice_json }}'
+            dest: '{{ svc_records }}/state/closed.json'
+            mode: '0600'
+        - name: 报告清理结果
+          ansible.builtin.debug: {msg: '02.02.01 CLEANUP PASS；Hubble、主机规则及原有镜像缓存保持可用。'}

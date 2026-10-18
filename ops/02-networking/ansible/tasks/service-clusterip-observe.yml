@@ -1,0 +1,13 @@
+---
+- name: 等待 {{ svc_case }} 的 Pod 与 EndpointSlice 一致
+  ansible.builtin.command:
+    argv: '{{ [svc_python,svc_check,"wait","--records",svc_records,"--count",svc_count | string,"--ready-count",svc_ready | string,"--output",svc_attempt ~ "/state-" ~ svc_case ~ ".json"] + (["--blocked"] if svc_case == "not-ready" else []) }}'
+  changed_when: false
+- name: 从两台 VM 的客户端检查三种入口，只接受本阶段就绪 Pod 的真实 UID
+  ansible.builtin.command:
+    argv: ['{{ svc_python }}', '{{ svc_check }}', probe, --records, '{{ svc_records }}', --graph, '{{ svc_attempt }}/state-{{ svc_case }}.json', --output, '{{ svc_attempt }}/requests-{{ svc_case }}.json']
+  register: svc_requests
+  until: svc_requests.rc == 0
+  retries: 10
+  delay: 2
+  changed_when: false

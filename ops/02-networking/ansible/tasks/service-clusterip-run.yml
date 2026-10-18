@@ -1,0 +1,50 @@
+---
+- name: 中断重跑时先恢复原 Readiness 故障
+  ansible.builtin.include_tasks: service-clusterip-recover.yml
+  vars: {svc_recover_point: before-run}
+- name: 按顺序创建五个完整对象
+  ansible.builtin.include_tasks: service-clusterip-document.yml
+  loop: '{{ lookup("file",svc_attempt ~ "/clusterip.yaml") | from_yaml_all | select | list }}'
+  loop_control: {loop_var: svc_document, label: '{{ svc_document.kind }}/{{ svc_document.metadata.name }}'}
+- name: 初始两个就绪端点与实际请求
+  ansible.builtin.include_tasks: service-clusterip-observe.yml
+  vars: {svc_case: initial, svc_count: 2, svc_ready: 2}
+- name: 将本批 Deployment 扩为三副本，不重建 Service
+  ansible.builtin.command: {argv: '{{ svc_k + ["scale","deployment/svc-echo","-n",svc_namespace,"--replicas=3"] }}'}
+  changed_when: true
+- name: 扩容后的三个就绪端点与实际请求
+  ansible.builtin.include_tasks: service-clusterip-observe.yml
+  vars: {svc_case: expanded, svc_count: 3, svc_ready: 3}
+- name: 在任何故障注入前保存原 Pod 名称和 UID
+  ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', pick, --records, '{{ svc_records }}', --graph, '{{ svc_attempt }}/state-expanded.json', --output, '{{ svc_records }}/state/not-ready.json']}
+  register: svc_target
+  changed_when: false
+- name: Readiness 故障实验，任何失败都尝试恢复
+  block:
+    - name: 通过原测试应用关闭一个 Pod 的就绪状态，进程仍运行
+      ansible.builtin.command: {argv: '{{ svc_k + ["-n",svc_namespace,"exec",(svc_target.stdout | from_json).name,"-c","app","--","/core-lab","ready","false"] }}'}
+      changed_when: true
+    - name: 未就绪端点必须摘除，真实请求不能命中该 Pod
+      ansible.builtin.include_tasks: service-clusterip-observe.yml
+      vars: {svc_case: not-ready, svc_count: 3, svc_ready: 2}
+  always:
+    - name: 按原 UID 恢复就绪状态
+      ansible.builtin.include_tasks: service-clusterip-recover.yml
+      vars: {svc_recover_point: after-fault}
+- name: 恢复后的三个端点与实际请求
+  ansible.builtin.include_tasks: service-clusterip-observe.yml
+  vars: {svc_case: restored, svc_count: 3, svc_ready: 3}
+- name: 缩回两副本，仍保留原 Service
+  ansible.builtin.command: {argv: '{{ svc_k + ["scale","deployment/svc-echo","-n",svc_namespace,"--replicas=2"] }}'}
+  changed_when: true
+- name: 缩容后的两个端点与实际请求
+  ansible.builtin.include_tasks: service-clusterip-observe.yml
+  vars: {svc_case: scaled-down, svc_count: 2, svc_ready: 2}
+- name: 原集群和系统组件复验
+  ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', preflight, --records, '{{ svc_records }}', --output, '{{ svc_attempt }}/health-after.json']}
+  changed_when: false
+- name: 对五个阶段、稳定 Service 和原 Pod UID 做总验收
+  ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', accept, --records, '{{ svc_records }}', --attempt, '{{ svc_attempt }}', --output, '{{ svc_records }}/passed.json']}
+  changed_when: false
+- name: 输出实际实验结果
+  ansible.builtin.debug: {msg: '02.02.01 ACCEPTANCE PASS；仅本小节完成，请继续本批 cleanup，尚未进入 NodePort 或 LoadBalancer。'}

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: '{{ svc_namespace }}'
+  labels:
+    cnpl.io/service-run: '{{ svc_run }}'
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-echo
+  namespace: '{{ svc_namespace }}'
+  labels: {cnpl.io/service-run: '{{ svc_run }}'}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: svc-echo, cnpl.io/service-run: '{{ svc_run }}'}
+  template:
+    metadata:
+      labels: {app: svc-echo, cnpl.io/service-run: '{{ svc_run }}'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 5
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [worker01.k8s.internal.egon.top, worker02.k8s.internal.egon.top]
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels: {app: svc-echo, cnpl.io/service-run: '{{ svc_run }}'}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: app
+          image: '{{ svc_backend_image }}'
+          imagePullPolicy: Never
+          command: [/core-lab, serve]
+          env:
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+            - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 1
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts: [{name: work, mountPath: /work}]
+      volumes: [{name: work, emptyDir: {sizeLimit: 8Mi}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-echo
+  namespace: '{{ svc_namespace }}'
+  labels: {cnpl.io/service-run: '{{ svc_run }}'}
+spec:
+  type: ClusterIP
+  selector: {app: svc-echo, cnpl.io/service-run: '{{ svc_run }}'}
+  ports: [{name: http, port: 80, targetPort: http, protocol: TCP}]
+---
+{% for worker in ['worker01', 'worker02'] %}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: 'svc-client-{{ worker }}'
+  namespace: '{{ svc_namespace }}'
+  labels: {app: svc-client, cnpl.io/service-run: '{{ svc_run }}'}
+spec:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 2
+  nodeSelector: {kubernetes.io/hostname: '{{ worker }}.k8s.internal.egon.top'}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+    - name: client
+      image: '{{ svc_client_image }}'
+      imagePullPolicy: IfNotPresent
+      command: [/bin/sh, -ec, 'exec sleep 86400']
+      resources:
+        requests: {cpu: 10m, memory: 8Mi}
+        limits: {cpu: 100m, memory: 32Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: [ALL]}
+---
+{% endfor %}

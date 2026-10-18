@@ -1,0 +1,9 @@
+---
+- name: 读取原 Readiness 恢复计划并核对目标 UID
+  ansible.builtin.command: {argv: ['{{ svc_python }}', '{{ svc_check }}', recover, --records, '{{ svc_records }}', --output, '{{ svc_attempt }}/recover-{{ svc_recover_point }}.json']}
+  register: svc_recover_plan
+  changed_when: false
+- name: 只恢复本运行原 UID 的 Pod
+  ansible.builtin.command: {argv: '{{ svc_k + ["-n",svc_namespace,"exec",(svc_recover_plan.stdout | from_json).pod,"-c","app","--","/core-lab","ready","true"] }}'}
+  when: (svc_recover_plan.stdout | from_json).pod is not none
+  changed_when: true

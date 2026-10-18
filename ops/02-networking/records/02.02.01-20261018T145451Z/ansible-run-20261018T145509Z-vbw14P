@@ -1,0 +1,219 @@
+
+PLAY [02.02.01 原集群、前序完成状态和本批次输入检查] ***************************
+
+TASK [限定步骤、模式与记录目录] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成此次取证时间和随机后缀] **********************************************
+ok: [localhost]
+
+TASK [绑定独立 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建本机记录目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-20261018T145451Z/attempts/20261018T145509Z-ce31d475-run)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-20261018T145451Z/state)
+
+TASK [清理必须使用原批次] ******************************************************
+ok: [localhost]
+
+TASK [禁止凭空创建清理身份] ****************************************************
+skipping: [localhost]
+
+TASK [校验 02.01 的原始回执和集群身份，正常运行前复验十节点健康] ***************
+ok: [localhost]
+
+TASK [绑定本次运行身份] ********************************************************
+ok: [localhost]
+
+TASK [查询运行、关闭与源码回执] ************************************************
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [已通过或关闭的批次不能重跑] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [保存当前源码和输入摘要] **************************************************
+ok: [localhost]
+
+TASK [重跑必须使用同一套源码] **************************************************
+skipping: [localhost]
+
+PLAY [两台 worker 的安全状态与现有镜像只读检查] ********************************
+
+TASK [确认原 VM 和安全基线] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [确认两个已验摘要均能直接从 CRI 缓存找到，不隐式联网拉取] *****************
+ok: [worker02] => (item=(censored due to no_log))
+ok: [worker01] => (item=(censored due to no_log))
+ok: [worker01] => (item=(censored due to no_log))
+ok: [worker02] => (item=(censored due to no_log))
+
+PLAY [02.02.01 配置校验、实验与清理] *******************************************
+
+TASK [生成完整 Namespace、Deployment、Service 与两个客户端 Pod] ****************
+changed: [localhost]
+
+TASK [在既有 restricted 空间做同规格严格服务端 dry-run] ************************
+ok: [localhost]
+
+TASK [完整源码和前置校验通过] **************************************************
+skipping: [localhost]
+
+TASK [只读前检通过] ************************************************************
+skipping: [localhost]
+
+TASK [记录首次运行源码，后续不覆盖] ********************************************
+changed: [localhost]
+
+TASK [用户发起运行后才创建并操作实验] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/service-clusterip-run.yml for localhost
+
+TASK [中断重跑时先恢复原 Readiness 故障] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-recover.yml for localhost
+
+TASK [读取原 Readiness 恢复计划并核对目标 UID] *********************************
+ok: [localhost]
+
+TASK [只恢复本运行原 UID 的 Pod] ***********************************************
+skipping: [localhost]
+
+TASK [按顺序创建五个完整对象] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Namespace/lab-service-clusterip)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Deployment/svc-echo)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Service/svc-echo)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Pod/svc-client-worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Pod/svc-client-worker02)
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+changed: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [初始两个就绪端点与实际请求] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-observe.yml for localhost
+
+TASK [等待 initial 的 Pod 与 EndpointSlice 一致] *******************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/service-clusterip-observe.yml:2:3
+
+1 ---
+2 - name: 等待 {{ svc_case }} 的 Pod 与 EndpointSlice 一致
+    ^ column 3
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py", "wait", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-20261018T145451Z", "--count", "2", "--ready-count", "2", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-20261018T145451Z/attempts/20261018T145509Z-ce31d475-run/state-initial.json"], "delta": "0:00:00.366534", "end": "2026-10-18 10:55:24.628661", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-18 10:55:24.262127", "stderr": "Traceback (most recent call last):\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 270, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 250, in main\n    value = wait(context, args.count, args.ready_count, blocked, args.output)\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 133, in wait\n    value = graph(context, count, ready_count, blocked)\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 126, in graph\n    return inspect(get('deploy', 'svc-echo', NS), get('replicasets', namespace=NS)['items'], get('pods', namespace=NS)['items'], get('service', 'svc-echo', NS), get('endpointslices', namespace=NS)['items'], context['run'], count, ready_count, blocked)\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 107, in inspect\n    valid = valid and s.get('addressType') == 'IPv4' and any(p.get('name') == 'http' and p.get('port') == 8080 and p.get('protocol') == 'TCP' for p in s.get('ports', []))\n                                                                                                                                                       ~~~~~^^^^^^^^^^^^^\nTypeError: 'NoneType' object is not iterable", "stderr_lines": ["Traceback (most recent call last):", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 270, in <module>", "    main()", "    ~~~~^^", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 250, in main", "    value = wait(context, args.count, args.ready_count, blocked, args.output)", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 133, in wait", "    value = graph(context, count, ready_count, blocked)", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 126, in graph", "    return inspect(get('deploy', 'svc-echo', NS), get('replicasets', namespace=NS)['items'], get('pods', namespace=NS)['items'], get('service', 'svc-echo', NS), get('endpointslices', namespace=NS)['items'], context['run'], count, ready_count, blocked)", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/service-clusterip/check.py\", line 107, in inspect", "    valid = valid and s.get('addressType') == 'IPv4' and any(p.get('name') == 'http' and p.get('port') == 8080 and p.get('protocol') == 'TCP' for p in s.get('ports', []))", "                                                                                                                                                       ~~~~~^^^^^^^^^^^^^", "TypeError: 'NoneType' object is not iterable"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=43   changed=9    unreachable=0    failed=1    skipped=14   rescued=0    ignored=0   
+worker01                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

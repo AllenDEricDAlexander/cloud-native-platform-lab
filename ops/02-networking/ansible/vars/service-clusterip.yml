@@ -1,0 +1,11 @@
+---
+svc_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+svc_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+svc_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+svc_crane: /opt/homebrew/bin/crane
+svc_config: '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+svc_k: ['{{ svc_kubectl }}', --kubeconfig, '{{ svc_config }}', --request-timeout=20s]
+svc_check: '{{ svc_root }}/ops/02-networking/tests/integration/service-clusterip/check.py'
+svc_namespace: lab-service-clusterip
+svc_backend_image: cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc
+svc_client_image: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f

@@ -1,0 +1,303 @@
+
+PLAY [02.02.01 原集群、前序完成状态和本批次输入检查] ***************************
+
+TASK [限定步骤、模式与记录目录] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成此次取证时间和随机后缀] **********************************************
+ok: [localhost]
+
+TASK [绑定独立 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建本机记录目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-fixed-20261018T152113Z/attempts/20261018T152127Z-477adbe2-run)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02.01-fixed-20261018T152113Z/state)
+
+TASK [清理必须使用原批次] ******************************************************
+ok: [localhost]
+
+TASK [禁止凭空创建清理身份] ****************************************************
+skipping: [localhost]
+
+TASK [校验 02.01 的原始回执和集群身份，正常运行前复验十节点健康] ***************
+ok: [localhost]
+
+TASK [绑定本次运行身份] ********************************************************
+ok: [localhost]
+
+TASK [查询运行、关闭与源码回执] ************************************************
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [已通过或关闭的批次不能重跑] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [保存当前源码和输入摘要] **************************************************
+ok: [localhost]
+
+TASK [重跑必须使用同一套源码] **************************************************
+skipping: [localhost]
+
+TASK [只读验证客户端固定摘要可从内网 Harbor 获取] ******************************
+ok: [localhost]
+
+PLAY [两台 worker 的安全状态与现有镜像只读检查] ********************************
+
+TASK [确认原 VM 和安全基线] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [查询必须预置的后端 OCI 镜像] *********************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [校验缓存的非空 ID 和完整 RepoDigest，不以退出码代替内容校验] *************
+ok: [worker01 -> localhost]
+ok: [worker02 -> localhost]
+
+PLAY [02.02.01 配置校验、实验与清理] *******************************************
+
+TASK [生成完整 Namespace、Deployment、Service 与两个客户端 Pod] ****************
+changed: [localhost]
+
+TASK [在既有 restricted 空间做同规格严格服务端 dry-run] ************************
+ok: [localhost]
+
+TASK [完整源码和前置校验通过] **************************************************
+skipping: [localhost]
+
+TASK [只读前检通过] ************************************************************
+skipping: [localhost]
+
+TASK [记录首次运行源码，后续不覆盖] ********************************************
+changed: [localhost]
+
+TASK [用户发起运行后才创建并操作实验] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/service-clusterip-run.yml for localhost
+
+TASK [中断重跑时先恢复原 Readiness 故障] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-recover.yml for localhost
+
+TASK [读取原 Readiness 恢复计划并核对目标 UID] *********************************
+ok: [localhost]
+
+TASK [只恢复本运行原 UID 的 Pod] ***********************************************
+skipping: [localhost]
+
+TASK [按顺序创建五个完整对象] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Namespace/lab-service-clusterip)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Deployment/svc-echo)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Service/svc-echo)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Pod/svc-client-worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-document.yml for localhost => (item=Pod/svc-client-worker02)
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+changed: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [限定对象类型、空间和运行标签] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名对象，禁止接管外来运行] ******************************************
+ok: [localhost]
+
+TASK [原对象必须属于本运行] ****************************************************
+skipping: [localhost]
+
+TASK [在实际目标空间做严格准入] ************************************************
+ok: [localhost]
+
+TASK [应用当前源码对象] ********************************************************
+changed: [localhost]
+
+TASK [创建空间后立即绑定 UID，供中断后清理] ************************************
+skipping: [localhost]
+
+TASK [初始两个就绪端点与实际请求] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-observe.yml for localhost
+
+TASK [等待 initial 的 Pod 与 EndpointSlice 一致] *******************************
+ok: [localhost]
+
+TASK [从两台 VM 的客户端检查三种入口，只接受本阶段就绪 Pod 的真实 UID] *********
+ok: [localhost]
+
+TASK [将本批 Deployment 扩为三副本，不重建 Service] ****************************
+changed: [localhost]
+
+TASK [扩容后的三个就绪端点与实际请求] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-observe.yml for localhost
+
+TASK [等待 expanded 的 Pod 与 EndpointSlice 一致] ******************************
+ok: [localhost]
+
+TASK [从两台 VM 的客户端检查三种入口，只接受本阶段就绪 Pod 的真实 UID] *********
+ok: [localhost]
+
+TASK [在任何故障注入前保存原 Pod 名称和 UID] ***********************************
+ok: [localhost]
+
+TASK [通过原测试应用关闭一个 Pod 的就绪状态，进程仍运行] ***********************
+changed: [localhost]
+
+TASK [未就绪端点必须摘除，真实请求不能命中该 Pod] ******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-observe.yml for localhost
+
+TASK [等待 not-ready 的 Pod 与 EndpointSlice 一致] *****************************
+ok: [localhost]
+
+TASK [从两台 VM 的客户端检查三种入口，只接受本阶段就绪 Pod 的真实 UID] *********
+ok: [localhost]
+
+TASK [按原 UID 恢复就绪状态] ***************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-recover.yml for localhost
+
+TASK [读取原 Readiness 恢复计划并核对目标 UID] *********************************
+ok: [localhost]
+
+TASK [只恢复本运行原 UID 的 Pod] ***********************************************
+changed: [localhost]
+
+TASK [恢复后的三个端点与实际请求] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-observe.yml for localhost
+
+TASK [等待 restored 的 Pod 与 EndpointSlice 一致] ******************************
+ok: [localhost]
+
+TASK [从两台 VM 的客户端检查三种入口，只接受本阶段就绪 Pod 的真实 UID] *********
+ok: [localhost]
+
+TASK [缩回两副本，仍保留原 Service] ********************************************
+changed: [localhost]
+
+TASK [缩容后的两个端点与实际请求] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/service-clusterip-observe.yml for localhost
+
+TASK [等待 scaled-down 的 Pod 与 EndpointSlice 一致] ***************************
+ok: [localhost]
+
+TASK [从两台 VM 的客户端检查三种入口，只接受本阶段就绪 Pod 的真实 UID] *********
+ok: [localhost]
+
+TASK [原集群和系统组件复验] ****************************************************
+ok: [localhost]
+
+TASK [对五个阶段、稳定 Service 和原 Pod UID 做总验收] **************************
+ok: [localhost]
+
+TASK [输出实际实验结果] ********************************************************
+ok: [localhost] => {
+    "msg": "02.02.01 ACCEPTANCE PASS；仅本小节完成，请继续本批 cleanup，尚未进入 NodePort 或 LoadBalancer。"
+}
+
+TASK [生成精确清理计划，拒绝删除空间内的外来对象] ******************************
+skipping: [localhost]
+
+TASK [删除本批实验空间] ********************************************************
+skipping: [localhost]
+
+TASK [验证空间确实已消失] ******************************************************
+skipping: [localhost]
+
+TASK [保存独立清理回执，不改写实验通过状态] ************************************
+skipping: [localhost]
+
+TASK [报告清理结果] ************************************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=68   changed=13   unreachable=0    failed=0    skipped=19   rescued=0    ignored=0   
+worker01                   : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

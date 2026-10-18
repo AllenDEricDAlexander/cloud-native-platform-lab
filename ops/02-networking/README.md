@@ -30,6 +30,8 @@
 
 ## 02.02 Service、CoreDNS 与 EndpointSlice
 
+**02.02.01 已验收并清理**，见[实际结果](records/02.02.01-fixed-20261018T152113Z/README.md)。用户要求剩余 02.02.02–02.02.06 统一批次：剧本按专题分开，整组一次校验、执行、清理；下面仍保留各专题的设计参考，统一执行入口在本轮补齐。
+
 输入：稳定的 HTTP/gRPC 测试后端。
 
 1. 分别编写 ClusterIP、NodePort、Headless、ExternalName、无 selector Service，明确端点来源；无 selector 场景显式管理 EndpointSlice。

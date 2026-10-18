@@ -14,7 +14,7 @@
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
 | [00](plan/00-preparation.md) | 虚拟机、Linux 与 CRI、网络与代理、DNS、CA、仓库、备份、离线物料 | 主线可交接（[阶段验收](ops/00-preparation/records/2026-10-14/acceptance.md)）：十台节点与 DNS、CA、代理、Harbor、GitLab、Nexus、备份就绪，断网验收通过；未完成项在后续阶段跟踪 |
-| [01](plan/01-kubernetes.md) | kubeadm 初始化、控制平面高可用、Cilium | [基础集群、完整备份与单 VM HA 通过](ops/01-kubernetes/records/2026-10-17-restart/README.md)：01.04 生命周期实验与清理通过；01.05 探针/终止实验与清理通过；01.06 未开始，.15 分发待交付 |
+| [01](plan/01-kubernetes.md) | kubeadm 初始化、控制平面高可用、Cilium | [基础集群、完整备份与单 VM HA 通过](ops/01-kubernetes/records/2026-10-17-restart/README.md)：01.04 生命周期实验与清理通过；01.05 探针/终止实验与清理通过；01.06 控制器实验与清理通过；新 Ansible 入口待重跑验收，.15 分发待交付 |
 | [02](plan/02-networking.md) | 服务网络、MetalLB、Gateway、网络策略 | 未开始 |
 | [03](plan/03-ceph-middleware.md) | Ceph、Rook CSI、中间件 | 未开始 |
 | [04](plan/04-devops-platform.md) | CI/CD、GitOps、平台工程 | 未开始 |

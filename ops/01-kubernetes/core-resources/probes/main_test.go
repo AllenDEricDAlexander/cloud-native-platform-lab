@@ -322,3 +322,59 @@ func TestInsufficientDrainBudgetCannotReportSuccess(t *testing.T) {
 		t.Fatal("partial shutdown fabricated successful drain")
 	}
 }
+
+func TestProbeHistorySurvivesLateObserver(t *testing.T) {
+	a := newApp(6 * time.Second)
+	invoke(a, "GET", "/startup", "kube-probe/1.36")
+	invoke(a, "GET", "/metrics", "manual")
+	a.Started = time.Now().Add(-8 * time.Second)
+	invoke(a, "GET", "/startup", "kube-probe/1.36")
+	invoke(a, "GET", "/ready", "kube-probe/1.36")
+	var m struct {
+		Trace []probeSample `json:"probe_trace"`
+	}
+	if err := json.Unmarshal(invoke(a, "GET", "/metrics", "").Body.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Trace) != 3 || m.Trace[0].Path != "/startup" || m.Trace[0].StartupComplete || !m.Trace[2].StartupComplete {
+		t.Fatal(m.Trace)
+	}
+	for i := 0; i < 600; i++ {
+		invoke(a, "GET", "/startup", "kube-probe/1.36")
+	}
+	if len(a.ProbeTrace) != 512 {
+		t.Fatal("trace must be bounded")
+	}
+}
+
+type commandTransport func(*http.Request) (*http.Response, error)
+
+func (f commandTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestNativeCommandsUseExactPOSTAndEscapedValues(t *testing.T) {
+	originalArgs, originalClient := os.Args, internalClient
+	defer func() { os.Args = originalArgs; internalClient = originalClient }()
+	cases := []struct {
+		args                   []string
+		host, path, key, value string
+	}{
+		{[]string{"control", "ready", "false"}, "127.0.0.1:8080", "/control", "value", "false"},
+		{[]string{"queue-submit", "a&b", "12", "30"}, "127.0.0.1:9090", "/submit", "id", "a&b"},
+		{[]string{"queue-commit", "a&b", "uid/2&x"}, "127.0.0.1:9090", "/commit", "token", "uid/2&x"},
+	}
+	for _, c := range cases {
+		called := false
+		internalClient = &http.Client{Transport: commandTransport(func(r *http.Request) (*http.Response, error) {
+			called = true
+			if r.Method != "POST" || r.URL.Host != c.host || r.URL.Path != c.path || r.URL.Query().Get(c.key) != c.value {
+				t.Fatal(r.URL)
+			}
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"ok":true}`)), Header: http.Header{}}, nil
+		})}
+		os.Args = append([]string{"probe-lab"}, c.args...)
+		main()
+		if !called {
+			t.Fatal("command did not call fixture")
+		}
+	}
+}

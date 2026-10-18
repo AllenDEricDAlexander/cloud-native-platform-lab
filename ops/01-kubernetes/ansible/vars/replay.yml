@@ -1,0 +1,26 @@
+---
+# 所有资源 YAML 位于源码目录。只在本次记录目录渲染，不由 Python 构造。
+replay_root: "{{ (playbook_dir ~ '/../../../..') | realpath }}"
+replay_python: "{{ lookup('env', 'HOME') }}/.venvs/cnpl-ansible/bin/python"
+replay_kubectl: "{{ lookup('env', 'HOME') }}/.cnpl/bin/kubectl"
+replay_mac_config: "{{ lookup('env', 'HOME') }}/.cnpl-secrets/access/lab-primary/mac.conf"
+replay_admin_config: "{{ lookup('env', 'HOME') }}/.cnpl-secrets/kubeconfig-lab-primary"
+replay_key: "{{ lookup('env', 'HOME') }}/.ssh/cnpl_lab_ed25519"
+replay_mode: validate
+replay_topics: ['03', '04', '05', '06']
+replay_resume: false
+replay_namespace: lab-core
+replay_check: "{{ replay_root }}/ops/01-kubernetes/checks/lab-check.py"
+replay_traffic: "{{ replay_root }}/ops/01-kubernetes/checks/traffic.py"
+replay_k: ['{{ replay_kubectl }}', --kubeconfig, '{{ replay_mac_config }}', --context, lab-primary-lab-ops, --request-timeout=15s]
+replay_a: ['{{ replay_kubectl }}', --kubeconfig, '{{ replay_admin_config }}', --request-timeout=15s]
+replay_worker01: worker01.k8s.internal.egon.top
+replay_worker02: worker02.k8s.internal.egon.top
+replay_busybox: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+replay_go: "{{ lookup('env', 'HOME') }}/.cnpl/toolchains/go1.27.2/go/bin/go"
+replay_go_archive: "{{ lookup('env', 'HOME') }}/.cnpl/toolchains/go1.27.2/download.tar.gz"
+replay_go_sha256: 76812b213b1b2302c978d28fa52fa92d541704b9e7d9d5db8002c50e4018c4c5
+replay_restic: "{{ lookup('env', 'HOME') }}/Downloads/cloud-native-lab-seed-2026-10-14/restic/restic_0.19.1_darwin_arm64"
+replay_private_root: "{{ lookup('env', 'HOME') }}/.cnpl-secrets/phase01-backups"
+replay_restic_password: "{{ lookup('env', 'HOME') }}/.cnpl-secrets/restic_password"
+replay_restic_repo: sftp:restic@192.168.9.16:/srv/backup/restic/lab

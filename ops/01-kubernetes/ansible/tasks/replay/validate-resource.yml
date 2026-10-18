@@ -1,0 +1,16 @@
+---
+- name: 验证 {{ catalog_item.id }} 的源资源清单
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    replay_topic: '{{ catalog_item.topic }}'
+    replay_case: schema
+    resource_id: '{{ catalog_item.id }}'
+    resource_source: '{{ catalog_item.source }}'
+    resource_admin: '{{ catalog_item.admin }}'
+    resource_action: dry-run
+    service_ip: 192.168.20.240
+    workload_image: '{{ (catalog_item["values"] | default({})).get("workload_image", controller_images.v1.image) }}'
+    replica_count: '{{ (catalog_item["values"] | default({})).get("replica_count", 2) }}'
+    not_ready: '{{ (catalog_item["values"] | default({})).get("not_ready", "false") }}'
+    cpu_request: '{{ (catalog_item["values"] | default({})).get("cpu_request", "20m") }}'
+    cpu_limit: '{{ (catalog_item["values"] | default({})).get("cpu_limit", "500m") }}'

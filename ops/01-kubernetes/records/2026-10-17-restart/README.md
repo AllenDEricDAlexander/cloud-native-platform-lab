@@ -1,8 +1,10 @@
 # Phase 01：2026-10-17 从头重做
 
-状态：01.04.01–05 实验、总体验收与清理全部通过。[逐项验收与实验小结](acceptance.md)已更新；[最终 14–16 输出](evidence/01.04-20261017-204751/resume-20261017-215220-kXZU2U/15-verify.txt)与 [零残留记录](evidence/01.04-20261017-204751/cleanup-confirm.json)已核对。01.05 探针/终止实验与清理通过；01.06 未开始；整个 Phase 01 仍在进行中，.15 管理机实际分发/登录仍待交付。
+状态：01.04.01–05 实验、总体验收与清理全部通过。[逐项验收与实验小结](acceptance.md)已更新；[最终 14–16 输出](evidence/01.04-20261017-204751/resume-20261017-215220-kXZU2U/15-verify.txt)与 [零残留记录](evidence/01.04-20261017-204751/cleanup-confirm.json)已核对。01.05 探针/终止实验与清理通过；01.06 控制器实验与清理通过；新 Ansible 入口待重跑验收；整个 Phase 01 仍在进行中，.15 管理机实际分发/登录仍待交付。
 
 01.05 的 [完整脚本、命令及解释](../../core-resources/probes/README.md)和 [交付前核验](evidence/01.05-delivery-20261017/README.md)已准备。助手仅执行本机有限测试、API server dry-run、两 worker 镜像导入及只读检查，没有创建实验 Pod；随后用户完成真实五组场景、验收和清理；[检查点复核](evidence/01.05-checkpoint-verification.json)确认源码/回执及线上零残留。01.04 的真实验收结论保留。
+
+01.06 的 [完整操作手册](../../core-resources/controllers/README.md)及 [交付前核验](evidence/01.06-delivery-20261017/README.md)已准备。用户随后完成真实六组实验、验收和清理；已核对实际回执和零残留。01.03–01.06 的新 Ansible 实现另见 [重跑手册](../2026-10-18-ansible-replay/README.md)，原始证据保持不变。
 
 前置检查点：01.01–01.02 为 `157e39f`，01.03 为 `03f7094`。本次归档 01.04 完整实现、53 项回归、三次故障修正、实际执行输出和源码快照；不修改原执行状态中的旧 source_commit。执行输入由各次 script-revisions 和 SHA 明确，末次归档与当前实现一致。
 

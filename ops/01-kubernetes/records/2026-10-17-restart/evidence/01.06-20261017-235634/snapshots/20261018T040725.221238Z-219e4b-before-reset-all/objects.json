@@ -1,0 +1,107 @@
+{
+  "items": [
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T03:57:28Z",
+        "generation": 1,
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-controller-lab",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+          "cnpl.io/controller-stage": "prepare"
+        },
+        "name": "p06-isolation",
+        "namespace": "lab-core",
+        "resourceVersion": "170974",
+        "uid": "052a9ac4-b655-4be5-93d4-1cb949634fbf"
+      },
+      "spec": {
+        "egress": [
+          {
+            "to": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "app.kubernetes.io/part-of": "cnpl-controller-lab",
+                    "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 53,
+                "protocol": "UDP"
+              },
+              {
+                "port": 53,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "kubernetes.io/metadata.name": "kube-system"
+                  }
+                },
+                "podSelector": {
+                  "matchLabels": {
+                    "k8s-app": "kube-dns"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "app.kubernetes.io/part-of": "cnpl-controller-lab",
+                    "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "from": [
+              {
+                "ipBlock": {
+                  "cidr": "192.168.9.109/32"
+                }
+              },
+              {
+                "ipBlock": {
+                  "cidr": "192.168.9.110/32"
+                }
+              }
+            ],
+            "ports": [
+              {
+                "port": 8080,
+                "protocol": "TCP"
+              }
+            ]
+          }
+        ],
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/part-of": "cnpl-controller-lab",
+            "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+          }
+        },
+        "policyTypes": [
+          "Ingress",
+          "Egress"
+        ]
+      }
+    }
+  ]
+}

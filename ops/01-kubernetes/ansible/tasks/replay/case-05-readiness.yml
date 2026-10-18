@@ -1,0 +1,116 @@
+---
+- name: 源码清单 p05-route-a
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-route-a.yaml.j2
+    resource_id: p05-route-a
+    resource_action: create
+- name: 源码清单 p05-route-b
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-route-b.yaml.j2
+    resource_id: p05-route-b
+    resource_action: create
+- name: 源码清单 p05-route
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-route.yaml.j2
+    resource_id: p05-route
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-route-a
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-route-b
+- name: observer.yml
+  ansible.builtin.include_tasks: observer.yml
+  vars:
+    observed_service: p05-route
+    observed_pod: p05-route-client
+    observed_source: core-resources/probes/manifests/p05-route-client.yaml.j2
+- name: samples.yml
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_pod: p05-route-client
+    sample_id: before
+- name: start-observer.yml
+  ansible.builtin.include_tasks: start-observer.yml
+  vars:
+    observer_id: readiness
+    observed_pod: p05-route-client
+    observer_extra:
+    - --sticky
+    - p05-route-a
+    - --phase-marker
+    - '{{ replay_attempt }}/observations/readiness-converged'
+- name: 在本批 Pod 注入 ready=False
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-route-a'', ''--'', ''/probe-lab'', ''control'', ''ready'',
+      ''false''] }}'
+  changed_when: true
+- name: 按当前 Service UID 等待 a 端点不就绪
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_check }}'
+    - endpoints
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --name
+    - p05-route
+  register: readiness_slice
+  changed_when: false
+  until: readiness_slice.rc == 0 and ((readiness_slice.stdout | from_json).endpoints | selectattr('targetRef.name', 'equalto',
+    'p05-route-a') | map(attribute='conditions.ready') | list) == [false]
+  retries: 60
+  delay: 1
+- name: 标记端点更新后的数据平面收敛窗口
+  ansible.builtin.copy:
+    content: 'observed
+
+      '
+    dest: '{{ replay_attempt }}/observations/readiness-converged'
+    mode: '0600'
+- name: 保留足够新连接和旧连接样本
+  ansible.builtin.pause:
+    seconds: 8
+- name: stop-observer.yml
+  ansible.builtin.include_tasks: stop-observer.yml
+- name: 提取收敛后的新旧连接
+  ansible.builtin.set_fact:
+    after_fresh: '{{ observer_result.rows | selectattr(''stage'', ''equalto'', ''after'') | list }}'
+    after_sticky: '{{ observer_result.sticky | selectattr(''stage'', ''equalto'', ''after'') | list }}'
+- name: 新连接全部到 b，旧连接仍是同一条
+  ansible.builtin.assert:
+    that:
+    - after_fresh | length >= 10
+    - after_fresh | selectattr('ok', 'equalto', false) | list | length == 0
+    - after_fresh | map(attribute='body.pod') | unique | list == ['p05-route-b']
+    - after_sticky | length > 0
+    - after_sticky | selectattr('same_connection', 'equalto', false) | list | length == 0
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-route-a
+- name: Readiness 变化没有重启容器
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0
+- name: 在本批 Pod 注入 ready=True
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-route-a'', ''--'', ''/probe-lab'', ''control'', ''ready'',
+      ''true''] }}'
+  changed_when: true
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-route-a
+- name: samples.yml
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_pod: p05-route-client
+    sample_id: restored

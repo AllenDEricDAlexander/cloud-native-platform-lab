@@ -1,0 +1,9 @@
+---
+- name: 只读检查 {{ inspect_pod }} {{ inspect_path | default('/metrics') }}
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_traffic }}', inspect, --context, '{{ replay_records }}/context.json', --pod, '{{ inspect_pod }}', --port, '{{ inspect_port | default(8080) | string }}', --path, '{{ inspect_path | default("/metrics") }}', --output, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ inspect_id }}.json']
+  register: inspected
+  changed_when: false
+- name: 保存只读结果供紧接的断言使用
+  ansible.builtin.set_fact:
+    inspection: '{{ inspected.stdout | from_json }}'

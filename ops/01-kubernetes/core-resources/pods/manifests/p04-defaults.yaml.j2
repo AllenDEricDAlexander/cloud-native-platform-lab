@@ -1,0 +1,26 @@
+# Kubernetes 资源主定义；由 Ansible 渲染后直接执行，解析器不生成资源。
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: p04-defaults
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-pod-lab
+    cnpl.io/replay-run: '{{ replay_run }}'
+    cnpl.io/replay-topic: '{{ replay_topic }}'
+    cnpl.io/replay-case: '{{ replay_case }}'
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: 10m
+      memory: 16Mi
+      ephemeral-storage: 1Mi
+    default:
+      cpu: 200m
+      memory: 64Mi
+      ephemeral-storage: 16Mi
+    max:
+      cpu: '8'
+      memory: 256Mi
+      ephemeral-storage: 128Mi

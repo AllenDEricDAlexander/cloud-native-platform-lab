@@ -1,0 +1,26 @@
+---
+- name: 在两个 worker 准备重跑的精确镜像
+  hosts: worker01:worker02
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/replay.yml]
+  vars:
+    probe_artifact_file: '{{ replay_records }}/artifacts/probe.json'
+    controller_bundle_file: '{{ replay_records }}/artifacts/controllers.json'
+  tasks:
+    - name: 复用已验证的探针镜像导入任务
+      ansible.builtin.include_tasks: ../tasks/replay/import-probe.yml
+      when: replay_mode in ['run', 'images']
+    - name: 读取三个控制器镜像
+      ansible.builtin.set_fact:
+        controller_bundle: "{{ lookup('file', controller_bundle_file) | from_json }}"
+      when: replay_mode in ['run', 'images']
+    - name: 创建控制器物料目录
+      ansible.builtin.file: {path: /var/cache/cnpl/01.06, state: directory, mode: '0750'}
+      when: replay_mode in ['run', 'images']
+    - name: 逐个导入并核对控制器镜像
+      ansible.builtin.include_tasks: ../tasks/import-controller-image.yml
+      loop: "{{ controller_bundle.images | default({}) | dict2items }}"
+      loop_control: {label: '{{ item.key }}'}
+      vars: {controller_image: '{{ item.value }}'}
+      when: replay_mode in ['run', 'images']

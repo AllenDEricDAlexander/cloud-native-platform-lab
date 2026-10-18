@@ -1,0 +1,67 @@
+# Kubernetes 资源主定义；由 Ansible 渲染后直接执行，解析器不生成资源。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: p04-shellless
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-pod-lab
+    cnpl.io/replay-run: '{{ replay_run }}'
+    cnpl.io/replay-topic: '{{ replay_topic }}'
+    cnpl.io/replay-case: '{{ replay_case }}'
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: worker01.k8s.internal.egon.top
+  terminationGracePeriodSeconds: 10
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: harbor.k8s.internal.egon.top/bootstrap/coredns@sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc
+    imagePullPolicy: IfNotPresent
+    command:
+    - /coredns
+    - -conf
+    - /app/Corefile
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+        ephemeral-storage: 1Mi
+      limits:
+        cpu: 200m
+        memory: 64Mi
+        ephemeral-storage: 16Mi
+    volumeMounts:
+    - name: work
+      mountPath: /work
+    - name: app
+      mountPath: /app
+      readOnly: true
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 18080
+      periodSeconds: 2
+  volumes:
+  - name: work
+    emptyDir:
+      sizeLimit: 128Mi
+  - name: app
+    configMap:
+      name: p04-app

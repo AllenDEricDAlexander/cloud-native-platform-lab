@@ -1,0 +1,5 @@
+---
+- name: 等待 {{ ready_resource }} Ready（真实 kubelet 状态）
+  ansible.builtin.command:
+    argv: "{{ replay_k + ['-n', replay_namespace, 'wait', ready_resource, '--for=condition=Ready', '--timeout=180s'] }}"
+  changed_when: false

@@ -1,0 +1,137 @@
+# Kubernetes 资源主定义；由 Ansible 渲染后直接执行，解析器不生成资源。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 'p06-main'
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-controller-lab
+    cnpl.io/replay-run: '20261018T050918Z-c990f29b'
+    cnpl.io/legacy-stage: 'schema'
+    cnpl.io/replay-topic: '06'
+    cnpl.io/replay-case: 'schema'
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      cnpl.io/replay-run: '20261018T050918Z-c990f29b'
+      cnpl.io/controller-pool: 'main'
+  template:
+    metadata:
+      labels:
+        cnpl.io/replay-variant: 'v1'
+        app.kubernetes.io/part-of: cnpl-controller-lab
+        cnpl.io/replay-run: '20261018T050918Z-c990f29b'
+        cnpl.io/legacy-stage: 'schema'
+        cnpl.io/controller-pool: 'main'
+        cnpl.io/replay-topic: '06'
+        cnpl.io/replay-case: 'schema'
+      annotations:
+        cnpl.io/template-note: 'baseline'
+    spec:
+      restartPolicy: Always
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 25
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: app
+        image: 'cnpl.local/phase01/controller-lab@sha256:ce5a8cdad490d931bef1c73ec5af4fc9e24580b7eddceca4f98af16801fa25c2'
+        imagePullPolicy: Never
+        command:
+        - /controller-app
+        - server
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: FORCE_NOT_READY
+          value: 'false'
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: '20m'
+            memory: 32Mi
+            ephemeral-storage: 1Mi
+          limits:
+            cpu: '500m'
+            memory: 128Mi
+            ephemeral-storage: 32Mi
+        volumeMounts:
+        - name: work
+          mountPath: /work
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: 8080
+          periodSeconds: 2
+          timeoutSeconds: 3
+          failureThreshold: 15
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8080
+          periodSeconds: 2
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          periodSeconds: 2
+          timeoutSeconds: 3
+          failureThreshold: 1
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /controller-app
+              - prestop
+              - '5'
+      volumes:
+      - name: work
+        emptyDir:
+          sizeLimit: 32Mi
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker01.k8s.internal.egon.top
+                - worker02.k8s.internal.egon.top
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            cnpl.io/replay-run: '20261018T050918Z-c990f29b'
+            cnpl.io/controller-pool: 'main'
+  minReadySeconds: 3
+  progressDeadlineSeconds: 45
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

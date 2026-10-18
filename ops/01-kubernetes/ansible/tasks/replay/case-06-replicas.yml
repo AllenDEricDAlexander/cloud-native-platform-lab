@@ -1,0 +1,223 @@
+---
+- name: rc-stable
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: rc-stable
+    resource_source: core-resources/controllers/manifests/rc-stable.yaml.j2
+    resource_action: create
+- name: rc-other
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: rc-other
+    resource_source: core-resources/controllers/manifests/rc-other.yaml.j2
+    resource_action: create
+- name: 读取 pod/p06-rc-stable
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p06-rc-stable
+- name: 记录原孤儿 UID
+  ansible.builtin.set_fact:
+    adopted_uid: '{{ replay_object.metadata.uid }}'
+- name: rc
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: rc
+    resource_source: core-resources/controllers/manifests/rc.yaml.j2
+    resource_action: create
+- name: 读取 replicationcontroller/p06-rc
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: replicationcontroller
+    get_name: p06-rc
+- name: 记录父对象 UID
+  ansible.builtin.set_fact:
+    parent_uid: '{{ replay_object.metadata.uid }}'
+- name: 等待 pod/p06-rc-stable {.metadata.ownerReferences[0].uid}
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p06-rc-stable
+    wait_field: '{.metadata.ownerReferences[0].uid}'
+    wait_values:
+    - '{{ parent_uid }}'
+- name: 读取 pod/p06-rc-other
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p06-rc-other
+- name: 不匹配 Pod 仍无 controller owner
+  ansible.builtin.assert:
+    that:
+    - replay_object.metadata.ownerReferences | default([]) | length == 0
+- name: 核对 rc 接管与两个就绪子 Pod
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_check }}'
+    - owner-pods
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --kind
+    - replicationcontroller
+    - --name
+    - p06-rc
+    - --count
+    - '2'
+  register: replica_before
+  changed_when: false
+  until: replica_before.rc == 0
+  retries: 90
+  delay: 2
+- name: 原孤儿 UID 保持且被接管
+  ansible.builtin.assert:
+    that:
+    - adopted_uid in ((replica_before.stdout | from_json)['items'] | map(attribute='metadata.uid') | list)
+- name: 选择另一个受控副本
+  ansible.builtin.set_fact:
+    victim: '{{ ((replica_before.stdout | from_json)[''items''] | rejectattr(''metadata.name'', ''equalto'', ''p06-rc-stable'')
+      | list)[0] }}'
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 删除受控副本并观察控制器补齐
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''delete'', ''pod'', victim.metadata.name, ''--wait=true'', ''--timeout=45s'']
+      }}'
+  changed_when: true
+- name: 核对新 Pod UID 已替换被删副本
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_check }}'
+    - owner-pods
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --kind
+    - replicationcontroller
+    - --name
+    - p06-rc
+    - --count
+    - '2'
+    - --exclude
+    - '{{ victim.metadata.uid }}'
+  register: replica_after
+  changed_when: false
+  until: replica_after.rc == 0
+  retries: 90
+  delay: 2
+- name: 保存 rc-adoption
+  ansible.builtin.copy:
+    content: '{{ {''before'': replica_before.stdout | from_json, ''after'': replica_after.stdout | from_json, ''adopted_uid'':
+      adopted_uid, ''deleted'': victim} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-rc-adoption.json'
+    mode: '0600'
+- name: rs-stable
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: rs-stable
+    resource_source: core-resources/controllers/manifests/rs-stable.yaml.j2
+    resource_action: create
+- name: rs-other
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: rs-other
+    resource_source: core-resources/controllers/manifests/rs-other.yaml.j2
+    resource_action: create
+- name: 读取 pod/p06-rs-stable
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p06-rs-stable
+- name: 记录原孤儿 UID
+  ansible.builtin.set_fact:
+    adopted_uid: '{{ replay_object.metadata.uid }}'
+- name: rs
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: rs
+    resource_source: core-resources/controllers/manifests/rs.yaml.j2
+    resource_action: create
+- name: 读取 replicaset/p06-rs
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: replicaset
+    get_name: p06-rs
+- name: 记录父对象 UID
+  ansible.builtin.set_fact:
+    parent_uid: '{{ replay_object.metadata.uid }}'
+- name: 等待 pod/p06-rs-stable {.metadata.ownerReferences[0].uid}
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p06-rs-stable
+    wait_field: '{.metadata.ownerReferences[0].uid}'
+    wait_values:
+    - '{{ parent_uid }}'
+- name: 读取 pod/p06-rs-other
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p06-rs-other
+- name: 不匹配 Pod 仍无 controller owner
+  ansible.builtin.assert:
+    that:
+    - replay_object.metadata.ownerReferences | default([]) | length == 0
+- name: 核对 rs 接管与两个就绪子 Pod
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_check }}'
+    - owner-pods
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --kind
+    - replicaset
+    - --name
+    - p06-rs
+    - --count
+    - '2'
+  register: replica_before
+  changed_when: false
+  until: replica_before.rc == 0
+  retries: 90
+  delay: 2
+- name: 原孤儿 UID 保持且被接管
+  ansible.builtin.assert:
+    that:
+    - adopted_uid in ((replica_before.stdout | from_json)['items'] | map(attribute='metadata.uid') | list)
+- name: 选择另一个受控副本
+  ansible.builtin.set_fact:
+    victim: '{{ ((replica_before.stdout | from_json)[''items''] | rejectattr(''metadata.name'', ''equalto'', ''p06-rs-stable'')
+      | list)[0] }}'
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 删除受控副本并观察控制器补齐
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''delete'', ''pod'', victim.metadata.name, ''--wait=true'', ''--timeout=45s'']
+      }}'
+  changed_when: true
+- name: 核对新 Pod UID 已替换被删副本
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_check }}'
+    - owner-pods
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --kind
+    - replicaset
+    - --name
+    - p06-rs
+    - --count
+    - '2'
+    - --exclude
+    - '{{ victim.metadata.uid }}'
+  register: replica_after
+  changed_when: false
+  until: replica_after.rc == 0
+  retries: 90
+  delay: 2
+- name: 保存 rs-adoption
+  ansible.builtin.copy:
+    content: '{{ {''before'': replica_before.stdout | from_json, ''after'': replica_after.stdout | from_json, ''adopted_uid'':
+      adopted_uid, ''deleted'': victim} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-rs-adoption.json'
+    mode: '0600'

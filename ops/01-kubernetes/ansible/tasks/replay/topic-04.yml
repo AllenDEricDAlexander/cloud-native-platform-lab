@@ -1,0 +1,45 @@
+---
+- name: 绑定本次实际 API 状态
+  ansible.builtin.set_fact:
+    replay_topic: '04'
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: base
+    replay_case_tasks: case-04-base.yml
+    replay_case_keep: true
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: states
+    replay_case_tasks: case-04-states.yml
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: sidecars
+    replay_case_tasks: case-04-sidecars.yml
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: debug
+    replay_case_tasks: case-04-debug.yml
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: memory
+    replay_case_tasks: case-04-memory.yml
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: pressure
+    replay_case_tasks: case-04-pressure.yml
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: termination
+    replay_case_tasks: case-04-termination.yml
+- name: case.yml
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: cleanup
+    replay_case_tasks: case-04-cleanup.yml

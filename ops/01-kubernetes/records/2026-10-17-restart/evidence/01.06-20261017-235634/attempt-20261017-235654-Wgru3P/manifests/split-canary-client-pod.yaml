@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app.kubernetes.io/part-of: cnpl-controller-lab
+    cnpl.io/controller-run: render-only
+    cnpl.io/controller-stage: split
+    cnpl.io/controller-pool: client-p06-canary-client
+  annotations:
+    cnpl.io/template-note: baseline
+  name: p06-canary-client
+  namespace: lab-core
+spec:
+  restartPolicy: Always
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 25
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: cnpl.local/phase01/controller-lab@sha256:b83750330581bc05bf87d143718584456d37ba07f2ddd8a83bebdc3d6914f8a5
+    imagePullPolicy: Never
+    command:
+    - /controller-app
+    - relay
+    env:
+    - name: RELAY_TARGET
+      value: p06-canary:8080
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+        ephemeral-storage: 1Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+        ephemeral-storage: 32Mi
+    volumeMounts:
+    - name: work
+      mountPath: /work
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      periodSeconds: 2
+      timeoutSeconds: 3
+  volumes:
+  - name: work
+    emptyDir:
+      sizeLimit: 32Mi
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+  topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        cnpl.io/controller-run: render-only
+        cnpl.io/controller-pool: client-p06-canary-client
+  nodeSelector:
+    kubernetes.io/hostname: worker01.k8s.internal.egon.top

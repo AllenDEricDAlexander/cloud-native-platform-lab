@@ -1,0 +1,5 @@
+---
+- name: 只读保存本批对象、UID、事件和可读日志
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', snapshot, --context, '{{ replay_records }}/context.json', --topic, '{{ replay_topic }}', --case, '{{ snapshot_case | default(replay_case) }}', --output, '{{ replay_attempt }}/snapshots']
+  changed_when: false

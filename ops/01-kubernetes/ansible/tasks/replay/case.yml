@@ -1,0 +1,42 @@
+---
+- name: 查询 {{ replay_topic }} / {{ replay_case }} 的通过检查点
+  ansible.builtin.stat:
+    path: '{{ replay_records }}/checkpoints/{{ replay_topic }}-{{ replay_case }}.json'
+  register: replay_case_checkpoint
+- name: 校验旧检查点归属
+  ansible.builtin.assert:
+    that:
+      - saved.run == replay_run
+      - saved.cluster_uid == replay_cluster_uid
+      - saved.passed | bool
+  vars:
+    saved: "{{ lookup('file', replay_records ~ '/checkpoints/' ~ replay_topic ~ '-' ~ replay_case ~ '.json') | from_json }}"
+  when: replay_case_checkpoint.stat.exists
+- name: 执行 {{ replay_topic }} / {{ replay_case }} 的 Ansible 步骤
+  when: not replay_case_checkpoint.stat.exists
+  block:
+    - name: 重试前保存并回收上次未完成的本组资源
+      ansible.builtin.include_tasks: cleanup.yml
+    - name: 运行本组显式操作
+      ansible.builtin.include_tasks: '{{ replay_case_tasks }}'
+    - name: 保存本组最终现场
+      ansible.builtin.include_tasks: snapshot.yml
+    - name: 回收本组资源
+      ansible.builtin.include_tasks: cleanup.yml
+      when: not (replay_case_keep | default(false) | bool)
+    - name: 记录本组通过
+      ansible.builtin.include_tasks: checkpoint.yml
+  rescue:
+    - name: 保存失败现场（取证失败不掩盖原错误）
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', snapshot, --context, '{{ replay_records }}/context.json', --topic, '{{ replay_topic }}', --case, '{{ replay_case }}', --output, '{{ replay_attempt }}/snapshots']
+      register: replay_failed_snapshot
+      failed_when: false
+      changed_when: false
+    - name: 保留现场和实际失败步骤，不补写 PASS
+      ansible.builtin.fail:
+        msg: '{{ replay_topic }}/{{ replay_case }} 失败：{{ ansible_failed_task.name }}。现场保留于 {{ replay_records }}；修正后用同目录 resume。取证 rc={{ replay_failed_snapshot.rc }}。'
+- name: 已通过组保持原记录
+  ansible.builtin.debug:
+    msg: '{{ replay_topic }}/{{ replay_case }} 已通过，跳过'
+  when: replay_case_checkpoint.stat.exists

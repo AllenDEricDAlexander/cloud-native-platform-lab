@@ -1,0 +1,6 @@
+---
+- name: 连续检查真实业务响应（{{ sample_pod | default('p06-client') }}）
+  ansible.builtin.command:
+    argv: "{{ [replay_python, replay_traffic, 'samples', '--context', replay_records ~ '/context.json', '--pod', sample_pod | default('p06-client'), '--path', sample_path | default('/work'), '--status', (sample_status | default(200) | string), '--output', replay_attempt ~ '/observations/' ~ replay_topic ~ '-' ~ replay_case ~ '-' ~ sample_id ~ '.json'] + (['--version', sample_version] if sample_version is defined else []) }}"
+  register: sample_check
+  changed_when: false

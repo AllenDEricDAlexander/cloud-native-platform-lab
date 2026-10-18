@@ -1,0 +1,49 @@
+---
+- name: 校验节点固定身份
+  ansible.builtin.command: {argv: [hostnamectl, --static]}
+  register: backup_hostname
+  changed_when: false
+  failed_when: backup_hostname.stdout != inventory_hostname ~ '.k8s.internal.egon.top'
+- name: 核对安全基线
+  ansible.builtin.command: {argv: '{{ item }}'}
+  loop: [[getenforce], [systemctl, is-active, firewalld]]
+  register: backup_security
+  changed_when: false
+  failed_when: backup_security.stdout not in ['Enforcing', 'active']
+- name: 暂存所在分区至少 5GiB 空闲
+  ansible.builtin.command: {argv: [df, -B1, --output=avail, /var/lib/etcd]}
+  register: backup_space
+  changed_when: false
+  failed_when: backup_space.stdout_lines[-1] | trim | int < 5368709120
+- name: 对应控制平面 API 就绪
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, '--server=https://{{ ansible_host }}:6443', get, --raw=/readyz]
+  changed_when: false
+- name: 核对 etcd 工具精确版本
+  ansible.builtin.command:
+    argv: '{{ backup_exec + [item, "version"] }}'
+  loop: [etcdctl, etcdutl]
+  register: backup_tool
+  changed_when: false
+  failed_when: "'3.6.8' not in backup_tool.stdout.split()"
+- name: 读取 etcd 成员关系
+  ansible.builtin.command:
+    argv: '{{ backup_exec + backup_etcd + ["member", "list", "-w", "json"] }}'
+  register: backup_members
+  changed_when: false
+- name: 只接受三个正式成员
+  ansible.builtin.assert:
+    that:
+      - (backup_members.stdout | from_json).members | length == 3
+      - (backup_members.stdout | from_json).members | selectattr('isLearner', 'defined') | selectattr('isLearner', 'equalto', true) | list | length == 0
+- name: 三成员健康检查
+  ansible.builtin.command:
+    argv: '{{ backup_exec + backup_etcd + ["endpoint", "health", "--cluster"] }}'
+  changed_when: false
+- name: 必要材料只读哈希检查
+  ansible.builtin.script:
+    cmd: '{{ replay_root }}/ops/01-kubernetes/checks/backup-files.py'
+    executable: /usr/bin/python3
+  register: backup_before
+  changed_when: false
+  no_log: true

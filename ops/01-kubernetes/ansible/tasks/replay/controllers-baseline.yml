@@ -1,0 +1,18 @@
+---
+- name: 从源码创建 v1 Deployment
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_id: main-v1
+- name: 从源码创建 Service
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/controllers/manifests/service.yaml.j2
+    resource_id: entry
+- name: 等待 v1 控制器共同收敛
+  ansible.builtin.include_tasks: wait-deployment.yml
+- name: 从源码创建流量客户端
+  ansible.builtin.include_tasks: observer.yml
+- name: 连续验证 v1 业务响应
+  ansible.builtin.include_tasks: samples.yml
+  vars: {sample_id: baseline-v1, sample_version: v1}

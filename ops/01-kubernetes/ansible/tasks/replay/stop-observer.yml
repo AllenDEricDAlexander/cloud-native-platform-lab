@@ -1,0 +1,22 @@
+---
+- name: 通知只读观测结束
+  ansible.builtin.copy:
+    content: 'stop\n'
+    dest: '{{ observer_prefix }}.stop'
+    mode: '0600'
+- name: 等待观测结果完整落盘
+  ansible.builtin.async_status:
+    jid: '{{ replay_observer_job.ansible_job_id }}'
+  register: observer_finished
+  until: observer_finished.finished
+  retries: 30
+  delay: 1
+  changed_when: false
+- name: 加载只读观测结果
+  ansible.builtin.set_fact:
+    observer_result: "{{ lookup('file', observer_prefix ~ '.json') | from_json }}"
+- name: 确认观测覆盖操作窗口且正常结束
+  ansible.builtin.assert:
+    that:
+      - observer_result.stopped_by_ansible | bool
+      - observer_result.rows | length >= 5

@@ -1,0 +1,9 @@
+---
+- name: 读取要留证的 {{ store_kind }}/{{ store_name }}
+  ansible.builtin.include_tasks: get.yml
+  vars: {get_kind: '{{ store_kind }}', get_name: '{{ store_name }}', get_admin: '{{ store_admin | default(false) }}'}
+- name: 保存原始 API 对象（本次 attempt 独立，不覆盖旧输出）
+  ansible.builtin.copy:
+    content: '{{ replay_object | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ store_id }}.json'
+    mode: '0600'

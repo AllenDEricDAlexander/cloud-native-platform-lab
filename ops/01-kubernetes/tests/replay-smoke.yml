@@ -1,0 +1,123 @@
+---
+- name: Ansible 参数、资源归属、等待、清理及检查点集成测试
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+  - name: 明确拒绝真实 kubectl
+    ansible.builtin.assert:
+      that:
+      - replay_k[1].endswith('/tests/replay-fixture.py')
+      - replay_check.endswith('/tests/replay-fixture.py')
+  - name: 本次测试目录
+    ansible.builtin.file:
+      path: '{{ replay_attempt }}/{{ item }}'
+      state: directory
+      mode: '0700'
+    loop:
+    - manifests
+    - observations
+    - snapshots
+    - checkpoints
+  - name: 本次测试上下文
+    ansible.builtin.copy:
+      content: '{{ {"run": replay_run, "cluster_uid": replay_cluster_uid} | to_json }}'
+      dest: '{{ replay_records }}/context.json'
+      mode: '0600'
+  - name: 确认替身读取器只处理离线数据
+    ansible.builtin.command:
+      argv: '{{ replay_k + ["get", "pods", "-o", "json"] }}'
+    changed_when: false
+  - name: 执行真实源码创建、apply 与逐字段等待 helper
+    ansible.builtin.include_tasks: ../ansible/tasks/replay/resource.yml
+    vars:
+      resource_source: core-resources/pods/manifests/p04-success.yaml.j2
+      resource_id: success
+      resource_action: '{{ smoke_action }}'
+    loop:
+    - create
+    - apply
+    loop_control:
+      loop_var: smoke_action
+  - name: 实际读取 helper
+    ansible.builtin.include_tasks: ../ansible/tasks/replay/get.yml
+    vars:
+      get_kind: pod
+      get_name: p04-success
+  - name: 读取结果确实来自源 YAML
+    ansible.builtin.assert:
+      that:
+      - replay_object.metadata.labels['cnpl.io/replay-run'] == replay_run
+      - replay_object.spec.containers[0].command[-1] == 'echo application-exit=0; exit 0'
+  - name: 实际等待 helper
+    ansible.builtin.include_tasks: ../ansible/tasks/replay/wait-field.yml
+    vars:
+      wait_resource: pod/p04-success
+      wait_field: '{.status.phase}'
+      wait_values:
+      - Succeeded
+  - name: 实际清理计划、现场保全、原生删除与空集检查
+    ansible.builtin.include_tasks: ../ansible/tasks/replay/cleanup.yml
+  - name: 未通过的组必须保留现场且不能补 PASS
+    block:
+    - name: 执行真实 case rescue 分支
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/case.yml
+      vars:
+        replay_case_tasks: '{{ replay_root }}/ops/01-kubernetes/tests/replay-case-fail.yml'
+    - name: 不应运行到此
+      ansible.builtin.fail:
+        msg: case unexpectedly passed
+    rescue:
+    - name: 必须来自 case 的保留现场失败分支
+      ansible.builtin.assert:
+        that: ansible_failed_task.name == '保留现场和实际失败步骤，不补写 PASS'
+  - name: 失败组不存在 PASS 文件
+    ansible.builtin.stat:
+      path: '{{ replay_records }}/checkpoints/04-smoke.json'
+    register: failed_checkpoint
+  - name: 不得伪造检查点
+    ansible.builtin.assert:
+      that: not failed_checkpoint.stat.exists
+  - name: 构造外来批次同名对象（仅本地替身）
+    ansible.builtin.copy:
+      content: '{{ {''apiVersion'':''v1'',''kind'':''Pod'',''metadata'':{''name'':''p04-failed'',''namespace'':''lab-core'',''labels'':{''cnpl.io/replay-run'':''foreign''}},''spec'':{''containers'':[]}}
+        | to_json }}'
+      dest: '{{ replay_attempt }}/foreign.json'
+      mode: '0600'
+  - name: 创建外来替身对象
+    ansible.builtin.command:
+      argv: '{{ replay_k + [''create'',''-f'', replay_attempt ~ ''/foreign.json''] }}'
+  - name: 真实 helper 拒绝覆盖外来对象
+    block:
+    - name: 尝试创建同名源资源
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/resource.yml
+      vars:
+        resource_source: core-resources/pods/manifests/p04-failed.yaml.j2
+        resource_id: foreign-test
+    - name: 不应覆盖成功
+      ansible.builtin.fail:
+        msg: foreign unexpectedly accepted
+    rescue:
+    - name: 必须在资源归属断言处拒绝
+      ansible.builtin.assert:
+        that: ansible_failed_task.name == '拒绝覆盖其他批次资源'
+  - name: 读取未被修改的外来对象
+    ansible.builtin.command:
+      argv: '{{ replay_k + [''get'',''pod'',''p04-failed'',''-o'',''json''] }}'
+    register: foreign_retained
+    changed_when: false
+  - name: 外来标签仍保持原值
+    ansible.builtin.assert:
+      that: (foreign_retained.stdout | from_json).metadata.labels['cnpl.io/replay-run'] == 'foreign'
+  - name: 显式移除本地测试夹具（不调用生产清理 helper）
+    ansible.builtin.command:
+      argv: '{{ replay_k + [''delete'',''pod'',''p04-failed''] }}'
+  - name: 实际检查点写入
+    ansible.builtin.include_tasks: ../ansible/tasks/replay/checkpoint.yml
+  - name: 检查点必须落盘
+    ansible.builtin.stat:
+      path: '{{ replay_records }}/checkpoints/04-smoke.json'
+    register: smoke_checkpoint
+  - name: 离线 helper 执行结果
+    ansible.builtin.assert:
+      that: smoke_checkpoint.stat.exists

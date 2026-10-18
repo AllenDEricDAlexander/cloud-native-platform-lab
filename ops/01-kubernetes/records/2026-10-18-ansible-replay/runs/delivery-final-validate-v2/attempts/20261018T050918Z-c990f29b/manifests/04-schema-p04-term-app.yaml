@@ -1,0 +1,13 @@
+# Kubernetes ConfigMap 主定义；应用脚本从独立源码读取。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p04-term-app
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-pod-lab
+    cnpl.io/replay-run: '20261018T050918Z-c990f29b'
+    cnpl.io/replay-topic: '04'
+    cnpl.io/replay-case: 'schema'
+data:
+  app.sh: "#!/bin/sh\n# \u540c\u4e00\u955c\u50cf\u63d0\u4f9b\u542f\u52a8\u3001\u5065\u5eb7\u3001\u5ef6\u8fdf\u53ca TERM \u89c2\u6d4b\u70b9\uff1b01.05 \u53ef\u7ee7\u7eed\u590d\u7528\u3002\nset -eu\nwork=${APP_WORK:-/work}\nif test \"${1:-}\" = cgi; then\n  mode=${QUERY_STRING:-identity}\n  case \"$mode\" in\n    startup|live|ready)\n      if ! test -f \"$work/$mode\"; then\n        printf 'Status: 503 Service Unavailable\\r\\nContent-Type: text/plain\\r\\n\\r\\n%s=false\\n' \"$mode\"\n        exit 0\n      fi ;;\n    delay)\n      seconds=$(cat \"$work/delay\")\n      case \"$seconds\" in 0|1|2|3|4|5) sleep \"$seconds\" ;; *) exit 1 ;; esac ;;\n    identity) ;;\n    *) printf 'Status: 400 Bad Request\\r\\n\\r\\nunknown mode\\n'; exit 0 ;;\n  esac\n  printf 'Content-Type: text/plain\\r\\n\\r\\nmode=%s pod=%s node=%s\\n' \"$mode\" \"$POD_NAME\" \"$NODE_NAME\"\n  exit 0\nfi\ncase \"${START_DELAY:-2}\" in 0|1|2|3|4|5|10|20|30) sleep \"${START_DELAY:-2}\" ;; *) exit 2 ;; esac\nmkdir -p \"$work/www/cgi-bin\"\nprintf '#!/bin/sh\\nexec /bin/sh /app/app.sh cgi\\n' > \"$work/www/cgi-bin/check\"\nchmod 755 \"$work/www/cgi-bin/check\"\nprintf 'pod=%s node=%s\\n' \"$POD_NAME\" \"$NODE_NAME\" > \"$work/www/index.html\"\necho 0 > \"$work/delay\"\nserver=\nstop() {\n  trap '' TERM INT\n  rm -f \"$work/ready\"\n  echo \"$1 received; draining\"\n  if test -n \"$server\"; then\n    kill \"$server\" 2>/dev/null || :\n    # \u5b50\u8fdb\u7a0b\u6536\u5230\u7ec8\u6b62\u4fe1\u53f7\u65f6 wait \u53ef\u4ee5\u975e\u96f6\uff1b\u5fc5\u987b\u7b49\u5b83\u7ed3\u675f\u540e\u624d\u5199\u5b8c\u6210\u56de\u6267\u3002\n    wait \"$server\" || :\n  fi\n  if test -n \"${TERMINATION_MESSAGE_PATH:-}\"; then\n    printf 'cnpl-termination-v1 signal=%s pod_uid=%s child_reaped=true exit=0\\n' \\\n      \"$1\" \"${POD_UID:-unknown}\" > \"$TERMINATION_MESSAGE_PATH\"\n  fi\n  echo \"$1 complete; exit=0\"\n  exit 0\n}\ntrap 'stop TERM' TERM\ntrap 'stop INT' INT\n\"${HTTPD_BIN:-httpd}\" -f -p 8080 -h \"$work/www\" &\nserver=$!\ntouch \"$work/startup\" \"$work/live\" \"$work/ready\"\necho \"START ready pod=$POD_NAME node=$NODE_NAME\"\nwait \"$server\""

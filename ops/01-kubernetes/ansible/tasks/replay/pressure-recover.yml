@@ -1,0 +1,94 @@
+---
+- name: 查询本批是否需要 worker02 恢复
+  ansible.builtin.stat:
+    path: '{{ replay_records }}/state/pressure-recovery.json'
+  register: pressure_recovery_file
+- name: 恢复已记录的本批节点维护
+  when: pressure_recovery_file.stat.exists
+  block:
+    - name: 读取公开恢复索引（不含原始 kubelet 正文）
+      ansible.builtin.set_fact:
+        pressure_recovery: "{{ lookup('file', replay_records ~ '/state/pressure-recovery.json') | from_json }}"
+    - name: 核对运行和原集群 UID
+      ansible.builtin.assert:
+        that:
+          - pressure_recovery.run == replay_run
+          - pressure_recovery.cluster_uid == replay_context.cluster_uid
+          - pressure_recovery.node == replay_worker02
+    - name: 读取当前 worker02 UID
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['get', 'node', replay_worker02, '-o', 'jsonpath={.metadata.uid}'] }}"
+      register: pressure_current_uid
+      changed_when: false
+    - name: 拒绝向重建后的同名节点写旧配置
+      ansible.builtin.assert:
+        that: pressure_current_uid.stdout == pressure_recovery.node_uid
+    - name: 在 worker02 执行本批独立回退（字节还原，拒绝覆盖第三方修改）
+      ansible.builtin.command:
+        argv: [/bin/bash, '/root/cnpl-replay-pressure-{{ replay_run }}/restore.sh']
+      delegate_to: worker02
+      changed_when: true
+    - name: 校验还原后的 kubelet 字节 SHA
+      ansible.builtin.stat:
+        path: /var/lib/kubelet/config.yaml
+        get_checksum: true
+        checksum_algorithm: sha256
+      delegate_to: worker02
+      register: pressure_restored_stat
+    - name: 确认恢复 SHA 一致
+      ansible.builtin.assert:
+        that: pressure_restored_stat.stat.checksum == pressure_recovery.original_sha256
+    - name: 停止已完成用途的独立回退 timer
+      ansible.builtin.command:
+        argv: [systemctl, stop, 'cnpl-replay-pressure-{{ replay_run | lower }}.timer']
+      delegate_to: worker02
+      register: pressure_timer_stop
+      failed_when: pressure_timer_stop.rc != 0 and 'not loaded' not in pressure_timer_stop.stderr and 'not found' not in pressure_timer_stop.stderr
+      changed_when: false
+    - name: 等 worker02 Ready 且压力消失
+      ansible.builtin.include_tasks: wait-field.yml
+      loop: [Ready, MemoryPressure, DiskPressure, PIDPressure]
+      loop_control: {loop_var: pressure_condition}
+      vars:
+        wait_admin: true
+        wait_resource: 'node/{{ replay_worker02 }}'
+        wait_field: '{.status.conditions[?(@.type=="{{ pressure_condition }}")].status}'
+        wait_values: '{{ ["True"] if pressure_condition == "Ready" else ["False"] }}'
+        wait_retries: 150
+        wait_delay: 3
+    - name: 读取维护标记和可调度状态
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['get', 'node', replay_worker02, '-o', 'json'] }}"
+      register: pressure_node_state
+      changed_when: false
+    - name: 只解除本批 cordon，不接管其他维护
+      ansible.builtin.assert:
+        that:
+          - (pressure_node_state.stdout | from_json).metadata.annotations.get('cnpl.io/pressure-owner', replay_run) == replay_run
+          - not (pressure_node_state.stdout | from_json).spec.get('unschedulable', false) or (pressure_node_state.stdout | from_json).metadata.annotations.get('cnpl.io/pressure-owner', '') == replay_run
+    - name: 恢复 worker02 可调度
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['uncordon', replay_worker02] }}"
+      when: (pressure_node_state.stdout | from_json).spec.get('unschedulable', false)
+      changed_when: true
+    - name: 解除本批维护标记
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['annotate', 'node', replay_worker02, 'cnpl.io/pressure-owner-'] }}"
+      when: (pressure_node_state.stdout | from_json).metadata.annotations.get('cnpl.io/pressure-owner', '') == replay_run
+      changed_when: true
+    - name: 最后确认全局健康及无压力
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]
+      changed_when: false
+    - name: 原恢复索引归档为已完成，不覆盖旧记录
+      ansible.builtin.copy:
+        src: '{{ replay_records }}/state/pressure-recovery.json'
+        dest: '{{ replay_attempt }}/observations/pressure-restored.json'
+        mode: '0600'
+    - name: 解除本批恢复待办
+      ansible.builtin.file:
+        path: '{{ replay_records }}/state/pressure-recovery.json'
+        state: absent
+    - name: 恢复核验结果
+      ansible.builtin.debug:
+        msg: WORKER02 RESTORE PASS — 原配置 SHA、无压力和可调度均确认

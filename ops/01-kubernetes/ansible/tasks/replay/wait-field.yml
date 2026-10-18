@@ -1,0 +1,9 @@
+---
+- name: 等待 {{ wait_resource }} 的 {{ wait_field }} 符合预期
+  ansible.builtin.command:
+    argv: "{{ (replay_a if (wait_admin | default(false) | bool) else replay_k) + ['-n', replay_namespace, 'get', wait_resource, '-o', 'jsonpath=' ~ wait_field] }}"
+  register: replay_wait
+  changed_when: false
+  until: replay_wait.rc == 0 and ((replay_wait.stdout is match('^[0-9]+$') and replay_wait.stdout | int >= wait_min | int) if wait_min is defined else replay_wait.stdout in wait_values)
+  retries: '{{ wait_retries | default(90) }}'
+  delay: '{{ wait_delay | default(2) }}'

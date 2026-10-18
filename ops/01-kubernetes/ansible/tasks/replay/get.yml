@@ -1,0 +1,9 @@
+---
+- name: 读取 {{ get_kind }}/{{ get_name }} 的当前 API 对象
+  ansible.builtin.command:
+    argv: "{{ (replay_a if (get_admin | default(false) | bool) else replay_k) + ['-n', replay_namespace, 'get', get_kind, get_name, '-o', 'json'] }}"
+  register: replay_get
+  changed_when: false
+- name: 保存本次读取结果供紧接的任务使用
+  ansible.builtin.set_fact:
+    replay_object: '{{ replay_get.stdout | from_json }}'

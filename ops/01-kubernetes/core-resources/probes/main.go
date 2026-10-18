@@ -163,12 +163,18 @@ func (q *queue) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type connectionKey struct{}
+type probeSample struct {
+	Path            string  `json:"path"`
+	Uptime          float64 `json:"uptime"`
+	StartupComplete bool    `json:"startup_complete"`
+}
 type app struct {
 	mu                                          sync.Mutex
 	Ready, Dependency, Business, Hang, Draining bool
 	Started, Heartbeat, PreStop, Term           time.Time
 	Delay                                       time.Duration
 	Counts                                      map[string]int
+	ProbeTrace                                  []probeSample
 	Active                                      int
 	CurrentJob                                  string
 	DependencyFailures                          int
@@ -215,6 +221,10 @@ func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 只有真实 kubelet 调用计入探针次数；教学控制请求不能冒充 kubelet 证据。
 	if len(r.UserAgent()) >= 11 && r.UserAgent()[:11] == "kube-probe/" {
 		a.Counts[path]++
+		// 启动窗口可能早于管理端连接，保留真实探针历史供稍后核验。
+		if len(a.ProbeTrace) < 512 && (path == "/startup" || path == "/live" || path == "/ready") {
+			a.ProbeTrace = append(a.ProbeTrace, probeSample{path, now.Sub(a.Started).Seconds(), now.Sub(a.Started) >= a.Delay})
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Pod-Name", a.Name)
@@ -239,7 +249,7 @@ func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case "/metrics":
 		// 在锁内编码，避免 map/slice 与后台消费者并发写。
-		jsonReply(w, map[string]any{"uid": a.UID, "pod": a.Name, "uptime": now.Sub(a.Started).Seconds(), "counts": a.Counts,
+		jsonReply(w, map[string]any{"uid": a.UID, "pod": a.Name, "uptime": now.Sub(a.Started).Seconds(), "counts": a.Counts, "probe_trace": a.ProbeTrace,
 			"ready": a.ready(now), "live": a.live(now), "active": a.Active, "current_job": a.CurrentJob,
 			"completed": a.Completed, "prestop_at": a.PreStop, "term_at": a.Term,
 			"dependency_failures": a.DependencyFailures, "dependency_elapsed_ms": a.DependencyElapsed})
@@ -501,7 +511,10 @@ func forward(local, remote net.Conn) {
 
 func runRelay() error {
 	target := os.Getenv("RELAY_TARGET")
-	if target != "p05-route:8080" && target != "p05-term:8080" {
+	host, port, splitErr := net.SplitHostPort(target)
+	ip := net.ParseIP(host).To4()
+	serviceIP := splitErr == nil && port == "8080" && ip != nil && ip[0] == 192 && ip[1] == 168 && ip[2] == 20
+	if !serviceIP && target != "p05-route:8080" && target != "p05-term:8080" {
 		return fmt.Errorf("relay target outside this experiment")
 	}
 	listener, err := net.Listen("tcp", ":8080")
@@ -560,6 +573,32 @@ func main() {
 				err = fmt.Errorf("HTTP %d", r.StatusCode)
 			}
 		}
+	case "control":
+		if len(os.Args) != 4 {
+			log.Fatal("control KIND BOOL")
+		}
+		var on bool
+		on, err = strconv.ParseBool(os.Args[3])
+		if err == nil {
+			_, err = post("http://127.0.0.1:8080/control?kind="+url.QueryEscape(os.Args[2])+"&value="+strconv.FormatBool(on), nil)
+		}
+	case "queue-submit":
+		if len(os.Args) != 5 {
+			log.Fatal("queue-submit ID SECONDS LEASE")
+		}
+		var seconds, lease int
+		seconds, err = number(os.Args[3], 0, 30)
+		if err == nil {
+			lease, err = number(os.Args[4], 0, 60)
+		}
+		if err == nil {
+			_, err = post("http://127.0.0.1:9090/submit?id="+url.QueryEscape(os.Args[2])+"&seconds="+strconv.Itoa(seconds)+"&lease="+strconv.Itoa(lease), nil)
+		}
+	case "queue-commit":
+		if len(os.Args) != 4 {
+			log.Fatal("queue-commit ID TOKEN")
+		}
+		_, err = post("http://127.0.0.1:9090/commit?id="+url.QueryEscape(os.Args[2])+"&token="+url.QueryEscape(os.Args[3]), nil)
 	case "prestop":
 		if len(os.Args) != 3 {
 			log.Fatal("prestop SECONDS")

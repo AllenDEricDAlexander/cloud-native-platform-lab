@@ -1,0 +1,71 @@
+---
+- name: stable
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: stable
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: create
+    workload_name: p06-stable
+    workload_pool: stable
+    workload_image: '{{ controller_images.v1.image }}'
+    replica_count: 2
+    variant: v1
+- name: stable-service
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: stable-service
+    resource_source: core-resources/controllers/manifests/service.yaml.j2
+    resource_action: create
+    service_name: p06-stable
+    workload_pool: stable
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_name: p06-stable
+    deployment_count: 2
+- name: observer.yml
+  ansible.builtin.include_tasks: observer.yml
+  vars:
+    observed_service: p06-stable
+    observed_pod: p06-stable-client
+- name: 检查真实业务 stable
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: stable
+    sample_version: v1
+    sample_pod: p06-stable-client
+- name: canary
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: canary
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: create
+    workload_name: p06-canary
+    workload_pool: canary
+    workload_image: '{{ controller_images.v2.image }}'
+    replica_count: 1
+    variant: v2
+- name: canary-service
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: canary-service
+    resource_source: core-resources/controllers/manifests/service.yaml.j2
+    resource_action: create
+    service_name: p06-canary
+    workload_pool: canary
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_name: p06-canary
+    deployment_count: 1
+- name: observer.yml
+  ansible.builtin.include_tasks: observer.yml
+  vars:
+    observed_service: p06-canary
+    observed_pod: p06-canary-client
+- name: 检查真实业务 canary
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: canary
+    sample_version: v2
+    sample_pod: p06-canary-client

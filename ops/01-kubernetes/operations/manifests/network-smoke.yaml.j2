@@ -1,0 +1,99 @@
+# 临时验收：已缓存的诊断镜像，每节点一个普通 Pod；不使用 hostNetwork 或主机挂载。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnpl-phase01-acceptance
+  labels:
+    cnpl.io/replay-run: '{{ replay_run }}'
+    app.kubernetes.io/part-of: cnpl-phase01-acceptance
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: network-smoke
+  labels:
+    cnpl.io/replay-run: '{{ replay_run }}'
+  namespace: cnpl-phase01-acceptance
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: network-smoke
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: network-smoke
+    spec:
+      automountServiceAccountToken: false
+      dnsPolicy: ClusterFirst
+      terminationGracePeriodSeconds: 5
+      nodeSelector:
+        kubernetes.io/os: linux
+      # 仅本次诊断 Pod 容忍控制平面和存储污点，确保十节点都参加；不移除节点污点。
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/storage
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: probe
+          image: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+          imagePullPolicy: IfNotPresent
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              printf '%s\n' "$NODE_NAME" > /www/index.html
+              exec httpd -f -p 8080 -h /www
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: www
+              mountPath: /www
+      volumes:
+        - name: www
+          emptyDir:
+            sizeLimit: 1Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: network-smoke
+  labels:
+    cnpl.io/replay-run: '{{ replay_run }}'
+  namespace: cnpl-phase01-acceptance
+spec:
+  selector:
+    app.kubernetes.io/name: network-smoke
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

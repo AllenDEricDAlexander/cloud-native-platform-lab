@@ -1,0 +1,62 @@
+---
+# 参数：resource_source / resource_id；resource_action=create|apply|delete|dry-run。
+# 实际传给 kubectl 的就是下面 template 产生的 YAML 文件。
+- name: 渲染源码 Kubernetes YAML（{{ resource_id }}）
+  ansible.builtin.template:
+    src: '{{ replay_root }}/ops/01-kubernetes/{{ resource_source }}'
+    dest: '{{ replay_attempt }}/manifests/{{ replay_topic }}-{{ replay_case }}-{{ resource_id }}.yaml'
+    mode: '0600'
+  register: resource_render
+
+- name: 读取渲染后的资源身份
+  ansible.builtin.set_fact:
+    resource_object: "{{ lookup('file', resource_render.dest) | from_yaml }}"
+    resource_cli: "{{ replay_a if (resource_admin | default(false) | bool) else replay_k }}"
+
+- name: 校验清单归属和允许范围
+  ansible.builtin.assert:
+    that:
+      - resource_object.metadata.labels['cnpl.io/replay-run'] == replay_run
+      - resource_object.metadata.labels['cnpl.io/replay-topic'] == replay_topic
+      - resource_object.kind in ['Pod', 'Deployment', 'ReplicaSet', 'ReplicationController', 'Service', 'ConfigMap', 'NetworkPolicy', 'ResourceQuota', 'LimitRange']
+      - resource_object.metadata.namespace == replay_namespace
+
+- name: 查询同名资源（部署/变更前校验；{{ resource_id }}）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['-n', replay_namespace, 'get', resource_object.kind, resource_object.metadata.name, '--ignore-not-found', '-o', 'json'] }}"
+  register: resource_existing
+  changed_when: false
+  when: resource_action | default('create') != 'dry-run'
+
+- name: 拒绝覆盖其他批次资源
+  ansible.builtin.assert:
+    that:
+      - resource_existing.stdout | trim == '' or (resource_existing.stdout | from_json).metadata.labels.get('cnpl.io/replay-run', '') == replay_run
+  when: resource_action | default('create') != 'dry-run'
+
+- name: 真实 API 准入检查（{{ resource_id }}）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['create', '--dry-run=server', '-f', resource_render.dest] }}"
+  changed_when: false
+  when: resource_action | default('create') == 'dry-run'
+
+- name: 按源码 YAML 创建资源（{{ resource_id }}）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['create', '--save-config', '-f', resource_render.dest] }}"
+  when:
+    - resource_action | default('create') == 'create'
+    - resource_existing.stdout | trim == ''
+  changed_when: true
+
+- name: 按源码 YAML 更新本批资源（{{ resource_id }}）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['apply', '-f', resource_render.dest] }}"
+  register: resource_apply
+  changed_when: "'unchanged' not in resource_apply.stdout"
+  when: resource_action | default('create') == 'apply'
+
+- name: 删除本批资源（{{ resource_id }}）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['-n', replay_namespace, 'delete', resource_object.kind, resource_object.metadata.name, '--ignore-not-found', '--wait=true', '--timeout=90s'] }}"
+  changed_when: resource_existing.stdout | trim != ''
+  when: resource_action | default('create') == 'delete'

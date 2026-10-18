@@ -1,0 +1,118 @@
+---
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-success.yaml.j2
+    resource_id: p04-success
+    resource_action: create
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-failed.yaml.j2
+    resource_id: p04-failed
+    resource_action: create
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-crash.yaml.j2
+    resource_id: p04-crash
+    resource_action: create
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-bad-image.yaml.j2
+    resource_id: p04-bad-image
+    resource_action: create
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-pending.yaml.j2
+    resource_id: p04-pending
+    resource_action: create
+    resource_admin: false
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-success
+    wait_field: '{.status.phase}'
+    wait_values:
+    - Succeeded
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-failed
+    wait_field: '{.status.containerStatuses[0].state.terminated.exitCode}'
+    wait_values:
+    - '7'
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-crash
+    wait_field: '{.status.containerStatuses[0].state.waiting.reason}'
+    wait_values:
+    - CrashLoopBackOff
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-bad-image
+    wait_field: '{.status.containerStatuses[0].state.waiting.reason}'
+    wait_values:
+    - ErrImageNeverPull
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-pending
+    wait_field: '{.status.conditions[?(@.type=="PodScheduled")].reason}'
+    wait_values:
+    - Unschedulable
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 只修改 Pod 允许更新的 image
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p04-bad-image'', ''--type=strategic'', ''-p'', ''{"spec":{"containers":[{"name":"app","image":"harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f"}]}}'']
+      }}'
+  changed_when: true
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p04-bad-image
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-crash.yaml.j2
+    resource_id: p04-crash
+    resource_action: delete
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-crash-fixed.yaml.j2
+    resource_id: p04-crash-fixed
+    resource_action: create
+    resource_admin: false
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p04-crash
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-pending.yaml.j2
+    resource_id: p04-pending
+    resource_action: delete
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-pending-fixed.yaml.j2
+    resource_id: p04-pending-fixed
+    resource_action: create
+    resource_admin: false
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p04-pending

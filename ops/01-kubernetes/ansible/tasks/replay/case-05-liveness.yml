@@ -1,0 +1,139 @@
+---
+- name: 源码清单 p05-dependency
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-dependency.yaml.j2
+    resource_id: p05-dependency
+    resource_action: create
+- name: 源码清单 p05-dependency-service
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-dependency-service.yaml.j2
+    resource_id: p05-dependency-service
+    resource_action: create
+- name: 源码清单 p05-live-a
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-live-a.yaml.j2
+    resource_id: p05-live-a
+    resource_action: create
+- name: 源码清单 p05-live-b
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-live-b.yaml.j2
+    resource_id: p05-live-b
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-dependency
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-live-a
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-live-b
+- name: 在本批 Pod 注入 dependency=True
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-dependency'', ''--'', ''/probe-lab'', ''control'', ''dependency'', ''true'']
+      }}'
+  changed_when: true
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p05-live-a
+    wait_field: '{.status.conditions[?(@.type=="Ready")].status}'
+    wait_values:
+    - 'False'
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p05-live-b
+    wait_field: '{.status.conditions[?(@.type=="Ready")].status}'
+    wait_values:
+    - 'False'
+- name: 连续观测依赖中断，覆盖多个 liveness 周期
+  ansible.builtin.pause:
+    seconds: 14
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-live-a
+    inspect_id: p05-live-a-dependency
+    inspect_path: /metrics
+    inspect_port: 8080
+- name: 依赖请求实际超时但本地仍健康
+  ansible.builtin.assert:
+    that:
+    - inspection.dependency_failures > 0
+    - inspection.dependency_elapsed_ms >= 450
+    - inspection.live | bool
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-live-a
+- name: 依赖故障期间没有重启
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-live-b
+    inspect_id: p05-live-b-dependency
+    inspect_path: /metrics
+    inspect_port: 8080
+- name: 依赖请求实际超时但本地仍健康
+  ansible.builtin.assert:
+    that:
+    - inspection.dependency_failures > 0
+    - inspection.dependency_elapsed_ms >= 450
+    - inspection.live | bool
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-live-b
+- name: 依赖故障期间没有重启
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0
+- name: 在本批 Pod 注入 dependency=False
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-dependency'', ''--'', ''/probe-lab'', ''control'', ''dependency'', ''false'']
+      }}'
+  changed_when: true
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-live-a
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-live-b
+- name: 在本批 Pod 注入 hang=True
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-live-a'', ''--'', ''/probe-lab'', ''control'', ''hang'', ''true''] }}'
+  changed_when: true
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p05-live-a
+    wait_field: '{.status.containerStatuses[0].restartCount}'
+    wait_min: 1
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-live-a
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-live-b
+- name: 健康对照副本保持零重启
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0

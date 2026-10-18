@@ -1,0 +1,10 @@
+# 仅补充硬反亲和，现有其他配置由 merge patch 保留。
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: {k8s-app: kube-dns}
+              topologyKey: kubernetes.io/hostname

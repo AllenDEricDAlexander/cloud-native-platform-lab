@@ -1,0 +1,85 @@
+---
+- name: 准备私有备份路径和恢复材料（不进入 Git）
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/replay.yml]
+  tasks:
+    - name: 查询完整备份检查点
+      ansible.builtin.stat:
+        path: '{{ replay_records }}/checkpoints/03-backup.json'
+      register: backup_checkpoint
+    - name: 绑定本批私有暂存目录
+      ansible.builtin.set_fact:
+        backup_private: '{{ replay_private_root }}/bundles/{{ replay_run }}-{{ replay_attempt | basename }}'
+        backup_restore: '{{ replay_private_root }}/restore-{{ replay_run }}-{{ replay_attempt | basename }}'
+        backup_collect: "{{ replay_mode == 'run' and '03' in replay_topics and not backup_checkpoint.stat.exists }}"
+    - name: 必要客户端和恢复材料前检
+      ansible.builtin.stat:
+        path: '{{ item }}'
+      loop:
+        - '{{ replay_restic }}'
+        - '{{ replay_restic_password }}'
+        - '{{ replay_key }}'
+        - '{{ lookup("env","HOME") }}/.cnpl-secrets/k8s-encryption.key'
+        - '{{ lookup("env","HOME") }}/.cnpl-secrets/access/lab-primary/recovery/recovery.conf'
+      register: backup_inputs
+      when: "'03' in replay_topics and replay_mode in ['validate', 'run']"
+      no_log: true
+    - name: 必需材料均存在
+      ansible.builtin.assert:
+        that: backup_inputs.results | selectattr('stat.exists', 'equalto', false) | list | length == 0
+      when: "'03' in replay_topics and replay_mode in ['validate', 'run']"
+    - name: 查询锁定 restic 客户端
+      ansible.builtin.command: {argv: ['{{ replay_restic }}', version]}
+      register: backup_restic_version
+      changed_when: false
+      when: "'03' in replay_topics and replay_mode in ['validate', 'run']"
+    - name: 确认 restic 版本
+      ansible.builtin.assert:
+        that: "backup_restic_version.stdout is search('^restic 0.19.1 ')"
+      when: "'03' in replay_topics and replay_mode in ['validate', 'run']"
+    - name: 创建私有目录
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0700'
+      loop: ['{{ backup_private }}', '{{ backup_restore }}', '{{ replay_private_root }}/receipts']
+      when: backup_collect | bool
+
+- name: Ansible 原生收集三控制平面材料及一致性快照
+  hosts: control_plane
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/replay.yml]
+  vars:
+    replay_run: '{{ hostvars.localhost.replay_run }}'
+    backup_private: '{{ hostvars.localhost.backup_private }}'
+    backup_remote: '/root/cnpl-control-plane-backups/{{ replay_run }}-{{ hostvars.localhost.replay_attempt | basename }}'
+    backup_scratch: '/var/lib/etcd/cnpl-backup-{{ replay_run }}-{{ hostvars.localhost.replay_attempt | basename }}'
+    backup_exec: [kubectl, --kubeconfig, /etc/kubernetes/admin.conf, '--server=https://{{ ansible_host }}:6443', --request-timeout=130s, -n, kube-system, exec, 'etcd-{{ inventory_hostname }}.k8s.internal.egon.top', --]
+    backup_etcd: [etcdctl, --endpoints=https://127.0.0.1:2379, --cacert=/etc/kubernetes/pki/etcd/ca.crt, --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt, --key=/etc/kubernetes/pki/etcd/healthcheck-client.key]
+  tasks:
+    - name: 控制平面只读前检（validate 也执行，无快照和配置变更）
+      ansible.builtin.include_tasks: ../tasks/replay/backup-preflight.yml
+      when: "replay_mode in ['validate', 'run'] and '03' in replay_topics"
+    - name: 本批需要新备份时才收集
+      ansible.builtin.include_tasks: ../tasks/replay/backup-collect.yml
+      when: hostvars.localhost.backup_collect | bool
+
+- name: Ansible 执行集群外加密备份和逐文件取回验真
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/replay.yml]
+  environment:
+    RESTIC_REPOSITORY: '{{ replay_restic_repo }}'
+    RESTIC_PASSWORD_FILE: '{{ replay_restic_password }}'
+  vars:
+    backup_restic: ['{{ replay_restic }}', -o, 'sftp.command=ssh -i {{ replay_key }} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes restic@192.168.9.16 -s sftp', --retry-lock, 30s]
+  tasks:
+    - name: 私有备份与恢复验真任务
+      ansible.builtin.include_tasks: ../tasks/replay/backup-offcluster.yml
+      when: backup_collect | bool

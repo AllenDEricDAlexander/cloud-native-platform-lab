@@ -1,0 +1,12 @@
+---
+- name: 读取长请求的完成/中断结果
+  ansible.builtin.async_status:
+    jid: '{{ long_job.ansible_job_id }}'
+  register: long_finished
+  until: long_finished.finished
+  retries: 50
+  delay: 1
+  changed_when: false
+- name: 保存本轮长请求结果
+  ansible.builtin.set_fact:
+    long_result: "{{ lookup('file', replay_attempt ~ '/observations/' ~ replay_topic ~ '-' ~ replay_case ~ '-' ~ long_id ~ '.json') | from_json }}"

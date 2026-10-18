@@ -1,0 +1,18 @@
+---
+- name: 确定本轮只读流量观测的独立文件名
+  ansible.builtin.set_fact:
+    observer_prefix: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ observer_id }}'
+- name: 启动有界只读观测（资源变更仍由下面 Ansible 任务执行）
+  ansible.builtin.command:
+    argv: "{{ [replay_python, replay_traffic, observer_mode | default('observe'), '--context', replay_records ~ '/context.json', '--pod', observed_pod | default('p06-client'), '--output', observer_prefix ~ '.json', '--ready', observer_prefix ~ '.ready', '--stop', observer_prefix ~ '.stop', '--timeline', observer_prefix ~ '.jsonl', '--seconds', '420'] + (observer_extra | default([])) }}"
+  async: 450
+  poll: 0
+  register: replay_observer_job
+  changed_when: false
+- name: 等待观测者明确开始，不把异步启动当成测试成功
+  ansible.builtin.stat:
+    path: '{{ observer_prefix }}.ready'
+  register: observer_ready
+  until: observer_ready.stat.exists
+  retries: 30
+  delay: 1

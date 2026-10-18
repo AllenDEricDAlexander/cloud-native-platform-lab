@@ -1,0 +1,31 @@
+---
+- name: 01.03 DNS 分散与十节点网络验收
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/replay.yml]
+  tasks:
+    - name: 查询 DNS 已通过检查点
+      ansible.builtin.stat:
+        path: '{{ replay_records }}/checkpoints/03-dns.json'
+      register: replay_dns_checkpoint
+    - name: 只在显式运行 03 时执行变更
+      ansible.builtin.include_tasks: ../tasks/replay/dns.yml
+      when: "replay_mode == 'run' and '03' in replay_topics and not replay_dns_checkpoint.stat.exists"
+    - name: validate 只验证 CoreDNS 源补丁和网络 YAML
+      when: "replay_mode == 'validate' and '03' in replay_topics"
+      block:
+        - name: 真实 API 检查 DNS 反亲和补丁
+          ansible.builtin.command:
+            argv: "{{ replay_a + ['-n', 'kube-system', 'patch', 'deployment', 'coredns', '--type=merge', '--dry-run=server', '--patch-file=' ~ replay_root ~ '/ops/01-kubernetes/operations/manifests/coredns-placement-patch.yml'] }}"
+          changed_when: false
+        - name: 渲染十节点网络测试源码 YAML
+          ansible.builtin.template:
+            src: '{{ replay_root }}/ops/01-kubernetes/operations/manifests/network-smoke.yaml.j2'
+            dest: '{{ replay_attempt }}/manifests/network-smoke.yaml'
+            mode: '0600'
+        - name: 校验多对象网络清单（validate 不创建其 Namespace）
+          ansible.builtin.command:
+            argv: "{{ replay_a + ['create', '--dry-run=client', '-f', replay_attempt ~ '/manifests/network-smoke.yaml'] }}"
+          changed_when: false

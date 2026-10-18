@@ -1,0 +1,10 @@
+---
+- name: 保存终止 API 状态与请求证据
+  ansible.builtin.copy:
+    content: "{{ {'pod': term_pod, 'responses': term_responses | default([]), 'hook_seconds': term_hook | default(0), 'job': term_job | default({})} | to_nice_json }}"
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ term_id }}-term-input.json'
+    mode: '0600'
+- name: 只读核验 TERM、UID、退出码与实际排空时序
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', term, --input, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ term_id }}-term-input.json', --output, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ term_id }}-term-receipt.json']
+  changed_when: false

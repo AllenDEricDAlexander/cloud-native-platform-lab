@@ -1,0 +1,161 @@
+---
+- name: 源码清单 p05-start-6
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-6.yaml.j2
+    resource_id: p05-start-6
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-start-6
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-start-6
+    inspect_id: startup-ready-6
+    inspect_path: /metrics
+    inspect_port: 8080
+- name: 真正 kubelet 已执行 startup/readiness，未重启
+  ansible.builtin.assert:
+    that:
+    - inspection.counts.get('/startup', 0) > 0
+    - inspection.counts.get('/ready', 0) > 0
+    - inspection.probe_trace | selectattr('startup_complete','equalto',false) | list | length > 0
+    - inspection.probe_trace | selectattr('startup_complete','equalto',false) | rejectattr('path','equalto','/startup') | list | length == 0
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-start-6
+- name: 容忍窗口内 restartCount 为零
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0
+- name: 保存 startup-6
+  ansible.builtin.copy:
+    content: '{{ {''probe_trace'': inspection.probe_trace, ''ready_metrics'': inspection, ''pod'': replay_object} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-startup-6.json'
+    mode: '0600'
+- name: 源码清单 p05-start-6
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-6.yaml.j2
+    resource_id: p05-start-6
+    resource_action: delete
+- name: 源码清单 p05-start-12
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-12.yaml.j2
+    resource_id: p05-start-12
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-start-12
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-start-12
+    inspect_id: startup-ready-12
+    inspect_path: /metrics
+    inspect_port: 8080
+- name: 真正 kubelet 已执行 startup/readiness，未重启
+  ansible.builtin.assert:
+    that:
+    - inspection.counts.get('/startup', 0) > 0
+    - inspection.counts.get('/ready', 0) > 0
+    - inspection.probe_trace | selectattr('startup_complete','equalto',false) | list | length > 0
+    - inspection.probe_trace | selectattr('startup_complete','equalto',false) | rejectattr('path','equalto','/startup') | list | length == 0
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-start-12
+- name: 容忍窗口内 restartCount 为零
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0
+- name: 保存 startup-12
+  ansible.builtin.copy:
+    content: '{{ {''probe_trace'': inspection.probe_trace, ''ready_metrics'': inspection, ''pod'': replay_object} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-startup-12.json'
+    mode: '0600'
+- name: 源码清单 p05-start-12
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-12.yaml.j2
+    resource_id: p05-start-12
+    resource_action: delete
+- name: 源码清单 p05-start-20
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-20.yaml.j2
+    resource_id: p05-start-20
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-start-20
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-start-20
+    inspect_id: startup-ready-20
+    inspect_path: /metrics
+    inspect_port: 8080
+- name: 真正 kubelet 已执行 startup/readiness，未重启
+  ansible.builtin.assert:
+    that:
+    - inspection.counts.get('/startup', 0) > 0
+    - inspection.counts.get('/ready', 0) > 0
+    - inspection.probe_trace | selectattr('startup_complete','equalto',false) | list | length > 0
+    - inspection.probe_trace | selectattr('startup_complete','equalto',false) | rejectattr('path','equalto','/startup') | list | length == 0
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-start-20
+- name: 容忍窗口内 restartCount 为零
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].restartCount == 0
+- name: 保存 startup-20
+  ansible.builtin.copy:
+    content: '{{ {''probe_trace'': inspection.probe_trace, ''ready_metrics'': inspection, ''pod'': replay_object} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-startup-20.json'
+    mode: '0600'
+- name: 源码清单 p05-start-20
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-20.yaml.j2
+    resource_id: p05-start-20
+    resource_action: delete
+- name: 源码清单 p05-start-over
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-start-over.yaml.j2
+    resource_id: p05-start-over
+    resource_action: create
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p05-start-over
+    wait_field: '{.status.containerStatuses[0].restartCount}'
+    wait_min: 1
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 取得超出启动窗口 Pod 的失败事件
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-start-over
+- name: 必须有实际 kubelet startup 失败事件
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''events'', ''--field-selector=involvedObject.uid='' ~ replay_object.metadata.uid,
+      ''-o'', ''json''] }}'
+  register: startup_failed_events
+  changed_when: false
+  until: startup_failed_events.rc == 0 and 'Startup probe failed' in startup_failed_events.stdout
+  retries: 20
+  delay: 1

@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，DNS 短名补测也已通过；01.04.01–05、总体验收与清理全部通过，01.05 探针/终止实验与清理通过；01.06 未开始。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，DNS 短名补测也已通过；01.04.01–05、总体验收与清理全部通过，01.05 探针/终止实验与清理通过；01.06 控制器实验与清理已通过；01.03–01.06 已整理为源码 YAML + Ansible，新入口待重跑验收。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -344,94 +344,25 @@ DNS 分别返回集群 Service 和内网仓库地址；etcd 初始三成员健�
 
 ## 01.04 建立可控制的 Pod 实验基准
 
-本轮使用 [完整脚本、命令解释与恢复说明](core-resources/pods/README.md)，覆盖 01.04.01–05。01.03 检查点为 `03f7094`；新批次先补测 Service 短名，再执行状态、Init/Sidecar、受限临时调试、容器 OOM、worker02 软阈值驱逐及正常终止。`01.04-20261017-204751` 批次已完成所有实验、总体验收和清理，见 [逐项结果与实验小结](records/2026-10-17-restart/acceptance.md#5-0104-实验小结)。下方命令保留为新批次复现入口。
+原始运行已验收并清理，见 [原始逐项验收](records/2026-10-17-restart/acceptance.md)。资源 YAML 位于 [源码清单](core-resources/pods/manifests/)，Ansible 执行顺序与说明见 [专题手册](core-resources/pods/README.md)。
 
-```bash
-cd /Users/mario/SelfProject/cloud-native-platform-lab
-CNPL04="$PWD/ops/01-kubernetes/records/2026-10-17-restart/evidence/01.04-$(date +%Y%m%d-%H%M%S)"
-bash ops/01-kubernetes/core-resources/pods/run.sh "$CNPL04"
-```
-
-独立批次按组顺序执行，真实错误立即停止并保留状态/事件/日志；预期故障逐项断言。普通资源用 lab-ops，只有预算/节点维护等管理操作显式使用管理员。故障只在指定 worker，不改变控制平面和存储保护。驱逐采用临时提高 kubelet soft 阈值并自动恢复，不耗尽整台节点内存；150 秒独立定时器应对 Mac 中断。
-
-交付清单由 lab.py render 生成到证据目录；app.sh 保留为本专题的可控 HTTP 示例。当前全部场景、TERM 回执和零残留清理均有真实证据；01.05 使用支持真实长连接和消息排空的标准库 Go 应用，已完成真实验收，完整入口见下节。
+01.03–01.06 此次统一切换为源码 YAML、Ansible 执行、Python 必要检查；请使用 [完整重跑命令与恢复说明](records/2026-10-18-ansible-replay/README.md)，四个专题顺序执行后再开始 01.07。原始记录和旧源码保留，新实现的静态检查不等于新的运行验收。
 
 <a id="01-05"></a>
 
 ## 01.05 三类探针与优雅终止
 
-完整脚本、执行命令、逐条作用和预期结果已交付，见 [01.05 完整手册](core-resources/probes/README.md)。本批五组真实实验、总验收和清理均已通过，见 [01.05 实验小结](records/2026-10-17-restart/acceptance.md#6-0105-实验小结)。
+原始运行已验收并清理，见 [原始逐项验收](records/2026-10-17-restart/acceptance.md)。资源 YAML 位于 [源码清单](core-resources/probes/manifests/)，Ansible 执行顺序与说明见 [专题手册](core-resources/probes/README.md)。
 
-本批依次验证：Startup 对 6/12/20 秒初始化的保护和超窗重启；真实依赖超时与本地 worker 失活的不同处理；Readiness/EndpointSlice、新连接和既有 HTTP/1.1 连接；PreStop/SIGTERM、长短请求、消息排空、强杀后的租约重投与幂等提交；HTTP/TCP/Exec/原生 gRPC 的判定与误判。
-
-应用源码、静态 OCI 构建、编排与断点执行统一保存在 core-resources/probes/，终止场景与探针共享同一实现和回执，不另复制一套生命周期脚本。已有 etcd 镜像用于 gRPC，业务实验镜像只依赖 Go 标准库，并在两个 worker 按 Digest 导入；保持 restricted、SELinux 与 firewalld 基线。
-
-从管理 Mac 执行以下完整入口，所有内部步骤已在手册逐条解释：
-
-```bash
-cd /Users/mario/SelfProject/cloud-native-platform-lab
-CNPL05="$PWD/ops/01-kubernetes/records/2026-10-17-restart/evidence/01.05-$(date +%Y%m%d-%H%M%S)"
-bash ops/01-kubernetes/core-resources/probes/run.sh "$CNPL05"
-```
-
-最终要求同时出现 PROBE LIFECYCLE ACCEPTANCE PASS、PROBE LAB CLEANUP PASS；失败保留现场和证据，同一命令追加 --resume 可保存旧现场后从未完成组重建继续。本批实际结果已归档，保留入口供复现。
+01.03–01.06 此次统一切换为源码 YAML、Ansible 执行、Python 必要检查；请使用 [完整重跑命令与恢复说明](records/2026-10-18-ansible-replay/README.md)，四个专题顺序执行后再开始 01.07。原始记录和旧源码保留，新实现的静态检查不等于新的运行验收。
 
 <a id="01-06"></a>
 
 ## 01.06 RC、ReplicaSet 与 Deployment
 
-输入：具有 v1/v2 和可控坏版本的相同测试应用。
+原始运行已验收并清理，见 [原始逐项验收](records/2026-10-17-restart/acceptance.md)。资源 YAML 位于 [源码清单](core-resources/controllers/manifests/)，Ansible 执行顺序与说明见 [专题手册](core-resources/controllers/README.md)。
 
-1. 建立 RC 和 ReplicaSet 对照，变更副本数、删除 Pod、创建匹配 selector 的孤儿 Pod，观察 ownerReferences 与接管；避免 selector 重叠影响其他工作负载。
-2. 建立 Deployment，固定镜像 Digest，调整 maxSurge/maxUnavailable，持续请求并观察新旧 RS、Pod 和 EndpointSlice；对照 RollingUpdate/Recreate。
-3. 发布坏版本后检查 `kubectl rollout status`、`rollout history`，回滚到明确 revision；扩缩容并记录 Desired/Current/Ready/Available。
-
-### 操作命令与目的
-
-```bash
-kubectl -n lab-core apply -f rc-demo.yaml -f rs-demo.yaml  # 对照两类副本控制器
-kubectl -n lab-core get rc,rs,pods
-kubectl -n lab-core delete pod "$LAB_REPLICA_POD"         # 观察控制器补副本
-kubectl -n lab-core apply -f deployment-demo.yaml
-kubectl -n lab-core set image deployment/controller-demo app="$LAB_IMAGE_V2"
-kubectl -n lab-core rollout status deployment/controller-demo --timeout=120s
-kubectl -n lab-core rollout history deployment/controller-demo
-kubectl -n lab-core rollout undo deployment/controller-demo --to-revision="$LAB_GOOD_REVISION"
-kubectl -n lab-core scale deployment/controller-demo --replicas=3
-```
-
-### 配置示例
-
-Deployment 的策略与选择器；RC/RS 分别使用独立 selector，避免互相接管：
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata: {name: controller-demo, namespace: lab-core}
-spec:
-  replicas: 2
-  selector:
-    matchLabels: {app: controller-demo}
-  strategy:
-    type: RollingUpdate
-    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
-  template:
-    metadata:
-      labels: {app: controller-demo}
-    spec:
-      containers:
-        - name: app
-          image: "<内网应用 v1 Digest>"
-          ports: [{containerPort: 8080}]
-```
-
-### 预期结果
-
-删除一个副本后会补齐；升级创建新 RS，正常版本收敛到目标副本，坏版本出现明确 rollout 超时/未就绪。回滚后镜像和真实响应回到已知版本。孤儿接管实验要同时比较 ownerReferences，不能只数 Pod。
-
-交付：`ops/01-kubernetes/core-resources/controllers/` 清单与 `ops/01-kubernetes/tests/integration/` 更新回退场景。
-
-检查与失败处理：能证明期望状态收敛、孤儿接管及实际版本回退；失败检查 selector/ownerReferences 和就绪状态，不删除所有 RS 重新开始。
+01.03–01.06 此次统一切换为源码 YAML、Ansible 执行、Python 必要检查；请使用 [完整重跑命令与恢复说明](records/2026-10-18-ansible-replay/README.md)，四个专题顺序执行后再开始 01.07。原始记录和旧源码保留，新实现的静态检查不等于新的运行验收。
 
 <a id="01-07"></a>
 

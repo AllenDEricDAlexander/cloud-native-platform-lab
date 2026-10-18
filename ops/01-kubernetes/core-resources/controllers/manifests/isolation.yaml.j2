@@ -1,0 +1,51 @@
+# Kubernetes 资源主定义；由 Ansible 渲染后直接执行，解析器不生成资源。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: p06-isolation
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-controller-lab
+    cnpl.io/replay-run: '{{ replay_run }}'
+    cnpl.io/legacy-stage: prepare
+    cnpl.io/replay-topic: '{{ replay_topic }}'
+    cnpl.io/replay-case: '{{ replay_case }}'
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: cnpl-controller-lab
+      cnpl.io/replay-run: '{{ replay_run }}'
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: cnpl-controller-lab
+          cnpl.io/replay-run: '{{ replay_run }}'
+  - from:
+    - ipBlock:
+        cidr: 192.168.9.109/32
+    - ipBlock:
+        cidr: 192.168.9.110/32
+    ports:
+    - port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: cnpl-controller-lab
+          cnpl.io/replay-run: '{{ replay_run }}'
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

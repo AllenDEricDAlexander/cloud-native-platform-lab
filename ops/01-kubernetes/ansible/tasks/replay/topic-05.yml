@@ -1,0 +1,40 @@
+---
+- name: 开始 01.05：探针、连接、终止与消息补偿
+  ansible.builtin.set_fact:
+    replay_topic: '05'
+- name: 01.05 base
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: base
+    replay_case_tasks: case-05-base.yml
+    replay_case_keep: true
+- name: 01.05 startup
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: startup
+    replay_case_tasks: case-05-startup.yml
+- name: 01.05 liveness
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: liveness
+    replay_case_tasks: case-05-liveness.yml
+- name: 01.05 readiness
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: readiness
+    replay_case_tasks: case-05-readiness.yml
+- name: 01.05 termination
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: termination
+    replay_case_tasks: case-05-termination.yml
+- name: 01.05 protocols
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: protocols
+    replay_case_tasks: case-05-protocols.yml
+- name: 01.05 cleanup
+  ansible.builtin.include_tasks: case.yml
+  vars:
+    replay_case: cleanup
+    replay_case_tasks: case-05-cleanup.yml

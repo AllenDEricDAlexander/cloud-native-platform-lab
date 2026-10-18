@@ -1,0 +1,44 @@
+---
+# 只读程序只返回可删除对象，不执行任何删除；全部删除动作在此 YAML 中。
+- name: 在删除前校验整组归属、finalizer 和父子关系
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', cleanup-plan, --context, '{{ replay_records }}/context.json', --topic, '{{ replay_topic }}', --case, '{{ cleanup_case | default(replay_case) }}']
+  register: cleanup_plan
+  changed_when: false
+
+- name: 保存本次清理计划和 Service UID（用于检查派生 EndpointSlice）
+  ansible.builtin.copy:
+    content: '{{ cleanup_plan.stdout }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ cleanup_case | default(replay_case) }}-cleanup-plan-{{ now(utc=true, fmt="%Y%m%dT%H%M%S.%fZ") }}.json'
+    mode: '0600'
+
+- name: 保存删除前现场
+  ansible.builtin.include_tasks: snapshot.yml
+  vars:
+    snapshot_case: '{{ cleanup_case | default(replay_case) }}'
+  when: (cleanup_plan.stdout | from_json).objects | length > 0
+
+- name: 只解除本实验 finalizer，保留 Kubernetes 前台 GC 标记
+  ansible.builtin.command:
+    argv: "{{ replay_k + ['-n', replay_namespace, 'patch', item.kind, item.metadata.name, '--type=merge', '-p', {'metadata': {'finalizers': item.metadata.finalizers | reject('equalto', 'cnpl.io/replay-observe-stop') | list}} | to_json] }}"
+  loop: "{{ (cleanup_plan.stdout | from_json).objects | selectattr('metadata.finalizers', 'defined') | selectattr('metadata.finalizers', 'contains', 'cnpl.io/replay-observe-stop') | list }}"
+  loop_control:
+    label: '{{ item.kind }}/{{ item.metadata.name }}'
+  changed_when: true
+
+- name: 先停止父控制器，再回收子对象与孤儿
+  ansible.builtin.command:
+    argv: "{{ (replay_a if item.kind in ['ResourceQuota', 'LimitRange'] else replay_k) + ['-n', replay_namespace, 'delete', item.kind, item.metadata.name, '--ignore-not-found', '--wait=true', '--timeout=90s'] + (['--cascade=foreground'] if item.kind in ['Deployment', 'ReplicaSet', 'ReplicationController'] else []) }}"
+  loop: '{{ (cleanup_plan.stdout | from_json).objects }}'
+  loop_control:
+    label: '{{ item.kind }}/{{ item.metadata.name }}'
+  changed_when: true
+
+- name: 只读复核本组资源确已回收
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', empty, --context, '{{ replay_records }}/context.json', --topic, '{{ replay_topic }}', --case, '{{ cleanup_case | default(replay_case) }}']
+  register: cleanup_empty
+  until: cleanup_empty.rc == 0
+  retries: 30
+  delay: 1
+  changed_when: false

@@ -1,0 +1,165 @@
+---
+- name: controllers-baseline.yml
+  ansible.builtin.include_tasks: controllers-baseline.yml
+- name: 扩到 3 个副本
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''scale'', ''deployment/p06-main'', ''--replicas=3''] }}'
+  changed_when: true
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_count: 3
+- name: 记录三个实际 Pod UID 和节点
+  ansible.builtin.set_fact:
+    scale_originals: '{{ deployment_state.active }}'
+- name: 为每个副本保留受控终止观察标记
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', item.metadata.name, ''--type=merge'', ''-p'', {''metadata'':
+      {''finalizers'': [''cnpl.io/replay-observe-stop'']}} | to_json] }}'
+  changed_when: true
+  loop: '{{ scale_originals }}'
+  loop_control:
+    label: '{{ item.metadata.name }}'
+- name: 为每个副本写入独立临时数据
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', item.metadata.name, ''--'', ''/controller-app'', ''set-local'',
+      ''temporary-'' ~ item.metadata.uid] }}'
+  changed_when: true
+  loop: '{{ scale_originals }}'
+  loop_control:
+    label: '{{ item.metadata.name }}'
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: long-start.yml
+  ansible.builtin.include_tasks: long-start.yml
+  vars:
+    long_targets: '{{ scale_originals }}'
+    long_id: scale
+    long_seconds: 12
+- name: 在途请求期间缩到 1
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''scale'', ''deployment/p06-main'', ''--replicas=1''] }}'
+  changed_when: true
+- name: long-finish.yml
+  ansible.builtin.include_tasks: long-finish.yml
+  vars:
+    long_id: scale
+- name: 全部三条在途请求完整返回
+  ansible.builtin.assert:
+    that:
+    - long_result.errors | length == 0
+    - long_result.responses | length == 3
+- name: 取得实际被删的两个 Pod 终态
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''pods'', ''-l'', ''cnpl.io/replay-run='' ~ replay_run ~ '',cnpl.io/replay-topic=06,cnpl.io/replay-case=scale'',
+      ''-o'', ''json''] }}'
+  changed_when: false
+  until: scale_final.rc == 0 and ((scale_final.stdout | from_json)['items'] | selectattr('metadata.deletionTimestamp', 'defined')
+    | list | length) == 2 and ((scale_final.stdout | from_json)['items'] | selectattr('metadata.deletionTimestamp', 'defined')
+    | map(attribute='status.containerStatuses') | flatten | selectattr('state.terminated', 'defined') | list | length) ==
+    2
+  retries: 45
+  delay: 1
+  register: scale_final
+- name: 保存被删 Pod 与长请求结果
+  ansible.builtin.set_fact:
+    scale_removed: '{{ (scale_final.stdout | from_json)[''items''] | selectattr(''metadata.deletionTimestamp'', ''defined'')
+      | list }}'
+- name: 保存 scaled-down
+  ansible.builtin.copy:
+    content: '{{ {''pods'': scale_removed, ''requests'': long_result} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-scaled-down.json'
+    mode: '0600'
+- name: term-check.yml
+  ansible.builtin.include_tasks: term-check.yml
+  vars:
+    term_id: '{{ item.metadata.uid }}'
+    term_pod: '{{ item }}'
+    term_responses: '{{ [long_result.responses[item.metadata.uid]] }}'
+    term_hook: 5
+  loop: '{{ scale_removed }}'
+  loop_control:
+    label: '{{ item.metadata.name }}'
+- name: 核验后只解除本实验终止标记
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', item.metadata.name, ''--type=merge'', ''-p'', {''metadata'':
+      {''finalizers'': []}} | to_json] }}'
+  changed_when: true
+  loop: '{{ scale_originals }}'
+  loop_control:
+    label: '{{ item.metadata.name }}'
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_count: 1
+- name: 记录幸存 Pod
+  ansible.builtin.set_fact:
+    scale_survivor: '{{ deployment_state.active[0] }}'
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: '{{ scale_survivor.metadata.name }}'
+    inspect_path: /local
+    inspect_id: survivor-data
+- name: 幸存者保留原临时数据
+  ansible.builtin.assert:
+    that:
+    - inspection.value == 'temporary-' ~ scale_survivor.metadata.uid
+- name: 重新扩到 3
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''scale'', ''deployment/p06-main'', ''--replicas=3''] }}'
+  changed_when: true
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_count: 3
+- name: 辨认新建的两个 Pod
+  ansible.builtin.set_fact:
+    scale_new: '{{ deployment_state.active | rejectattr(''metadata.uid'', ''in'', scale_originals | map(attribute=''metadata.uid'')
+      | list) | list }}'
+- name: 重扩得到两个新 UID
+  ansible.builtin.assert:
+    that:
+    - scale_new | length == 2
+- name: case-06-new-data.yml
+  ansible.builtin.include_tasks: case-06-new-data.yml
+  vars:
+    scale_new_pod: '{{ item }}'
+  loop: '{{ scale_new }}'
+  loop_control:
+    label: '{{ item.metadata.name }}'
+- name: capacity-zero
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: capacity-zero
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: create
+    workload_name: p06-capacity
+    workload_pool: capacity
+    replica_count: 0
+    cpu_request: '8'
+    cpu_limit: '8'
+    variant: capacity
+- name: 在容量不足条件下从 0 扩到 1
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''scale'', ''deployment/p06-capacity'', ''--replicas=1''] }}'
+  changed_when: true
+- name: case-06-capacity-check.yml
+  ansible.builtin.include_tasks: case-06-capacity-check.yml
+  vars:
+    capacity_variant: capacity
+- name: 回收未调度副本，缩回 0
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''scale'', ''deployment/p06-capacity'', ''--replicas=0''] }}'
+  changed_when: true
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_name: p06-capacity
+    deployment_count: 0
+- name: 检查真实业务 main-still-v1
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: main-still-v1
+    sample_version: v1
+    sample_pod: p06-client

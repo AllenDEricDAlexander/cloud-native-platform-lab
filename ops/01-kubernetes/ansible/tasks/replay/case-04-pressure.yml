@@ -1,0 +1,162 @@
+---
+- name: 读取 worker02 当前所有 Pod（禁止驱逐其他普通业务）
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['get', 'pods', '-A', '--field-selector=spec.nodeName=' ~ replay_worker02, '-o', 'json'] }}"
+  register: pressure_existing_pods
+  changed_when: false
+- name: 只允许原系统关键负载
+  ansible.builtin.assert:
+    that: item.metadata.namespace == 'kube-system' and item.spec.priority | default(0) | int >= 2000000000
+  loop: "{{ (pressure_existing_pods.stdout | from_json)['items'] | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+  loop_control: {label: '{{ item.metadata.name }}'}
+- name: 读取原 kubelet 配置字节
+  ansible.builtin.slurp:
+    src: /var/lib/kubelet/config.yaml
+  delegate_to: worker02
+  register: pressure_original
+  no_log: true
+- name: 绑定原配置校验及解析值
+  ansible.builtin.set_fact:
+    pressure_original_sha: '{{ pressure_original.content | b64decode | hash("sha256") }}'
+    pressure_config: '{{ pressure_original.content | b64decode | from_yaml }}'
+    replay_context: "{{ lookup('file', replay_records ~ '/context.json') | from_json }}"
+- name: 已有软驱逐策略或硬基线变化时拒绝覆盖
+  ansible.builtin.assert:
+    that:
+      - not pressure_config.get('evictionSoft', {})
+      - not pressure_config.get('evictionSoftGracePeriod', {})
+      - pressure_config.evictionHard['memory.available'] == '500Mi'
+- name: 读取当前 worker02 UID
+  ansible.builtin.include_tasks: get.yml
+  vars: {get_kind: node, get_name: '{{ replay_worker02 }}', get_admin: true}
+- name: 绑定节点 UID
+  ansible.builtin.set_fact:
+    pressure_node_uid: '{{ replay_object.metadata.uid }}'
+- name: 创建节点私有恢复目录
+  ansible.builtin.file:
+    path: '/root/cnpl-replay-pressure-{{ replay_run }}'
+    state: directory
+    mode: '0700'
+  delegate_to: worker02
+- name: 保存原配置字节及属性
+  ansible.builtin.command:
+    argv: [cp, --preserve=all, /var/lib/kubelet/config.yaml, '/root/cnpl-replay-pressure-{{ replay_run }}/original.yaml']
+  delegate_to: worker02
+  changed_when: true
+- name: 先安装独立回退脚本
+  ansible.builtin.template:
+    src: '{{ replay_root }}/ops/01-kubernetes/ansible/templates/pressure-restore.sh.j2'
+    dest: '/root/cnpl-replay-pressure-{{ replay_run }}/restore.sh'
+    mode: '0700'
+  delegate_to: worker02
+- name: 修改节点之前记录恢复意图
+  ansible.builtin.copy:
+    content: "{{ {'run': replay_run, 'cluster_uid': replay_cluster_uid, 'node': replay_worker02, 'node_uid': pressure_node_uid, 'original_sha256': pressure_original_sha} | to_nice_json }}"
+    dest: '{{ replay_records }}/state/pressure-recovery.json'
+    mode: '0600'
+- name: 实际驱逐实验，成功或失败都先恢复节点
+  block:
+    - name: 从源码创建 96Mi 内存盘受害 Pod
+      ansible.builtin.include_tasks: resource.yml
+      vars: {resource_source: core-resources/pods/manifests/p04-pressure.yaml.j2, resource_id: p04-pressure}
+    - name: 等待写入完成的轻量标记就绪
+      ansible.builtin.include_tasks: wait-ready.yml
+      vars: {ready_resource: pod/p04-pressure}
+    - name: 绑定本次受害 Pod UID
+      ansible.builtin.include_tasks: get.yml
+      vars: {get_kind: pod, get_name: p04-pressure}
+    - name: 保存受害 Pod 身份
+      ansible.builtin.set_fact:
+        pressure_pod_uid: '{{ replay_object.metadata.uid }}'
+    - name: 写入本批维护标记
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['annotate', 'node', replay_worker02, 'cnpl.io/pressure-owner=' ~ replay_run] }}"
+      changed_when: true
+    - name: 禁止新的普通工作负载调度到 worker02
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['cordon', replay_worker02] }}"
+      changed_when: true
+    - name: 等内存盘实际计入 kubelet workingSet
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['get', '--raw=/api/v1/nodes/' ~ replay_worker02 ~ '/proxy/stats/summary'] }}"
+      register: pressure_stats
+      changed_when: false
+      until: pressure_stats.rc == 0 and (((pressure_stats.stdout | from_json).pods | selectattr('podRef.uid', 'equalto', pressure_pod_uid) | map(attribute='memory.workingSetBytes') | list | first | default(0)) | int >= 67108864)
+      retries: 23
+      delay: 2
+    - name: 真实可用内存至少 4GiB；软阈值只调到当前可用加 16Mi
+      ansible.builtin.assert:
+        that: (pressure_stats.stdout | from_json).node.memory.availableBytes | int >= 4294967296
+    - name: 保存本次阈值和 Pod 统计
+      ansible.builtin.copy:
+        content: '{{ pressure_stats.stdout }}'
+        dest: '{{ replay_attempt }}/observations/04-pressure-before-stats.json'
+        mode: '0600'
+    - name: 写入临时配置暂存（尚未替换运行配置）
+      ansible.builtin.copy:
+        content: "{{ pressure_config | combine({'evictionSoft': {'memory.available': ((pressure_stats.stdout | from_json).node.memory.availableBytes | int + 16777216) | string}, 'evictionSoftGracePeriod': {'memory.available': '45s'}, 'evictionMaxPodGracePeriod': 5}) | to_nice_json }}\n"
+        dest: '/root/cnpl-replay-pressure-{{ replay_run }}/temporary.yaml'
+        mode: '0600'
+      delegate_to: worker02
+    - name: 先建立 150 秒独立回退 timer（管理 Mac 中断也生效）
+      ansible.builtin.command:
+        argv: [systemd-run, --collect, '--unit=cnpl-replay-pressure-{{ replay_run | lower }}', --on-active=150s, --timer-property=AccuracySec=1s, /bin/bash, '/root/cnpl-replay-pressure-{{ replay_run }}/restore.sh']
+      delegate_to: worker02
+      changed_when: true
+    - name: 临时配置变更前再次确认原 SHA
+      ansible.builtin.stat:
+        path: /var/lib/kubelet/config.yaml
+        get_checksum: true
+        checksum_algorithm: sha256
+      delegate_to: worker02
+      register: pressure_before_change
+    - name: 拒绝覆盖前检之后的第三方变化
+      ansible.builtin.assert:
+        that: pressure_before_change.stat.checksum == pressure_original_sha
+    - name: 替换为本次临时软驱逐配置
+      ansible.builtin.copy:
+        src: '/root/cnpl-replay-pressure-{{ replay_run }}/temporary.yaml'
+        remote_src: true
+        dest: /var/lib/kubelet/config.yaml
+        mode: '0600'
+        owner: root
+        group: root
+      delegate_to: worker02
+    - name: 重新应用配置的 SELinux 上下文
+      ansible.builtin.command: {argv: [restorecon, /var/lib/kubelet/config.yaml]}
+      delegate_to: worker02
+      changed_when: false
+    - name: 加载本次临时阈值
+      ansible.builtin.systemd_service: {name: kubelet, state: restarted}
+      delegate_to: worker02
+    - name: 必须观察到真实 MemoryPressure
+      ansible.builtin.include_tasks: wait-field.yml
+      vars:
+        wait_admin: true
+        wait_resource: 'node/{{ replay_worker02 }}'
+        wait_field: '{.status.conditions[?(@.type=="MemoryPressure")].status}'
+        wait_values: ['True']
+        wait_retries: 40
+        wait_delay: 2
+    - name: 保存压力状态节点证据
+      ansible.builtin.include_tasks: store-object.yml
+      vars: {store_kind: node, store_name: '{{ replay_worker02 }}', store_id: pressure-node, store_admin: true}
+    - name: 必须观察到 kubelet 驱逐而非 API 删除
+      ansible.builtin.include_tasks: wait-field.yml
+      vars:
+        wait_resource: pod/p04-pressure
+        wait_field: '{.status.reason}'
+        wait_values: [Evicted]
+        wait_retries: 50
+        wait_delay: 2
+    - name: 读取真实驱逐原因
+      ansible.builtin.include_tasks: get.yml
+      vars: {get_kind: pod, get_name: p04-pressure}
+    - name: 驱逐消息明确是 memory
+      ansible.builtin.assert:
+        that: "'memory' in replay_object.status.message | lower"
+    - name: 保存驱逐后证据
+      ansible.builtin.include_tasks: snapshot.yml
+  always:
+    - name: 还原原始配置并确认节点健康后才恢复调度
+      ansible.builtin.include_tasks: pressure-recover.yml

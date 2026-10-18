@@ -1,0 +1,45 @@
+---
+- name: Ansible 原生逐组执行 01.03–01.06
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files:
+  - ../vars/replay.yml
+  tasks:
+  - name: 完整实验执行
+    ansible.builtin.include_tasks: ../tasks/replay/topic-{{ replay_selected_topic }}.yml
+    loop: '{{ replay_topics }}'
+    loop_control:
+      loop_var: replay_selected_topic
+    when: replay_mode == 'run'
+  - name: 最终确认全部本批资源清理
+    ansible.builtin.command:
+      argv:
+      - '{{ replay_python }}'
+      - '{{ replay_check }}'
+      - empty
+      - --context
+      - '{{ replay_records }}/context.json'
+    when: replay_mode == 'run'
+    changed_when: false
+  - name: 完整验收和清理通过
+    ansible.builtin.debug:
+      msg: ANSIBLE REPLAY ACCEPTANCE PASS；ANSIBLE REPLAY CLEANUP PASS；原始执行记录保留
+    when: replay_mode == 'run'
+  - name: 只清理原批资源并保留全部失败证据
+    ansible.builtin.include_tasks: ../tasks/replay/cleanup.yml
+    vars:
+      replay_topic: '*'
+      replay_case: '*'
+    when: replay_mode == 'cleanup'
+  - name: 记录显式结束本批，防止沿用已清理的检查点
+    ansible.builtin.copy:
+      content: '{{ {''run'':replay_run,''cluster_uid'':replay_cluster_uid,''reason'':''explicit-cleanup'',''experiment_passed'':false} | to_nice_json }}'
+      dest: '{{ replay_records }}/state/closed-by-cleanup.json'
+      mode: '0600'
+    when: replay_mode == 'cleanup'
+  - name: 本批资源已清理，原始证据保留
+    ansible.builtin.debug:
+      msg: REPLAY CLEANUP PASS；本批已结束，新实验请创建新记录目录
+    when: replay_mode == 'cleanup'

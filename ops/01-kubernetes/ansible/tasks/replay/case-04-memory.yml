@@ -1,0 +1,29 @@
+---
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-oom.yaml.j2
+    resource_id: p04-oom
+    resource_action: create
+    resource_admin: false
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-oom
+    wait_field: '{.status.containerStatuses[0].state.terminated.reason}'
+    wait_values:
+    - OOMKilled
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p04-oom
+- name: cgroup 内存限制导致 137
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].state.terminated.exitCode == 137
+- name: 保存 oom
+  ansible.builtin.copy:
+    content: '{{ replay_object | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/04-{{ replay_case }}-oom.json'
+    mode: '0600'

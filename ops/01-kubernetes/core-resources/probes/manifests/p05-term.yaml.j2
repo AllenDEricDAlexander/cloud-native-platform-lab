@@ -1,0 +1,19 @@
+# Kubernetes 资源主定义；由 Ansible 渲染后直接执行，解析器不生成资源。
+apiVersion: v1
+kind: Service
+metadata:
+  name: p05-term
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-probe-lab
+    cnpl.io/probe-stage: termination
+    cnpl.io/replay-run: '{{ replay_run }}'
+    cnpl.io/replay-topic: '{{ replay_topic }}'
+    cnpl.io/replay-case: '{{ replay_case }}'
+spec:
+  selector:
+    cnpl.io/probe-pool: term
+    cnpl.io/replay-run: '{{ replay_run }}'
+  ports:
+  - port: 8080
+    targetPort: 8080

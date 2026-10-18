@@ -1,0 +1,45 @@
+---
+- name: 核对本版本限定为实验仓库的精确摘要
+  ansible.builtin.assert:
+    that:
+      - controller_image.version in ['v1', 'v2', 'bad']
+      - controller_image.manifest_digest is match('^sha256:[a-f0-9]{64}$')
+      - controller_image.archive_sha256 is match('^[a-f0-9]{64}$')
+      - controller_image.image == 'cnpl.local/phase01/controller-lab@' + controller_image.manifest_digest
+      - controller_image.import_tag == 'cnpl.local/phase01/controller-lab:' + controller_image.version + '-sha256-' + controller_image.manifest_digest.split(':')[1]
+- name: 复制本版本 OCI 归档
+  ansible.builtin.copy:
+    src: "{{ controller_image.archive }}"
+    dest: "/var/cache/cnpl/01.06/{{ controller_image.archive_sha256 }}.tar"
+    mode: '0640'
+- name: Python 核对归档 SHA256
+  ansible.builtin.command:
+    argv: [/usr/bin/python3, -c, "import hashlib,sys; assert hashlib.file_digest(open(sys.argv[1],'rb'),'sha256').hexdigest()==sys.argv[2], 'OCI SHA mismatch'", "/var/cache/cnpl/01.06/{{ controller_image.archive_sha256 }}.tar", "{{ controller_image.archive_sha256 }}"]
+  changed_when: false
+- name: 查询完整 Digest 引用
+  ansible.builtin.command:
+    argv: [/usr/bin/ctr, -n, k8s.io, images, list, "name=={{ controller_image.image }}"]
+  register: controller_existing
+  changed_when: false
+- name: 导入展开本版本
+  ansible.builtin.command:
+    argv: [/usr/bin/ctr, -n, k8s.io, images, import, --local, --platform, linux/amd64, "/var/cache/cnpl/01.06/{{ controller_image.archive_sha256 }}.tar"]
+  when: controller_image.manifest_digest not in controller_existing.stdout
+  changed_when: true
+- name: 建立完整仓库名的 Digest 引用
+  ansible.builtin.command:
+    argv: [/usr/bin/ctr, -n, k8s.io, images, tag, "{{ controller_image.import_tag }}", "{{ controller_image.image }}"]
+  when: controller_image.manifest_digest not in controller_existing.stdout
+  changed_when: true
+- name: 再查完整 Digest 引用
+  ansible.builtin.command:
+    argv: [/usr/bin/ctr, -n, k8s.io, images, list, "name=={{ controller_image.image }}"]
+  register: controller_imported
+  changed_when: false
+- name: 核对引用和实际 manifest 一致
+  ansible.builtin.assert:
+    that: [controller_image.manifest_digest in controller_imported.stdout]
+- name: 确认 CRI 可以按 Digest 找到镜像
+  ansible.builtin.command:
+    argv: [/usr/bin/crictl, inspecti, "{{ controller_image.image }}"]
+  changed_when: false

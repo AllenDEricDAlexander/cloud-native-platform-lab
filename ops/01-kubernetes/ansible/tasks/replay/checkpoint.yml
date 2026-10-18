@@ -1,0 +1,9 @@
+---
+- name: 写入本组通过检查点（仅在全部断言及所需恢复完成后）
+  ansible.builtin.copy:
+    content: "{{ {'schema_version': 2, 'run': replay_run, 'cluster_uid': replay_cluster_uid, 'topic': replay_topic, 'case': replay_case, 'passed': true, 'implementation': replay_implementation_sha} | to_nice_json }}\n"
+    dest: '{{ replay_records }}/checkpoints/{{ replay_topic }}-{{ replay_case }}.json'
+    mode: '0600'
+- name: 本组验收结果
+  ansible.builtin.debug:
+    msg: '{{ replay_topic }} {{ replay_case | upper }} PASS'

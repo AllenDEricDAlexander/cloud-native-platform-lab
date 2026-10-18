@@ -1,0 +1,20 @@
+---
+- name: 保存长请求的实际 Pod UID/节点目标
+  ansible.builtin.copy:
+    content: '{{ long_targets | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ long_id }}-targets.json'
+    mode: '0600'
+- name: 启动有界并发长请求观测
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_traffic }}', long, --context, '{{ replay_records }}/context.json', --targets, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ long_id }}-targets.json', --seconds, '{{ long_seconds | default(12) | string }}', --ready, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ long_id }}.ready', --output, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ long_id }}.json']
+  async: 90
+  poll: 0
+  register: long_job
+  changed_when: false
+- name: 等长请求全部真正进入应用后才允许删除/缩容
+  ansible.builtin.stat:
+    path: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ long_id }}.ready'
+  register: long_ready
+  until: long_ready.stat.exists
+  retries: 20
+  delay: 1

@@ -1,0 +1,38 @@
+---
+- name: 等待容量反例成为 Unschedulable
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''pods'', ''-l'', ''cnpl.io/replay-run='' ~ replay_run ~ '',cnpl.io/replay-variant=''
+      ~ capacity_variant, ''-o'', ''jsonpath={.items[0].status.conditions[?(@.type=="PodScheduled")].reason}''] }}'
+  changed_when: false
+  until: capacity_wait.rc == 0 and capacity_wait.stdout == 'Unschedulable'
+  retries: 60
+  delay: 2
+  register: capacity_wait
+- name: 读取实际未调度 Pod UID
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''pods'', ''-l'', ''cnpl.io/replay-run='' ~ replay_run ~ '',cnpl.io/replay-variant=''
+      ~ capacity_variant, ''-o'', ''json''] }}'
+  changed_when: false
+  register: capacity_pods
+- name: 绑定容量反例 UID
+  ansible.builtin.set_fact:
+    capacity_pod: '{{ (capacity_pods.stdout | from_json)[''items''][0] }}'
+- name: 读取当前 UID 的调度失败事件
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''events'', ''--field-selector'', ''involvedObject.uid='' ~ capacity_pod.metadata.uid,
+      ''-o'', ''json''] }}'
+  changed_when: false
+  until: capacity_events.rc == 0 and 'insufficient cpu' in (capacity_events.stdout | lower)
+  retries: 30
+  delay: 1
+  register: capacity_events
+- name: 容量反例确实没有调度且请求 8 核
+  ansible.builtin.assert:
+    that:
+    - capacity_pod.spec.get('nodeName', '') == ''
+    - capacity_pod.spec.containers[0].resources.requests.cpu == '8'
+- name: 保存 capacity-{{ capacity_variant }}
+  ansible.builtin.copy:
+    content: '{{ {''pod'': capacity_pod, ''events'': capacity_events.stdout | from_json} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-capacity-{{ capacity_variant }}.json'
+    mode: '0600'

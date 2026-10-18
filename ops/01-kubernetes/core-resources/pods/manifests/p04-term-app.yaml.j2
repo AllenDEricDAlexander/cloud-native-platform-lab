@@ -1,0 +1,13 @@
+# Kubernetes ConfigMap 主定义；应用脚本从独立源码读取。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p04-term-app
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-pod-lab
+    cnpl.io/replay-run: '{{ replay_run }}'
+    cnpl.io/replay-topic: '{{ replay_topic }}'
+    cnpl.io/replay-case: '{{ replay_case }}'
+data:
+  app.sh: {{ pod_app_script | to_json }}

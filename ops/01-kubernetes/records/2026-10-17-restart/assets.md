@@ -464,3 +464,20 @@ bash ops/00-preparation/scripts/collect-node-readiness.sh \
 [检查点只读核验](evidence/01.05-checkpoint-verification.json)确认集群 UID、十节点健康、所有运行源码 SHA 与当前实现一致，本批线上无资源。提交前重新执行 [10 项 Python 回归](evidence/01.05-checkpoint-python.txt)和 [9 项 Go 竞态测试](evidence/01.05-checkpoint-go.txt)，不重跑真实故障实验。01.05 的完整实现、公开运行证据和验收文档一并提交；无关的 fetch-k8s-clients.sh 不纳入。
 
 01.06 将在此检查点之后交付脚本，真实控制器、扩缩、发布和回滚实验由用户启动；.15 管理机分发、物理故障域及在线灾难重建等既有未完成边界保持。
+
+## 34. 2026-10-17 交付 01.06 完整控制器实验
+
+在 01.05 的 `812f2c9` 提交之后，准备 [六组完整入口与逐命令解释](../../core-resources/controllers/README.md)：RC/RS 接管和补副本、Deployment 版本历史、扩缩/临时数据/容量、两种更新策略、暂停与三类失败回滚、双版本独立入口。当前为脚本交付，尚未执行真实六组场景。
+
+应用只依赖 Go 标准库，复用原已核验工具链及客户端/SSH/流量辅助；三个镜像通过不可变配置提供 v1/v2/bad 响应，按精确 Digest 导入两个 worker。容量反例仅创建 8 核请求的实验 Pod，不变更节点配置。缩容前同时向三个副本发请求，保存实际被删两个 Pod 的 UID/终态，再释放本实验 finalizer；重试保存原观察数据，保留 Kubernetes 已开始的前台 GC 标记，先删父控制器再回收子对象。
+
+[交付核验](evidence/01.06-delivery-20261017/README.md)保存 7 项 Go 行为/竞态测试、13 项编排回归、33 份真实 API server dry-run、三版本确定性构建、两 worker 镜像导入和幂等复验。首次与重复物料一致；两个 worker 的复验 changed=0、failed=0、unreachable=0，CRI 源码标签和版本匹配。只读确认十节点 Ready、Enforcing/firewalld 保持、本专题无运行对象，没有自动启动实验 Pod。
+
+版本恢复同时校验完整 Pod 模板和连续业务响应；坏业务即使控制器报告发布完成也不能判业务成功。滚动发布单独记录 RS 预算及实际 Pod 峰值；双入口不计为带权灰度。真实补副本、调度、流量和回滚在用户执行后另行验收，未提前计入 acceptance.md 的通过列表。
+
+
+## 35. 2026-10-18 归档 01.06 真实结果并整理 01.03–01.06 执行方式
+
+用户确认 01.06 全部正确。核对实际六组回执、verify/cleanup、源码快照及清理空集后归档通过；原始状态/回执保持原值。随后按用户要求把 Kubernetes 定义移到各专题 manifests/，全部资源变更、备份、故障、恢复及清理由 Ansible 明确执行，Python 只承担必要只读检查、流量观测和哈希校验。旧源码及原始记录的 SHA 清单见 [新批归档](../2026-10-18-ansible-replay/README.md)。
+
+新实现交付检查与用户实际重跑分别留证，不把 dry-run/离线测试计作新故障验收，不开始 01.07；无关的 00 fetch-k8s-clients.sh 保留且不提交。

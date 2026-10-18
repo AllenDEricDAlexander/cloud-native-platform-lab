@@ -1,0 +1,347 @@
+
+PLAY [01.03–01.06 重跑输入、源码及只读前检] ************************************
+
+TASK [校验执行模式及独立记录路径] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建本批记录目录] ********************************************************
+changed: [localhost] => (item=checkpoints)
+changed: [localhost] => (item=attempts)
+changed: [localhost] => (item=artifacts)
+changed: [localhost] => (item=state)
+
+TASK [查询是否已有本批上下文] **************************************************
+ok: [localhost]
+
+TASK [恢复已有上下文] **********************************************************
+skipping: [localhost]
+
+TASK [生成 UTC 批次时间] *******************************************************
+ok: [localhost]
+
+TASK [生成运行随机后缀] ********************************************************
+ok: [localhost]
+
+TASK [确定本批次与此次执行的身份] **********************************************
+ok: [localhost]
+
+TASK [已有运行必须明确使用 resume] *********************************************
+skipping: [localhost]
+
+TASK [创建此次执行的独立目录（旧输出不覆盖）] **********************************
+changed: [localhost] => (item=manifests)
+changed: [localhost] => (item=snapshots)
+changed: [localhost] => (item=observations)
+
+TASK [核对工具链归档校验值] ****************************************************
+ok: [localhost]
+
+TASK [确认使用原锁定编译器] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询编译器版本] **********************************************************
+ok: [localhost]
+
+TASK [拒绝非管理 Mac 工具链] ***************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [记录实际来源 SHA 并确认原始执行记录未变] *********************************
+ok: [localhost]
+
+TASK [保存实际实现校验值] ******************************************************
+ok: [localhost]
+
+TASK [读取已有压力回退材料（若中断后恢复，必须先恢复再检查 worker 可调度）] ****
+skipping: [localhost]
+
+TASK [同集群十节点及 restricted 基线只读检查] **********************************
+ok: [localhost]
+
+TASK [记录当前集群 UID] ********************************************************
+ok: [localhost]
+
+TASK [续跑核对集群和资源源文件；拒绝混用不同版本] ******************************
+skipping: [localhost]
+
+TASK [保存完整运行上下文（不含密钥、Token 或 kubeconfig 正文）] ****************
+changed: [localhost]
+
+TASK [运行本机有限行为测试] ****************************************************
+ok: [localhost] => (item=probes)
+ok: [localhost] => (item=controllers)
+
+TASK [交叉编译探针实验静态二进制] **********************************************
+changed: [localhost]
+
+TASK [交叉编译控制器实验静态二进制] ********************************************
+changed: [localhost]
+
+TASK [Go 标准库打包两个实验的 OCI（不使用 Python 构造资源或镜像）] *************
+changed: [localhost] => (item={'family': 'probes', 'binary': 'probe-lab', 'output': 'probe.json'})
+changed: [localhost] => (item={'family': 'controllers', 'binary': 'controller-app', 'output': 'controllers.json'})
+
+TASK [加载精确镜像引用和应用脚本] **********************************************
+ok: [localhost]
+
+TASK [供资源模板使用的变量] ****************************************************
+ok: [localhost]
+
+TASK [逐份渲染源码清单并验证实际 API 准入（不创建对象）] ***********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-deployment)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-observer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-proof)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-bad-image)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-baseline)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-budget)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-crash-fixed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-crash)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-defaults)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-entry)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-failed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-init-fixed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-init)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-isolation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-native)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-oom)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-ordinary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-pending-fixed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-pending)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-pressure)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-shellless)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-success)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-term-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-term)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-broker-pod)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-broker)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-dependency-service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-dependency)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-force)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-grpc-good)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-grpc-wrong-service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-isolation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-live-a)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-live-b)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-protocol-exec)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-protocol-http)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-protocol-tcp)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-recover)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route-a)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route-b)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route-client)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-12)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-20)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-6)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-over)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term-client)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term-main)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term-spare)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-recreate)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/isolation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/observer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rc-other)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rc-stable)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rc)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rs-other)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rs-stable)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rs)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-v2)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-bad-business)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-bad-probe)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-capacity)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-scaled-three)
+
+TASK [验证 ha-deployment 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-deployment）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-deployment）] **************************
+skipping: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+skipping: [localhost]
+
+TASK [真实 API 准入检查（ha-deployment）] **************************************
+ok: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-deployment）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-deployment）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-deployment）] *******************************************
+skipping: [localhost]
+
+TASK [验证 ha-observer 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-observer）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-observer）] ****************************
+skipping: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+skipping: [localhost]
+
+TASK [真实 API 准入检查（ha-observer）] ****************************************
+ok: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-observer）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-observer）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-observer）] *********************************************
+skipping: [localhost]
+
+TASK [验证 ha-proof 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-proof）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-proof）] *******************************
+skipping: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+skipping: [localhost]
+
+TASK [真实 API 准入检查（ha-proof）] *******************************************
+ok: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-proof）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-proof）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-proof）] ************************************************
+skipping: [localhost]
+
+TASK [验证 ha-service 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-service）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-service）] *****************************
+skipping: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+skipping: [localhost]
+
+TASK [真实 API 准入检查（ha-service）] *****************************************
+ok: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-service）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-service）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-service）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p04-app 的源资源清单] ***********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-app）] *************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+[ERROR]: Task failed: Finalization of task args for 'ansible.builtin.set_fact' failed: Error while resolving value for 'resource_object': The filter plugin 'ansible.builtin.from_yaml' failed: while parsing a block mapping
+  in "<unicode string>", line 13, column 3
+did not find expected key
+  in "<unicode string>", line 14, column 5
+
+Task failed.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/resource.yml:11:3
+
+ 9   register: resource_render
+10
+11 - name: 读取渲染后的资源身份
+     ^ column 3
+
+<<< caused by >>>
+
+Finalization of task args for 'ansible.builtin.set_fact' failed.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/resource.yml:12:3
+
+10
+11 - name: 读取渲染后的资源身份
+12   ansible.builtin.set_fact:
+     ^ column 3
+
+<<< caused by >>>
+
+Error while resolving value for 'resource_object': The filter plugin 'ansible.builtin.from_yaml' failed: while parsing a block mapping
+  in "<unicode string>", line 13, column 3
+did not find expected key
+  in "<unicode string>", line 14, column 5
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/resource.yml:13:22
+
+11 - name: 读取渲染后的资源身份
+12   ansible.builtin.set_fact:
+13     resource_object: "{{ lookup('file', resource_render.dest) | from_yaml }}"
+                        ^ column 22
+
+fatal: [localhost]: FAILED! => {"changed": false, "msg": "Task failed: Finalization of task args for 'ansible.builtin.set_fact' failed: Error while resolving value for 'resource_object': The filter plugin 'ansible.builtin.from_yaml' failed: while parsing a block mapping\n  in \"<unicode string>\", line 13, column 3\ndid not find expected key\n  in \"<unicode string>\", line 14, column 5"}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=112  changed=11   unreachable=0    failed=1    skipped=24   rescued=0    ignored=0   
+

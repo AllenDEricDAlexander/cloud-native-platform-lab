@@ -1,0 +1,885 @@
+{
+  "deployments": {
+    "stable": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-10-18T04:06:21Z",
+        "generation": 1,
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-controller-lab",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+          "cnpl.io/controller-stage": "split"
+        },
+        "name": "p06-stable",
+        "namespace": "lab-core",
+        "resourceVersion": "175052",
+        "uid": "6e5dc84b-f2eb-4854-8999-6e6f937feb6a"
+      },
+      "spec": {
+        "minReadySeconds": 3,
+        "progressDeadlineSeconds": 45,
+        "replicas": 2,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "cnpl.io/controller-pool": "stable",
+            "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "cnpl.io/template-note": "baseline"
+            },
+            "labels": {
+              "app.kubernetes.io/part-of": "cnpl-controller-lab",
+              "cnpl.io/controller-pool": "stable",
+              "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+              "cnpl.io/controller-stage": "split"
+            }
+          },
+          "spec": {
+            "affinity": {
+              "nodeAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": {
+                  "nodeSelectorTerms": [
+                    {
+                      "matchExpressions": [
+                        {
+                          "key": "kubernetes.io/hostname",
+                          "operator": "In",
+                          "values": [
+                            "worker01.k8s.internal.egon.top",
+                            "worker02.k8s.internal.egon.top"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "command": [
+                  "/controller-app",
+                  "server"
+                ],
+                "env": [
+                  {
+                    "name": "POD_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.name"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POD_UID",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.uid"
+                      }
+                    }
+                  },
+                  {
+                    "name": "FORCE_NOT_READY",
+                    "value": "false"
+                  }
+                ],
+                "image": "cnpl.local/phase01/controller-lab@sha256:b83750330581bc05bf87d143718584456d37ba07f2ddd8a83bebdc3d6914f8a5",
+                "imagePullPolicy": "Never",
+                "lifecycle": {
+                  "preStop": {
+                    "exec": {
+                      "command": [
+                        "/controller-app",
+                        "prestop",
+                        "5"
+                      ]
+                    }
+                  }
+                },
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/live",
+                    "port": 8080,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "name": "app",
+                "readinessProbe": {
+                  "failureThreshold": 1,
+                  "httpGet": {
+                    "path": "/ready",
+                    "port": 8080,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "ephemeral-storage": "32Mi",
+                    "memory": "128Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "ephemeral-storage": "1Mi",
+                    "memory": "32Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true
+                },
+                "startupProbe": {
+                  "failureThreshold": 15,
+                  "httpGet": {
+                    "path": "/startup",
+                    "port": 8080,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/work",
+                    "name": "work"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 25,
+            "topologySpreadConstraints": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "cnpl.io/controller-pool": "stable",
+                    "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+                  }
+                },
+                "maxSkew": 1,
+                "topologyKey": "kubernetes.io/hostname",
+                "whenUnsatisfiable": "ScheduleAnyway"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {
+                  "sizeLimit": "32Mi"
+                },
+                "name": "work"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 2,
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-18T04:06:30Z",
+            "lastUpdateTime": "2026-10-18T04:06:30Z",
+            "message": "Deployment has minimum availability.",
+            "reason": "MinimumReplicasAvailable",
+            "status": "True",
+            "type": "Available"
+          },
+          {
+            "lastTransitionTime": "2026-10-18T04:06:21Z",
+            "lastUpdateTime": "2026-10-18T04:06:30Z",
+            "message": "ReplicaSet \"p06-stable-5867ddc6b8\" has successfully progressed.",
+            "reason": "NewReplicaSetAvailable",
+            "status": "True",
+            "type": "Progressing"
+          }
+        ],
+        "observedGeneration": 1,
+        "readyReplicas": 2,
+        "replicas": 2,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 2
+      }
+    },
+    "canary": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-10-18T04:06:37Z",
+        "generation": 1,
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-controller-lab",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+          "cnpl.io/controller-stage": "split"
+        },
+        "name": "p06-canary",
+        "namespace": "lab-core",
+        "resourceVersion": "175178",
+        "uid": "d871034b-bf46-4359-9892-34d65ee68c68"
+      },
+      "spec": {
+        "minReadySeconds": 3,
+        "progressDeadlineSeconds": 45,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "cnpl.io/controller-pool": "canary",
+            "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "cnpl.io/template-note": "baseline"
+            },
+            "labels": {
+              "app.kubernetes.io/part-of": "cnpl-controller-lab",
+              "cnpl.io/controller-pool": "canary",
+              "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+              "cnpl.io/controller-stage": "split"
+            }
+          },
+          "spec": {
+            "affinity": {
+              "nodeAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": {
+                  "nodeSelectorTerms": [
+                    {
+                      "matchExpressions": [
+                        {
+                          "key": "kubernetes.io/hostname",
+                          "operator": "In",
+                          "values": [
+                            "worker01.k8s.internal.egon.top",
+                            "worker02.k8s.internal.egon.top"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "command": [
+                  "/controller-app",
+                  "server"
+                ],
+                "env": [
+                  {
+                    "name": "POD_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.name"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POD_UID",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.uid"
+                      }
+                    }
+                  },
+                  {
+                    "name": "FORCE_NOT_READY",
+                    "value": "false"
+                  }
+                ],
+                "image": "cnpl.local/phase01/controller-lab@sha256:0d4294b3c8e77a1d0dc7f5ea8c5d42e82db9094b948b53290616ae1cdb82fffd",
+                "imagePullPolicy": "Never",
+                "lifecycle": {
+                  "preStop": {
+                    "exec": {
+                      "command": [
+                        "/controller-app",
+                        "prestop",
+                        "5"
+                      ]
+                    }
+                  }
+                },
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/live",
+                    "port": 8080,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "name": "app",
+                "readinessProbe": {
+                  "failureThreshold": 1,
+                  "httpGet": {
+                    "path": "/ready",
+                    "port": 8080,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "ephemeral-storage": "32Mi",
+                    "memory": "128Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "ephemeral-storage": "1Mi",
+                    "memory": "32Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true
+                },
+                "startupProbe": {
+                  "failureThreshold": 15,
+                  "httpGet": {
+                    "path": "/startup",
+                    "port": 8080,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/work",
+                    "name": "work"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "fsGroup": 1000,
+              "runAsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 25,
+            "topologySpreadConstraints": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "cnpl.io/controller-pool": "canary",
+                    "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+                  }
+                },
+                "maxSkew": 1,
+                "topologyKey": "kubernetes.io/hostname",
+                "whenUnsatisfiable": "ScheduleAnyway"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {
+                  "sizeLimit": "32Mi"
+                },
+                "name": "work"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-18T04:06:48Z",
+            "lastUpdateTime": "2026-10-18T04:06:48Z",
+            "message": "Deployment has minimum availability.",
+            "reason": "MinimumReplicasAvailable",
+            "status": "True",
+            "type": "Available"
+          },
+          {
+            "lastTransitionTime": "2026-10-18T04:06:37Z",
+            "lastUpdateTime": "2026-10-18T04:06:48Z",
+            "message": "ReplicaSet \"p06-canary-5bb95697d4\" has successfully progressed.",
+            "reason": "NewReplicaSetAvailable",
+            "status": "True",
+            "type": "Progressing"
+          }
+        ],
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 1
+      }
+    }
+  },
+  "responses": {
+    "stable": {
+      "observations": [
+        {
+          "at": 1792296395.5139048,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.003531147Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.114321,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.215092171Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-8cbz9",
+            "result": "completed",
+            "uid": "ba03d3a5-7e87-42f4-aa79-c6e6b9d608d9",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.3218591,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.422890791Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.529901,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.629940103Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-8cbz9",
+            "result": "completed",
+            "uid": "ba03d3a5-7e87-42f4-aa79-c6e6b9d608d9",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.7354,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.836388671Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.94284,
+          "response": {
+            "completed_at": "2026-10-18T04:06:37.043542846Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        }
+      ],
+      "stable": [
+        {
+          "at": 1792296395.5139048,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.003531147Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.114321,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.215092171Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-8cbz9",
+            "result": "completed",
+            "uid": "ba03d3a5-7e87-42f4-aa79-c6e6b9d608d9",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.3218591,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.422890791Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.529901,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.629940103Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-8cbz9",
+            "result": "completed",
+            "uid": "ba03d3a5-7e87-42f4-aa79-c6e6b9d608d9",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.7354,
+          "response": {
+            "completed_at": "2026-10-18T04:06:36.836388671Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296396.94284,
+          "response": {
+            "completed_at": "2026-10-18T04:06:37.043542846Z",
+            "id": "check",
+            "pod": "p06-stable-5867ddc6b8-5txk5",
+            "result": "completed",
+            "uid": "a6641133-9268-4dd2-951d-8f4b217b8ec3",
+            "version": "v1"
+          },
+          "ok": true
+        }
+      ]
+    },
+    "canary": {
+      "observations": [
+        {
+          "at": 1792296413.8032498,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.123208902Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.2336059,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.334444359Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.4440389,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.544617151Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.650442,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.750828921Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.860627,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.96088767Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296415.0704699,
+          "response": {
+            "completed_at": "2026-10-18T04:06:55.17113776Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        }
+      ],
+      "stable": [
+        {
+          "at": 1792296413.8032498,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.123208902Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.2336059,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.334444359Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.4440389,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.544617151Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.650442,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.750828921Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296414.860627,
+          "response": {
+            "completed_at": "2026-10-18T04:06:54.96088767Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        },
+        {
+          "at": 1792296415.0704699,
+          "response": {
+            "completed_at": "2026-10-18T04:06:55.17113776Z",
+            "id": "check",
+            "pod": "p06-canary-5bb95697d4-7sqww",
+            "result": "completed",
+            "uid": "637200a1-b12e-4d67-aa54-ec7d8253c9e2",
+            "version": "v2"
+          },
+          "ok": true
+        }
+      ]
+    }
+  },
+  "services": [
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T04:06:21Z",
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-controller-lab",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+          "cnpl.io/controller-stage": "split"
+        },
+        "name": "p06-stable",
+        "namespace": "lab-core",
+        "resourceVersion": "174979",
+        "uid": "431d3b1c-29c4-44a9-b275-aa5151613adb"
+      },
+      "spec": {
+        "clusterIP": "192.168.20.33",
+        "clusterIPs": [
+          "192.168.20.33"
+        ],
+        "internalTrafficPolicy": "Cluster",
+        "ipFamilies": [
+          "IPv4"
+        ],
+        "ipFamilyPolicy": "SingleStack",
+        "ports": [
+          {
+            "port": 8080,
+            "protocol": "TCP",
+            "targetPort": 8080
+          }
+        ],
+        "selector": {
+          "cnpl.io/controller-pool": "stable",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T04:06:37Z",
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-controller-lab",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04",
+          "cnpl.io/controller-stage": "split"
+        },
+        "name": "p06-canary",
+        "namespace": "lab-core",
+        "resourceVersion": "175108",
+        "uid": "cd11b308-ddec-4ee2-a2f0-c3667476e69b"
+      },
+      "spec": {
+        "clusterIP": "192.168.20.195",
+        "clusterIPs": [
+          "192.168.20.195"
+        ],
+        "internalTrafficPolicy": "Cluster",
+        "ipFamilies": [
+          "IPv4"
+        ],
+        "ipFamilyPolicy": "SingleStack",
+        "ports": [
+          {
+            "port": 8080,
+            "protocol": "TCP",
+            "targetPort": 8080
+          }
+        ],
+        "selector": {
+          "cnpl.io/controller-pool": "canary",
+          "cnpl.io/controller-run": "20261018t035728-130082z-7b8a04"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  ],
+  "weighted_routing_verified": false,
+  "stage": "split",
+  "run": "20261018t035728-130082z-7b8a04",
+  "passed": true,
+  "at": "20261018T040700.726725Z-e96eb4"
+}

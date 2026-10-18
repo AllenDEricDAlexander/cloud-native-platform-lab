@@ -1,0 +1,20 @@
+---
+- name: 核对回滚目标仍属于本批
+  ansible.builtin.include_tasks: get.yml
+  vars: {get_kind: deployment, get_name: p06-main}
+- name: 拒绝跨批次回滚
+  ansible.builtin.assert:
+    that: replay_object.metadata.labels['cnpl.io/replay-run'] == replay_run
+- name: 原生回滚到本轮记录的已知 revision（不写死编号）
+  ansible.builtin.command:
+    argv: "{{ replay_k + ['-n', replay_namespace, 'rollout', 'undo', 'deployment/p06-main', '--to-revision=' ~ (good_revision | string)] }}"
+  changed_when: true
+- name: 核对回滚后的 RS/Pod 与控制器共同恢复
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars: {deployment_count: '{{ good_replicas | default(2) }}'}
+- name: 比较完整模板，不只比较镜像
+  ansible.builtin.assert:
+    that: deployment_state.deployment.spec.template == good_template
+- name: 检查真实业务连续恢复
+  ansible.builtin.include_tasks: samples.yml
+  vars: {sample_id: 'restored-{{ restore_id }}', sample_version: '{{ restore_version | default("v2") }}'}

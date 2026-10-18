@@ -1,0 +1,91 @@
+---
+- name: 读取 CoreDNS 的现有硬调度规则
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'kube-system', 'get', 'deployment/coredns', '-o', 'json'] }}"
+  register: dns_before
+  changed_when: false
+- name: 不能覆盖其他硬调度约束
+  ansible.builtin.assert:
+    that:
+      - (dns_before.stdout | from_json).spec.replicas == 2
+      - (dns_before.stdout | from_json).spec.template.metadata.labels['k8s-app'] == 'kube-dns'
+      - (dns_before.stdout | from_json).spec.template.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution | default([]) in [[], dns_required]
+  vars:
+    dns_required: [{labelSelector: {matchLabels: {k8s-app: kube-dns}}, topologyKey: kubernetes.io/hostname}]
+- name: 原生 kubectl 使用源码文件补充 CoreDNS 分散规则
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'kube-system', 'patch', 'deployment', 'coredns', '--type=merge', '--patch-file=' ~ replay_root ~ '/ops/01-kubernetes/operations/manifests/coredns-placement-patch.yml'] }}"
+  register: dns_patch
+  changed_when: "'no change' not in dns_patch.stdout"
+- name: 等待 CoreDNS 两副本就绪
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'kube-system', 'rollout', 'status', 'deployment/coredns', '--timeout=180s'] }}"
+  changed_when: false
+- name: 读取 CoreDNS 实际落点
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'kube-system', 'get', 'pods', '-l', 'k8s-app=kube-dns', '-o', 'json'] }}"
+  register: dns_pods
+  changed_when: false
+- name: 必须跨两个节点并全部 Ready
+  ansible.builtin.assert:
+    that:
+      - dns_active | length == 2
+      - dns_active | map(attribute='spec.nodeName') | unique | list | length == 2
+      - dns_active | map(attribute='status.containerStatuses') | flatten | map(attribute='ready') | list == [true, true]
+  vars:
+    dns_active: "{{ (dns_pods.stdout | from_json)['items'] | rejectattr('metadata.deletionTimestamp', 'defined') | list }}"
+- name: 读取验收 Namespace 归属（续跑只回收本批）
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['get', 'namespace', 'cnpl-phase01-acceptance', '--ignore-not-found', '-o', 'json'] }}"
+  register: dns_namespace
+  changed_when: false
+- name: 拒绝接管其他批次验收资源
+  ansible.builtin.assert:
+    that: dns_namespace.stdout == '' or (dns_namespace.stdout | from_json).metadata.labels.get('cnpl.io/replay-run', '') == replay_run
+- name: 保存上次本批网络现场
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'cnpl-phase01-acceptance', 'get', 'pods,daemonsets,services,events', '-o', 'json'] }}"
+  register: dns_previous
+  changed_when: false
+  when: dns_namespace.stdout != ''
+- name: 归档上次本批网络现场
+  ansible.builtin.copy:
+    content: '{{ dns_previous.stdout }}'
+    dest: '{{ replay_attempt }}/observations/03-network-previous.json'
+    mode: '0600'
+  when: dns_namespace.stdout != ''
+- name: 回收上次本批临时 Namespace
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['delete', 'namespace', 'cnpl-phase01-acceptance', '--wait=true', '--timeout=120s'] }}"
+  when: dns_namespace.stdout != ''
+  changed_when: true
+- name: 渲染源码网络验收 YAML
+  ansible.builtin.template:
+    src: '{{ replay_root }}/ops/01-kubernetes/operations/manifests/network-smoke.yaml.j2'
+    dest: '{{ replay_attempt }}/manifests/network-smoke.yaml'
+    mode: '0600'
+- name: 原生创建十节点诊断 DaemonSet 和 Service
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['create', '-f', replay_attempt ~ '/manifests/network-smoke.yaml'] }}"
+  changed_when: true
+- name: 等待十节点普通 Pod 就绪
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'cnpl-phase01-acceptance', 'rollout', 'status', 'daemonset/network-smoke', '--timeout=180s'] }}"
+  changed_when: false
+- name: 只读网络验收：100 条 Pod 路径、DNS 和 Service 短名
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/bootstrap/acceptance/check-network.py', --short-name]
+  register: dns_network
+  changed_when: false
+- name: 保存网络验收输出
+  ansible.builtin.copy:
+    content: '{{ dns_network.stdout }}'
+    dest: '{{ replay_attempt }}/observations/03-network.txt'
+    mode: '0600'
+- name: 原生清理本次十节点临时资源
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['delete', 'namespace', 'cnpl-phase01-acceptance', '--wait=true', '--timeout=120s'] }}"
+  changed_when: true
+- name: DNS 与网络检查点
+  ansible.builtin.include_tasks: checkpoint.yml
+  vars: {replay_topic: '03', replay_case: dns}

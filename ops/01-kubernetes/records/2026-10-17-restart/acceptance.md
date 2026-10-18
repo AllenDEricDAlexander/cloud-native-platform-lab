@@ -33,7 +33,7 @@
 | 01.05.04 PreStop/TERM 与补偿 | 同上 | 12 秒请求/消息排空；6 秒宽限反例 | UID 回执与 Completed/0；强杀后消息重投去重 | [终止与消息回执](evidence/01.05-20261017-224949/receipts/termination.json)：长请求和消息在 TERM 后完成，补偿 attempts=2/effects=1 | 通过 |
 | 01.05.05 协议比较 | 同上 | HTTP/TCP/Exec/原生 gRPC | 判定和误判可区分 | [协议证据](evidence/01.05-20261017-224949/receipts/protocols.json)：TCP 漏报业务故障，错误 gRPC service 报 NotFound | 通过 |
 | 01.05 总体验收与清理 | [run.sh](../../core-resources/probes/run.sh) | verify / cleanup | 两条总 PASS，实验对象与 EndpointSlice 零残留 | [验收](evidence/01.05-20261017-224949/receipts/verify.json)、[清理](evidence/01.05-20261017-224949/cleanup-confirm.json)、[检查点只读复核](evidence/01.05-checkpoint-verification.json)通过 | 通过 |
-| 01.06–01.10 其余核心资源实验 | [阶段计划](../../../../plan/01-kubernetes.md) | 按 47 步逐项实施 | 全部要求有真实证据 | 尚未推进 | 未执行 |
+| 01.07–01.10 其余核心资源实验 | [阶段计划](../../../../plan/01-kubernetes.md) | 按 47 步逐项实施 | 全部要求有真实证据 | 01.07–01.10 尚未推进 | 未执行 |
 
 ## 3. 恢复与清理
 
@@ -43,7 +43,7 @@
 
 ## 4. 未完成项与结论
 
-备份/取回、离线快照展开、CoreDNS 分散及单 VM HA 已通过；01.03.01 短名补测已通过。01.04.01–05、01.05.01–05 的真实实验、总验收及清理全部通过，可以准备 01.06。规划 .15 管理机分发/登录仍待交付。Phase 01 **未完整完成**；实际物理故障域、启动新 etcd 的在线隔离服务恢复、整集群灾难重建及恢复后 Secret/审计行为不属于本次通过范围。
+备份/取回、离线快照展开、CoreDNS 分散及单 VM HA 已通过；01.03.01 短名补测已通过。01.04.01–05、01.05.01–05 的真实实验、总验收及清理全部通过；01.06 六组、总验收和清理也已通过。规划 .15 管理机分发/登录仍待交付。Phase 01 **未完整完成**；实际物理故障域、启动新 etcd 的在线隔离服务恢复、整集群灾难重建及恢复后 Secret/审计行为不属于本次通过范围。
 
 ## 5. 01.04 实验小结
 
@@ -70,3 +70,11 @@
 - 协议：HTTP/Exec 可识别应用层失败，TCP 端口检查可能仍成功；原生 gRPC 的错误 service 导致 NotFound，即使 etcdctl 证明业务仍健康。需要区分健康信号、探针配置错误和进程失活。
 
 本批 Pod、Service、NetworkPolicy 和派生 EndpointSlice 均为零残留；lab-core、RBAC 与受控物料缓存保留。消息演示只证明实验 broker 内的租约和幂等提交，不代表已交付生产消息系统、持久化或任意外部事务的恰好一次语义。
+
+## 7. 01.06 实验小结
+
+用户完成 `01.06-20261017-235634`，实际 run 为 `20261018t035728-130082z-7b8a04`。已核对 replicas、history、scale、strategies、rollbacks、split、verify、cleanup 八个通过标记，各组回执归属正确，实际源码快照 SHA 匹配归档原实现。[原始状态](evidence/01.06-20261017-235634/state.json)、[清理记录](evidence/01.06-20261017-235634/cleanup-confirm.json)保留原值。
+
+六组实验验证 RC/RS 的匹配孤儿接管和补齐；模板更新与 scale 对 revision/RS 的不同影响；缩容请求排空、幸存者与新 emptyDir；两种更新策略及 surge 容量阻塞；暂停与三类失败的完整模板/业务回滚；stable/canary 独立入口。RollingUpdate 本轮 127 次请求、0 失败，Recreate 51 次请求、6 失败；这是本次观测结果，不代表固定中断承诺。最终对象和 EndpointSlice 均为空。
+
+此次按用户要求把 01.03–01.06 改为源码 YAML、Ansible 执行、Python 必要检查。旧原始证据 1183 个文件与旧源码 38 个文件逐份建 SHA 索引；未修改任何原始状态、回执、失败或源码快照。新实现的重跑与本节原始验收分开记账，见 [新批手册](../2026-10-18-ansible-replay/README.md)。01.07 尚未开始。

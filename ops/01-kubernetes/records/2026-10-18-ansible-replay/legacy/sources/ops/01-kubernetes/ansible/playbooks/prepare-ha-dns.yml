@@ -1,0 +1,59 @@
+# 由用户显式执行：单节点引导留下的两 CoreDNS 同节点布局，须在 HA 实验前滚动分散。
+- name: 在不同节点放置 CoreDNS 副本
+  hosts: localhost
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 读取当前 CoreDNS 和 Pod 布局
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', -n, kube-system, get, deployment/coredns, -o, json]
+      register: phase01_dns_before
+      changed_when: false
+
+    - name: 保持两副本，已有其他硬调度规则时停止而不覆盖
+      ansible.builtin.assert:
+        that:
+          - current.spec.replicas == 2
+          - current.spec.template.metadata.labels['k8s-app'] == 'kube-dns'
+          - (current.spec.template.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution | default([])) in [[], required]
+      vars:
+        current: '{{ phase01_dns_before.stdout | from_json }}'
+        required: [{labelSelector: {matchLabels: {k8s-app: kube-dns}}, topologyKey: kubernetes.io/hostname}]
+
+    - name: 增加按节点分散的硬反亲和（保留现有其他配置）
+      ansible.builtin.command:
+        argv:
+          - '{{ phase01_client_bin }}/kubectl'
+          - --kubeconfig
+          - '{{ phase01_kubeconfig }}'
+          - -n
+          - kube-system
+          - patch
+          - deployment
+          - coredns
+          - --type=merge
+          - --patch
+          - '{{ {"spec": {"template": {"spec": {"affinity": {"podAntiAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": [{"labelSelector": {"matchLabels": {"k8s-app": "kube-dns"}}, "topologyKey": "kubernetes.io/hostname"}]}}}}}} | to_json }}'
+      register: phase01_dns_patch
+      changed_when: "'no change' not in phase01_dns_patch.stdout"
+
+    - name: 等待 CoreDNS 滚动更新完成
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', -n, kube-system, rollout, status, deployment/coredns, --timeout=5m]
+      changed_when: false
+
+    - name: 读取更新后的就绪 Pod
+      ansible.builtin.command:
+        argv: ['{{ phase01_client_bin }}/kubectl', --kubeconfig, '{{ phase01_kubeconfig }}', -n, kube-system, get, pods, -l, k8s-app=kube-dns, -o, json]
+      register: phase01_dns_pods
+      changed_when: false
+
+    - name: 确认两副本已就绪且不在同一节点
+      ansible.builtin.assert:
+        that:
+          - active | length == 2
+          - active | map(attribute='spec.nodeName') | unique | list | length == 2
+          - active | map(attribute='status.containerStatuses') | flatten | map(attribute='ready') | list == [true, true]
+      vars:
+        active: "{{ (phase01_dns_pods.stdout | from_json)['items'] | rejectattr('metadata.deletionTimestamp', 'defined') | list }}"

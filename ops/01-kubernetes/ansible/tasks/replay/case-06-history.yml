@@ -1,0 +1,56 @@
+---
+- name: controllers-baseline.yml
+  ansible.builtin.include_tasks: controllers-baseline.yml
+- name: 记录初始 revision 与 RS
+  ansible.builtin.set_fact:
+    history_v1: '{{ deployment_state }}'
+- name: main-v2
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: main-v2
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: apply
+    workload_image: '{{ controller_images.v2.image }}'
+    variant: v2
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+- name: 检查真实业务 v2
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: v2
+    sample_version: v2
+    sample_pod: p06-client
+- name: 记录 v2 的 revision 与 RS
+  ansible.builtin.set_fact:
+    history_v2: '{{ deployment_state }}'
+- name: 改镜像产生新 revision 和 RS
+  ansible.builtin.assert:
+    that:
+    - (history_v2.deployment.metadata.annotations['deployment.kubernetes.io/revision'] | int) > (history_v1.deployment.metadata.annotations['deployment.kubernetes.io/revision']
+      | int)
+    - history_v2.replicasets | length > history_v1.replicasets | length
+- name: 仅手动扩容到 3，不修改模板
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''scale'', ''deployment/p06-main'', ''--replicas=3''] }}'
+  changed_when: true
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars:
+    deployment_count: 3
+- name: 仅 scale 不新增 RS 或 revision
+  ansible.builtin.assert:
+    that:
+    - deployment_state.deployment.metadata.annotations['deployment.kubernetes.io/revision'] == history_v2.deployment.metadata.annotations['deployment.kubernetes.io/revision']
+    - deployment_state.replicasets | map(attribute='metadata.uid') | sort == history_v2.replicasets | map(attribute='metadata.uid')
+      | sort
+- name: 原生查看历史
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''rollout'', ''history'', ''deployment/p06-main''] }}'
+  changed_when: false
+  register: history_text
+- name: 保存 history
+  ansible.builtin.copy:
+    content: '{{ {''v1'': history_v1, ''v2'': history_v2, ''scaled'': deployment_state, ''history'': history_text.stdout}
+      | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-history.json'
+    mode: '0600'

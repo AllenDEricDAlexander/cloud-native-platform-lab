@@ -1,0 +1,52 @@
+---
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-term-app.yaml.j2
+    resource_id: p04-term-app
+    resource_action: create
+    resource_admin: false
+- name: resource.yml
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/pods/manifests/p04-term.yaml.j2
+    resource_id: p04-term
+    resource_action: create
+    resource_admin: false
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p04-term
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 只保留本实验终态 API 对象
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p04-term'', ''--type=merge'', ''-p'', ''{"metadata":{"finalizers":["cnpl.io/replay-observe-stop"]}}'']
+      }}'
+  changed_when: true
+- name: 触发 kubelet 正常终止
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''delete'', ''pod'', ''p04-term'', ''--wait=false''] }}'
+  changed_when: true
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p04-term
+    wait_field: '{.status.containerStatuses[0].state.terminated.exitCode}'
+    wait_values:
+    - '0'
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p04-term
+- name: term-check.yml
+  ansible.builtin.include_tasks: term-check.yml
+  vars:
+    term_id: busybox
+    term_pod: '{{ replay_object }}'
+- name: 核验后释放终态观察标记
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p04-term'', ''--type=merge'', ''-p'', ''{"metadata":{"finalizers":[]}}'']
+      }}'
+  changed_when: true

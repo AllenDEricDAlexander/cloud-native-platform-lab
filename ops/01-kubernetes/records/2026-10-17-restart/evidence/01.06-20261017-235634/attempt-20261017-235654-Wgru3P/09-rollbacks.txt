@@ -1,0 +1,15 @@
+p06-main: desired=2 updated=2 ready=2 available=2
+暂停发布，在暂停中修改并修正模板，确认没有生成新 RS 后恢复
+p06-main: desired=2 updated=2 ready=2 available=2
+发布失败场景：image
+等待真实 ProgressDeadlineExceeded；配置期限 45 秒，保留最多 120 秒观察窗口
+恢复已知模板：kubectl rollout undo deployment/p06-main --to-revision=2
+p06-main: desired=2 updated=2 ready=2 available=2
+发布失败场景：probe
+恢复已知模板：kubectl rollout undo deployment/p06-main --to-revision=4
+p06-main: desired=2 updated=2 ready=2 available=2
+发布失败场景：business
+p06-main: desired=2 updated=2 ready=2 available=2
+恢复已知模板：kubectl rollout undo deployment/p06-main --to-revision=6
+p06-main: desired=2 updated=2 ready=2 available=2
+ROLLBACKS PASS

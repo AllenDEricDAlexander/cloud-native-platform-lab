@@ -1,0 +1,226 @@
+---
+- name: controllers-baseline.yml
+  ansible.builtin.include_tasks: controllers-baseline.yml
+- name: 记录暂停前的 RS UID 集合
+  ansible.builtin.set_fact:
+    paused_rs: '{{ deployment_state.replicasets | map(attribute=''metadata.uid'') | list }}'
+- name: 暂停 Deployment 发布
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''rollout'', ''pause'', ''deployment/p06-main''] }}'
+  changed_when: true
+- name: paused-bad
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: paused-bad
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: apply
+    workload_image: '{{ controller_images.v2.image }}'
+    variant: v2
+    not_ready: 'true'
+- name: paused-fixed
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: paused-fixed
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: apply
+    workload_image: '{{ controller_images.v2.image }}'
+    variant: v2
+    not_ready: 'false'
+    template_note: paused-batch
+- name: 留出控制器观测窗口
+  ansible.builtin.pause:
+    seconds: 5
+- name: 读取暂停期间的 RS
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''replicasets'', ''-l'', ''cnpl.io/replay-run='' ~ replay_run
+      ~ '',cnpl.io/replay-case=rollbacks'', ''-o'', ''json''] }}'
+  changed_when: false
+  register: paused_sets
+- name: 暂停期间没有创建新 RS
+  ansible.builtin.assert:
+    that:
+    - ((paused_sets.stdout | from_json)['items'] | map(attribute='metadata.uid') | sort) == (paused_rs | sort)
+- name: 检查真实业务 paused-v1
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: paused-v1
+    sample_version: v1
+    sample_pod: p06-client
+- name: 恢复发布最终修正后的模板
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''rollout'', ''resume'', ''deployment/p06-main''] }}'
+  changed_when: true
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+- name: 检查真实业务 resumed-v2
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: resumed-v2
+    sample_version: v2
+    sample_pod: p06-client
+- name: 记录本次 image 反例的已知完整模板和 revision
+  ansible.builtin.set_fact:
+    good_revision: '{{ deployment_state.deployment.metadata.annotations[''deployment.kubernetes.io/revision''] }}'
+    good_template: '{{ deployment_state.deployment.spec.template }}'
+- name: bad-image
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: bad-image
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: apply
+    workload_image: cnpl.local/phase01/controller-missing@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    variant: bad-image
+    template_note: paused-batch
+- name: 观察 ErrImageNeverPull（预期故障）
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''pods'', ''-l'', ''cnpl.io/replay-run='' ~ replay_run ~ '',cnpl.io/replay-variant=bad-image'',
+      ''-o'', ''jsonpath={.items[0].status.containerStatuses[0].state.waiting.reason}''] }}'
+  changed_when: false
+  until: image_failure.rc == 0 and image_failure.stdout == 'ErrImageNeverPull'
+  retries: 60
+  delay: 2
+  register: image_failure
+- name: 等待 45 秒进度期限后的 ProgressDeadlineExceeded
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''deployment'', ''p06-main'', ''-o'', ''jsonpath={.status.conditions[?(@.type=="Progressing")].reason}'']
+      }}'
+  changed_when: false
+  until: deadline_failure.rc == 0 and deadline_failure.stdout == 'ProgressDeadlineExceeded'
+  retries: 60
+  delay: 2
+  register: deadline_failure
+- name: 读取 deployment/p06-main
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: deployment
+    get_name: p06-main
+- name: 失败版本仍在模板中，控制器没有自动回滚
+  ansible.builtin.assert:
+    that:
+    - '''controller-missing@'' in replay_object.spec.template.spec.containers[0].image'
+- name: 检查真实业务 old-v2-during-image-failure
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: old-v2-during-image-failure
+    sample_version: v2
+    sample_pod: p06-client
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 保存原生发布历史
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''rollout'', ''history'', ''deployment/p06-main''] }}'
+  changed_when: false
+  register: failure_history
+- name: 保存 failure-image
+  ansible.builtin.copy:
+    content: '{{ {''good_revision'': good_revision, ''good_template'': good_template, ''history'': failure_history.stdout}
+      | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-failure-image.json'
+    mode: '0600'
+- name: undo.yml
+  ansible.builtin.include_tasks: undo.yml
+  vars:
+    restore_id: image
+- name: 记录本次 probe 反例的已知完整模板和 revision
+  ansible.builtin.set_fact:
+    good_revision: '{{ deployment_state.deployment.metadata.annotations[''deployment.kubernetes.io/revision''] }}'
+    good_template: '{{ deployment_state.deployment.spec.template }}'
+- name: bad-probe
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: bad-probe
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: apply
+    workload_image: '{{ controller_images.v2.image }}'
+    variant: bad-probe
+    template_note: paused-batch
+    not_ready: 'true'
+- name: 观察新容器启动后仍 NotReady
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''pods'', ''-l'', ''cnpl.io/replay-run='' ~ replay_run ~ '',cnpl.io/replay-variant=bad-probe'',
+      ''-o'', ''json''] }}'
+  changed_when: false
+  until: probe_failure.rc == 0 and ((probe_failure.stdout | from_json)['items'] | length > 0) and ((probe_failure.stdout |
+    from_json)['items'][0].status.containerStatuses | default([]) | selectattr('started', 'defined') | selectattr('started',
+    'equalto', true) | list | length > 0)
+  retries: 90
+  delay: 2
+  register: probe_failure
+- name: 保存失败探针的实际 Pod
+  ansible.builtin.set_fact:
+    bad_probe_pod: '{{ (probe_failure.stdout | from_json)[''items''][0] }}'
+- name: 读取该 UID 的 readiness 503 事件
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''get'', ''events'', ''--field-selector'', ''involvedObject.uid='' ~ bad_probe_pod.metadata.uid,
+      ''-o'', ''json''] }}'
+  changed_when: false
+  until: probe_events.rc == 0 and 'Readiness probe failed' in probe_events.stdout and '503' in probe_events.stdout
+  retries: 30
+  delay: 1
+  register: probe_events
+- name: readiness 失败没有触发容器重启
+  ansible.builtin.assert:
+    that:
+    - bad_probe_pod.status.containerStatuses[0].restartCount == 0
+- name: 检查真实业务 old-v2-during-probe-failure
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: old-v2-during-probe-failure
+    sample_version: v2
+    sample_pod: p06-client
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 保存原生发布历史
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''rollout'', ''history'', ''deployment/p06-main''] }}'
+  changed_when: false
+  register: failure_history
+- name: 保存 failure-probe
+  ansible.builtin.copy:
+    content: '{{ {''good_revision'': good_revision, ''good_template'': good_template, ''history'': failure_history.stdout}
+      | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-failure-probe.json'
+    mode: '0600'
+- name: undo.yml
+  ansible.builtin.include_tasks: undo.yml
+  vars:
+    restore_id: probe
+- name: 记录本次 business 反例的已知完整模板和 revision
+  ansible.builtin.set_fact:
+    good_revision: '{{ deployment_state.deployment.metadata.annotations[''deployment.kubernetes.io/revision''] }}'
+    good_template: '{{ deployment_state.deployment.spec.template }}'
+- name: bad-business
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: bad-business
+    resource_source: core-resources/controllers/manifests/deployment.yaml.j2
+    resource_action: apply
+    workload_image: '{{ controller_images.bad.image }}'
+    variant: bad-business
+    template_note: paused-batch
+- name: wait-deployment.yml
+  ansible.builtin.include_tasks: wait-deployment.yml
+- name: 检查真实业务 bad-ready-business-500
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_id: bad-ready-business-500
+    sample_version: bad
+    sample_pod: p06-client
+    sample_status: 500
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 保存原生发布历史
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''rollout'', ''history'', ''deployment/p06-main''] }}'
+  changed_when: false
+  register: failure_history
+- name: 保存 failure-business
+  ansible.builtin.copy:
+    content: '{{ {''good_revision'': good_revision, ''good_template'': good_template, ''history'': failure_history.stdout}
+      | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-failure-business.json'
+    mode: '0600'
+- name: undo.yml
+  ansible.builtin.include_tasks: undo.yml
+  vars:
+    restore_id: business

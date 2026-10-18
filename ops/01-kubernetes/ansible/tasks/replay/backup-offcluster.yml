@@ -1,0 +1,85 @@
+---
+- name: 复制恢复根密钥到私有备份包
+  ansible.builtin.copy:
+    src: '{{ lookup("env","HOME") }}/.cnpl-secrets/k8s-encryption.key'
+    dest: '{{ backup_private }}/k8s-encryption.key'
+    mode: '0600'
+  no_log: true
+- name: 复制受限身份与恢复管理员材料到私有备份包
+  ansible.builtin.copy:
+    src: '{{ lookup("env","HOME") }}/.cnpl-secrets/access/lab-primary/'
+    dest: '{{ backup_private }}/access/'
+    mode: '0600'
+    directory_mode: '0700'
+  no_log: true
+- name: 建立源码输入目录
+  ansible.builtin.file: {path: '{{ backup_private }}/repository-inputs', state: directory, mode: '0700'}
+- name: 复制可重复恢复所需的库存与版本锁
+  ansible.builtin.copy:
+    src: '{{ replay_root }}/{{ item }}'
+    dest: '{{ backup_private }}/repository-inputs/{{ item | basename }}'
+    mode: '0600'
+  loop: [ops/versions.lock.yaml, ops/inventory/hosts.yaml, ops/inventory/networks.yaml, ops/inventory/resources.yaml]
+- name: 校验归档完整性并建立逐文件 SHA 索引
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', manifest, --context, '{{ replay_records }}/context.json', --directory, '{{ backup_private }}', --output, '{{ backup_private }}/manifest.json']
+  changed_when: true
+- name: 原生 restic 加密备份到集群外 .16
+  ansible.builtin.command:
+    argv: '{{ backup_restic + ["backup", "--host", "cnpl-mgmt-mac", "--tag", "phase01-control-plane", "--json", backup_private] }}'
+  register: backup_restic_result
+  changed_when: true
+  no_log: true
+- name: 提取本次准确快照 ID
+  ansible.builtin.set_fact:
+    backup_summary: '{{ backup_restic_result.stdout_lines | map("from_json") | selectattr("message_type", "equalto", "summary") | list }}'
+  no_log: true
+- name: 确保只得到一个本次快照
+  ansible.builtin.assert:
+    that:
+      - backup_summary | length == 1
+      - backup_summary[0].snapshot_id is match('^[a-f0-9]{64}$')
+- name: 按准确 ID 取回并启用 restic 验证
+  ansible.builtin.command:
+    argv: '{{ backup_restic + ["restore", backup_summary[0].snapshot_id, "--target", backup_restore, "--verify"] }}'
+  changed_when: true
+  no_log: true
+- name: 逐文件核验取回的全部材料（含 tar 内恢复材料）
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', verify, --context, '{{ replay_records }}/context.json', --directory, '{{ backup_private }}', --restored, '{{ backup_restore }}{{ backup_private }}']
+  register: backup_verify_result
+  changed_when: false
+- name: 只有真实取回核验通过后生成公开凭据
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', receipt, --context, '{{ replay_records }}/context.json', --directory, '{{ backup_private }}', --snapshot, '{{ backup_summary[0].snapshot_id }}', --output, '{{ replay_records }}/backup-receipt.json']
+  changed_when: true
+- name: 保存私有回执副本
+  ansible.builtin.copy:
+    src: '{{ replay_records }}/backup-receipt.json'
+    dest: '{{ replay_private_root }}/receipts/{{ replay_run }}.json'
+    mode: '0600'
+- name: 取回校验完成后删除本次私有恢复副本
+  ansible.builtin.file: {path: '{{ backup_restore }}', state: absent}
+- name: 核对远程暂存归属
+  ansible.builtin.slurp:
+    src: '/root/cnpl-control-plane-backups/{{ replay_run }}-{{ replay_attempt | basename }}/owner.json'
+  delegate_to: '{{ item }}'
+  loop: [cp01, cp02, cp03]
+  register: backup_remote_owners
+- name: 暂存必须属于本批对应节点
+  ansible.builtin.assert:
+    that: "(item.content | b64decode | from_json) == {'run': replay_run, 'node': item.item}"
+  loop: '{{ backup_remote_owners.results }}'
+  loop_control: {label: '{{ item.item }}'}
+- name: 仅清理本批远端材料
+  ansible.builtin.file:
+    path: '/root/cnpl-control-plane-backups/{{ replay_run }}-{{ replay_attempt | basename }}'
+    state: absent
+  delegate_to: '{{ item }}'
+  loop: [cp01, cp02, cp03]
+- name: 写通过检查点
+  ansible.builtin.include_tasks: checkpoint.yml
+  vars: {replay_topic: '03', replay_case: backup}
+- name: 完整备份、离线目录恢复及集群外取回均通过
+  ansible.builtin.debug:
+    msg: CONTROL PLANE BACKUP RESTORE PASS

@@ -1,0 +1,11 @@
+---
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: '{{ scale_new_pod.metadata.name }}'
+    inspect_path: /local
+    inspect_id: new-data-{{ scale_new_pod.metadata.uid }}
+- name: 新 Pod 的 emptyDir 按自身 UID 初始化
+  ansible.builtin.assert:
+    that:
+    - inspection.value == scale_new_pod.metadata.uid

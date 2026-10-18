@@ -1,0 +1,25 @@
+---
+- name: 仅向两个 worker 导入 01.06 的三个固定版本
+  hosts: worker01:worker02
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    controller_bundle: "{{ lookup('file', controller_bundle_file) | from_json }}"
+  tasks:
+    - name: 核对版本集合与物料格式
+      ansible.builtin.assert:
+        that:
+          - controller_bundle.schema_version == 1
+          - controller_bundle.images.keys() | sort == ['bad', 'v1', 'v2']
+    - name: 创建独立物料目录
+      ansible.builtin.file:
+        path: /var/cache/cnpl/01.06
+        state: directory
+        mode: '0750'
+    - name: 逐个校验导入并建立完整 Digest 引用
+      ansible.builtin.include_tasks: ../tasks/import-controller-image.yml
+      loop: "{{ controller_bundle.images | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      vars:
+        controller_image: "{{ item.value }}"

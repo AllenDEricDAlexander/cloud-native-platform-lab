@@ -1,0 +1,16 @@
+---
+- name: 核对 {{ deployment_name | default('p06-main') }} 的 generation、RS/Pod owner UID 与副本共同收敛
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', graph, --context, '{{ replay_records }}/context.json', --name, '{{ deployment_name | default("p06-main") }}', --count, '{{ deployment_count | default(2) | string }}', --image, '{{ deployment_image | default("") }}', --output, '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-{{ deployment_name | default("p06-main") }}-timeline.jsonl']
+  register: deployment_check
+  changed_when: false
+  until: deployment_check.rc == 0
+  retries: 90
+  delay: 2
+- name: 原生 rollout status 确认
+  ansible.builtin.command:
+    argv: "{{ replay_k + ['-n', replay_namespace, 'rollout', 'status', 'deployment/' ~ (deployment_name | default('p06-main')), '--timeout=10s'] }}"
+  changed_when: false
+- name: 保存本次共同收敛状态
+  ansible.builtin.set_fact:
+    deployment_state: '{{ deployment_check.stdout | from_json }}'

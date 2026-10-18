@@ -1,0 +1,170 @@
+
+PLAY [仅向两个 worker 导入 01.06 的三个固定版本] *******************************
+
+TASK [核对版本集合与物料格式] **************************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建独立物料目录] ********************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [逐个校验导入并建立完整 Digest 引用] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/import-controller-image.yml for worker01, worker02 => (item=v1)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/import-controller-image.yml for worker01, worker02 => (item=v2)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/import-controller-image.yml for worker01, worker02 => (item=bad)
+
+TASK [核对本版本限定为实验仓库的精确摘要] **************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [复制本版本 OCI 归档] *****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [Python 核对归档 SHA256] **************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [查询完整 Digest 引用] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [导入展开本版本] **********************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [建立完整仓库名的 Digest 引用] ********************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [再查完整 Digest 引用] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [核对引用和实际 manifest 一致] ********************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [确认 CRI 可以按 Digest 找到镜像] *****************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [核对本版本限定为实验仓库的精确摘要] **************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [复制本版本 OCI 归档] *****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [Python 核对归档 SHA256] **************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [查询完整 Digest 引用] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [导入展开本版本] **********************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [建立完整仓库名的 Digest 引用] ********************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [再查完整 Digest 引用] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [核对引用和实际 manifest 一致] ********************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [确认 CRI 可以按 Digest 找到镜像] *****************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [核对本版本限定为实验仓库的精确摘要] **************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [复制本版本 OCI 归档] *****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [Python 核对归档 SHA256] **************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [查询完整 Digest 引用] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [导入展开本版本] **********************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [建立完整仓库名的 Digest 引用] ********************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [再查完整 Digest 引用] ****************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [核对引用和实际 manifest 一致] ********************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [确认 CRI 可以按 Digest 找到镜像] *****************************************
+ok: [worker02]
+ok: [worker01]
+
+PLAY RECAP *********************************************************************
+worker01                   : ok=26   changed=0    unreachable=0    failed=0    skipped=6    rescued=0    ignored=0   
+worker02                   : ok=26   changed=0    unreachable=0    failed=0    skipped=6    rescued=0    ignored=0   
+

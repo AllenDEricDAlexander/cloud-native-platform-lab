@@ -1,0 +1,55 @@
+# Kubernetes 资源主定义；由 Ansible 渲染后直接执行，解析器不生成资源。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: p04-crash
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-pod-lab
+    cnpl.io/replay-run: '{{ replay_run }}'
+    cnpl.io/replay-topic: '{{ replay_topic }}'
+    cnpl.io/replay-case: '{{ replay_case }}'
+spec:
+  restartPolicy: Always
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: worker01.k8s.internal.egon.top
+  terminationGracePeriodSeconds: 10
+  activeDeadlineSeconds: 900
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    imagePullPolicy: IfNotPresent
+    command:
+    - /bin/sh
+    - -ec
+    - echo repaired; exec sleep 600
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+        ephemeral-storage: 1Mi
+      limits:
+        cpu: 200m
+        memory: 64Mi
+        ephemeral-storage: 16Mi
+    volumeMounts:
+    - name: work
+      mountPath: /work
+  volumes:
+  - name: work
+    emptyDir:
+      sizeLimit: 128Mi

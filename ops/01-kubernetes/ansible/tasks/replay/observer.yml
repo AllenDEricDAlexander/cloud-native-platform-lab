@@ -1,0 +1,17 @@
+---
+- name: 读取 {{ observed_service | default('p06-entry') }} 的当前 ClusterIP
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: service
+    get_name: '{{ observed_service | default("p06-entry") }}'
+- name: 从源码创建流量客户端 Pod（当前 ClusterIP，不使用旧 DNS 缓存）
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_id: '{{ observed_pod | default("p06-client") }}'
+    resource_source: '{{ observed_source | default("core-resources/controllers/manifests/observer.yaml.j2") }}'
+    service_ip: '{{ replay_object.spec.clusterIP }}'
+    observer_name: '{{ observed_pod | default("p06-client") }}'
+- name: 等待客户端 Ready
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: 'pod/{{ observed_pod | default("p06-client") }}'

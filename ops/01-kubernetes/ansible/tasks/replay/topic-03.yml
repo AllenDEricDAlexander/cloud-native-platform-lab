@@ -1,0 +1,10 @@
+---
+- name: 开始 01.03 HA 故障验收
+  ansible.builtin.set_fact: {replay_topic: '03'}
+- name: HA 验收、取证与清理
+  ansible.builtin.include_tasks: case.yml
+  vars: {replay_case: ha, replay_case_tasks: case-03-ha.yml}
+- name: 验证 03 本批资源全部清理
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', empty, --context, '{{ replay_records }}/context.json', --topic, '03']
+  changed_when: false

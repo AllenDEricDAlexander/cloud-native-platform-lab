@@ -1,0 +1,336 @@
+---
+- name: 源码清单 p05-broker-pod
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-broker-pod.yaml.j2
+    resource_id: p05-broker-pod
+    resource_action: create
+- name: 源码清单 p05-broker
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-broker.yaml.j2
+    resource_id: p05-broker
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-broker-pod
+- name: 源码清单 p05-term-main
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-term-main.yaml.j2
+    resource_id: p05-term-main
+    resource_action: create
+- name: 源码清单 p05-term-spare
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-term-spare.yaml.j2
+    resource_id: p05-term-spare
+    resource_action: create
+- name: 源码清单 p05-term
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-term.yaml.j2
+    resource_id: p05-term
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-term-main
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-term-spare
+- name: observer.yml
+  ansible.builtin.include_tasks: observer.yml
+  vars:
+    observed_service: p05-term
+    observed_pod: p05-term-client
+    observed_source: core-resources/probes/manifests/p05-term-client.yaml.j2
+- name: samples.yml
+  ansible.builtin.include_tasks: samples.yml
+  vars:
+    sample_pod: p05-term-client
+    sample_id: baseline
+- name: snapshot.yml
+  ansible.builtin.include_tasks: snapshot.yml
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-term-main
+- name: 绑定本轮主副本 UID
+  ansible.builtin.set_fact:
+    grace_pod: '{{ replay_object }}'
+- name: start-observer.yml
+  ansible.builtin.include_tasks: start-observer.yml
+  vars:
+    observer_id: graceful-short
+    observed_pod: p05-term-client
+- name: 保留终止 API 对象
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p05-term-main'', ''--type=merge'', ''-p'', {''metadata'': {''finalizers'':
+      [''cnpl.io/replay-observe-stop'']}} | to_json] }}'
+  changed_when: true
+- name: 提交 12 秒消息
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-broker-pod'', ''--'', ''/probe-lab'', ''queue-submit'', ''graceful'', ''12'',
+      ''30''] }}'
+  changed_when: true
+- name: 等待 claimed_graceful
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_traffic }}'
+    - inspect
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --pod
+    - p05-term-main
+    - --port
+    - '8080'
+    - --path
+    - /metrics
+    - --output
+    - '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-claimed_graceful.json'
+  register: claimed_graceful
+  changed_when: false
+  until: claimed_graceful.rc == 0 and (claimed_graceful.stdout | from_json).current_job == 'graceful'
+  retries: 60
+  delay: 1
+- name: long-start.yml
+  ansible.builtin.include_tasks: long-start.yml
+  vars:
+    long_id: graceful-long
+    long_targets: '{{ [grace_pod] }}'
+    long_seconds: 12
+- name: 长请求与消息处理中删除主副本
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''delete'', ''pod'', ''p05-term-main'', ''--wait=false''] }}'
+  changed_when: true
+- name: 取得正常删除的 EndpointSlice 终止状态
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_check }}'
+    - endpoints
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --name
+    - p05-term
+    - --output
+    - '{{ replay_attempt }}/observations/05-termination-endpoints.json'
+  register: term_endpoints
+  changed_when: false
+  until: term_endpoints.rc == 0 and ((term_endpoints.stdout | from_json).endpoints | selectattr('targetRef.uid','equalto',grace_pod.metadata.uid)
+    | selectattr('conditions.terminating','defined') | selectattr('conditions.terminating','equalto',true) | list | length > 0)
+  retries: 10
+  delay: 1
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p05-term-main
+    wait_field: '{.status.containerStatuses[0].state.terminated.exitCode}'
+    wait_values:
+    - '0'
+- name: long-finish.yml
+  ansible.builtin.include_tasks: long-finish.yml
+  vars:
+    long_id: graceful-long
+- name: stop-observer.yml
+  ansible.builtin.include_tasks: stop-observer.yml
+- name: 短请求无错且长请求完整
+  ansible.builtin.assert:
+    that:
+    - observer_result.errors == 0
+    - long_result.errors | length == 0
+    - long_result.responses | length == 1
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-term-main
+- name: 保存正常终态
+  ansible.builtin.set_fact:
+    grace_final: '{{ replay_object }}'
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-broker-pod
+    inspect_id: queue-after-graceful
+    inspect_path: /status
+    inspect_port: 9090
+- name: term-check.yml
+  ansible.builtin.include_tasks: term-check.yml
+  vars:
+    term_id: graceful
+    term_pod: '{{ grace_final }}'
+    term_responses: '{{ [long_result.responses[grace_final.metadata.uid]] }}'
+    term_hook: 5
+    term_job: '{{ inspection.graceful }}'
+- name: 核验后解除主副本观察标记
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p05-term-main'', ''--type=merge'', ''-p'', {''metadata'': {''finalizers'':
+      []}} | to_json] }}'
+  changed_when: true
+- name: 源码清单 p05-force
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-force.yaml.j2
+    resource_id: p05-force
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-force
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-force
+- name: 绑定强杀反例 UID
+  ansible.builtin.set_fact:
+    force_pod: '{{ replay_object }}'
+- name: 保留强杀 API 状态
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p05-force'', ''--type=merge'', ''-p'', {''metadata'': {''finalizers'':
+      [''cnpl.io/replay-observe-stop'']}} | to_json] }}'
+  changed_when: true
+- name: 提交宽限期无法完成的 20 秒消息
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-broker-pod'', ''--'', ''/probe-lab'', ''queue-submit'', ''compensate'', ''20'',
+      ''6''] }}'
+  changed_when: true
+- name: 等待 claimed_force
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_traffic }}'
+    - inspect
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --pod
+    - p05-force
+    - --port
+    - '8080'
+    - --path
+    - /metrics
+    - --output
+    - '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-claimed_force.json'
+  register: claimed_force
+  changed_when: false
+  until: claimed_force.rc == 0 and (claimed_force.stdout | from_json).current_job == 'compensate'
+  retries: 60
+  delay: 1
+- name: long-start.yml
+  ansible.builtin.include_tasks: long-start.yml
+  vars:
+    long_id: forced-long
+    long_targets: '{{ [force_pod] }}'
+    long_seconds: 30
+- name: 触发 6 秒总宽限期反例
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''delete'', ''pod'', ''p05-force'', ''--wait=false''] }}'
+  changed_when: true
+- name: wait-field.yml
+  ansible.builtin.include_tasks: wait-field.yml
+  vars:
+    wait_resource: pod/p05-force
+    wait_field: '{.status.containerStatuses[0].state.terminated.exitCode}'
+    wait_values:
+    - '137'
+- name: long-finish.yml
+  ansible.builtin.include_tasks: long-finish.yml
+  vars:
+    long_id: forced-long
+- name: get.yml
+  ansible.builtin.include_tasks: get.yml
+  vars:
+    get_kind: pod
+    get_name: p05-force
+- name: 是宽限期强杀，未伪装成 OOM
+  ansible.builtin.assert:
+    that:
+    - replay_object.status.containerStatuses[0].state.terminated.reason != "OOMKilled"
+    - long_result.errors | length == 1
+- name: 保存 forced
+  ansible.builtin.copy:
+    content: '{{ {''pod'': replay_object, ''requests'': long_result} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-forced.json'
+    mode: '0600'
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-broker-pod
+    inspect_id: queue-pending
+    inspect_path: /status
+    inspect_port: 9090
+- name: 被杀消息尚未提交
+  ansible.builtin.assert:
+    that:
+    - inspection.compensate.effects == 0
+- name: 释放强杀观察标记
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''patch'', ''pod'', ''p05-force'', ''--type=merge'', ''-p'', {''metadata'': {''finalizers'':
+      []}} | to_json] }}'
+  changed_when: true
+- name: 源码清单 p05-recover
+  ansible.builtin.include_tasks: resource.yml
+  vars:
+    resource_source: core-resources/probes/manifests/p05-recover.yaml.j2
+    resource_id: p05-recover
+    resource_action: create
+- name: wait-ready.yml
+  ansible.builtin.include_tasks: wait-ready.yml
+  vars:
+    ready_resource: pod/p05-recover
+- name: 等待 queue_recovered
+  ansible.builtin.command:
+    argv:
+    - '{{ replay_python }}'
+    - '{{ replay_traffic }}'
+    - inspect
+    - --context
+    - '{{ replay_records }}/context.json'
+    - --pod
+    - p05-broker-pod
+    - --port
+    - '9090'
+    - --path
+    - /status
+    - --output
+    - '{{ replay_attempt }}/observations/{{ replay_topic }}-{{ replay_case }}-queue_recovered.json'
+  register: queue_recovered
+  changed_when: false
+  until: queue_recovered.rc == 0 and (queue_recovered.stdout | from_json).compensate.effects == 1
+  retries: 60
+  delay: 1
+- name: 绑定重投后的有效租约
+  ansible.builtin.set_fact:
+    recovered_queue: '{{ queue_recovered.stdout | from_json }}'
+- name: 新消费者第二次领取并提交
+  ansible.builtin.assert:
+    that:
+    - recovered_queue.compensate.attempts == 2
+    - recovered_queue.compensate.owner != force_pod.metadata.uid
+- name: 重复提交相同消息的有效租约，验证去重
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-broker-pod'', ''--'', ''/probe-lab'', ''queue-commit'', ''compensate'', recovered_queue.compensate.token]
+      }}'
+  changed_when: true
+- name: 重复提交相同消息的有效租约，验证去重
+  ansible.builtin.command:
+    argv: '{{ replay_k + [''-n'', replay_namespace, ''exec'', ''p05-broker-pod'', ''--'', ''/probe-lab'', ''queue-commit'', ''compensate'', recovered_queue.compensate.token]
+      }}'
+  changed_when: true
+- name: inspect.yml
+  ansible.builtin.include_tasks: inspect.yml
+  vars:
+    inspect_pod: p05-broker-pod
+    inspect_id: queue-final
+    inspect_path: /status
+    inspect_port: 9090
+- name: 重复提交后仍然只产生一次效果
+  ansible.builtin.assert:
+    that:
+    - inspection.compensate.effects == 1

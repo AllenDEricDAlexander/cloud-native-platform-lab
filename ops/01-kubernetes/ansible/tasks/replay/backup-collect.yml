@@ -1,0 +1,86 @@
+---
+- name: 创建本批节点暂存目录
+  ansible.builtin.file: {path: '{{ backup_remote }}', state: directory, mode: '0700'}
+- name: 写本批暂存归属
+  ansible.builtin.copy:
+    content: '{{ {"run": replay_run, "node": inventory_hostname} | to_json }}'
+    dest: '{{ backup_remote }}/owner.json'
+    mode: '0600'
+- name: cp01 一致性快照与隔离目录恢复（不启动 etcd）
+  when: inventory_hostname == 'cp01'
+  block:
+    - name: 创建新的本批隔离目录
+      ansible.builtin.file: {path: '{{ backup_scratch }}', state: directory, mode: '0700'}
+    - name: 设置静态 Pod 可用的 SELinux 文件上下文
+      ansible.builtin.command: {argv: [restorecon, -RF, '{{ backup_scratch }}']}
+      changed_when: false
+    - name: 保存一致性快照
+      ansible.builtin.command:
+        argv: '{{ backup_exec + backup_etcd + ["--command-timeout=120s", "snapshot", "save", backup_scratch ~ "/snapshot.db"] }}'
+      changed_when: true
+      no_log: true
+    - name: 校验快照内部状态
+      ansible.builtin.command:
+        argv: '{{ backup_exec + ["etcdutl", "snapshot", "status", backup_scratch ~ "/snapshot.db", "-w", "json"] }}'
+      register: backup_snapshot_status
+      changed_when: false
+    - name: 离线恢复到隔离数据目录并保留默认哈希校验
+      ansible.builtin.command:
+        argv: '{{ backup_exec + ["etcdutl", "snapshot", "restore", backup_scratch ~ "/snapshot.db", "--data-dir", backup_scratch ~ "/isolated-data", "--name", "cnpl-offline-check", "--initial-cluster", "cnpl-offline-check=http://127.0.0.1:12380", "--initial-advertise-peer-urls", "http://127.0.0.1:12380", "--initial-cluster-token", replay_run] }}'
+      changed_when: true
+      no_log: true
+    - name: 必须真的产生隔离数据文件
+      ansible.builtin.stat: {path: '{{ backup_scratch }}/isolated-data/member/snap/db'}
+      register: backup_offline_db
+    - name: 核对离线恢复产物
+      ansible.builtin.assert: {that: backup_offline_db.stat.isreg | default(false)}
+    - name: 保存快照到私有暂存
+      ansible.builtin.copy:
+        src: '{{ backup_scratch }}/snapshot.db'
+        remote_src: true
+        dest: '{{ backup_remote }}/snapshot.db'
+        mode: '0600'
+      no_log: true
+    - name: 移除已确认的本批隔离数据（不触碰 etcd/member）
+      ansible.builtin.file: {path: '{{ backup_scratch }}', state: absent}
+- name: 原生 tar 归档必要主机配置及证书
+  ansible.builtin.command:
+    argv: [tar, -czf, '{{ backup_remote }}/host-files.tar.gz', -C, /, etc/kubernetes, var/lib/kubelet/config.yaml, var/lib/kubelet/kubeadm-flags.env, var/lib/kubelet/pki, etc/systemd/system/kubelet.service.d, etc/selinux/targeted/contexts/files/file_contexts.local]
+  changed_when: true
+  no_log: true
+- name: 归档后重新哈希必要文件
+  ansible.builtin.script:
+    cmd: '{{ replay_root }}/ops/01-kubernetes/checks/backup-files.py'
+    executable: /usr/bin/python3
+  register: backup_after
+  changed_when: false
+  no_log: true
+- name: 拒绝在源文件发生变化时签发成功
+  ansible.builtin.assert:
+    that: (backup_before.stdout | from_json) == (backup_after.stdout | from_json)
+- name: 校验私有 tar SHA
+  ansible.builtin.stat:
+    path: '{{ backup_remote }}/host-files.tar.gz'
+    get_checksum: true
+    checksum_algorithm: sha256
+  register: backup_archive
+- name: 写私有材料元数据
+  ansible.builtin.copy:
+    content: "{{ (backup_before.stdout | from_json) | combine({'node': inventory_hostname, 'run': replay_run, 'archive_sha256': backup_archive.stat.checksum, 'offline_restore_verified': inventory_hostname == 'cp01', 'snapshot_status': (backup_snapshot_status.stdout | default('{}') | from_json)}) | to_nice_json }}"
+    dest: '{{ backup_remote }}/metadata.json'
+    mode: '0600'
+  no_log: true
+- name: 创建管理端私有节点目录
+  ansible.builtin.file: {path: '{{ backup_private }}/nodes/{{ inventory_hostname }}', state: directory, mode: '0700'}
+  delegate_to: localhost
+- name: 取回节点材料（不进入公开记录）
+  ansible.builtin.fetch:
+    src: '{{ backup_remote }}/{{ item }}'
+    dest: '{{ backup_private }}/nodes/{{ inventory_hostname }}/{{ item }}'
+    flat: true
+  loop: '{{ ["host-files.tar.gz", "metadata.json"] + (["snapshot.db"] if inventory_hostname == "cp01" else []) }}'
+  no_log: true
+- name: 管理端私有材料权限
+  ansible.builtin.file: {path: '{{ backup_private }}/nodes/{{ inventory_hostname }}/{{ item }}', mode: '0600'}
+  loop: '{{ ["host-files.tar.gz", "metadata.json"] + (["snapshot.db"] if inventory_hostname == "cp01" else []) }}'
+  delegate_to: localhost

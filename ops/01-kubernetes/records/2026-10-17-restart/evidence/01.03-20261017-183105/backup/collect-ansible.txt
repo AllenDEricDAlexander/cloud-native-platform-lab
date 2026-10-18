@@ -1,0 +1,59 @@
+
+PLAY [三控制平面备份或只读前检] ************************************************
+
+TASK [确认备份参数明确且合法] **************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [执行受控备份入口（隐藏私有输出）] ****************************************
+changed: [cp02]
+changed: [cp03]
+changed: [cp01]
+
+TASK [核对结果并显示安全诊断] **************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建管理端私有节点备份目录] **********************************************
+changed: [cp02 -> localhost]
+changed: [cp03 -> localhost]
+changed: [cp01 -> localhost]
+
+TASK [取回三节点私有材料] ******************************************************
+changed: [cp03] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp02] => (item=(censored due to no_log))
+changed: [cp01] => (item=(censored due to no_log))
+changed: [cp03] => (item=(censored due to no_log))
+changed: [cp02] => (item=(censored due to no_log))
+
+TASK [取回一致性快照] **********************************************************
+skipping: [cp02]
+skipping: [cp03]
+changed: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=6    changed=4    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=5    changed=3    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+cp03                       : ok=5    changed=3    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

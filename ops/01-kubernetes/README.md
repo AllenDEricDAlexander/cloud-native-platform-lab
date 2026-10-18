@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；当前进入 01.03 的完整控制平面备份和 HA 实验。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，准备 01.04；DNS 短名修正待补测。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -285,6 +285,8 @@ ipam:
 ## 01.03 验证 DNS、API 故障切换与备份
 
 输入：主集群健康，已选定非业务测试应用与独立备份位置。
+
+本轮直接使用 [01.03 完整脚本与逐条解释](operations/README.md)：先滚动分散 CoreDNS 并补 Service 短名测试，再进行完整备份/取回验证，最后由用户在 ESXi 控制台关/开单台 VM，脚本独立观测 API、应用、Service 和 etcd。下方 govc 命令仅为通用示意，本轮不新增 vSphere CLI 或凭据依赖。
 
 1. 在不同节点放置 DNS/HTTP 测试 Pod，分别解析 Service 全名、kubernetes.default、Harbor 和外部域；保存请求、CoreDNS 配置与实际上游。
 2. 使用匹配版本的 etcdctl 保存 snapshot，配合 etcdutl snapshot status 校验，连同 PKI、加密配置和密钥恢复索引复制到独立介质；在隔离位置验证可读取。

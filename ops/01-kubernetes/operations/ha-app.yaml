@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cnpl-ha-check
+  namespace: lab-core
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app.kubernetes.io/name: cnpl-ha-check}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: cnpl-ha-check}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: {app.kubernetes.io/name: cnpl-ha-check}
+              topologyKey: kubernetes.io/hostname
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: http
+          image: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+          imagePullPolicy: IfNotPresent
+          command: [/bin/sh, -ec]
+          args: ['printf "%s\n" "$NODE_NAME" > /www/index.html; exec httpd -f -p 8080 -h /www']
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef: {fieldPath: spec.nodeName}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts: [{name: www, mountPath: /www}]
+      volumes: [{name: www, emptyDir: {sizeLimit: 1Mi}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnpl-ha-check
+  namespace: lab-core
+spec:
+  selector: {app.kubernetes.io/name: cnpl-ha-check}
+  ports: [{name: http, port: 8080, targetPort: http}]

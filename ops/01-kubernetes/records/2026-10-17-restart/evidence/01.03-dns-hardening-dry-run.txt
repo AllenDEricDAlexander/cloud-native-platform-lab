@@ -1,0 +1,18 @@
+
+PLAY [在不同节点放置 CoreDNS 副本] *********************************************
+
+TASK [读取当前 CoreDNS 和 Pod 布局] ********************************************
+ok: [localhost]
+
+TASK [保持两副本，已有其他硬调度规则时停止而不覆盖] ****************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [增加按节点分散的硬反亲和（保留现有其他配置）] ****************************
+changed: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=3    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

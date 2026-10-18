@@ -90,11 +90,42 @@ for endpoint in "$service_ip" network-smoke.cnpl-phase01-acceptance.svc.cluster.
 done
 '''
 
+SHORT_PROBE = r'''
+# BusyBox 在显式传 DNS 服务器时不读取 search；展开实际首个搜索域，随后用 wget 验证 libc 短名解析。
+suffix=$(awk '$1 == "search" {print $2; exit}' /etc/resolv.conf)
+if test "$suffix" != cnpl-phase01-acceptance.svc.cluster.local; then
+  printf 'DNS unexpected search suffix=%s FAIL\n' "$suffix" >&2
+  exit 1
+fi
+if ! answer=$(nslookup -type=A "network-smoke.$suffix" 192.168.20.10 2>&1); then
+  printf 'DNS search suffix FAIL\n%s\n' "$answer" >&2
+  exit 1
+fi
+printf '%s\n' "$answer"
+found=0
+for word in $answer; do
+  if test "$word" = "$service_ip"; then found=1; fi
+done
+if test "$found" != 1; then printf 'DNS search suffix wrong address FAIL\n' >&2; exit 1; fi
+printf 'DNS network-smoke (search suffix) PASS\n'
+if ! response=$(wget -T 5 -q -O - http://network-smoke:8080/); then
+  printf 'SERVICE network-smoke short-name resolver FAIL\n' >&2
+  exit 1
+fi
+found=0
+for target in "$@"; do
+  if test "$response" = "${target#*=}"; then found=1; fi
+done
+test "$found" = 1
+printf 'SERVICE network-smoke -> %s PASS\n' "$response"
+'''
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--kubectl', default=str(Path.home() / '.cnpl/bin/kubectl'))
     parser.add_argument('--kubeconfig', default=str(Path.home() / '.cnpl-secrets/kubeconfig-lab-primary'))
+    parser.add_argument('--short-name', action='store_true', help='01.03 额外验证 Service 短名的搜索域解析和 HTTP')
     args = parser.parse_args()
     kubectl = [args.kubectl, '--kubeconfig', args.kubeconfig, '--request-timeout=20s']
     server = command(kubectl + ['config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}'])
@@ -112,10 +143,10 @@ def main():
         source = pod['spec']['nodeName']
         print('== 源节点 ' + source, flush=True)
         output = command(kubectl_exec + ['-n', NAMESPACE, 'exec', pod['metadata']['name'], '-c', 'probe', '--',
-                                   '/bin/sh', '-ec', PROBE, 'probe', service_ip, *targets], timeout=240)
+                                   '/bin/sh', '-ec', PROBE + (SHORT_PROBE if args.short_name else ''), 'probe', service_ip, *targets], timeout=240)
         print(output, flush=True)
         print(source + ': PASS', flush=True)
-    print('NETWORK ACCEPTANCE PASS: 10 sources, 100 Pod HTTP paths (90 cross-node), 40 DNS checks, 20 Service HTTP requests.')
+    print(f'NETWORK ACCEPTANCE PASS: 10 sources, 100 Pod HTTP paths (90 cross-node), {50 if args.short_name else 40} DNS checks, {30 if args.short_name else 20} Service HTTP requests.')
 
 
 if __name__ == '__main__':

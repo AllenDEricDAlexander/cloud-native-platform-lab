@@ -355,3 +355,32 @@ bash ops/00-preparation/scripts/collect-node-readiness.sh \
 下一步允许进入 01.03，实际执行顺序为完整备份与取回验证在前、单控制平面故障实验在后。规划的 .15 管理机分发/登录、完整控制平面恢复材料、HA 与其余核心资源实验仍保留未完成，不能把身份文件恢复当作 etcd/PKI 全量恢复验收。
 
 提交前检查：[26 项离线回归](evidence/01.02-checkpoint-regression.txt)全部通过，[十个 playbook 语法和本地链接检查](evidence/01.02-checkpoint-static.txt)通过；另检查待提交范围的私钥 PEM、长 client-key-data 与 token 候选，没有实际客户端私钥或真实 token。固定示例/合成测试 token 保留其教学意义。
+
+## 25. 2026-10-17 提交检查点并交付 01.03 脚本
+
+**提交**：按用户要求先整理并创建检查点 `157e39f`（feat(phase01): 归档基础集群与受限身份验收检查点），范围为前述 195 个必要路径。原始命令证据保留终端输出空白，不做机械格式化；代码/文档的 whitespace 检查通过。未跟踪的其他来源 fetch-k8s-clients.sh 保留、不纳入提交。新 01.03 工作在该提交之后准备，当前尚未提交或实际运行。
+
+**新增入口**：[完整手册](../../operations/README.md)、[备份控制器](../../operations/backup.py)、[控制平面采集](../../operations/collect-control-plane.py)、[HA 观测/验证/清理](../../operations/ha.py)和两份 Ansible 剧本。复用现有 etcd 镜像内 3.6.8 的 etcdctl/etcdutl、现有 BusyBox Digest、SSH、Ansible 和 restic；不新增工具依赖，不自动操作 VM 电源。
+
+**DNS 前置发现**：只读查询发现两个 CoreDNS 都仍在 cp01；当前只有 preferred 反亲和，不能靠它自动搬迁旧 Pod。增加用户显式执行的 prepare-ha-dns.yml，滚动改为按 hostname 分散，并拒绝覆盖其他硬调度规则；补充 --short-name 模式，保留旧基础验收行为不变。
+
+**完整备份设计**：cp01 用一致性 snapshot，再在专属 scratch 目录运行 etcdutl 离线展开并保留哈希校验；不启动 etcd、不覆盖现有 member。分别收集三节点 PKI/静态清单/审计与 Secret 加密配置、kubelet 配置/PKI/unit/fcontext，检查采集中配置无漂移。Mac 补入受控密钥、访问恢复包、台账与实际实现源文件；用 .16 restic 加密备份并整包取回逐文件校验，完成后才发同集群、24h 有效的 HA 备份凭据。私有材料均在仓库外，公开证据仅含元数据。
+
+**故障实验设计**：要求备份已验证、三 etcd/十节点/系统组件健康、CoreDNS 分散、目标是当前 VIP 持有者。两个应用副本仅在 worker01/02；用户按提示在 ESXi 关闭/开启同一台控制平面 VM。Mac 经既有 worker SSH 连接独立探测两条 Pod 和一条 ClusterIP 路径，不开新端口、不依赖 API port-forward。脚本检查目标双端口失联且其他控制平面在线、VIP 接管、存活两 etcd 健康及故障期间新 Pod 调度；恢复后要求全部组件和十节点健康才判 PASS。错关节点、未发生故障、应用失败、备份不足均不误判通过；资源清理验证本批所有权。
+
+**已实际验证**：
+
+- [真实三控制平面只读前检](evidence/01.03-backup-20261017T173200Z-15f07839/check-ansible.txt)全部 changed=0、failed=0、unreachable=0，未创建快照或归档。
+- [CoreDNS 当前条件与补丁 server dry-run](evidence/01.03-dns-hardening-dry-run.txt)通过，没有实际滚动；HA Deployment/Service/一次性 Pod 在真实 lab-ops 身份下 server dry-run 通过。
+- [静态与参数检查](evidence/01.03-operations-static.txt)：两个新 playbook 语法通过、collect 模式只允许预定私有路径、只读身份允许 readyz；没有执行 collect。
+- [全量 33 项离线回归](evidence/01.03-delivery-regression.txt)通过；最后元数据/探测错误码修正后再次运行 [针对性回归](evidence/01.03-operations-tests-verified.txt)通过。包括伪原生命令证明只展开到唯一暂存并保留原 member、SHA/加密漂移检测、真实临时本地 restic 整包取回、备份凭据门禁、正常故障/未停机/错关节点/应用失败的观测状态与清理所有权。没有启动真实 etcd、创建集群测试应用或停机。
+
+**边界**：正常态只读/DNS 与 HA 清单的 dry-run、离线模拟不能代替正式快照、真实 CoreDNS 调整、单 VM 故障或在线隔离恢复；当前仍待用户依手册执行。即使离线快照展开/取回通过，也不宣称启动新 etcd 的在线服务恢复、完整灾难重建或实际物理宿主机故障域已经通过。
+
+## 26. 2026-10-17 归档 01.03 用户执行与短名 DNS 修正
+
+用户反馈备份、HA 和清理通过；核对 [真实凭据](evidence/01.03-20261017-183105/backup/backup-receipt.json)、[HA 状态](evidence/01.03-20261017-183105/ha/state.json)及输出确认：三节点材料与 etcd 快照经 .16 整包取回，revision 115931、12MiB；cp01 失联后 cp03 接管 VIP、存活两 etcd 健康，新 Pod 调度到 worker02，恢复十节点与三 etcd，资源清理完成。97 轮采样中 API 失败 1 次，三条独立应用路径零失败。观测时间为 UTC 2026-10-18，管理 Mac 为 10 月 17 日晚间。
+
+核对发现 [短名 DNS 原始日志](evidence/01.03-20261017-183105/06-dns-smoke.txt)实际失败，没有 NETWORK ACCEPTANCE PASS。BusyBox 源码表明指定服务器后跳过 resolv.conf，不能使用该 nslookup 命令测 search；现改为核对真实首个搜索域并查询展开名称，再由 wget 的短名 HTTP 证明 libc 搜索域行为。修正已纳入离线回归，真实补测放在 01.04 开头，不抹去失败，也不将短名提前判通过。
+
+备份子目录被通用 backup/ 忽略规则排除；仅强制归档公开 receipt 与三份 Ansible 输出，不放行原始备份、私钥或凭据。后续 01.04 真实实验由用户执行；本次不自动创建负载、关机或施加节点压力。

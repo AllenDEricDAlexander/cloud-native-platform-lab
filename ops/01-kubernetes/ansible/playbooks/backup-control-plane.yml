@@ -1,0 +1,58 @@
+# 由 operations/backup.py 提供批次和私有目录；默认只读前检。
+- name: 三控制平面备份或只读前检
+  hosts: control_plane
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [../vars/main.yml]
+  vars:
+    phase01_backup_mode: check
+    phase01_etcd_version: "{{ (phase01_lock.components.kubeadm.required_images_v1_36_5 | select('search', '/etcd:') | first).split(':')[-1].split('-')[0] }}"
+  tasks:
+    - name: 确认备份参数明确且合法
+      tags: [backup_inputs]
+      ansible.builtin.assert:
+        that:
+          - phase01_backup_run is match('^\d{8}T\d{6}Z-[a-f0-9]{8}$')
+          - phase01_backup_mode in ['check', 'collect', 'cleanup']
+          - phase01_backup_mode != 'collect' or phase01_backup_directory == lookup('ansible.builtin.env', 'HOME') ~ '/.cnpl-secrets/phase01-backups/bundles/' ~ phase01_backup_run
+
+    - name: 执行受控备份入口（隐藏私有输出）
+      ansible.builtin.script:
+        cmd: >-
+          {{ phase01_root }}/operations/collect-control-plane.py --mode {{ phase01_backup_mode }}
+          --run {{ phase01_backup_run }} --node {{ inventory_hostname }} --etcd-version {{ phase01_etcd_version }}
+        executable: python3
+      register: phase01_backup_result
+      failed_when: false
+      changed_when: phase01_backup_mode != 'check' and phase01_backup_result.rc == 0
+      no_log: true
+
+    - name: 核对结果并显示安全诊断
+      ansible.builtin.assert:
+        that: phase01_backup_result.rc == 0
+        fail_msg: '备份步骤失败：{{ phase01_backup_result.stdout | default("无安全摘要，私有输出仍隐藏。", true) }}'
+
+    - name: 创建管理端私有节点备份目录
+      ansible.builtin.file:
+        path: '{{ phase01_backup_directory }}/nodes/{{ inventory_hostname }}'
+        state: directory
+        mode: '0700'
+      delegate_to: localhost
+      when: phase01_backup_mode == 'collect'
+
+    - name: 取回三节点私有材料
+      ansible.builtin.fetch:
+        src: '/root/cnpl-control-plane-backups/{{ phase01_backup_run }}/{{ item }}'
+        dest: '{{ phase01_backup_directory }}/nodes/{{ inventory_hostname }}/{{ item }}'
+        flat: true
+      loop: [host-files.tar.gz, metadata.json]
+      when: phase01_backup_mode == 'collect'
+      no_log: true
+
+    - name: 取回一致性快照
+      ansible.builtin.fetch:
+        src: '/root/cnpl-control-plane-backups/{{ phase01_backup_run }}/snapshot.db'
+        dest: '{{ phase01_backup_directory }}/nodes/cp01/snapshot.db'
+        flat: true
+      when: phase01_backup_mode == 'collect' and inventory_hostname == 'cp01'
+      no_log: true

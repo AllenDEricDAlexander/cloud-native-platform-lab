@@ -1,0 +1,66 @@
+Name:             p04-failed
+Namespace:        lab-core
+Priority:         0
+Service Account:  default
+Node:             worker01.k8s.internal.egon.top/192.168.9.109
+Start Time:       Sat, 17 Oct 2026 21:08:40 -0400
+Labels:           app.kubernetes.io/part-of=cnpl-pod-lab
+                  cnpl.io/pod-run=20261018T004858Z-aa76940f
+Annotations:      <none>
+Status:           Failed
+SeccompProfile:   RuntimeDefault
+IP:               10.244.8.39
+IPs:
+  IP:  10.244.8.39
+Containers:
+  app:
+    Container ID:  containerd://662c73815407e21af0c39e0fda26e7347a6b2fad49a82cbae1ed0e73c986d234
+    Image:         harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Image ID:      harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      /bin/sh
+      -ec
+      echo application-exit=7; exit 7
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    7
+      Started:      Sat, 17 Oct 2026 21:08:44 -0400
+      Finished:     Sat, 17 Oct 2026 21:08:44 -0400
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:                200m
+      ephemeral-storage:  16Mi
+      memory:             64Mi
+    Requests:
+      cpu:                10m
+      ephemeral-storage:  1Mi
+      memory:             16Mi
+    Environment:          <none>
+    Mounts:
+      /work from work (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  work:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   128Mi
+QoS Class:       Burstable
+Node-Selectors:  kubernetes.io/hostname=worker01.k8s.internal.egon.top
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  55s   default-scheduler  Successfully assigned lab-core/p04-failed to worker01.k8s.internal.egon.top
+  Normal  Pulled     53s   kubelet            spec.containers{app}: Container image "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f" already present on machine and can be accessed by the pod
+  Normal  Created    53s   kubelet            spec.containers{app}: Container created
+  Normal  Started    51s   kubelet            spec.containers{app}: Container started

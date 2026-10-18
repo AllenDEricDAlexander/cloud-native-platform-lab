@@ -1,0 +1,68 @@
+Name:             p04-pressure
+Namespace:        lab-core
+Priority:         0
+Service Account:  default
+Node:             worker02.k8s.internal.egon.top/192.168.9.110
+Start Time:       Sat, 17 Oct 2026 21:11:48 -0400
+Labels:           app.kubernetes.io/part-of=cnpl-pod-lab
+                  cnpl.io/pod-run=20261018T004858Z-aa76940f
+Annotations:      <none>
+Status:           Succeeded
+SeccompProfile:   RuntimeDefault
+IP:               10.244.9.98
+IPs:
+  IP:  10.244.9.98
+Containers:
+  app:
+    Container ID:  containerd://12b3b7128c424418f04ec1cd6767b1c51987a59aa8de0a6d7c295d340a35696f
+    Image:         harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Image ID:      harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      /bin/sh
+      -ec
+      dd if=/dev/zero of=/work/fill bs=1048576 count=96; echo pressure-ready; exec sleep 600
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Sat, 17 Oct 2026 21:11:53 -0400
+      Finished:     Sat, 17 Oct 2026 21:21:56 -0400
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:                200m
+      ephemeral-storage:  16Mi
+      memory:             160Mi
+    Requests:
+      cpu:                10m
+      ephemeral-storage:  1Mi
+      memory:             16Mi
+    Readiness:            exec [/bin/sh -ec test -f /work/fill && test "$(wc -c < /work/fill)" -eq 100663296] delay=0s timeout=1s period=2s #success=1 #failure=3
+    Environment:          <none>
+    Mounts:
+      /work from work (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  work:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      Memory
+    SizeLimit:   128Mi
+QoS Class:       Burstable
+Node-Selectors:  kubernetes.io/hostname=worker02.k8s.internal.egon.top
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age                   From               Message
+  ----     ------     ----                  ----               -------
+  Normal   Scheduled  13m                   default-scheduler  Successfully assigned lab-core/p04-pressure to worker02.k8s.internal.egon.top
+  Normal   Pulled     13m                   kubelet            spec.containers{app}: Container image "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f" already present on machine and can be accessed by the pod
+  Normal   Created    13m                   kubelet            spec.containers{app}: Container created
+  Normal   Started    13m                   kubelet            spec.containers{app}: Container started
+  Warning  Unhealthy  8m13s (x44 over 13m)  kubelet            spec.containers{app}: Readiness probe failed: command timed out: "/bin/sh -ec test -f /work/fill && test \"$(wc -c < /work/fill)\" -eq 100663296" timed out after 1s

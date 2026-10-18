@@ -1,0 +1,75 @@
+Name:             p04-term
+Namespace:        lab-core
+Priority:         0
+Service Account:  default
+Node:             worker01.k8s.internal.egon.top/192.168.9.109
+Start Time:       Sat, 17 Oct 2026 21:52:22 -0400
+Labels:           app.kubernetes.io/part-of=cnpl-pod-lab
+                  cnpl.io/pod-run=20261018T004858Z-aa76940f
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.8.179
+IPs:
+  IP:  10.244.8.179
+Containers:
+  app:
+    Container ID:  containerd://aac537209c32404637c260a10dc7132255505130419201e10b07d89916b01a43
+    Image:         harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Image ID:      harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      /bin/sh
+      -ec
+      exec /bin/sh /app/app.sh
+    State:          Running
+      Started:      Sat, 17 Oct 2026 21:52:27 -0400
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:                200m
+      ephemeral-storage:  16Mi
+      memory:             64Mi
+    Requests:
+      cpu:                10m
+      ephemeral-storage:  1Mi
+      memory:             16Mi
+    Readiness:            http-get http://:8080/cgi-bin/check%3Fready delay=0s timeout=5s period=2s #success=1 #failure=3
+    Environment:
+      POD_NAME:                  p04-term (v1:metadata.name)
+      NODE_NAME:                  (v1:spec.nodeName)
+      START_DELAY:               2
+      POD_UID:                    (v1:metadata.uid)
+      TERMINATION_MESSAGE_PATH:  /dev/termination-log
+    Mounts:
+      /app from app (ro)
+      /work from work (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  work:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  128Mi
+  app:
+    Type:        ConfigMap (a volume populated by a ConfigMap)
+    Name:        p04-term-app
+    Optional:    false
+QoS Class:       Burstable
+Node-Selectors:  kubernetes.io/hostname=worker01.k8s.internal.egon.top
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age              From               Message
+  ----     ------     ----             ----               -------
+  Normal   Scheduled  8s               default-scheduler  Successfully assigned lab-core/p04-term to worker01.k8s.internal.egon.top
+  Normal   Pulled     5s               kubelet            spec.containers{app}: Container image "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f" already present on machine and can be accessed by the pod
+  Normal   Created    5s               kubelet            spec.containers{app}: Container created
+  Normal   Started    3s               kubelet            spec.containers{app}: Container started
+  Warning  Unhealthy  3s (x2 over 3s)  kubelet            spec.containers{app}: Readiness probe failed: Get "http://10.244.8.179:8080/cgi-bin/check?ready": dial tcp 10.244.8.179:8080: connect: connection refused

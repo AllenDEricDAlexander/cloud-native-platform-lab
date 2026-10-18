@@ -1,0 +1,119 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "creationTimestamp": "2026-10-18T01:08:40Z",
+    "generation": 1,
+    "labels": {
+      "app.kubernetes.io/part-of": "cnpl-pod-lab",
+      "cnpl.io/pod-run": "20261018T004858Z-aa76940f"
+    },
+    "name": "p04-pending",
+    "namespace": "lab-core",
+    "resourceVersion": "130335",
+    "uid": "df3f730a-d8e6-4b23-9ff4-3c39d81fe4c8"
+  },
+  "spec": {
+    "activeDeadlineSeconds": 900,
+    "automountServiceAccountToken": false,
+    "containers": [
+      {
+        "command": [
+          "/bin/sh",
+          "-ec",
+          "sleep 600"
+        ],
+        "image": "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "app",
+        "resources": {
+          "limits": {
+            "cpu": "8",
+            "ephemeral-storage": "16Mi",
+            "memory": "64Mi"
+          },
+          "requests": {
+            "cpu": "8",
+            "ephemeral-storage": "1Mi",
+            "memory": "16Mi"
+          }
+        },
+        "securityContext": {
+          "allowPrivilegeEscalation": false,
+          "capabilities": {
+            "drop": [
+              "ALL"
+            ]
+          },
+          "readOnlyRootFilesystem": true
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+          {
+            "mountPath": "/work",
+            "name": "work"
+          }
+        ]
+      }
+    ],
+    "dnsPolicy": "ClusterFirst",
+    "enableServiceLinks": true,
+    "nodeSelector": {
+      "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+    },
+    "preemptionPolicy": "PreemptLowerPriority",
+    "priority": 0,
+    "restartPolicy": "Never",
+    "schedulerName": "default-scheduler",
+    "securityContext": {
+      "fsGroup": 1000,
+      "runAsGroup": 1000,
+      "runAsNonRoot": true,
+      "runAsUser": 1000,
+      "seccompProfile": {
+        "type": "RuntimeDefault"
+      }
+    },
+    "serviceAccount": "default",
+    "serviceAccountName": "default",
+    "terminationGracePeriodSeconds": 10,
+    "tolerations": [
+      {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+      },
+      {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+      }
+    ],
+    "volumes": [
+      {
+        "emptyDir": {
+          "sizeLimit": "128Mi"
+        },
+        "name": "work"
+      }
+    ]
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-18T01:08:40Z",
+        "message": "0/10 nodes are available: 1 Insufficient cpu, 3 node(s) didn't match Pod's node affinity/selector, 6 node(s) had untolerated taint(s). no new claims to deallocate, preemption: 0/10 nodes are available: 10 Preemption is not helpful for scheduling.",
+        "observedGeneration": 1,
+        "reason": "Unschedulable",
+        "status": "False",
+        "type": "PodScheduled"
+      }
+    ],
+    "phase": "Pending",
+    "qosClass": "Burstable"
+  }
+}

@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，准备 01.04；DNS 短名修正待补测。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，DNS 短名补测也已通过；01.04.01–05、总体验收与清理全部通过，01.05 尚未开始。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -344,59 +344,17 @@ DNS 分别返回集群 Service 和内网仓库地址；etcd 初始三成员健�
 
 ## 01.04 建立可控制的 Pod 实验基准
 
-输入：轻量内网镜像；独立 Namespace 和明确的资源上限。
-
-1. 在 `ops/01-kubernetes/core-resources/pods/` 编写正常、错误镜像、进程退出、Init Container、Sidecar、临时容器等清单；所有对象带本实验标签。
-2. 测试应用提供可控制的启动延迟、健康状态、退出信号和请求耗时；每种场景先保存正常状态，再仅改变一个变量。
-3. 分别查看 `kubectl get pod`、`describe`、`logs --previous` 和 Events，区分 Pod phase、容器 state、reason、restartCount；修复同一对象并观察恢复。
-
-### 操作命令与目的
+本轮使用 [完整脚本、命令解释与恢复说明](core-resources/pods/README.md)，覆盖 01.04.01–05。01.03 检查点为 `03f7094`；新批次先补测 Service 短名，再执行状态、Init/Sidecar、受限临时调试、容器 OOM、worker02 软阈值驱逐及正常终止。`01.04-20261017-204751` 批次已完成所有实验、总体验收和清理，见 [逐项结果与实验小结](records/2026-10-17-restart/acceptance.md#5-0104-实验小结)。下方命令保留为新批次复现入口。
 
 ```bash
-kubectl create namespace lab-core --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n lab-core apply -f pod-state.yaml       # 建立可观察 Pod
-kubectl -n lab-core get pods -o wide
-kubectl -n lab-core describe pod state-demo      # 查看调度/拉取/启动事件
-kubectl -n lab-core logs state-demo -c app
-kubectl -n lab-core set image pod/state-demo app="$LAB_BAD_IMAGE"  # 注入错误镜像
-kubectl -n lab-core get events --sort-by=.metadata.creationTimestamp
-# 另一个“进程主动退出”的场景用下面命令读取上一次容器日志
-kubectl -n lab-core logs state-demo -c app --previous
-kubectl -n lab-core apply -f pod-state.yaml       # 恢复正确镜像
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+CNPL04="$PWD/ops/01-kubernetes/records/2026-10-17-restart/evidence/01.04-$(date +%Y%m%d-%H%M%S)"
+bash ops/01-kubernetes/core-resources/pods/run.sh "$CNPL04"
 ```
 
-### 配置示例
+独立批次按组顺序执行，真实错误立即停止并保留状态/事件/日志；预期故障逐项断言。普通资源用 lab-ops，只有预算/节点维护等管理操作显式使用管理员。故障只在指定 worker，不改变控制平面和存储保护。驱逐采用临时提高 kubelet soft 阈值并自动恢复，不耗尽整台节点内存；150 秒独立定时器应对 Mac 中断。
 
-`pod-state.yaml`；镜像需有 shell。Init/Sidecar/临时容器使用同一基准另存变体，不在一次实验中同时修改所有条件：
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: state-demo
-  namespace: lab-core
-  labels: {app: state-demo}
-spec:
-  initContainers:
-    - name: prepare
-      image: "<内网诊断镜像>"
-      command: [sh, -c, "echo init-ok; sleep 2"]
-  containers:
-    - name: app
-      image: "<内网诊断镜像>"
-      command: [sh, -c, "while true; do date; sleep 5; done"]
-      resources:
-        requests: {cpu: 20m, memory: 32Mi}
-        limits: {cpu: 100m, memory: 64Mi}
-```
-
-### 预期结果
-
-Init 先完成，主容器持续输出日志；错误镜像产生明确拉取事件，主动退出变体展示重启次数和 previous 日志。Pod phase、容器 state、reason 分别记录；没有 previous 容器时该日志命令报不存在是预期边界。
-
-交付：`ops/01-kubernetes/examples/pods/` 操作说明；清单与失败/修复对照记录。
-
-检查与失败处理：能解释 Pending、Running、Succeeded、Failed 和 CrashLoopBackOff 的不同层次；测试结束只清理该 Namespace 内的实验对象。
+交付清单由 lab.py render 生成到证据目录；可控制应用源码 app.sh 留供 01.05 复用。当前全部场景、TERM 回执和零残留清理均有真实证据；01.05 尚未执行。
 
 <a id="01-05"></a>
 

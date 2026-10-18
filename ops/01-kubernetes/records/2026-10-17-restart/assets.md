@@ -384,3 +384,63 @@ bash ops/00-preparation/scripts/collect-node-readiness.sh \
 核对发现 [短名 DNS 原始日志](evidence/01.03-20261017-183105/06-dns-smoke.txt)实际失败，没有 NETWORK ACCEPTANCE PASS。BusyBox 源码表明指定服务器后跳过 resolv.conf，不能使用该 nslookup 命令测 search；现改为核对真实首个搜索域并查询展开名称，再由 wget 的短名 HTTP 证明 libc 搜索域行为。修正已纳入离线回归，真实补测放在 01.04 开头，不抹去失败，也不将短名提前判通过。
 
 备份子目录被通用 backup/ 忽略规则排除；仅强制归档公开 receipt 与三份 Ansible 输出，不放行原始备份、私钥或凭据。后续 01.04 真实实验由用户执行；本次不自动创建负载、关机或施加节点压力。
+
+## 27. 2026-10-17 提交 01.03 检查点并准备 01.04 完整批次
+
+按用户要求先创建一个聚焦提交 `03f7094`（feat(phase01): 归档控制平面备份与单节点 HA 验收），包含 47 个必要路径；33 项离线回归、两份 Ansible 语法、本地链接、公开材料敏感字段和实现哈希核验通过。无关的 00 fetch-k8s-clients.sh 保留且未入提交。短名 DNS 失败记录保留，修正后待实际补测。
+
+随后新增 [01.04 完整手册](../../core-resources/pods/README.md)、批次 run.sh、原生资源模板/断言 lab.py、可控 app.sh、worker02 压力控制及节点回退脚本。直接复用既有 Pod 模板、顺序编排、身份与镜像，不引入设计模式或新依赖。普通场景在 worker01，OOM/软阈值驱逐在 worker02；Init/普通 Sidecar/原生 Sidecar、无 Shell/受限临时容器及终止状态均独立留证。
+
+压力通过临时提高 kubelet memory.available soft 阈值触发真实 MemoryPressure/Evicted，而非耗尽节点内存；原始字节副本、SHA、节点 UID、cordon、独立 150 秒 systemd 回退及 finally 恢复形成失败闭环。恢复不把失败实验补判通过。应用默认 SA 没有调试权限；临时容器不使用 privileged/SYS_PTRACE，使用固定短命令。
+
+助手仅执行只读前检、server dry-run 与临时文件回归，没有创建测试 Pod、修改 kubelet、施加内存压力或启动实验。实际验收仍由用户执行，后续按真实输出更新状态。
+
+交付验证：[18 份真实 API dry-run/只读前检/语法和链接](evidence/01.04-delivery-static.txt)通过；[整套 42 项离线回归](evidence/01.04-delivery-regression.txt)通过，增加批次失败即停和压力验收反例、原子恢复状态写入后，[11 项针对性回归](evidence/01.04-lifecycle-focused.txt)再次通过。只读现场确认 worker02 现有 Pod 均为系统关键组件；临时配置不会修改 hard 阈值或角色预留。最新源文件 SHA 另记在静态记录末尾。以上不是实际实验通过，01.04 仍待用户运行。
+
+## 28. 2026-10-17 修复 01.04 第 09 步 exec 窗口竞态及继续执行
+
+用户报告 [09 原始失败](evidence/01.04-20261017-204751/09-states.txt)。只读现场确认 p04-crash 已重启六次，Waiting/CrashLoopBackOff 的 message 明确为五分钟退避；脚本却要求在两秒生命周期内 exec 写入修复标志，且总等待仅 150 秒。10 的失败 Init 采用同样逻辑，也存在这个竞态。没有将此归因于集群部署，也没有调小 kubelet 退避掩盖问题。
+
+修复复用原先 Pending 用例已使用的“取证后修正不可变 spec 并重建 Pod”流程；Crash/Init 不再进入短命容器写文件。回收前核对全部对象归属、保存旧 UID/退出状态/事件/日志，再创建修正 command 的新 Pod，保留同批标签。新 Pod UID 与 emptyDir 都会重建。观测快照直接使用 wait 命中时的 Waiting 状态，避免再读取时恰好变 Running；没有产生容器实例的场景不再请求不存在的日志。
+
+新增 run.sh --resume：保留 state.json 的原运行标识和实现哈希，核对健康、顺序检查点及资源归属；已通过步骤跳过，当前未通过步骤先取证并只回收自己的 Pod 后重试。新输出进入独立 resume 子目录，Pod 同名观测不覆盖；当前源文件和 SHA 另存 script-revisions，并追加 resume_history。未通过的压力记录必须先走恢复/清理，不自动重复注入。原批次五份原实现与已记录 SHA 全部匹配，已归档到 [修复前源码](evidence/01.04-20261017-204751/script-revisions/before-repair/manifest.json)。
+
+补核对 [短名 DNS 矩阵](evidence/01.04-20261017-204751/03-dns-recheck.txt)已 NETWORK ACCEPTANCE PASS：100 Pod HTTP、50 DNS、30 Service HTTP；不再保留“短名待补测”的当前状态。prepare 已通过，09 未通过，10–16 未执行。助手仅检查现场和验证脚本，没有重建实验 Pod 或自动继续运行。
+
+修复验证：[15 项针对性回归](evidence/01.04-crash-repair-focused.txt)、[完整 48 项离线回归](evidence/01.04-crash-repair-regression.txt)均通过。新用例模拟完全无法 exec 的 Crash/Init、已 DeadlineExceeded 的旧 Pod、归属冲突时零删除、保留原始日志/哈希及 --resume 跳过已通过步骤。首次新测试仅因 glob 同时匹配 events.json 而断言计数失败，收紧测试匹配后上述回归全部通过。
+
+[静态与真实只读前检](evidence/01.04-crash-repair-static.txt)：四份 Crash/Init 失败/修复 spec 的 server dry-run 通过；在临时目录复制原 state.json 后执行继续前检，实际集群只 GET，原用户 state.json 没有修改。留存 [09 诊断时的 Pod 快照](evidence/01.04-20261017-204751/09-diagnosis-readonly.json)。未创建或删除真实实验 Pod；继续运行由用户使用原目录加 --resume 完成。
+
+## 29. 2026-10-17 修复 01.04 第 13 步准备探针超时
+
+用户继续原批次，09 STATES、10 SIDECARS、11 DEBUG、12 MEMORY 均有实际 PASS；12 的容器 OOMKilled/137 已留证。13 的测试进程输出 pressure-ready，96Mi 写入完成，但 readiness 每两秒执行 wc -c 全扫描，在 200m CPU 配额下超过默认一秒超时，导致等待 Ready 失败。现场事件直接记录 timed out after 1s，实际 cpu.max=20000/100000，频繁 CPU throttling；不是调大整个等待时间可以可靠解决的问题。
+
+[只读诊断](evidence/01.04-20261017-204751/13-pressure-diagnosis.json)确认 armed=false、cordoned=false、restored=true；worker02 UID 相符，kubelet SHA 为原值 5ddf4e5285efec7926919093ec8c8433d11b45e70b7eb7f7bd41b2fb01fa1166，Ready/可调度/无压力，kubelet/firewalld active、SELinux Enforcing。本次尚未修改阈值，恢复 PASS 不代表驱逐 PASS。
+
+改为 dd 完成后用 stat 元数据校验一次大小并 touch /work/loaded；探针仅检查标记，显式五秒超时。不增加 CPU/内存预算；stat applet 在锁定 BusyBox 中已确认存在，真实旧 Pod 的 stat 返回 100663296。新增 pressure.py retry：仅允许未 armed、未 cordon 且已恢复的准备失败，核对 UID/SHA/健康后把旧记录和 Pod 证据归档至 pressure-attempts，再只回收本批 pressure Pod，保持所有通过标记不变，供 --resume 从 13 继续。已进入阈值修改的失败仍拒绝此入口。
+
+准备阶段恢复也显式验证原配置 SHA/kubelet active；后续失败自动留存失败阶段、Pod/事件/日志。助手只读诊断和验证，没有自动清理测试 Pod、启动新负载、修改 kubelet 或继续实验。
+
+修复验证：[完整 51 项离线回归](evidence/01.04-pressure-repair-regression.txt)通过，新增探针标记必须在 dd 成功且 stat 体积正确后才出现、准备失败自动取证与主机不变、retry 在已 armed/已 cordon/未恢复/节点 UID 变化/配置 SHA 漂移时拒绝回收等覆盖。[语法与真实 API dry-run](evidence/01.04-pressure-repair-static.txt)通过；使用临时 pressure.json 副本、屏蔽删除操作验证实际现场重试检查，API 只 GET、SSH 只读，原用户记录与真实 Pod 均保留。尚未实际重试驱逐，不据此宣称 13 通过。
+
+## 30. 2026-10-17 修复 14 的删除后日志依赖，并复核 15–16
+
+13 已实际 PASS：[真实驱逐与恢复](evidence/01.04-20261017-204751/resume-20261017-212519-XgkqHr/13-pressure.txt)、pressure.json 包含 MemoryPressure、Evicted/memory、原配置恢复及解除 cordon。通过标记保持，后续不重复压力注入。
+
+14 的 [原终态](evidence/01.04-20261017-204751/term-graceful.json)为 Succeeded、Completed/0；[原日志读取](evidence/01.04-20261017-204751/term-graceful-app.txt)实际返回 unable to retrieve container logs。旧脚本错误地假设 finalizer 也能保住 CRI 日志，因此把证据不可读报成 TERM 未完成；原证据不足以确认信号处理，本次不直接补判通过。[只读诊断](evidence/01.04-20261017-204751/14-termination-diagnosis.json)保存旧状态、现有基准及 worker02 状态，当前基准 ConfigMap 源码 SHA 与上次实际执行版本一致。
+
+改用 Kubernetes terminationMessagePath：程序等待 httpd 子进程结束后写带 TERM、Pod UID 和回收标记的短回执，再退出 0；验收同时要求删除时间、Succeeded、Completed/0 和准确消息。finalizer 仅保留 API 状态，删除后不再请求 CRI 日志。终止专用 p04-term-app ConfigMap 确保继续旧批次时执行新代码，保留原 p04-app/基准 Pod；HTTP ready 在 trap 安装和子进程启动后成立，显式超时五秒。15 复核终止回执和压力证据，16 查询本批标签零残留后才判清理通过。当前模板从 18 增至 19 个对象。
+
+新增回归实际运行 app.sh 信号/回收/回执路径，HTTP 子进程使用不监听端口的替身；模拟删除后日志已回收时运行 14→15→16，并覆盖缺消息、UID/信号错误、非零退出、压力未恢复及删除无效的拒绝路径。另在既有受控 BusyBox 中执行有界同类信号测试，明确使用绝对替身路径、校验 PASS 哨兵和子进程消失；未新建 Pod 或监听服务，基准 UID/Ready 不变。[BusyBox 验证](evidence/01.04-termination-repair-busybox.txt)通过。首次辅助检查缺少 exec -i，正文未执行且无哨兵，已标为无效记录；补齐并校验哨兵后才计入通过。
+
+[完整 53 项离线回归](evidence/01.04-termination-repair-regression.txt)通过；最终清单/超时参数的 [20 项针对性回归](evidence/01.04-termination-repair-focused.txt)通过。[当前 19 清单 server dry-run、语法及实际继续前检](evidence/01.04-termination-repair-static.txt)通过；旧 Completed/0 但缺消息的真实状态被新校验正确拒绝。继续前检使用临时 state.json 副本、真实集群只 GET，原用户通过标记没有变化。正式 14–16 尚未重跑，由用户使用原目录 --resume 执行。
+
+## 31. 2026-10-17 完成 01.04 验收、复盘与提交检查点
+
+用户反馈 14、15、16 三条 PASS 均已取得。核对 [末次执行](evidence/01.04-20261017-204751/resume-20261017-215220-kXZU2U/14-termination.txt)、[最终验收](evidence/01.04-20261017-204751/resume-20261017-215220-kXZU2U/15-verify.txt)、[清理结果](evidence/01.04-20261017-204751/cleanup-confirm.json)，确认全部状态通过，TERM 回执与 Pod UID e4eeb469-94c5-4e1d-b6c2-aa44857d1663 匹配，Completed/0、TERM 和 child_reaped=true 同时成立，本批资源 items=[]。
+
+[检查点证据与线上只读核验](evidence/01.04-checkpoint-verification.txt)验证全部回执和各次归档 SHA，末次执行实现与当前源码一致；线上同集群十节点 Ready、无压力/cordon、本批零残留，lab-core 和 RBAC 保留。运维身份按既定权限不能读取 Role，本次 Role 存在性检查显式使用平台管理员只读完成，没有增加权限。常规测试、失败/修复过程、未执行的辅助检查以及无效首次 stdin 检查均保留其原始结论。
+
+本次只提交 01.04 实现/测试/公开证据、对应验收与状态文档，不纳入无关的 00 fetch-k8s-clients.sh；不重跑故障实验、不启动 01.05。01.04.01–05 均通过，整个 Phase 01 尚未完成；.15 分发、在线灾难重建及物理故障域等既有边界继续保留。
+
+提交前 [53 项完整离线回归](evidence/01.04-checkpoint-regression.txt)全部通过；[文档链接、JSON/YAML/Python/Shell 语法与公开材料敏感字段检查](evidence/01.04-checkpoint-static.txt)通过。保持原始终端输出的空白和失败记录，不机械改写证据或历史源码快照；静态检查和离线回归与用户真实验收分别陈述。

@@ -1,0 +1,23 @@
+=== shared network/process ===
+OKPID   USER     TIME  COMMAND
+    1 1000      0:00 /coredns -conf /app/Corefile
+   18 1000      0:00 /bin/sh -ec set -eu echo '=== shared network/process ===' wget -q -T 3 -O - http://127.0.0.1:18080/health ps ps | grep '[c]oredns' >/dev/null echo '=== DNS NXDOMAIN ===' nslookup -timeout=2 -retry=1 -type=A kubernetes.default.svc.cluster.local 192.168.20.10 if nslookup -timeout=2 -retry=1 -type=A absent.p04.invalid. 192.168.20.10; then echo unexpected-dns-success; exit 1; fi echo '=== connection refused ===' if wget -q -T 2 -O - http://127.0.0.1:18082/; then echo unexpected-connect-success; exit 1; fi echo '=== slow response: 1s timeout / 5s success ===' if wget -q -T 1 -O - 'http://p04-entry:8080/cgi-bin/check?delay'; then echo unexpected-fast-response; exit 1; fi wget -q -T 5 -O - 'http://p04-entry:8080/cgi-bin/check?delay' echo DEBUG_COMPLETE 
+   25 1000      0:00 ps
+=== DNS NXDOMAIN ===
+Server:		192.168.20.10
+Address:	192.168.20.10:53
+
+Name:	kubernetes.default.svc.cluster.local
+Address: 192.168.20.1
+
+Server:		192.168.20.10
+Address:	192.168.20.10:53
+
+** server can't find absent.p04.invalid.: NXDOMAIN
+
+=== connection refused ===
+wget: can't connect to remote host (127.0.0.1): Connection refused
+=== slow response: 1s timeout / 5s success ===
+wget: download timed out
+mode=delay pod=p04-baseline node=worker01.k8s.internal.egon.top
+DEBUG_COMPLETE

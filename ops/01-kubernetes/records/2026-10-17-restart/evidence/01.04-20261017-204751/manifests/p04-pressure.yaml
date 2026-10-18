@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: p04-pressure
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-pod-lab
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: worker02.k8s.internal.egon.top
+  terminationGracePeriodSeconds: 10
+  activeDeadlineSeconds: 900
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    imagePullPolicy: IfNotPresent
+    command:
+    - /bin/sh
+    - -ec
+    - dd if=/dev/zero of=/work/fill bs=1048576 count=96; echo pressure-ready; exec
+      sleep 600
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+        ephemeral-storage: 1Mi
+      limits:
+        cpu: 200m
+        memory: 160Mi
+        ephemeral-storage: 16Mi
+    volumeMounts:
+    - name: work
+      mountPath: /work
+    readinessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -ec
+        - test -f /work/fill && test "$(wc -c < /work/fill)" -eq 100663296
+      periodSeconds: 2
+  volumes:
+  - name: work
+    emptyDir:
+      sizeLimit: 128Mi
+      medium: Memory

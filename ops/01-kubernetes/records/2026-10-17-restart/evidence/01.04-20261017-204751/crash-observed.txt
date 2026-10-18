@@ -1,0 +1,69 @@
+Name:             p04-crash
+Namespace:        lab-core
+Priority:         0
+Service Account:  default
+Node:             worker01.k8s.internal.egon.top/192.168.9.109
+Start Time:       Sat, 17 Oct 2026 20:49:14 -0400
+Labels:           app.kubernetes.io/part-of=cnpl-pod-lab
+                  cnpl.io/pod-run=20261018T004858Z-aa76940f
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.8.90
+IPs:
+  IP:  10.244.8.90
+Containers:
+  app:
+    Container ID:  containerd://393474c2945f9b19ad15e329209f174ae86b90963852a37d71b10b60801f7b23
+    Image:         harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Image ID:      harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      /bin/sh
+      -ec
+      if test -f /work/fixed; then echo fixed; exec sleep 600; fi; echo application-exit=7; sleep 2; exit 7
+    State:          Running
+      Started:      Sat, 17 Oct 2026 20:51:02 -0400
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    7
+      Started:      Sat, 17 Oct 2026 20:50:05 -0400
+      Finished:     Sat, 17 Oct 2026 20:50:07 -0400
+    Ready:          True
+    Restart Count:  4
+    Limits:
+      cpu:                200m
+      ephemeral-storage:  16Mi
+      memory:             64Mi
+    Requests:
+      cpu:                10m
+      ephemeral-storage:  1Mi
+      memory:             16Mi
+    Environment:          <none>
+    Mounts:
+      /work from work (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  work:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   128Mi
+QoS Class:       Burstable
+Node-Selectors:  kubernetes.io/hostname=worker01.k8s.internal.egon.top
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age                From               Message
+  ----     ------     ----               ----               -------
+  Normal   Scheduled  108s               default-scheduler  Successfully assigned lab-core/p04-crash to worker01.k8s.internal.egon.top
+  Warning  BackOff    55s (x3 over 96s)  kubelet            spec.containers{app}: Back-off restarting failed container app in pod p04-crash_lab-core(d1e97534-025c-4a6f-8227-974fd3950c4c)
+  Normal   Pulled     2s (x5 over 105s)  kubelet            spec.containers{app}: Container image "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f" already present on machine and can be accessed by the pod
+  Normal   Created    2s (x5 over 105s)  kubelet            spec.containers{app}: Container created
+  Normal   Started    0s (x5 over 103s)  kubelet            spec.containers{app}: Container started

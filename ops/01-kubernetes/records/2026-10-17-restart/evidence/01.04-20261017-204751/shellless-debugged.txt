@@ -1,0 +1,108 @@
+Name:             p04-shellless
+Namespace:        lab-core
+Priority:         0
+Service Account:  default
+Node:             worker01.k8s.internal.egon.top/192.168.9.109
+Start Time:       Sat, 17 Oct 2026 21:11:19 -0400
+Labels:           app.kubernetes.io/part-of=cnpl-pod-lab
+                  cnpl.io/pod-run=20261018T004858Z-aa76940f
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.8.83
+IPs:
+  IP:  10.244.8.83
+Containers:
+  app:
+    Container ID:  containerd://465428a276d368f33cba0c3063de6b96329b8117058bb698cded86c8cde0199b
+    Image:         harbor.k8s.internal.egon.top/bootstrap/coredns@sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc
+    Image ID:      harbor.k8s.internal.egon.top/bootstrap/coredns@sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      /coredns
+      -conf
+      /app/Corefile
+    State:          Running
+      Started:      Sat, 17 Oct 2026 21:11:24 -0400
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:                200m
+      ephemeral-storage:  16Mi
+      memory:             64Mi
+    Requests:
+      cpu:                10m
+      ephemeral-storage:  1Mi
+      memory:             16Mi
+    Readiness:            http-get http://:18080/health delay=0s timeout=1s period=2s #success=1 #failure=3
+    Environment:          <none>
+    Mounts:
+      /app from app (ro)
+      /work from work (rw)
+Ephemeral Containers:
+  diag:
+    Container ID:    containerd://8fbf10caec8fb2ab58574b89080f122df48197ebf326b01814b8d8d49aa9dc5b
+    Image:           harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Image ID:        harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+    Port:            <none>
+    Host Port:       <none>
+    SeccompProfile:  RuntimeDefault
+    Command:
+      /bin/sh
+      -ec
+      set -eu
+      echo '=== shared network/process ==='
+      wget -q -T 3 -O - http://127.0.0.1:18080/health
+      ps
+      ps | grep '[c]oredns' >/dev/null
+      echo '=== DNS NXDOMAIN ==='
+      nslookup -timeout=2 -retry=1 -type=A kubernetes.default.svc.cluster.local 192.168.20.10
+      if nslookup -timeout=2 -retry=1 -type=A absent.p04.invalid. 192.168.20.10; then echo unexpected-dns-success; exit 1; fi
+      echo '=== connection refused ==='
+      if wget -q -T 2 -O - http://127.0.0.1:18082/; then echo unexpected-connect-success; exit 1; fi
+      echo '=== slow response: 1s timeout / 5s success ==='
+      if wget -q -T 1 -O - 'http://p04-entry:8080/cgi-bin/check?delay'; then echo unexpected-fast-response; exit 1; fi
+      wget -q -T 5 -O - 'http://p04-entry:8080/cgi-bin/check?delay'
+      echo DEBUG_COMPLETE
+      
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Sat, 17 Oct 2026 21:11:29 -0400
+      Finished:     Sat, 17 Oct 2026 21:11:33 -0400
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:         <none>
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  work:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  128Mi
+  app:
+    Type:        ConfigMap (a volume populated by a ConfigMap)
+    Name:        p04-app
+    Optional:    false
+QoS Class:       Burstable
+Node-Selectors:  kubernetes.io/hostname=worker01.k8s.internal.egon.top
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age   From               Message
+  ----     ------     ----  ----               -------
+  Normal   Scheduled  15s   default-scheduler  Successfully assigned lab-core/p04-shellless to worker01.k8s.internal.egon.top
+  Normal   Pulled     12s   kubelet            spec.containers{app}: Container image "harbor.k8s.internal.egon.top/bootstrap/coredns@sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc" already present on machine and can be accessed by the pod
+  Normal   Created    12s   kubelet            spec.containers{app}: Container created
+  Normal   Started    10s   kubelet            spec.containers{app}: Container started
+  Warning  Unhealthy  10s   kubelet            spec.containers{app}: Readiness probe failed: Get "http://10.244.8.83:18080/health": dial tcp 10.244.8.83:18080: connect: connection refused
+  Normal   Pulled     6s    kubelet            spec.ephemeralContainers{diag}: Container image "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f" already present on machine and can be accessed by the pod
+  Normal   Created    6s    kubelet            spec.ephemeralContainers{diag}: Container created
+  Normal   Started    5s    kubelet            spec.ephemeralContainers{diag}: Container started

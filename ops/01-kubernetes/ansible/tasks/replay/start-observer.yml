@@ -9,10 +9,22 @@
   poll: 0
   register: replay_observer_job
   changed_when: false
-- name: 等待观测者明确开始，不把异步启动当成测试成功
-  ansible.builtin.wait_for:
-    path: '{{ observer_prefix }}.ready'
-    state: present
-    timeout: 30
-    sleep: 1
-  changed_when: false
+- name: 确认观测启动，失败时返回实际子进程错误
+  block:
+    - name: 等待观测者明确开始，不把异步启动当成测试成功
+      ansible.builtin.wait_for:
+        path: '{{ observer_prefix }}.ready'
+        state: present
+        timeout: 30
+        sleep: 1
+      changed_when: false
+  rescue:
+    - name: 读取未就绪观测者的实际结果
+      ansible.builtin.async_status:
+        jid: '{{ replay_observer_job.ansible_job_id }}'
+      register: observer_start_failure
+      failed_when: false
+      changed_when: false
+    - name: 报告原始观测错误而非只报告 ready 文件超时
+      ansible.builtin.fail:
+        msg: '观测未就绪：{{ observer_start_failure.stdout | default("") }} {{ observer_start_failure.stderr | default("") }}；证据 {{ observer_prefix }}'

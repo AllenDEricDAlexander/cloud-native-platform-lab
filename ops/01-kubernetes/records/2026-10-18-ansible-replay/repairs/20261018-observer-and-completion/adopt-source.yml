@@ -1,0 +1,70 @@
+---
+- name: 为未完成组登记准确修复版本并保留全部成功断点
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  tasks:
+    - name: 固定本次实际批次
+      ansible.builtin.assert:
+        that:
+          - replay_records == replay_root ~ '/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-20261018T051927Z-ha-fix-20261018T063407Z'
+          - source_revision is match('^origin/remaining-fix-[0-9]{4}$')
+    - name: 读取当前上下文
+      ansible.builtin.set_fact:
+        prior_context: "{{ lookup('file', replay_records ~ '/context.json') | from_json }}"
+    - name: 核对原运行
+      ansible.builtin.assert:
+        that: prior_context.run == '20261018T051939Z-bca4cc12'
+    - name: 获取全部成功断点
+      ansible.builtin.find: {paths: '{{ replay_records }}/checkpoints', patterns: '*.json'}
+      register: carried_checkpoints
+    - name: 核对成功断点属于原运行及集群
+      ansible.builtin.assert:
+        that: saved.passed | bool and saved.run == prior_context.run and saved.cluster_uid == prior_context.cluster_uid
+      loop: '{{ carried_checkpoints.files }}'
+      loop_control: {label: '{{ item.path | basename }}'}
+      vars:
+        saved: "{{ lookup('file', item.path) | from_json }}"
+    - name: 当前集群只读健康核验
+      ansible.builtin.command: {argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]}
+      register: current_health
+      changed_when: false
+    - name: 必须仍为原集群
+      ansible.builtin.assert:
+        that: (current_health.stdout | from_json).cluster_uid == prior_context.cluster_uid
+    - name: 核对当前源码及历史原件
+      ansible.builtin.command: {argv: ['{{ replay_python }}', '{{ replay_check }}', audit, --root, '{{ replay_root }}']}
+      register: current_audit
+      changed_when: false
+    - name: 绑定当前源码
+      ansible.builtin.set_fact:
+        current_source: '{{ (current_audit.stdout | from_json).source_sha256 }}'
+    - name: 计算准确差异
+      ansible.builtin.set_fact:
+        changed_paths: '{{ ((prior_context.implementation | dict2items | difference(current_source | dict2items)) + (current_source | dict2items | difference(prior_context.implementation | dict2items))) | map(attribute="key") | unique | sort }}'
+    - name: 仅接受此次明确修复的路径
+      ansible.builtin.assert:
+        that: changed_paths == expected_changed_paths | sort
+    - name: 历史版本必须尚不存在
+      ansible.builtin.stat: {path: '{{ replay_records }}/{{ source_revision }}'}
+      register: archive_stat
+    - name: 禁止覆盖历史原件
+      ansible.builtin.assert: {that: not archive_stat.stat.exists}
+    - name: 创建归档
+      ansible.builtin.file: {path: '{{ replay_records }}/{{ source_revision }}', state: directory, mode: '0700'}
+    - name: 先保存原上下文字节
+      ansible.builtin.copy: {src: '{{ replay_records }}/context.json', dest: '{{ replay_records }}/{{ source_revision }}/context.json', mode: '0600'}
+    - name: 核对原件 SHA
+      ansible.builtin.stat: {path: '{{ replay_records }}/{{ source_revision }}/context.json', get_checksum: true, checksum_algorithm: sha256}
+      register: archived_context
+    - name: 登记版本差异和沿用断点
+      ansible.builtin.copy:
+        content: '{{ {"reason": "complete-remaining-03-06", "run": prior_context.run, "cluster_uid": prior_context.cluster_uid, "previous_context_sha256": archived_context.stat.checksum, "changed_paths": changed_paths, "old_implementation": prior_context.implementation, "new_implementation": current_source, "carried_checkpoints": carried_checkpoints.files | map(attribute="path") | map("basename") | sort} | to_nice_json }}'
+        dest: '{{ replay_records }}/{{ source_revision }}/source-revision.json'
+        mode: '0600'
+    - name: 切换当前实现版本，成功断点不重写
+      ansible.builtin.copy:
+        content: '{{ prior_context | combine({"implementation": current_source, "previous_context_sha256": archived_context.stat.checksum, "latest_source_revision": source_revision ~ "/source-revision.json"}) | to_nice_json }}'
+        dest: '{{ replay_records }}/context.json'
+        mode: '0600'

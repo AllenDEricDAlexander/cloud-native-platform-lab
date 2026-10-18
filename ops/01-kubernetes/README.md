@@ -346,7 +346,7 @@ DNS 分别返回集群 Service 和内网仓库地址；etcd 初始三成员健�
 
 原始运行已验收并清理，见 [原始逐项验收](records/2026-10-17-restart/acceptance.md)。资源 YAML 位于 [源码清单](core-resources/pods/manifests/)，Ansible 执行顺序与说明见 [专题手册](core-resources/pods/README.md)。
 
-01.03–01.06 此次统一切换为源码 YAML、Ansible 执行、Python 必要检查；请使用 [完整重跑命令与恢复说明](records/2026-10-18-ansible-replay/README.md)，四个专题顺序执行后再开始 01.07。原始记录和旧源码保留，新实现的静态检查不等于新的运行验收。
+01.03–01.06 已完成源码 YAML、Ansible 执行、Python 必要检查的真实重跑验收，26 个成功断点和两个总 PASS 齐全，原始记录与旧源码保留。详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。
 
 <a id="01-05"></a>
 
@@ -354,7 +354,7 @@ DNS 分别返回集群 Service 和内网仓库地址；etcd 初始三成员健�
 
 原始运行已验收并清理，见 [原始逐项验收](records/2026-10-17-restart/acceptance.md)。资源 YAML 位于 [源码清单](core-resources/probes/manifests/)，Ansible 执行顺序与说明见 [专题手册](core-resources/probes/README.md)。
 
-01.03–01.06 此次统一切换为源码 YAML、Ansible 执行、Python 必要检查；请使用 [完整重跑命令与恢复说明](records/2026-10-18-ansible-replay/README.md)，四个专题顺序执行后再开始 01.07。原始记录和旧源码保留，新实现的静态检查不等于新的运行验收。
+01.03–01.06 已完成源码 YAML、Ansible 执行、Python 必要检查的真实重跑验收，26 个成功断点和两个总 PASS 齐全，原始记录与旧源码保留。详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。
 
 <a id="01-06"></a>
 
@@ -362,7 +362,7 @@ DNS 分别返回集群 Service 和内网仓库地址；etcd 初始三成员健�
 
 原始运行已验收并清理，见 [原始逐项验收](records/2026-10-17-restart/acceptance.md)。资源 YAML 位于 [源码清单](core-resources/controllers/manifests/)，Ansible 执行顺序与说明见 [专题手册](core-resources/controllers/README.md)。
 
-01.03–01.06 此次统一切换为源码 YAML、Ansible 执行、Python 必要检查；请使用 [完整重跑命令与恢复说明](records/2026-10-18-ansible-replay/README.md)，四个专题顺序执行后再开始 01.07。原始记录和旧源码保留，新实现的静态检查不等于新的运行验收。
+01.03–01.06 已完成源码 YAML、Ansible 执行、Python 必要检查的真实重跑验收，26 个成功断点和两个总 PASS 齐全，原始记录与旧源码保留。详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。
 
 <a id="01-07"></a>
 

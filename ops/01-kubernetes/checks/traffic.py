@@ -63,6 +63,10 @@ def get(port,path,timeout=3,connection=None):
         if connection is None:c.close()
 
 
+def header(response,name):
+    return next((value for key,value in response['headers'].items() if key.casefold()==name.casefold()),None)
+
+
 def samples(a,r):
     pod=r.get('pod',a.pod);require(pod['metadata']['labels'].get('cnpl.io/replay-run')==r.context['run'],'目标 Pod 不属于本批')
     rows=[];consecutive=0;deadline=time.monotonic()+45
@@ -97,7 +101,7 @@ def observe(a,r):
                     c=http.client.HTTPConnection('127.0.0.1',port,timeout=3)
                     result=get(port,'/identity',connection=c)
                     if result['body'].get('pod')==a.sticky:
-                        connection=c;original={'uid':result['body']['uid'],'connection_id':result['headers'].get('X-Connection-ID'),'client_port':c.sock.getsockname()[1]};break
+                        connection=c;original={'uid':result['body']['uid'],'connection_id':header(result,'X-Connection-ID'),'client_port':c.sock.getsockname()[1]};break
                     c.close()
                 require(connection is not None and original['connection_id'],'未建立指定副本的持久连接')
             save(a.ready,{'ready':True,'at':time.time(),'sticky':original})
@@ -112,7 +116,7 @@ def observe(a,r):
                     result={'at':now,'stage':row['stage']}
                     try:
                         result.update(get(port,'/identity',connection=connection));result['client_port']=connection.sock.getsockname()[1]
-                        result['same_connection']=(result['body'].get('uid')==original['uid'] and result['headers'].get('X-Connection-ID')==original['connection_id'] and result['client_port']==original['client_port'])
+                        result['same_connection']=(result['body'].get('uid')==original['uid'] and header(result,'X-Connection-ID')==original['connection_id'] and result['client_port']==original['client_port'])
                     except (OSError,ValueError,http.client.HTTPException) as e:result.update(same_connection=False,error=str(e))
                     sticky.append(result);last_sticky=now
                 if a.deployment and now-last_graph>=1:

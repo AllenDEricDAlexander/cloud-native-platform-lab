@@ -1,0 +1,491 @@
+{
+  "parent": {
+    "apiVersion": "apps/v1",
+    "kind": "DaemonSet",
+    "metadata": {
+      "annotations": {
+        "deprecated.daemonset.template.generation": "1",
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"DaemonSet\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"20261018T102324Z-2241f623\"},\"name\":\"p07-daemon\",\"namespace\":\"lab-p07\"},\"spec\":{\"revisionHistoryLimit\":5,\"selector\":{\"matchLabels\":{\"app.kubernetes.io/name\":\"p07-daemon\",\"cnpl.io/core-run\":\"20261018T102324Z-2241f623\"}},\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/name\":\"p07-daemon\",\"cnpl.io/core-run\":\"20261018T102324Z-2241f623\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/core-lab\",\"serve\"],\"env\":[{\"name\":\"POD_NAME\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.name\"}}},{\"name\":\"POD_UID\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.uid\"}}},{\"name\":\"POD_NAMESPACE\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.namespace\"}}}],\"image\":\"cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc\",\"imagePullPolicy\":\"Never\",\"name\":\"app\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"failureThreshold\":1,\"httpGet\":{\"path\":\"/ready\",\"port\":\"http\"},\"periodSeconds\":2,\"timeoutSeconds\":2},\"resources\":{\"limits\":{\"cpu\":\"500m\",\"ephemeral-storage\":\"32Mi\",\"memory\":\"192Mi\"},\"requests\":{\"cpu\":\"20m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"32Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"volumeMounts\":[{\"mountPath\":\"/work\",\"name\":\"work\"}]}],\"nodeSelector\":{\"cnpl.io/core07\":\"20261018T102324Z-2241f623\"},\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":10,\"tolerations\":[],\"volumes\":[{\"emptyDir\":{\"sizeLimit\":\"32Mi\"},\"name\":\"work\"}]}},\"updateStrategy\":{\"rollingUpdate\":{\"maxSurge\":0,\"maxUnavailable\":1},\"type\":\"RollingUpdate\"}}}\n"
+      },
+      "creationTimestamp": "2026-10-18T10:26:13Z",
+      "generation": 1,
+      "labels": {
+        "cnpl.io/core-run": "20261018T102324Z-2241f623"
+      },
+      "name": "p07-daemon",
+      "namespace": "lab-p07",
+      "resourceVersion": "269023",
+      "uid": "d353bc4f-1295-4917-ba09-fc2fc47f256a"
+    },
+    "spec": {
+      "revisionHistoryLimit": 5,
+      "selector": {
+        "matchLabels": {
+          "app.kubernetes.io/name": "p07-daemon",
+          "cnpl.io/core-run": "20261018T102324Z-2241f623"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app.kubernetes.io/name": "p07-daemon",
+            "cnpl.io/core-run": "20261018T102324Z-2241f623"
+          }
+        },
+        "spec": {
+          "automountServiceAccountToken": false,
+          "containers": [
+            {
+              "command": [
+                "/core-lab",
+                "serve"
+              ],
+              "env": [
+                {
+                  "name": "POD_NAME",
+                  "valueFrom": {
+                    "fieldRef": {
+                      "apiVersion": "v1",
+                      "fieldPath": "metadata.name"
+                    }
+                  }
+                },
+                {
+                  "name": "POD_UID",
+                  "valueFrom": {
+                    "fieldRef": {
+                      "apiVersion": "v1",
+                      "fieldPath": "metadata.uid"
+                    }
+                  }
+                },
+                {
+                  "name": "POD_NAMESPACE",
+                  "valueFrom": {
+                    "fieldRef": {
+                      "apiVersion": "v1",
+                      "fieldPath": "metadata.namespace"
+                    }
+                  }
+                }
+              ],
+              "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+              "imagePullPolicy": "Never",
+              "name": "app",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http",
+                  "protocol": "TCP"
+                }
+              ],
+              "readinessProbe": {
+                "failureThreshold": 1,
+                "httpGet": {
+                  "path": "/ready",
+                  "port": "http",
+                  "scheme": "HTTP"
+                },
+                "periodSeconds": 2,
+                "successThreshold": 1,
+                "timeoutSeconds": 2
+              },
+              "resources": {
+                "limits": {
+                  "cpu": "500m",
+                  "ephemeral-storage": "32Mi",
+                  "memory": "192Mi"
+                },
+                "requests": {
+                  "cpu": "20m",
+                  "ephemeral-storage": "1Mi",
+                  "memory": "32Mi"
+                }
+              },
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "readOnlyRootFilesystem": true
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/work",
+                  "name": "work"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "nodeSelector": {
+            "cnpl.io/core07": "20261018T102324Z-2241f623"
+          },
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {
+            "fsGroup": 1000,
+            "runAsGroup": 1000,
+            "runAsNonRoot": true,
+            "runAsUser": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "terminationGracePeriodSeconds": 10,
+          "volumes": [
+            {
+              "emptyDir": {
+                "sizeLimit": "32Mi"
+              },
+              "name": "work"
+            }
+          ]
+        }
+      },
+      "updateStrategy": {
+        "rollingUpdate": {
+          "maxSurge": 0,
+          "maxUnavailable": 1
+        },
+        "type": "RollingUpdate"
+      }
+    },
+    "status": {
+      "currentNumberScheduled": 1,
+      "desiredNumberScheduled": 1,
+      "numberAvailable": 1,
+      "numberMisscheduled": 0,
+      "numberReady": 1,
+      "observedGeneration": 1,
+      "updatedNumberScheduled": 1
+    }
+  },
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T10:26:13Z",
+        "generateName": "p07-daemon-",
+        "generation": 1,
+        "labels": {
+          "app.kubernetes.io/name": "p07-daemon",
+          "cnpl.io/core-run": "20261018T102324Z-2241f623",
+          "controller-revision-hash": "5b96ff864f",
+          "pod-template-generation": "1"
+        },
+        "name": "p07-daemon-vfhj9",
+        "namespace": "lab-p07",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "DaemonSet",
+            "name": "p07-daemon",
+            "uid": "d353bc4f-1295-4917-ba09-fc2fc47f256a"
+          }
+        ],
+        "resourceVersion": "269025",
+        "uid": "c9161d86-1d40-4c66-9db1-9f5f83663712"
+      },
+      "spec": {
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchFields": [
+                    {
+                      "key": "metadata.name",
+                      "operator": "In",
+                      "values": [
+                        "worker02.k8s.internal.egon.top"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "command": [
+              "/core-lab",
+              "serve"
+            ],
+            "env": [
+              {
+                "name": "POD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "POD_UID",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.uid"
+                  }
+                }
+              },
+              {
+                "name": "POD_NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
+              }
+            ],
+            "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+            "imagePullPolicy": "Never",
+            "name": "app",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 1,
+              "httpGet": {
+                "path": "/ready",
+                "port": "http",
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 2,
+              "successThreshold": 1,
+              "timeoutSeconds": 2
+            },
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "32Mi",
+                "memory": "192Mi"
+              },
+              "requests": {
+                "cpu": "20m",
+                "ephemeral-storage": "1Mi",
+                "memory": "32Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/work",
+                "name": "work"
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "worker02.k8s.internal.egon.top",
+        "nodeSelector": {
+          "cnpl.io/core07": "20261018T102324Z-2241f623"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "fsGroup": 1000,
+          "runAsGroup": 1000,
+          "runAsNonRoot": true,
+          "runAsUser": 1000,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 10,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/disk-pressure",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/memory-pressure",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/pid-pressure",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/unschedulable",
+            "operator": "Exists"
+          }
+        ],
+        "volumes": [
+          {
+            "emptyDir": {
+              "sizeLimit": "32Mi"
+            },
+            "name": "work"
+          }
+        ]
+      },
+      "status": {
+        "allocatedResources": {
+          "cpu": "20m",
+          "ephemeral-storage": "1Mi",
+          "memory": "32Mi"
+        },
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T10:26:15Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T10:26:13Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T10:26:17Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T10:26:17Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T10:26:14Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "allocatedResources": {
+              "cpu": "20m",
+              "ephemeral-storage": "1Mi",
+              "memory": "32Mi"
+            },
+            "containerID": "containerd://5d03f51e4d8cfb9636d02fc647158c7f52c9d63ee1f0d5eb83a67c27ebe52471",
+            "image": "cnpl.local/phase01/core-lab:v1-sha256-4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+            "imageID": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+            "lastState": {},
+            "name": "app",
+            "ready": true,
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "32Mi",
+                "memory": "192Mi"
+              },
+              "requests": {
+                "cpu": "20m",
+                "ephemeral-storage": "1Mi",
+                "memory": "32Mi"
+              }
+            },
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-10-18T10:26:16Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 1000,
+                "supplementalGroups": [
+                  1000
+                ],
+                "uid": 1000
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/work",
+                "name": "work"
+              }
+            ]
+          }
+        ],
+        "hostIP": "192.168.9.110",
+        "hostIPs": [
+          {
+            "ip": "192.168.9.110"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.244.9.88",
+        "podIPs": [
+          {
+            "ip": "10.244.9.88"
+          }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+          "limits": {
+            "cpu": "500m",
+            "memory": "192Mi"
+          },
+          "requests": {
+            "memory": "32Mi"
+          }
+        },
+        "startTime": "2026-10-18T10:26:13Z"
+      }
+    }
+  ],
+  "ready": [
+    "p07-daemon-vfhj9"
+  ]
+}

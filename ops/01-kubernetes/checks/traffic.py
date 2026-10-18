@@ -162,12 +162,19 @@ def tls():
         ctx=ssl.create_default_context(cafile=str(folder/'ca'));ctx.load_cert_chain(str(folder/'cert'),str(folder/'key'));yield ctx
 
 
-def unavailable(ip):
+def port_states(ip):
+    rows={}
     for port in [22,6443]:
+        start=time.monotonic()
         try:
-            with socket.create_connection((ip,port),timeout=.6):return False
-        except OSError:pass
-    return True
+            with socket.create_connection((ip,port),timeout=.6):rows[str(port)]={'tcp_open':True}
+        except OSError as error:rows[str(port)]={'tcp_open':False,'error':str(error)}
+        rows[str(port)]['seconds']=round(time.monotonic()-start,3)
+    return rows
+
+
+def unavailable(ip):
+    return all(not row['tcp_open'] for row in port_states(ip).values())
 
 
 def ha(a,r):
@@ -177,17 +184,25 @@ def ha(a,r):
             opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=ctx))
             with opener.open('https://'+host+':6443/readyz',timeout=1.5) as response:return response.status==200
         except Exception:return False
-    with tunnel(pod) as port,tls() as ctx,ThreadPoolExecutor(max_workers=5) as pool,Path(a.timeline).open('w') as stream:
-        save(a.ready,{'ready':True,'target':a.target,'at':time.time()});end=time.monotonic()+a.seconds
-        while time.monotonic()<end and not Path(a.stop).exists():
-            now=time.time();hosts={'vip':'api.k8s.internal.egon.top',**CP};future={n:pool.submit(api_probe,h,ctx) for n,h in hosts.items()}
-            row={'at':now}
-            try:row.update(get(port,'/work?id=ha',timeout=2));row['ok']=row['code']==200
-            except (OSError,ValueError,http.client.HTTPException) as e:row.update(ok=False,error=str(e))
-            down=unavailable(CP[a.target]);seen_down|=down;apis={n:f.result(timeout=3) for n,f in future.items()}
-            rows.append(row);api_rows.append({'at':now,'target_down':down,'api':apis});stream.write(json.dumps({'http':row,'api':api_rows[-1]})+'\n');stream.flush();time.sleep(.2)
-    result={'rows':rows,'api_rows':api_rows,'target':a.target,'observed_target_down':seen_down,'app_errors':sum(not x['ok'] for x in rows),'api_failures':{n:sum(not row['api'][n] for row in api_rows) for n in ['vip',*CP]},'stopped_by_ansible':Path(a.stop).exists()}
-    save(a.output,result);return {k:v for k,v in result.items() if k not in ['rows','api_rows']}
+    failure=None;stop_reason='not-started';end=time.monotonic()+a.seconds
+    try:
+        with tunnel(pod) as port,tls() as ctx,ThreadPoolExecutor(max_workers=5) as pool,Path(a.timeline).open('w') as stream:
+            save(a.ready,{'ready':True,'target':a.target,'at':time.time(),'expires_at':time.time()+a.seconds});end=time.monotonic()+a.seconds
+            while True:
+                if time.monotonic()>=end:stop_reason='deadline';break
+                if Path(a.stop).exists():stop_reason='ansible';break
+                now=time.time();hosts={'vip':'api.k8s.internal.egon.top',**CP};future={n:pool.submit(api_probe,h,ctx) for n,h in hosts.items()}
+                row={'at':now}
+                try:row.update(get(port,'/work?id=ha',timeout=2));row['ok']=row['code']==200
+                except (OSError,ValueError,http.client.HTTPException) as e:row.update(ok=False,error=str(e))
+                ports=port_states(CP[a.target]);down=all(not x['tcp_open'] for x in ports.values());seen_down|=down;apis={n:f.result(timeout=3) for n,f in future.items()}
+                rows.append(row);api_rows.append({'at':now,'target_down':down,'ports':ports,'api':apis});stream.write(json.dumps({'http':row,'api':api_rows[-1]})+'\n');stream.flush();time.sleep(.2)
+    except (OSError,ValueError,KeyError,subprocess.SubprocessError,http.client.HTTPException) as error:
+        failure=str(error);stop_reason='error';raise
+    finally:
+        result={'rows':rows,'api_rows':api_rows,'target':a.target,'observed_target_down':seen_down,'app_errors':sum(not x['ok'] for x in rows),'api_failures':{n:sum(not row['api'][n] for row in api_rows) for n in ['vip',*CP]},'stopped_by_ansible':stop_reason=='ansible','observer_error':failure,'expired':stop_reason=='deadline','stop_reason':stop_reason}
+        save(a.output,result)
+    return {k:v for k,v in result.items() if k not in ['rows','api_rows']}
 
 
 def main():
@@ -197,11 +212,15 @@ def main():
     p.add_argument('--output');p.add_argument('--ready');p.add_argument('--stop');p.add_argument('--timeline');p.add_argument('--sticky');p.add_argument('--phase-marker');p.add_argument('--deployment');p.add_argument('--targets');p.add_argument('--target',choices=list(CP))
     a=p.parse_args();ctx=json.loads(a.context.read_text());r=Reader(ctx)
     try:
-        if a.action=='unavailable':result={'unavailable':unavailable(CP[a.target])};require(result['unavailable'],'目标尚未同时停止 SSH/API')
+        if a.action=='unavailable':
+            ports=port_states(CP[a.target]);down=all(not row['tcp_open'] for row in ports.values())
+            result={'ok':down,'unavailable':down,'target':a.target,'ip':CP[a.target],'ports':ports}
+            if a.output:save(a.output,result)
+            print(json.dumps(result,ensure_ascii=False));return 0 if down else 1
         else:result={'inspect':inspect,'samples':samples,'observe':observe,'long':long_requests,'ha':ha}[a.action](a,r)
         print(json.dumps(result,ensure_ascii=False))
     except (OSError,ValueError,KeyError,subprocess.SubprocessError,http.client.HTTPException) as e:
         print(json.dumps({'ok':False,'error':str(e)},ensure_ascii=False));raise SystemExit(1)
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':raise SystemExit(main())

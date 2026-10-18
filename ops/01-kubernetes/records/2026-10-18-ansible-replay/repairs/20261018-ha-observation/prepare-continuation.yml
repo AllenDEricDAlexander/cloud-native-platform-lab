@@ -1,0 +1,108 @@
+---
+# 只准备经核验的修复版本续跑上下文；不启动主流程、不删除现场、不操作 VM。
+- name: 保留原批次，准备 HA 修复版本续跑
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  tasks:
+    - name: 读取原上下文和实际已通过的两个检查点
+      ansible.builtin.set_fact:
+        origin_context: "{{ lookup('file', original_records ~ '/context.json') | from_json }}"
+        origin_dns: "{{ lookup('file', original_records ~ '/checkpoints/03-dns.json') | from_json }}"
+        origin_backup: "{{ lookup('file', original_records ~ '/checkpoints/03-backup.json') | from_json }}"
+    - name: 仅允许当前明确的失败批次
+      ansible.builtin.assert:
+        that:
+          - origin_context.run == '20261018T051939Z-bca4cc12'
+          - origin_context.records == original_records
+          - continuation_records != original_records
+          - continuation_records.startswith(replay_root ~ '/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/')
+          - continuation_records | realpath == continuation_records
+    - name: 不覆盖任何已有续跑上下文
+      ansible.builtin.stat: {path: '{{ continuation_records }}/context.json'}
+      register: continuation_stat
+    - name: 新目录必须尚无上下文
+      ansible.builtin.assert: {that: not continuation_stat.stat.exists}
+    - name: 只允许携带已核实的 DNS 和备份 PASS
+      ansible.builtin.assert:
+        that:
+          - item.passed | bool
+          - item.run == origin_context.run
+          - item.cluster_uid == origin_context.cluster_uid
+          - item.implementation == origin_context.implementation
+      loop: '{{ [origin_dns, origin_backup] }}'
+      loop_control: {label: '{{ item.case }}'}
+    - name: HA 未通过，不能伪造沿用其检查点
+      ansible.builtin.stat: {path: '{{ original_records }}/checkpoints/03-ha.json'}
+      register: origin_ha
+    - name: 原 HA 检查点必须不存在
+      ansible.builtin.assert: {that: not origin_ha.stat.exists}
+    - name: 当前集群已经恢复十节点健康
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]
+      register: continuation_health
+      changed_when: false
+    - name: 同一个原集群
+      ansible.builtin.assert:
+        that: (continuation_health.stdout | from_json).cluster_uid == origin_context.cluster_uid
+    - name: 原备份凭据仍有效，无需重做备份
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', validate-receipt, --context, '{{ original_records }}/context.json', --input, '{{ original_records }}/backup-receipt.json']
+      changed_when: false
+    - name: 当前来源 SHA 审计并验证旧记录
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', audit, --root, '{{ replay_root }}', --output, '{{ repair_evidence }}/current-source.json']
+      register: continuation_audit
+      changed_when: false
+    - name: 绑定当前源码与原实现的准确差异
+      ansible.builtin.set_fact:
+        current_implementation: '{{ (continuation_audit.stdout | from_json).source_sha256 }}'
+    - name: 计算变更路径集合
+      ansible.builtin.set_fact:
+        continuation_changed_paths: '{{ ((origin_context.implementation | dict2items | difference(current_implementation | dict2items)) + (current_implementation | dict2items | difference(origin_context.implementation | dict2items))) | map(attribute="key") | unique | sort }}'
+    - name: 只允许此次 HA 与异步生命周期修复，不变更已通过的 DNS、备份或实验工作负载
+      ansible.builtin.assert:
+        that: continuation_changed_paths == allowed_changed_paths | sort
+      vars:
+        allowed_changed_paths:
+          - ops/01-kubernetes/ansible/tasks/replay/case-03-ha.yml
+          - ops/01-kubernetes/ansible/tasks/replay/case.yml
+          - ops/01-kubernetes/ansible/tasks/replay/start-observer.yml
+          - ops/01-kubernetes/ansible/tasks/replay/observer-live.yml
+          - ops/01-kubernetes/ansible/tasks/replay/abort-observer.yml
+          - ops/01-kubernetes/checks/ha-check.py
+          - ops/01-kubernetes/checks/traffic.py
+    - name: 记录原始上下文 SHA
+      ansible.builtin.stat:
+        path: '{{ original_records }}/context.json'
+        checksum_algorithm: sha256
+        get_checksum: true
+      register: origin_context_stat
+    - name: 创建独立续跑目录
+      ansible.builtin.file: {path: '{{ continuation_records }}/{{ item }}', state: directory, mode: '0700'}
+      loop: [checkpoints, state, artifacts, attempts, origin]
+    - name: 保存原 context 原件及通过凭据，不修改原目录
+      ansible.builtin.copy:
+        src: '{{ original_records }}/{{ item.src }}'
+        dest: '{{ continuation_records }}/{{ item.dest }}'
+        mode: '0600'
+      loop:
+        - {src: context.json, dest: origin/context.json}
+        - {src: checkpoints/03-dns.json, dest: checkpoints/03-dns.json}
+        - {src: checkpoints/03-backup.json, dest: checkpoints/03-backup.json}
+        - {src: backup-receipt.json, dest: backup-receipt.json}
+    - name: 为修复版本显式写入新的上下文（原 run/集群身份保持）
+      ansible.builtin.copy:
+        content: '{{ origin_context | combine({"records": continuation_records, "implementation": current_implementation, "continuation_of": original_records, "original_context_sha256": origin_context_stat.stat.checksum, "changed_paths": continuation_changed_paths}) | to_nice_json }}'
+        dest: '{{ continuation_records }}/context.json'
+        mode: '0600'
+    - name: 保存续跑来源与携带检查点的明确说明
+      ansible.builtin.copy:
+        content: '{{ {"original_records": original_records, "continuation_records": continuation_records, "run": origin_context.run, "cluster_uid": origin_context.cluster_uid, "original_context_sha256": origin_context_stat.stat.checksum, "changed_paths": continuation_changed_paths, "carried_pass": ["03-dns", "03-backup"], "ha_passed": false, "original_implementation": origin_context.implementation, "current_implementation": current_implementation} | to_nice_json }}'
+        dest: '{{ continuation_records }}/origin/source-revision.json'
+        mode: '0600'
+    - name: 续跑目录准备结果（不启动故障实验）
+      ansible.builtin.debug:
+        msg: 'CONTINUATION PREPARED：{{ continuation_records }}；DNS 和备份保留，HA 尚未通过；原目录完全保留。'

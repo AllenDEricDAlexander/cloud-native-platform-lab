@@ -1,0 +1,54 @@
+---
+- name: 真实异步观测生命周期的有限离线测试
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: 准备测试上下文
+      ansible.builtin.copy:
+        content: '{}'
+        dest: '{{ replay_records }}/context.json'
+        mode: '0600'
+    - name: 启动有限正常夹具
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/start-observer.yml
+      vars: {observer_id: active, observer_seconds: 30}
+    - name: 正在运行时可以进入下一步
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/observer-live.yml
+    - name: 验证正常停止路径
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/stop-observer.yml
+    - name: 动态秒数确实传给了程序
+      ansible.builtin.assert:
+        that: observer_result.received_seconds == 30
+    - name: 过期 ready 文件不能继续实验
+      block:
+        - name: 结束后的异步任务不再存活
+          ansible.builtin.include_tasks: ../ansible/tasks/replay/observer-live.yml
+        - name: 不应运行到此
+          ansible.builtin.fail: {msg: finished observer accepted}
+      rescue:
+        - name: 必须由运行状态断言拒绝
+          ansible.builtin.assert:
+            that: ansible_failed_task.name == '观测结果若已结束，立即停止后续故障步骤'
+    - name: 启动用于失败收尾的有限夹具
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/start-observer.yml
+      vars: {observer_id: aborted, observer_seconds: 30}
+    - name: 验证失败时主动终止并落盘
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/abort-observer.yml
+    - name: 主动收尾后进程确实结束
+      ansible.builtin.assert:
+        that:
+          - observer_aborted.finished | bool
+          - (lookup('file', observer_prefix ~ '.json') | from_json).stopped_by_ansible | bool
+    - name: 启动立即退出但留 ready 文件的夹具
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/start-observer.yml
+      vars: {observer_id: expired, observer_seconds: 30, observer_extra: [--finish-immediately]}
+    - name: ready 已存在但进程已退出仍必须拒绝
+      block:
+        - name: 检查立即结束的夹具
+          ansible.builtin.include_tasks: ../ansible/tasks/replay/observer-live.yml
+        - name: 不应接受已退出任务
+          ansible.builtin.fail: {msg: expired observer accepted}
+      rescue:
+        - name: 必须因观测结束而停止
+          ansible.builtin.assert:
+            that: ansible_failed_task.name == '观测结果若已结束，立即停止后续故障步骤'

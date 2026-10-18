@@ -1,0 +1,27 @@
+---
+# 只读验证生产相同的 wait_for 分支；不操作 VM、电源、Kubernetes 对象或节点配置。
+- name: 验证控制平面内部双端口连通与原生 stopped 判定
+  hosts: control_plane
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    check_ips: [{name: cp01, ip: 192.168.9.101}, {name: cp02, ip: 192.168.9.102}, {name: cp03, ip: 192.168.9.103}]
+  tasks:
+    - name: 从每个控制平面确认另外两个节点的 SSH 和 API 基线
+      ansible.builtin.wait_for:
+        host: '{{ item.0.ip }}'
+        port: '{{ item.1 }}'
+        state: started
+        timeout: 5
+        connect_timeout: 2
+      loop: '{{ check_ips | product([22, 6443]) | list }}'
+      when: item.0.name != inventory_hostname
+      changed_when: false
+    - name: 通过本机未监听端口验证 stopped 模块分支（不冒充真实 VM 故障）
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 1
+        state: stopped
+        timeout: 2
+        connect_timeout: 1
+      changed_when: false

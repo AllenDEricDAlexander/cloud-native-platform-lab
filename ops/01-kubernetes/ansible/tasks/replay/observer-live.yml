@@ -1,0 +1,13 @@
+---
+- name: 核对异步观测仍在运行，不能用过期 ready 文件继续实验
+  ansible.builtin.async_status:
+    jid: '{{ replay_observer_job.ansible_job_id }}'
+  register: observer_live_status
+  changed_when: false
+  failed_when: false
+- name: 观测结果若已结束，立即停止后续故障步骤
+  ansible.builtin.assert:
+    that:
+      - not (observer_live_status.finished | default(true) | bool)
+      - not (observer_live_status.failed | default(false) | bool)
+    fail_msg: '观测者已结束或失联，本轮不能继续验收；请开启本次目标 VM 后重试。结果保留在 {{ observer_prefix }}。'

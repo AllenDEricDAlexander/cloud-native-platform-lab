@@ -27,6 +27,20 @@
     - name: 记录本组通过
       ansible.builtin.include_tasks: checkpoint.yml
   rescue:
+    - name: 保存原始失败步骤，收尾不掩盖它
+      ansible.builtin.set_fact:
+        replay_failure_task: '{{ ansible_failed_task.name }}'
+    - name: HA 失败时提示先恢复原节点电源
+      ansible.builtin.debug:
+        msg: 'HA 本轮未通过。若 {{ ha_target | default("本次目标") }} VM 仍关闭，请现在开启；不要关闭其他控制平面。原现场保留，不写 HA PASS。'
+      when: replay_topic == '03' and replay_case == 'ha'
+    - name: 失败时终止本组观测并保留已采集时间线
+      ansible.builtin.include_tasks: abort-observer.yml
+      when:
+        - replay_observer_job is defined
+        - replay_observer_job.ansible_job_id is defined
+        - observer_prefix is defined
+        - observer_prefix.startswith(replay_attempt ~ '/observations/' ~ replay_topic ~ '-' ~ replay_case ~ '-')
     - name: 保存失败现场（取证失败不掩盖原错误）
       ansible.builtin.command:
         argv: ['{{ replay_python }}', '{{ replay_check }}', snapshot, --context, '{{ replay_records }}/context.json', --topic, '{{ replay_topic }}', --case, '{{ replay_case }}', --output, '{{ replay_attempt }}/snapshots']
@@ -35,7 +49,7 @@
       changed_when: false
     - name: 保留现场和实际失败步骤，不补写 PASS
       ansible.builtin.fail:
-        msg: '{{ replay_topic }}/{{ replay_case }} 失败：{{ ansible_failed_task.name }}。现场保留于 {{ replay_records }}；修正后用同目录 resume。取证 rc={{ replay_failed_snapshot.rc }}。'
+        msg: '{{ replay_topic }}/{{ replay_case }} 失败：{{ replay_failure_task }}。现场保留于 {{ replay_records }}；修正后用同目录 resume。取证 rc={{ replay_failed_snapshot.rc }}。'
 - name: 已通过组保持原记录
   ansible.builtin.debug:
     msg: '{{ replay_topic }}/{{ replay_case }} 已通过，跳过'

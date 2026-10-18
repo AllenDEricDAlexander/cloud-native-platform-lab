@@ -1,0 +1,33 @@
+
+PLAY [验证控制平面内部双端口连通与原生 stopped 判定] ***************************
+
+TASK [从每个控制平面确认另外两个节点的 SSH 和 API 基线] ************************
+skipping: [cp01] => (item=[{'name': 'cp01', 'ip': '192.168.9.101'}, 22]) 
+skipping: [cp01] => (item=[{'name': 'cp01', 'ip': '192.168.9.101'}, 6443]) 
+ok: [cp02] => (item=[{'name': 'cp01', 'ip': '192.168.9.101'}, 22])
+ok: [cp01] => (item=[{'name': 'cp02', 'ip': '192.168.9.102'}, 22])
+ok: [cp01] => (item=[{'name': 'cp02', 'ip': '192.168.9.102'}, 6443])
+ok: [cp02] => (item=[{'name': 'cp01', 'ip': '192.168.9.101'}, 6443])
+skipping: [cp02] => (item=[{'name': 'cp02', 'ip': '192.168.9.102'}, 22]) 
+skipping: [cp02] => (item=[{'name': 'cp02', 'ip': '192.168.9.102'}, 6443]) 
+ok: [cp03] => (item=[{'name': 'cp01', 'ip': '192.168.9.101'}, 22])
+ok: [cp01] => (item=[{'name': 'cp03', 'ip': '192.168.9.103'}, 22])
+ok: [cp02] => (item=[{'name': 'cp03', 'ip': '192.168.9.103'}, 22])
+ok: [cp03] => (item=[{'name': 'cp01', 'ip': '192.168.9.101'}, 6443])
+ok: [cp01] => (item=[{'name': 'cp03', 'ip': '192.168.9.103'}, 6443])
+ok: [cp02] => (item=[{'name': 'cp03', 'ip': '192.168.9.103'}, 6443])
+ok: [cp03] => (item=[{'name': 'cp02', 'ip': '192.168.9.102'}, 22])
+ok: [cp03] => (item=[{'name': 'cp02', 'ip': '192.168.9.102'}, 6443])
+skipping: [cp03] => (item=[{'name': 'cp03', 'ip': '192.168.9.103'}, 22]) 
+skipping: [cp03] => (item=[{'name': 'cp03', 'ip': '192.168.9.103'}, 6443]) 
+
+TASK [通过本机未监听端口验证 stopped 模块分支（不冒充真实 VM 故障）] ***********
+ok: [cp02]
+ok: [cp03]
+ok: [cp01]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -3,19 +3,6 @@
   ansible.builtin.command:
     argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', validate-receipt, --context, '{{ replay_records }}/context.json', --input, '{{ replay_records }}/backup-receipt.json']
   changed_when: false
-- name: 读取当前 kube-vip 租约持有者
-  ansible.builtin.command:
-    argv: "{{ replay_a + ['-n', 'kube-system', 'get', 'lease/plndr-cp-lock', '-o', 'jsonpath={.spec.holderIdentity}'] }}"
-  register: ha_holder
-  changed_when: false
-- name: 目标必须是实际持有 VIP 的原控制平面
-  ansible.builtin.assert:
-    that: ha_holder.stdout in ['cp01.k8s.internal.egon.top', 'cp02.k8s.internal.egon.top', 'cp03.k8s.internal.egon.top']
-- name: 固定此次故障目标和存活观察入口
-  ansible.builtin.set_fact:
-    ha_target: '{{ ha_holder.stdout.split(".")[0] }}'
-    ha_survivor: '{{ "cp02" if ha_holder.stdout.startswith("cp01.") else "cp01" }}'
-    ha_cp_ips: {cp01: 192.168.9.101, cp02: 192.168.9.102, cp03: 192.168.9.103}
 - name: 从源码创建 HA 双副本应用、Service 和隔离策略
   ansible.builtin.include_tasks: resource.yml
   loop:
@@ -36,24 +23,117 @@
 - name: HA 前业务响应基线
   ansible.builtin.include_tasks: samples.yml
   vars: {sample_pod: p03-client, sample_id: ha-before, sample_version: v1}
+- name: 准备控制台（观测计时尚未开始，此时所有控制平面保持开机）
+  ansible.builtin.pause:
+    prompt: '请打开 ESXi 并准备好控制平面 VM 的控制台。现在先不要关机；准备好后按回车，下一条提示才会公布本次目标并开始自动检测，不再需要关机后回车。'
+- name: 人工准备之后再次核对备份时效
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', validate-receipt, --context, '{{ replay_records }}/context.json', --input, '{{ replay_records }}/backup-receipt.json']
+  changed_when: false
+- name: 准备完成后重新核对十节点健康
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]
+  register: ha_baseline_health
+  changed_when: false
+- name: 人工准备后重新确认业务副本与 UID
+  ansible.builtin.include_tasks: wait-deployment.yml
+  vars: {deployment_name: p03-ha, deployment_count: 2, deployment_image: '{{ controller_images.v1.image }}'}
+- name: 绑定观测开始时实际的两个副本 UID
+  ansible.builtin.set_fact:
+    ha_server_uids: '{{ deployment_state.active | map(attribute="metadata.uid") | list }}'
+- name: 此时读取实际 kube-vip 租约持有者
+  ansible.builtin.command:
+    argv: "{{ replay_a + ['-n', 'kube-system', 'get', 'lease/plndr-cp-lock', '-o', 'jsonpath={.spec.holderIdentity}'] }}"
+  register: ha_holder
+  changed_when: false
+- name: 目标必须是实际持有 VIP 的原控制平面
+  ansible.builtin.assert:
+    that:
+      - (ha_baseline_health.stdout | from_json).cluster_uid == replay_cluster_uid
+      - ha_holder.stdout in ['cp01.k8s.internal.egon.top', 'cp02.k8s.internal.egon.top', 'cp03.k8s.internal.egon.top']
+- name: 固定此次故障目标
+  ansible.builtin.set_fact:
+    ha_target: '{{ ha_holder.stdout.split(".")[0] }}'
+    ha_cp_ips: {cp01: 192.168.9.101, cp02: 192.168.9.102, cp03: 192.168.9.103}
+- name: 固定两个存活节点和独立探测入口
+  ansible.builtin.set_fact:
+    ha_survivors: '{{ ha_cp_ips.keys() | reject("equalto", ha_target) | list }}'
+- name: 绑定存活观察入口和 etcd endpoint
+  ansible.builtin.set_fact:
+    ha_survivor: '{{ ha_survivors[0] }}'
+    ha_quorum_endpoints: 'https://{{ ha_cp_ips[ha_survivors[0]] }}:2379,https://{{ ha_cp_ips[ha_survivors[1]] }}:2379'
+    ha_all_endpoints: 'https://{{ ha_cp_ips.cp01 }}:2379,https://{{ ha_cp_ips.cp02 }}:2379,https://{{ ha_cp_ips.cp03 }}:2379'
+- name: 读取原目标节点 UID
+  ansible.builtin.include_tasks: get.yml
+  vars: {get_kind: node, get_name: '{{ ha_target }}.k8s.internal.egon.top', get_admin: true}
+- name: 保存不可更换的目标身份与业务副本
+  ansible.builtin.set_fact:
+    ha_binding:
+      run: '{{ replay_run }}'
+      cluster_uid: '{{ replay_cluster_uid }}'
+      target: '{{ ha_target }}'
+      target_ip: '{{ ha_cp_ips[ha_target] }}'
+      target_uid: '{{ replay_object.metadata.uid }}'
+      initial_holder: '{{ ha_holder.stdout }}'
+      survivors: '{{ ha_survivors }}'
+      server_uids: '{{ ha_server_uids }}'
+- name: 关机前从存活节点确认目标两个端口确实可达
+  ansible.builtin.wait_for:
+    host: '{{ ha_cp_ips[ha_target] }}'
+    port: '{{ item }}'
+    state: started
+    timeout: 15
+    connect_timeout: 2
+    sleep: 1
+    msg: '关机前连通性不满足：{{ ha_survivor }} -> {{ ha_target }}:{{ item }}，本轮尚未要求关机。'
+  delegate_to: '{{ ha_survivor }}'
+  loop: [22, 6443]
+  changed_when: false
+- name: 保存关机前固定身份
+  ansible.builtin.copy:
+    content: '{{ ha_binding | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/03-ha-binding.json'
+    mode: '0600'
 - name: 启动真实 API 与应用并行观测
   ansible.builtin.include_tasks: start-observer.yml
   vars:
     observer_id: control-plane-failure
     observer_mode: ha
     observed_pod: p03-client
+    observer_seconds: 2400
     observer_extra: ['--target', '{{ ha_target }}']
-- name: 手动关闭本次 VIP 持有者（不关闭其他节点）
-  ansible.builtin.pause:
-    prompt: '观测已开始。请在 ESXi 关闭 {{ ha_target }}（{{ ha_cp_ips[ha_target] }}）的 VM 电源，确认关机后按回车。建议 60 秒内完成；此时不要开启它。'
-- name: 同时检查目标 SSH 和 API 已不可达
+- name: 确认观测在线后才发出关机指令
+  ansible.builtin.include_tasks: observer-live.yml
+- name: 发出关机指令前再次核对租约未更换目标
   ansible.builtin.command:
-    argv: ['{{ replay_python }}', '{{ replay_traffic }}', unavailable, --context, '{{ replay_records }}/context.json', --target, '{{ ha_target }}']
-  register: ha_down
-  until: ha_down.rc == 0
-  retries: 30
-  delay: 1
+    argv: "{{ replay_a + ['-n', 'kube-system', 'get', 'lease/plndr-cp-lock', '-o', 'jsonpath={.spec.holderIdentity}'] }}"
+  register: ha_arm_holder
   changed_when: false
+- name: 准备期间租约变更时停止，本轮不对旧目标发关机指令
+  ansible.builtin.assert:
+    that: ha_arm_holder.stdout == ha_binding.initial_holder
+    fail_msg: 'VIP 持有者在准备期间变化，本轮尚未要求关机；请保持三台开启后重试。'
+- name: 现在只关闭打印的目标 VM，脚本自动检测，不需要关机后回车
+  ansible.builtin.debug:
+    msg: '观测已就绪。现在请在 ESXi 对 {{ ha_target }}（{{ ha_cp_ips[ha_target] }}）执行 Power Off。其余两台保持运行。脚本从 {{ ha_survivor }} 自动等待 SSH 22 和 API 6443 均停止，单端口最多等 5 分钟；无需回车，看到 FAULT CHECKS PASS 后才开启原 VM。'
+- name: 从存活控制平面确认目标 SSH 和 API 真正停止
+  ansible.builtin.wait_for:
+    host: '{{ ha_cp_ips[ha_target] }}'
+    port: '{{ item }}'
+    state: stopped
+    timeout: 300
+    connect_timeout: 2
+    sleep: 2
+    msg: '{{ ha_target }}:{{ item }} 仍可连接，未确认关机；本轮不通过。请开启目标 VM 后查看已保存的观测与端口诊断。'
+  delegate_to: '{{ ha_survivor }}'
+  loop: [22, 6443]
+  register: ha_down_ports
+  changed_when: false
+- name: 记录真实端口停止时刻
+  ansible.builtin.set_fact:
+    ha_fault_started_at: '{{ now(utc=true, fmt="%Y-%m-%dT%H:%M:%S.%fZ") }}'
+- name: 关机后观测者仍必须在运行
+  ansible.builtin.include_tasks: observer-live.yml
 - name: 经 VIP 读取实际接管租约
   ansible.builtin.command:
     argv: "{{ replay_a + ['-n', 'kube-system', 'get', 'lease/plndr-cp-lock', '-o', 'jsonpath={.spec.holderIdentity}'] }}"
@@ -62,35 +142,63 @@
   retries: 45
   delay: 1
   changed_when: false
-- name: 两个存活 etcd 必须健康
+- name: 两个存活 etcd 必须健康并返回结构化结果
   ansible.builtin.command:
-    argv: "{{ replay_a + ['--server=https://' ~ ha_cp_ips[ha_survivor] ~ ':6443', '-n', 'kube-system', 'exec', 'etcd-' ~ ha_survivor ~ '.k8s.internal.egon.top', '--', 'etcdctl', '--endpoints=' ~ (ha_cp_ips | dict2items | rejectattr('key', 'equalto', ha_target) | map(attribute='value') | map('regex_replace', '^(.*)$', 'https://\\1:2379') | join(',')), '--cacert=/etc/kubernetes/pki/etcd/ca.crt', '--cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt', '--key=/etc/kubernetes/pki/etcd/healthcheck-client.key', 'endpoint', 'health'] }}"
+    argv: "{{ replay_a + ['--server=https://' ~ ha_cp_ips[ha_survivor] ~ ':6443', '-n', 'kube-system', 'exec', 'etcd-' ~ ha_survivor ~ '.k8s.internal.egon.top', '--', 'etcdctl', '--endpoints=' ~ ha_quorum_endpoints, '--cacert=/etc/kubernetes/pki/etcd/ca.crt', '--cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt', '--key=/etc/kubernetes/pki/etcd/healthcheck-client.key', 'endpoint', 'health', '-w', 'json'] }}"
   register: ha_quorum
   changed_when: false
-- name: 在故障期间通过 VIP 创建源码证明 Pod
+- name: 故障期间通过 VIP 创建源码证明 Pod
   ansible.builtin.include_tasks: resource.yml
   vars: {resource_source: operations/manifests/ha-proof.yaml.j2, resource_id: scheduled-during-fault}
 - name: 证明新 Pod 已被调度并运行完成
   ansible.builtin.include_tasks: wait-field.yml
   vars: {wait_resource: pod/p03-proof, wait_field: '{.status.phase}', wait_values: [Succeeded], wait_retries: 60}
-- name: 证明期间目标仍未恢复
-  ansible.builtin.command:
-    argv: ['{{ replay_python }}', '{{ replay_traffic }}', unavailable, --context, '{{ replay_records }}/context.json', --target, '{{ ha_target }}']
-  changed_when: false
 - name: 保存实际调度落点
   ansible.builtin.include_tasks: store-object.yml
   vars: {store_kind: pod, store_name: p03-proof, store_id: scheduled-during-fault}
+- name: 保存故障期间实际调度的 Pod
+  ansible.builtin.set_fact:
+    ha_proof_pod: '{{ replay_object }}'
 - name: 确认由调度器分配到 worker
   ansible.builtin.assert:
-    that: replay_object.spec.nodeName in [replay_worker01, replay_worker02]
-- name: 保存接管、etcd 多数派和调度的证据
+    that: ha_proof_pod.spec.nodeName in [replay_worker01, replay_worker02]
+- name: 调度证明完成时目标两个端口仍必须关闭
+  ansible.builtin.wait_for:
+    host: '{{ ha_cp_ips[ha_target] }}'
+    port: '{{ item }}'
+    state: stopped
+    timeout: 3
+    connect_timeout: 1
+    sleep: 1
+  delegate_to: '{{ ha_survivor }}'
+  loop: [22, 6443]
+  register: ha_still_down_ports
+  changed_when: false
+- name: 固定调度证明的故障窗口
+  ansible.builtin.set_fact:
+    ha_fault_confirmed_at: '{{ now(utc=true, fmt="%Y-%m-%dT%H:%M:%S.%fZ") }}'
+- name: 故障证据完成前观测者必须仍在线
+  ansible.builtin.include_tasks: observer-live.yml
+- name: 保存故障期间多数派、调度与双端口停止证据
   ansible.builtin.copy:
-    content: '{{ {"target": ha_target, "original_holder": ha_holder.stdout, "new_holder": ha_new_holder.stdout, "survivor_etcd": ha_quorum.stdout, "proof_pod": replay_object} | to_nice_json }}'
+    content: '{{ {"binding": ha_binding, "fault_started_at": ha_fault_started_at, "fault_confirmed_at": ha_fault_confirmed_at, "new_holder": ha_new_holder.stdout, "quorum": ha_quorum.stdout | from_json, "proof_pod": ha_proof_pod, "port_checks": [ha_down_ports.results, ha_still_down_ports.results]} | to_nice_json }}'
     dest: '{{ replay_attempt }}/observations/03-ha-fault-proof.json'
     mode: '0600'
-- name: 故障期检查完成后手动开启原节点
-  ansible.builtin.pause:
-    prompt: 'FAULT CHECKS PASS：VIP 已接管、两个 etcd 健康、新 Pod 调度完成。现在请开启 {{ ha_target }} VM，开启后按回车。'
+- name: 现在开启原目标 VM，脚本自动等待恢复，不需要回车
+  ansible.builtin.debug:
+    msg: 'FAULT CHECKS PASS：VIP 已接管、两个 etcd 健康、新 Pod 已调度完成。现在请开启原来的 {{ ha_target }}（{{ ha_cp_ips[ha_target] }}）VM。无需回车，脚本自动等待 SSH/API 启动和集群恢复；不要关闭新的 VIP 持有者。'
+- name: 等待原目标 SSH 和 API 自动恢复
+  ansible.builtin.wait_for:
+    host: '{{ ha_cp_ips[ha_target] }}'
+    port: '{{ item }}'
+    state: started
+    timeout: 600
+    connect_timeout: 2
+    sleep: 2
+    msg: '{{ ha_target }}:{{ item }} 未恢复，请确认原 VM 已开启；本轮证据保留。'
+  delegate_to: '{{ ha_survivor }}'
+  loop: [22, 6443]
+  changed_when: false
 - name: 等待十节点、系统 Pod 及压力状态恢复
   ansible.builtin.command:
     argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]
@@ -99,6 +207,16 @@
   retries: 100
   delay: 3
   changed_when: false
+- name: 原目标恢复后仍是同一 Node UID
+  ansible.builtin.include_tasks: get.yml
+  vars: {get_kind: node, get_name: '{{ ha_target }}.k8s.internal.egon.top', get_admin: true}
+- name: 不把重建同名节点当作原 VM 恢复
+  ansible.builtin.assert:
+    that: replay_object.metadata.uid == ha_binding.target_uid
+- name: 记录集群恢复时刻和目标 UID
+  ansible.builtin.set_fact:
+    ha_recovered_at: '{{ now(utc=true, fmt="%Y-%m-%dT%H:%M:%S.%fZ") }}'
+    ha_recovered_uid: '{{ replay_object.metadata.uid }}'
 - name: 三个控制平面的实际 API 均恢复
   ansible.builtin.command:
     argv: "{{ replay_a + ['--server=https://' ~ item ~ ':6443', 'get', '--raw=/readyz'] }}"
@@ -110,23 +228,28 @@
   changed_when: false
 - name: 三成员 etcd 恢复健康
   ansible.builtin.command:
-    argv: "{{ replay_a + ['-n', 'kube-system', 'exec', 'etcd-' ~ ha_survivor ~ '.k8s.internal.egon.top', '--', 'etcdctl', '--endpoints=https://127.0.0.1:2379', '--cacert=/etc/kubernetes/pki/etcd/ca.crt', '--cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt', '--key=/etc/kubernetes/pki/etcd/healthcheck-client.key', 'endpoint', 'health', '--cluster'] }}"
+    argv: "{{ replay_a + ['-n', 'kube-system', 'exec', 'etcd-' ~ ha_survivor ~ '.k8s.internal.egon.top', '--', 'etcdctl', '--endpoints=' ~ ha_all_endpoints, '--cacert=/etc/kubernetes/pki/etcd/ca.crt', '--cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt', '--key=/etc/kubernetes/pki/etcd/healthcheck-client.key', 'endpoint', 'health', '-w', 'json'] }}"
   register: ha_full_etcd
   until: ha_full_etcd.rc == 0
   retries: 30
   delay: 2
   changed_when: false
+- name: 恢复后观测者仍在运行
+  ansible.builtin.include_tasks: observer-live.yml
 - name: 恢复后业务基线再检查
   ansible.builtin.include_tasks: samples.yml
   vars: {sample_pod: p03-client, sample_id: ha-after, sample_version: v1}
 - name: 停止有界观测并读取完整结果
   ansible.builtin.include_tasks: stop-observer.yml
-- name: 必须观察过真实关机，且应用无失败
-  ansible.builtin.assert:
-    that:
-      - observer_result.observed_target_down | bool
-      - observer_result.app_errors == 0
-      - observer_result.api_rows | length >= 5
-- name: 显示 HA 结果（API 故障率保留原值，不冒充零故障）
+- name: 保存完整 HA 验收输入
+  ansible.builtin.copy:
+    content: '{{ {"context": {"run": replay_run, "cluster_uid": replay_cluster_uid}, "binding": ha_binding, "fault_started_at": ha_fault_started_at, "fault_confirmed_at": ha_fault_confirmed_at, "recovered_at": ha_recovered_at, "recovered_uid": ha_recovered_uid, "new_holder": ha_new_holder.stdout, "quorum": ha_quorum.stdout | from_json, "restored_etcd": ha_full_etcd.stdout | from_json, "proof_pod": ha_proof_pod, "port_checks": [ha_down_ports.results, ha_still_down_ports.results], "observer": observer_result} | to_nice_json }}'
+    dest: '{{ replay_attempt }}/observations/03-ha-acceptance-input.json'
+    mode: '0600'
+- name: 只读验收故障窗口、真实调度、接管、业务流量和恢复
+  ansible.builtin.command:
+    argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/ha-check.py', --input, '{{ replay_attempt }}/observations/03-ha-acceptance-input.json', --output, '{{ replay_attempt }}/observations/03-ha-acceptance.json']
+  changed_when: false
+- name: 显示 HA 结果（保留 API 实际失败次数）
   ansible.builtin.debug:
     msg: 'HA ACCEPTANCE PASS；API failures={{ observer_result.api_failures }}；application errors={{ observer_result.app_errors }}'

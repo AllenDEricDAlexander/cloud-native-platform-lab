@@ -1,0 +1,19 @@
+---
+# 只通知本组自己的有限观测退出；不删除现场，也不把中断结果标成 PASS。
+- name: 为失败组的观测者写入停止标记
+  ansible.builtin.copy:
+    content: 'failed-case\n'
+    dest: '{{ observer_prefix }}.stop'
+    mode: '0600'
+  register: observer_abort_stop
+  failed_when: false
+- name: 等待失败组观测完成并保留已有结果
+  ansible.builtin.async_status:
+    jid: '{{ replay_observer_job.ansible_job_id }}'
+  register: observer_aborted
+  until: observer_aborted.finished | default(true) | bool
+  retries: 20
+  ignore_errors: true
+  delay: 1
+  changed_when: false
+  failed_when: false

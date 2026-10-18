@@ -25,7 +25,7 @@ cd /Users/mario/SelfProject/cloud-native-platform-lab
 # 2. 为这轮新实现生成独立记录目录，不复用 2026-10-17 的旧证据。
 CNPL_REPLAY="$PWD/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-$(date -u +%Y%m%dT%H%M%SZ)"
 
-# 3. 编译/有限测试、68 份清单及变体的 API dry-run、十节点和三 etcd 只读前检。
+# 3. 编译/有限测试、68 份清单及变体的严格结构检查、十节点和三 etcd 只读前检。
 #    不创建实验 Pod，不快照、不修改 kubelet、不操作电源。
 bash ops/01-kubernetes/scripts/replay-03-06.sh validate "$CNPL_REPLAY"
 
@@ -34,7 +34,9 @@ bash ops/01-kubernetes/scripts/replay-03-06.sh validate "$CNPL_REPLAY"
 bash ops/01-kubernetes/scripts/replay-03-06.sh resume "$CNPL_REPLAY"
 ```
 
-第 3 条预期有 `REPLAY SOURCE YAML AND SERVER DRY-RUN PASS`，且所有主机 `failed=0`、`unreachable=0`。第 4 条最终必须同时出现 `ANSIBLE REPLAY ACCEPTANCE PASS`、`ANSIBLE REPLAY CLEANUP PASS`，所有主机失败数为零。每组的 PASS 仅在断言及必要恢复完成后写入检查点。
+目录预检校验源码结构及同名归属；真正 create/apply 前，再分别执行相应的 server dry-run。这样续跑可以保留现场，并仍由服务端拒绝实际无效变更。
+
+第 3 条预期有 `REPLAY SOURCE SCHEMA PASS`，且所有主机 `failed=0`、`unreachable=0`。第 4 条最终必须同时出现 `ANSIBLE REPLAY ACCEPTANCE PASS`、`ANSIBLE REPLAY CLEANUP PASS`，所有主机失败数为零。每组的 PASS 仅在断言及必要恢复完成后写入检查点。
 
 也可直接对全新目录使用 `run`，它包含相同前检。模式含义：`validate` 只检查，`images` 仅准备两个 worker 的镜像缓存，`run` 新批执行，`resume` 相同源码/集群下续跑，`recover` 只处理已有 worker02 恢复索引并检查健康；`cleanup` 在恢复节点后取证并清理本批对象，明确结束本批，不写实验 PASS。`images` 不启动容器。
 
@@ -94,3 +96,5 @@ bash ops/01-kubernetes/scripts/replay-03-06.sh cleanup "$CNPL_REPLAY"
 委派连接已明确固定到节点 SSH 和 `/usr/bin/python3`；`/usr/bin/python3.12` 不存在的报错及当前批次备份收尾，见 [2026-10-18 修复记录](repairs/20261018-delegation/README.md)。
 
 HA 人工等待、过期观测和自动双端口检测的修复与核验，见 [2026-10-18 HA 修复记录](repairs/20261018-ha-observation/README.md)。
+
+已有同名对象导致 AlreadyExists 的前检修复、真实正负对照和同目录继续命令，见 [准入续跑修复记录](repairs/20261018-admission-resume/README.md)。

@@ -1,0 +1,87 @@
+---
+# 当前明确失败批次的元数据版本更新；原 context 原件先归档，源码门禁保持严格。
+- name: 为同一目录登记准入检查修复版本
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  tasks:
+    - name: 读取失败前上下文与已通过检查点
+      ansible.builtin.set_fact:
+        admission_context: "{{ lookup('file', replay_records ~ '/context.json') | from_json }}"
+        admission_dns: "{{ lookup('file', replay_records ~ '/checkpoints/03-dns.json') | from_json }}"
+        admission_backup: "{{ lookup('file', replay_records ~ '/checkpoints/03-backup.json') | from_json }}"
+    - name: 本次只处理明确的运行目录
+      ansible.builtin.assert:
+        that:
+          - replay_records == replay_root ~ '/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-20261018T051927Z-ha-fix-20261018T063407Z'
+          - admission_context.run == '20261018T051939Z-bca4cc12'
+    - name: 禁止携带不存在的 HA 成功
+      ansible.builtin.stat: {path: '{{ replay_records }}/checkpoints/03-ha.json'}
+      register: admission_ha_checkpoint
+    - name: HA 尚未通过，DNS 和备份确已通过
+      ansible.builtin.assert:
+        that:
+          - not admission_ha_checkpoint.stat.exists
+          - admission_dns.passed | bool
+          - admission_backup.passed | bool
+          - admission_dns.run == admission_context.run
+          - admission_backup.run == admission_context.run
+          - admission_dns.cluster_uid == admission_context.cluster_uid
+          - admission_backup.cluster_uid == admission_context.cluster_uid
+    - name: 当前集群只读健康复核
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]
+      register: admission_health
+      changed_when: false
+    - name: 保持同一集群
+      ansible.builtin.assert:
+        that: (admission_health.stdout | from_json).cluster_uid == admission_context.cluster_uid
+    - name: 备份凭据仍有效
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', validate-receipt, --context, '{{ replay_records }}/context.json', --input, '{{ replay_records }}/backup-receipt.json']
+      changed_when: false
+    - name: 审计本次当前源码
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', audit, --root, '{{ replay_root }}', --output, '{{ repair_evidence }}/current-source.json']
+      register: admission_audit
+      changed_when: false
+    - name: 绑定新源码及准确差异
+      ansible.builtin.set_fact:
+        admission_current_source: '{{ (admission_audit.stdout | from_json).source_sha256 }}'
+    - name: 计算变化的路径
+      ansible.builtin.set_fact:
+        admission_changed_paths: '{{ ((admission_context.implementation | dict2items | difference(admission_current_source | dict2items)) + (admission_current_source | dict2items | difference(admission_context.implementation | dict2items))) | map(attribute="key") | unique | sort }}'
+    - name: 只接受资源准入 helper 和前检说明的两处变更
+      ansible.builtin.assert:
+        that:
+          - admission_changed_paths == ['ops/01-kubernetes/ansible/playbooks/replay-preflight.yml', 'ops/01-kubernetes/ansible/tasks/replay/resource.yml']
+    - name: 创建原始上下文版本归档目录
+      ansible.builtin.file: {path: '{{ replay_records }}/origin/admission-fix-a191669', state: directory, mode: '0700'}
+    - name: 不覆盖已有历史版本
+      ansible.builtin.stat: {path: '{{ replay_records }}/origin/admission-fix-a191669/context.json'}
+      register: admission_old_copy
+    - name: 历史版本必须尚未写入
+      ansible.builtin.assert: {that: not admission_old_copy.stat.exists}
+    - name: 先原样归档旧 context
+      ansible.builtin.copy:
+        src: '{{ replay_records }}/context.json'
+        dest: '{{ replay_records }}/origin/admission-fix-a191669/context.json'
+        mode: '0600'
+    - name: 获取归档原件 SHA
+      ansible.builtin.stat:
+        path: '{{ replay_records }}/origin/admission-fix-a191669/context.json'
+        get_checksum: true
+        checksum_algorithm: sha256
+      register: admission_origin_sha
+    - name: 写入明确的版本差异和沿用范围
+      ansible.builtin.copy:
+        content: '{{ {"reason": "resume-admission-fix", "run": admission_context.run, "cluster_uid": admission_context.cluster_uid, "previous_context_sha256": admission_origin_sha.stat.checksum, "changed_paths": admission_changed_paths, "old_implementation": admission_context.implementation, "new_implementation": admission_current_source, "carried_pass": ["03-dns", "03-backup"], "ha_passed": false} | to_nice_json }}'
+        dest: '{{ replay_records }}/origin/admission-fix-a191669/source-revision.json'
+        mode: '0600'
+    - name: 同一目录切换到已明确登记的新实现 SHA
+      ansible.builtin.copy:
+        content: '{{ admission_context | combine({"implementation": admission_current_source, "previous_context_sha256": admission_origin_sha.stat.checksum, "latest_source_revision": "origin/admission-fix-a191669/source-revision.json"}) | to_nice_json }}'
+        dest: '{{ replay_records }}/context.json'
+        mode: '0600'

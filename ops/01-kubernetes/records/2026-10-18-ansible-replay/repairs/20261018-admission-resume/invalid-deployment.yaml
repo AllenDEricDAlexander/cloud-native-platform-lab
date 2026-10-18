@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    labels:
+        app.kubernetes.io/part-of: cnpl-controller-lab
+        cnpl.io/legacy-stage: schema
+        cnpl.io/replay-case: schema
+        cnpl.io/replay-run: 20261018T051939Z-bca4cc12
+        cnpl.io/replay-topic: '03'
+    name: cnpl-admission-invalid-check
+    namespace: lab-core
+spec:
+    minReadySeconds: 3
+    progressDeadlineSeconds: 45
+    replicas: -1
+    revisionHistoryLimit: 10
+    selector:
+        matchLabels:
+            cnpl.io/controller-pool: ha
+            cnpl.io/replay-run: 20261018T051939Z-bca4cc12
+    strategy:
+        rollingUpdate:
+            maxSurge: 1
+            maxUnavailable: 0
+        type: RollingUpdate
+    template:
+        metadata:
+            annotations:
+                cnpl.io/template-note: baseline
+            labels:
+                app.kubernetes.io/part-of: cnpl-controller-lab
+                cnpl.io/controller-pool: ha
+                cnpl.io/legacy-stage: schema
+                cnpl.io/replay-case: schema
+                cnpl.io/replay-run: 20261018T051939Z-bca4cc12
+                cnpl.io/replay-topic: '03'
+        spec:
+            affinity:
+                nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                        nodeSelectorTerms:
+                        -   matchExpressions:
+                            -   key: kubernetes.io/hostname
+                                operator: In
+                                values:
+                                - worker01.k8s.internal.egon.top
+                                - worker02.k8s.internal.egon.top
+                podAntiAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                    -   labelSelector:
+                            matchLabels:
+                                cnpl.io/controller-pool: ha
+                                cnpl.io/replay-run: 20261018T051939Z-bca4cc12
+                        topologyKey: kubernetes.io/hostname
+            automountServiceAccountToken: false
+            containers:
+            -   command:
+                - /controller-app
+                - server
+                env:
+                -   name: POD_NAME
+                    valueFrom:
+                        fieldRef:
+                            fieldPath: metadata.name
+                -   name: POD_UID
+                    valueFrom:
+                        fieldRef:
+                            fieldPath: metadata.uid
+                -   name: FORCE_NOT_READY
+                    value: 'false'
+                image: cnpl.local/phase01/controller-lab@sha256:ce5a8cdad490d931bef1c73ec5af4fc9e24580b7eddceca4f98af16801fa25c2
+                imagePullPolicy: Never
+                lifecycle:
+                    preStop:
+                        exec:
+                            command:
+                            - /controller-app
+                            - prestop
+                            - '5'
+                livenessProbe:
+                    failureThreshold: 3
+                    httpGet:
+                        path: /live
+                        port: 8080
+                    periodSeconds: 2
+                    timeoutSeconds: 3
+                name: app
+                readinessProbe:
+                    failureThreshold: 1
+                    httpGet:
+                        path: /ready
+                        port: 8080
+                    periodSeconds: 2
+                    timeoutSeconds: 3
+                resources:
+                    limits:
+                        cpu: 500m
+                        ephemeral-storage: 32Mi
+                        memory: 128Mi
+                    requests:
+                        cpu: 20m
+                        ephemeral-storage: 1Mi
+                        memory: 32Mi
+                securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                        - ALL
+                    readOnlyRootFilesystem: true
+                startupProbe:
+                    failureThreshold: 15
+                    httpGet:
+                        path: /startup
+                        port: 8080
+                    periodSeconds: 2
+                    timeoutSeconds: 3
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                -   mountPath: /work
+                    name: work
+            restartPolicy: Always
+            securityContext:
+                fsGroup: 1000
+                runAsGroup: 1000
+                runAsNonRoot: true
+                runAsUser: 1000
+                seccompProfile:
+                    type: RuntimeDefault
+            terminationGracePeriodSeconds: 25
+            topologySpreadConstraints:
+            -   labelSelector:
+                    matchLabels:
+                        cnpl.io/controller-pool: ha
+                        cnpl.io/replay-run: 20261018T051939Z-bca4cc12
+                maxSkew: 1
+                topologyKey: kubernetes.io/hostname
+                whenUnsatisfiable: ScheduleAnyway
+            volumes:
+            -   emptyDir:
+                    sizeLimit: 32Mi
+                name: work

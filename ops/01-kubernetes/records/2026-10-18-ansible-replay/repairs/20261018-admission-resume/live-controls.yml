@@ -1,0 +1,65 @@
+---
+# 全部 Kubernetes 写请求均带 dry-run；不创建测试 Pod，不更新或删除保留现场。
+- name: 在真实保留现场验证 client 校验与 server 准入的区别
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  tasks:
+    - name: 读取原失败提交的同名 Deployment 清单
+      ansible.builtin.set_fact:
+        live_manifest: '{{ replay_records }}/attempts/20261018T064321Z-d37087f4/manifests/03-schema-ha-deployment.yaml'
+    - name: 同名 server create dry-run 负对照应确实 AlreadyExists
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["create", "--dry-run=server", "-f", live_manifest] }}'
+      register: duplicate_control
+      changed_when: false
+      failed_when: duplicate_control.rc == 0 or 'AlreadyExists' not in duplicate_control.stderr
+    - name: client 结构校验在同名 Deployment 存在时通过
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["create", "--dry-run=client", "--validate=strict", "-f", live_manifest] }}'
+      changed_when: false
+    - name: 合法更新仍可进行真实 server apply dry-run
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["apply", "--dry-run=server", "-f", live_manifest] }}'
+      changed_when: false
+    - name: 准备仅用于 server 拒绝测试的无效 Deployment
+      ansible.builtin.copy:
+        content: '{{ candidate | combine({"metadata": candidate.metadata | combine({"name": "cnpl-admission-invalid-check"}), "spec": candidate.spec | combine({"replicas": -1})}) | to_nice_yaml }}'
+        dest: '{{ repair_evidence }}/invalid-deployment.yaml'
+        mode: '0600'
+      vars:
+        candidate: "{{ lookup('file', live_manifest) | from_yaml }}"
+    - name: 真正无效的资源仍须被服务端拒绝
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["create", "--dry-run=server", "-f", repair_evidence ~ "/invalid-deployment.yaml"] }}'
+      register: invalid_control
+      changed_when: false
+      failed_when: invalid_control.rc == 0 or 'greater than or equal to 0' not in invalid_control.stderr
+    - name: 读取真实保留 Pod（不修改）
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["-n", "lab-core", "get", "pod", "p03-client", "-o", "json"] }}'
+      register: retained_pod
+      changed_when: false
+    - name: 仅在本地生成不可变 command 的反例清单
+      ansible.builtin.copy:
+        content: '{{ candidate | combine({"spec": candidate.spec | combine({"containers": [candidate.spec.containers[0] | combine({"command": ["/controller-app", "intentionally-invalid-command"]})]})}) | to_nice_json }}'
+        dest: '{{ repair_evidence }}/immutable-pod.json'
+        mode: '0600'
+      vars: {candidate: '{{ retained_pod.stdout | from_json }}'}
+    - name: 同名 Pod 变体可做结构校验
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["create", "--dry-run=client", "--validate=strict", "-f", repair_evidence ~ "/immutable-pod.json"] }}'
+      changed_when: false
+    - name: 但真实更新准入仍拒绝不可变 Pod command
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["apply", "--dry-run=server", "-f", repair_evidence ~ "/immutable-pod.json"] }}'
+      register: immutable_control
+      changed_when: false
+      failed_when: immutable_control.rc == 0 or 'pod updates may not change fields' not in immutable_control.stderr
+    - name: 保存真实 API 正负对照输出
+      ansible.builtin.copy:
+        content: '{{ {"already_exists_reproduced": duplicate_control.stderr, "invalid_spec_rejected": invalid_control.stderr, "immutable_pod_rejected": immutable_control.stderr} | to_nice_json }}'
+        dest: '{{ repair_evidence }}/live-control-results.json'
+        mode: '0600'

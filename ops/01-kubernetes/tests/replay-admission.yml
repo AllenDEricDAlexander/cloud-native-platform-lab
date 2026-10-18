@@ -1,0 +1,67 @@
+---
+- name: 有保留现场时的目录校验与实际操作准入回归
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: 必须使用离线替身
+      ansible.builtin.assert:
+        that: replay_k[1].endswith('/tests/replay-fixture.py')
+    - name: 创建测试输出目录
+      ansible.builtin.file: {path: '{{ replay_attempt }}/manifests', state: directory, mode: '0700'}
+    - name: 通过真实 helper 创建初始 Pod
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/resource.yml
+      vars: {resource_source: core-resources/pods/manifests/p04-crash.yaml.j2, resource_id: crash-original, resource_action: create}
+    - name: 保存保留现场字节 SHA
+      ansible.builtin.stat: {path: '{{ fixture_db }}', get_checksum: true, checksum_algorithm: sha256}
+      register: admission_before
+    - name: 原生 server create dry-run 必须复现 AlreadyExists
+      ansible.builtin.command:
+        argv: '{{ replay_k + ["create", "--dry-run=server", "-f", replay_attempt ~ "/manifests/04-admission-crash-original.yaml"] }}'
+      register: already_exists
+      changed_when: false
+      failed_when: already_exists.rc == 0 or 'AlreadyExists' not in already_exists.stderr
+    - name: 同名 Pod 的原始与修复清单都可做目录结构校验
+      ansible.builtin.include_tasks: ../ansible/tasks/replay/resource.yml
+      vars: {resource_source: 'core-resources/pods/manifests/{{ admission_source }}.yaml.j2', resource_id: '{{ admission_source }}', resource_action: dry-run}
+      loop: [p04-crash, p04-crash-fixed]
+      loop_control: {loop_var: admission_source}
+    - name: 校验不会修改保留现场
+      ansible.builtin.stat: {path: '{{ fixture_db }}', get_checksum: true, checksum_algorithm: sha256}
+      register: admission_after
+    - name: UID 和 spec 的完整存储字节不变
+      ansible.builtin.assert: {that: admission_before.stat.checksum == admission_after.stat.checksum}
+    - name: 真正更新前仍拒绝 Pod 不可变字段修改
+      block:
+        - name: 尝试原地更新修复命令
+          ansible.builtin.include_tasks: ../ansible/tasks/replay/resource.yml
+          vars: {resource_source: core-resources/pods/manifests/p04-crash-fixed.yaml.j2, resource_id: immutable, resource_action: apply}
+        - name: 不应接受不可变变更
+          ansible.builtin.fail: {msg: immutable mutation accepted}
+      rescue:
+        - name: 必须由 server dry-run 拒绝，不能执行真实 apply
+          ansible.builtin.assert:
+            that: ansible_failed_task.name == '更新前服务端准入检查（immutable）'
+    - name: 服务端更新拒绝后原现场仍未变化
+      ansible.builtin.stat: {path: '{{ fixture_db }}', get_checksum: true, checksum_algorithm: sha256}
+      register: admission_rejected
+    - name: 不能用跳过验证或实际改对象来绕过错误
+      ansible.builtin.assert: {that: admission_before.stat.checksum == admission_rejected.stat.checksum}
+    - name: 创建没有标签的外来对象
+      ansible.builtin.copy:
+        content: '{{ {"apiVersion":"v1","kind":"Pod","metadata":{"name":"p04-failed","namespace":"lab-core"},"spec":{"containers":[]}} | to_json }}'
+        dest: '{{ replay_attempt }}/foreign.json'
+        mode: '0600'
+    - name: 写入外来夹具
+      ansible.builtin.command: {argv: '{{ replay_k + ["create", "-f", replay_attempt ~ "/foreign.json"] }}'}
+    - name: 即使目录校验也不得接管外来同名对象
+      block:
+        - name: 对外来对象尝试目录校验
+          ansible.builtin.include_tasks: ../ansible/tasks/replay/resource.yml
+          vars: {resource_source: core-resources/pods/manifests/p04-failed.yaml.j2, resource_id: foreign, resource_action: dry-run}
+        - name: 不应允许外来对象
+          ansible.builtin.fail: {msg: foreign accepted}
+      rescue:
+        - name: 在归属断言处拒绝未标记对象
+          ansible.builtin.assert:
+            that: ansible_failed_task.name == '拒绝覆盖其他批次资源'

@@ -20,25 +20,38 @@
       - resource_object.metadata.labels['cnpl.io/replay-topic'] == replay_topic
       - resource_object.kind in ['Pod', 'Deployment', 'ReplicaSet', 'ReplicationController', 'Service', 'ConfigMap', 'NetworkPolicy', 'ResourceQuota', 'LimitRange']
       - resource_object.metadata.namespace == replay_namespace
+      - resource_action | default('create') in ['create', 'apply', 'delete', 'dry-run']
 
 - name: 查询同名资源（部署/变更前校验；{{ resource_id }}）
   ansible.builtin.command:
     argv: "{{ resource_cli + ['-n', replay_namespace, 'get', resource_object.kind, resource_object.metadata.name, '--ignore-not-found', '-o', 'json'] }}"
   register: resource_existing
   changed_when: false
-  when: resource_action | default('create') != 'dry-run'
 
 - name: 拒绝覆盖其他批次资源
   ansible.builtin.assert:
     that:
-      - resource_existing.stdout | trim == '' or (resource_existing.stdout | from_json).metadata.labels.get('cnpl.io/replay-run', '') == replay_run
-  when: resource_action | default('create') != 'dry-run'
+      - resource_existing.stdout | trim == '' or (resource_existing.stdout | from_json).metadata.get('labels', {}).get('cnpl.io/replay-run', '') == replay_run
 
-- name: 真实 API 准入检查（{{ resource_id }}）
+- name: 源码目录结构校验（{{ resource_id }}；保留现场时也可执行）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['create', '--dry-run=client', '--validate=strict', '-f', resource_render.dest] }}"
+  changed_when: false
+  when: resource_action | default('create') == 'dry-run'
+
+- name: 创建前服务端准入检查（{{ resource_id }}）
   ansible.builtin.command:
     argv: "{{ resource_cli + ['create', '--dry-run=server', '-f', resource_render.dest] }}"
   changed_when: false
-  when: resource_action | default('create') == 'dry-run'
+  when:
+    - resource_action | default('create') == 'create'
+    - resource_existing.stdout | trim == ''
+
+- name: 更新前服务端准入检查（{{ resource_id }}）
+  ansible.builtin.command:
+    argv: "{{ resource_cli + ['apply', '--dry-run=server', '-f', resource_render.dest] }}"
+  changed_when: false
+  when: resource_action | default('create') == 'apply'
 
 - name: 按源码 YAML 创建资源（{{ resource_id }}）
   ansible.builtin.command:

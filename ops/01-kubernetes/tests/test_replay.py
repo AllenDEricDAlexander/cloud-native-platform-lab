@@ -178,6 +178,20 @@ class ReplayTests(unittest.TestCase):
             for ip in ['192.168.9.101','192.168.9.102','192.168.9.103','192.168.9.110']:
                 self.assertIn(ip,commands)
 
+
+    def test_admission_resume_with_existing_and_immutable_pods(self):
+        with tempfile.TemporaryDirectory(prefix='cnpl-replay-test-') as temporary:
+            folder=Path(temporary).resolve();db=folder/'api.json';calls=folder/'calls.jsonl';fixture=BASE/'tests/replay-fixture.py'
+            values={'replay_root':str(ROOT),'replay_python':str(PYTHON),'replay_k':[str(PYTHON),str(fixture)],'replay_a':[str(PYTHON),str(fixture)],'replay_namespace':'lab-core','replay_attempt':str(folder),'replay_run':'20261018T000000Z-12345678','replay_topic':'04','replay_case':'admission','fixture_db':str(db)}
+            inputs=folder/'vars.json';inputs.write_text(json.dumps(values))
+            env=dict(os.environ,ANSIBLE_CONFIG=str(ROOT/'ops/00-preparation/ansible/ansible.cfg'),CNPL_REPLAY_TEST_DB=str(db),CNPL_REPLAY_TEST_CALLS=str(calls))
+            result=subprocess.run([str(ANSIBLE),str(BASE/'tests/replay-admission.yml'),'-e','@'+str(inputs)],capture_output=True,text=True,env=env,timeout=60)
+            self.assertEqual(result.returncode,0,result.stdout[-8000:]+result.stderr[-1500:])
+            commands=[json.loads(line) for line in calls.read_text().splitlines()]
+            client=[c for c in commands if '--dry-run=client' in c];server=[c for c in commands if '--dry-run=server' in c]
+            self.assertEqual(len(client),2);self.assertGreaterEqual(len(server),3)
+            self.assertFalse(any(c[0]=='apply' and '--dry-run=server' not in c for c in commands))
+
     def test_actual_ansible_helpers_offline(self):
         with tempfile.TemporaryDirectory(prefix='cnpl-replay-test-') as temporary:
             folder=Path(temporary).resolve();db=folder/'api.json';fixture=BASE/'tests/replay-fixture.py'

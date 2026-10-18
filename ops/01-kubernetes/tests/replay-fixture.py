@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """仅供有限离线 Ansible 集成测试的本地 API 替身；从不连接集群。"""
 import importlib.util
+import copy
 import json
 import os
 from pathlib import Path
@@ -17,11 +18,21 @@ if not DB.parent.name.startswith('cnpl-replay-test-') or DB.parent.parent != Pat
 
 def api(args):
     data=json.loads(DB.read_text()) if DB.exists() else {}
+    if os.environ.get('CNPL_REPLAY_TEST_CALLS'):
+        with Path(os.environ['CNPL_REPLAY_TEST_CALLS']).open('a') as stream:stream.write(json.dumps(args)+'\n')
     if args[:1]==['-n']:args=args[2:]
     verb=args[0]
     if verb in ['create','apply']:
         value=yaml.safe_load(Path(args[args.index('-f')+1]).read_text());key=value['kind'].lower()+'/'+value['metadata']['name']
-        if '--dry-run=server' in args:return 'dry-run accepted'
+        if '--dry-run=client' in args:return 'client schema accepted'
+        if verb=='create' and key in data:raise ValueError('AlreadyExists: '+key)
+        if value.get('spec',{}).get('replicas',0)<0:raise ValueError('Invalid replicas')
+        if verb=='apply' and key in data and value['kind']=='Pod':
+            before=copy.deepcopy(data[key]['spec']);after=copy.deepcopy(value['spec'])
+            for spec in [before,after]:
+                for container in spec.get('containers',[]):container.pop('image',None)
+            if before!=after:raise ValueError('Pod spec is immutable')
+        if '--dry-run=server' in args:return 'server admission accepted'
         value['metadata']['uid']=data.get(key,{}).get('metadata',{}).get('uid','fixture-'+value['metadata']['name'])
         value['status']={'phase':'Succeeded'};data[key]=value
     elif verb=='get':

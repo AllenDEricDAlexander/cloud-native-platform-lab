@@ -1,0 +1,39 @@
+
+PLAY [在真实保留现场验证 client 校验与 server 准入的区别] **********************
+
+TASK [读取原失败提交的同名 Deployment 清单] ************************************
+ok: [localhost]
+
+TASK [同名 server create dry-run 负对照应确实 AlreadyExists] *******************
+ok: [localhost]
+
+TASK [client 结构校验在同名 Deployment 存在时通过] *****************************
+ok: [localhost]
+
+TASK [合法更新仍可进行真实 server apply dry-run] *******************************
+ok: [localhost]
+
+TASK [准备仅用于 server 拒绝测试的无效 Deployment] *****************************
+changed: [localhost]
+
+TASK [真正无效的资源仍须被服务端拒绝] ******************************************
+ok: [localhost]
+
+TASK [读取真实保留 Pod（不修改）] **********************************************
+ok: [localhost]
+
+TASK [仅在本地生成不可变 command 的反例清单] ***********************************
+changed: [localhost]
+
+TASK [同名 Pod 变体可做结构校验] ***********************************************
+ok: [localhost]
+
+TASK [但真实更新准入仍拒绝不可变 Pod command] **********************************
+ok: [localhost]
+
+TASK [保存真实 API 正负对照输出] ***********************************************
+changed: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -273,7 +273,7 @@
       probe_image: '{{ probe_artifact.image }}'
       controller_images: '{{ controller_bundle.images }}'
     when: replay_mode not in ['recover','cleanup']
-  - name: 逐份渲染源码清单并验证实际 API 准入（不创建对象）
+  - name: 逐份校验源码结构和同名对象归属（实际创建/更新前另做服务端准入）
     ansible.builtin.include_tasks: ../tasks/replay/validate-resource.yml
     loop: '{{ replay_catalog }}'
     loop_control:
@@ -282,5 +282,5 @@
     when: replay_mode not in ['recover','cleanup']
   - name: 交付/运行前检完成
     ansible.builtin.debug:
-      msg: REPLAY SOURCE YAML AND SERVER DRY-RUN PASS
+      msg: REPLAY SOURCE SCHEMA PASS；保留现场不影响目录校验；实际 create/apply 前逐资源执行 server dry-run
     when: replay_mode not in ['recover','cleanup']

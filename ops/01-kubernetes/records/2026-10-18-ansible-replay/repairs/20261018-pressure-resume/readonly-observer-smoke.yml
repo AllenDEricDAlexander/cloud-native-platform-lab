@@ -1,0 +1,43 @@
+- name: 真实 Ansible 压力只读检查入口负对照
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    replay_python: /Users/mario/.venvs/cnpl-ansible/bin/python
+    replay_check: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/checks/lab-check.py
+    replay_records: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-20261018T051927Z-ha-fix-20261018T063407Z
+    replay_attempt: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/2026-10-18-ansible-replay/repairs/20261018-pressure-resume
+    replay_worker02: worker02.k8s.internal.egon.top
+    pressure_node_uid: 2b9cd296-64d7-4223-86aa-d9f34c3dd7b3
+    pressure_pod_uid: a79c1251-5986-447c-84b5-30fbbd96a922
+    pressure_threshold: 16761597952
+  tasks:
+  - block:
+    - name: 同一 105 秒窗口只读核对实际配置、压力和同 UID 的内存驱逐
+      ansible.builtin.command:
+        argv:
+        - '{{ replay_python }}'
+        - '{{ replay_check }}'
+        - pressure
+        - --context
+        - '{{ replay_records }}/context.json'
+        - --node
+        - '{{ replay_worker02 }}'
+        - --node-uid
+        - '{{ pressure_node_uid }}'
+        - --pod-uid
+        - '{{ pressure_pod_uid }}'
+        - --threshold
+        - '{{ pressure_threshold }}'
+        - --seconds
+        - '105'
+        - --output
+        - '{{ replay_attempt }}/observations/04-pressure-eviction.json'
+      changed_when: false
+    - ansible.builtin.fail:
+        msg: 正常配置不得误报压力实验通过
+    rescue:
+    - ansible.builtin.assert:
+        that:
+        - ansible_failed_result.rc | default(0) == 1
+        - '''未加载本次软阈值'' in ansible_failed_result.stdout | default('''')'

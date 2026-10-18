@@ -1,0 +1,23 @@
+
+PLAY [真实 Ansible 压力只读检查入口负对照] *************************************
+
+TASK [同一 105 秒窗口只读核对实际配置、压力和同 UID 的内存驱逐] ****************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/2026-10-18-ansible-replay/repairs/20261018-pressure-resume/readonly-observer-smoke.yml:16:7
+
+14   tasks:
+15   - block:
+16     - name: 同一 105 秒窗口只读核对实际配置、压力和同 UID 的内存驱逐
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/checks/lab-check.py", "pressure", "--context", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-20261018T051927Z-ha-fix-20261018T063407Z/context.json", "--node", "worker02.k8s.internal.egon.top", "--node-uid", "2b9cd296-64d7-4223-86aa-d9f34c3dd7b3", "--pod-uid", "a79c1251-5986-447c-84b5-30fbbd96a922", "--threshold", "16761597952", "--seconds", "105", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/2026-10-18-ansible-replay/repairs/20261018-pressure-resume/observations/04-pressure-eviction.json"], "delta": "0:00:00.357673", "end": "2026-10-18 03:31:29.145025", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-18 03:31:28.787352", "stderr": "", "stderr_lines": [], "stdout": "{\"ok\": false, \"error\": \"kubelet 未加载本次软阈值及 45s 宽限期\"}", "stdout_lines": ["{\"ok\": false, \"error\": \"kubelet 未加载本次软阈值及 45s 宽限期\"}"]}
+
+TASK [ansible.builtin.assert] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=1    ignored=0   
+

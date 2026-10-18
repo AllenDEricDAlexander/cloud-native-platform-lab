@@ -1,0 +1,14 @@
+---
+- name: 已通过组不得执行任何实验或覆盖检查点
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: 使用真实 case 入口确认跳过
+      ansible.builtin.include_tasks: '{{ replay_root }}/ops/01-kubernetes/ansible/tasks/replay/case.yml'
+      loop: '{{ passed_cases }}'
+      loop_control: {loop_var: passed_case}
+      vars:
+        replay_topic: '{{ passed_case.split("-")[0] }}'
+        replay_case: '{{ passed_case.split("-")[1] }}'
+        replay_case_tasks: /must-not-execute-any-passed-case.yml

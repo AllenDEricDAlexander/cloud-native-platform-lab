@@ -2,6 +2,8 @@
 
 原 01.03–01.06 已真实验收通过。此次改变执行实现，需要用新入口重新验收四个专题；新运行结果不能沿用旧 PASS。01.07 等本次重跑通过后再开始。
 
+当前运行 `03-06-20261018T051927Z-ha-fix-20261018T063407Z` 已通过 03 全部及 04 的 base/states/sidecars/debug/memory；pressure 修复已完成同目录的受控版本登记。请按[最新续跑命令](repairs/20261018-pressure-resume/README.md)跳过这 8 个成功断点，从 pressure 继续，保留已有运行目录。
+
 ## 职责与源码
 
 | 内容 | 位置与职责 |
@@ -60,7 +62,7 @@ HA 的观测上限为 40 分钟，关键阶段检查异步任务仍在线；其�
 | --- | --- |
 | 04 base / states | 创建预算、限制、隔离策略和基准应用；观察 Succeeded、退出 7、CrashLoop、缺失镜像及 8 核 Pending。修复镜像，按源码删除重建命令/请求不可变的 Pod，确认恢复。 |
 | 04 sidecars / debug | 失败 Init 阻挡主容器；比较普通与原生 Sidecar 的启动/退出顺序。无 shell 应用通过受限临时容器验证进程、DNS、拒绝连接与客户端超时，默认 SA 保持无调试权限。 |
-| 04 memory / pressure | 容器内存盘触发 OOMKilled/137；另在 worker02 临时提高 soft 阈值，取得 MemoryPressure 和 memory/Evicted。150 秒独立回退先于配置替换安装；必须核对原配置 SHA、节点/系统 Pod 健康后才解除本批 cordon。 |
+| 04 memory / pressure | 容器内存盘触发 OOMKilled/137；另在 worker02 隔离后临时把 soft 阈值设为节点内存容量，保留 45s 宽限期和 500Mi hard 基线，避免采样值加 16Mi 被内存波动抵消。105 秒统一观测实际加载配置、MemoryPressure 和同 UID 的 memory/Evicted，持续保存时间线。150 秒独立回退先于配置替换安装；必须核对原配置 SHA、节点/系统 Pod 健康后才解除本批 cordon。 |
 | 04 termination | 正常删除后取得 Completed/0、匹配 UID 的 TERM 与子进程回收回执，再释放本实验 finalizer。 |
 | 05 startup / liveness | 6/12/20 秒启动由真实探针历史证明保护窗口；超窗实例实际重启。依赖超时只摘除就绪，本地心跳停止触发 liveness 重启。 |
 | 05 readiness / termination | 对照 EndpointSlice、新连接与原 HTTP/1.1 连接；同时测试长短请求、消息、PreStop/TERM 排空。短宽限期造成非 OOM 的 137、请求失败，再用租约重投及重复提交证明最终效果一次。 |
@@ -98,3 +100,5 @@ bash ops/01-kubernetes/scripts/replay-03-06.sh cleanup "$CNPL_REPLAY"
 HA 人工等待、过期观测和自动双端口检测的修复与核验，见 [2026-10-18 HA 修复记录](repairs/20261018-ha-observation/README.md)。
 
 已有同名对象导致 AlreadyExists 的前检修复、真实正负对照和同目录继续命令，见 [准入续跑修复记录](repairs/20261018-admission-resume/README.md)。
+
+软驱逐阈值、105 秒统一观测窗口、63 项回归及原成功断点的保留核验，见 [pressure 续跑修复记录](repairs/20261018-pressure-resume/README.md)。

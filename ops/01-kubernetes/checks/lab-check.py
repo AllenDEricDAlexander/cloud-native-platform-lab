@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 
 KINDS = 'deployments,replicasets,replicationcontrollers,pods,services,configmaps,networkpolicies,resourcequotas,limitranges'
@@ -36,15 +37,15 @@ class Reader:
         self.context = context; self.namespace = 'lab-core'
         self.binary = Path.home()/'.cnpl/bin/kubectl'
 
-    def k(self, *parts, admin=False):
+    def k(self, *parts, admin=False, timeout=25):
         # 不接收任意命令。没有 stdin payload、kubectl exec 或 --raw 写入口。
         require(parts and parts[0] in ['get','logs','version','config','auth'], '只读检查器拒绝 Kubernetes 写操作')
         require(parts[0]!='config' or parts[1:2]==('view',), '只允许读取 kubeconfig')
         require(parts[0]!='auth' or parts[1:2]==('can-i',), '只允许权限查询')
         config = Path.home()/('.cnpl-secrets/kubeconfig-lab-primary' if admin else '.cnpl-secrets/access/lab-primary/mac.conf')
-        args = [self.binary, '--kubeconfig', config, '--request-timeout=15s']
+        args = [self.binary, '--kubeconfig', config, '--request-timeout='+format(min(15,timeout),'g')+'s']
         if not admin: args += ['--context', 'lab-primary-lab-ops']
-        return call(args + list(parts))
+        return call(args + list(parts),timeout=timeout)
 
     def get(self, kind, name): return json.loads(self.k('get', kind, name, '-n', self.namespace, '-o', 'json'))
 
@@ -179,10 +180,59 @@ def audit(root, output):
     return result
 
 
+def pressure(reader, node_name, node_uid, pod_uid, threshold, seconds, output):
+    """只读取实际配置及同一受害者；压力条件本身不能作为驱逐成功。"""
+    require(node_name=='worker02.k8s.internal.egon.top' and node_uid and pod_uid,'压力观测缺少节点/Pod 身份')
+    require(0 < seconds <= 105 and isinstance(threshold,int) and threshold > 4294967296 and output,'压力观测窗口/阈值/输出无效')
+    result={'passed':False,'run':reader.context['run'],'node_uid':node_uid,'pod_uid':pod_uid,'threshold':threshold,'samples':[]}
+    deadline=time.monotonic()+seconds;loaded=None;saw_pressure=False
+    def read(*parts,admin=False):
+        remaining=deadline-time.monotonic();require(remaining>0,'本次压力观测窗口已结束')
+        return json.loads(reader.k(*parts,admin=admin,timeout=min(10,remaining)))
+    try:
+        while time.monotonic() < deadline:
+            row={'at':datetime.now(timezone.utc).isoformat()}
+            # 重启后的 API 代理可短暂不可达；仅重试读请求失败，身份和配置错误直接停止。
+            try:
+                if loaded is None:
+                    loaded=read('get','--raw=/api/v1/nodes/'+node_name+'/proxy/configz',admin=True)['kubeletconfig']
+                node=read('get','node',node_name,'-o','json',admin=True)
+                stats=read('get','--raw=/api/v1/nodes/'+node_name+'/proxy/stats/summary',admin=True)
+                pod=read('get','pod','p04-pressure','-n','lab-core','-o','json')
+            except (ValueError,OSError,subprocess.SubprocessError) as exc:
+                row['read_error']=str(exc);result['samples'].append(row);save(output,result)
+                time.sleep(min(2,max(0,deadline-time.monotonic())));continue
+            result.update({'loaded_config':loaded,'node':node,'pod':pod})
+            require(loaded.get('evictionSoft')=={'memory.available':str(threshold)} and loaded.get('evictionSoftGracePeriod')=={'memory.available':'45s'},'kubelet 未加载本次软阈值及 45s 宽限期')
+            require(loaded.get('evictionHard',{}).get('memory.available')=='500Mi' and loaded.get('evictionMaxPodGracePeriod')==5,'硬阈值或驱逐退出宽限期有漂移')
+            require(node['metadata']['uid']==node_uid and pod['metadata']['uid']==pod_uid,'压力实验 Node/Pod UID 已变化')
+            require(pod['metadata'].get('labels',{}).get('cnpl.io/replay-run')==reader.context['run'] and pod['spec'].get('nodeName')==node_name,'压力 Pod 归属或节点不符')
+            require(not pod['metadata'].get('deletionTimestamp'),'API 删除不能代替 kubelet 驱逐')
+            memory=stats['node']['memory'];available=int(memory['availableBytes']);working_set=int(memory['workingSetBytes'])
+            require(stats['node']['nodeName']==node_name and available+working_set==threshold,'软阈值与节点实际内存容量不符')
+            require(available>=4294967296,'真实可用内存不足 4GiB，立即结束压力实验并恢复')
+            observed=datetime.fromisoformat(memory['time'].replace('Z','+00:00'))
+            fresh=0 <= (datetime.now(timezone.utc)-observed).total_seconds() <= 30
+            status=pod.get('status',{});has_pressure=condition(node,'MemoryPressure','True');saw_pressure=saw_pressure or has_pressure
+            row.update({'memory_time':memory['time'],'available_bytes':available,'working_set_bytes':working_set,'below_soft_threshold':available<threshold,'fresh_stats':fresh,'memory_pressure':has_pressure,'pod_phase':status.get('phase'),'pod_reason':status.get('reason')})
+            result['samples'].append(row);save(output,result)
+            require(status.get('phase') not in ['Failed','Succeeded'] or status.get('reason')=='Evicted','受害 Pod 已结束但不是 Evicted：'+str(status.get('reason')))
+            if status.get('reason')=='Evicted':
+                require(status.get('phase')=='Failed' and 'memory' in status.get('message','').lower(),'Evicted 原因不是内存压力')
+                require(saw_pressure and fresh and available<threshold,'未取得真实 MemoryPressure 和有效内存统计')
+                require(time.monotonic()<deadline,'驱逐结果超过本次观测窗口')
+                result['passed']=True;save(output,result);return result
+            time.sleep(min(2,max(0,deadline-time.monotonic())))
+        raise ValueError('105s 窗口内没有取得同 UID 的 memory/Evicted；查看压力时间线，始终恢复节点后保留现场')
+    except (ValueError,KeyError,OSError,subprocess.SubprocessError) as exc:
+        result['error']=str(exc);save(output,result);raise
+
+
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['preflight','snapshot','cleanup-plan','empty','graph','term','audit','pods','owner-pods','endpoints'])
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['preflight','snapshot','cleanup-plan','empty','graph','term','audit','pods','owner-pods','endpoints','pressure'])
     p.add_argument('--context',type=Path);p.add_argument('--root');p.add_argument('--output');p.add_argument('--input',type=Path)
     p.add_argument('--topic',default='*');p.add_argument('--case',default='*');p.add_argument('--name');p.add_argument('--count',type=int,default=2);p.add_argument('--image');p.add_argument('--kind');p.add_argument('--exclude')
+    p.add_argument('--node');p.add_argument('--node-uid');p.add_argument('--pod-uid');p.add_argument('--threshold',type=int);p.add_argument('--seconds',type=int,default=105)
     a=p.parse_args();ctx=json.loads(a.context.read_text()) if a.context and a.context.exists() else {};r=Reader(ctx)
     try:
         if a.action=='audit':result=audit(a.root,a.output)
@@ -196,6 +246,7 @@ def main():
                 with Path(a.output).open('a') as stream:stream.write(json.dumps(result)+'\n')
             require(result['ok'],'Deployment/RS/Pod 尚未共同收敛')
         elif a.action=='term':result=termination(json.loads(a.input.read_text()))
+        elif a.action=='pressure':result=pressure(r,a.node,a.node_uid,a.pod_uid,a.threshold,a.seconds,a.output)
         elif a.action=='endpoints':
             service=r.get('service',a.name);require(service['metadata']['labels'].get('cnpl.io/replay-run')==ctx['run'],'Service 归属不符')
             items=json.loads(r.k('get','endpointslices','-n','lab-core','-l','kubernetes.io/service-name='+a.name,'-o','json'))['items']
@@ -207,7 +258,7 @@ def main():
             require(len(pods)==a.count and all(condition(p,'Ready','True') for p in pods) and a.exclude not in {p['metadata']['uid'] for p in pods},'子 Pod 数量/就绪/替换 UID 尚未收敛')
             result={'parent':parent,'items':pods}
         else:result={'items':r.items('pods',a.topic,a.case)}
-        if a.output and a.action not in ['graph','audit','snapshot']:save(a.output,result)
+        if a.output and a.action not in ['graph','audit','snapshot','pressure']:save(a.output,result)
         print(json.dumps(result,ensure_ascii=False))
     except (ValueError,KeyError,OSError,subprocess.SubprocessError) as exc:
         print(json.dumps({'ok':False,'error':str(exc)},ensure_ascii=False));raise SystemExit(1)

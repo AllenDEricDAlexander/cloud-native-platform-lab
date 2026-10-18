@@ -1,0 +1,112 @@
+---
+# 仅登记本次失败批次的两处执行源码修复；旧上下文和所有成功检查点保留。
+- name: 保留成功断点并登记软驱逐修复版本
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  vars:
+    pressure_carried: [03-dns, 03-backup, 03-ha, 04-base, 04-states, 04-sidecars, 04-debug, 04-memory]
+    pressure_revision: origin/pressure-fix-7d4e062
+  tasks:
+    - name: 读取原上下文和修复前指纹
+      ansible.builtin.set_fact:
+        pressure_context: "{{ lookup('file', replay_records ~ '/context.json') | from_json }}"
+        pressure_before: "{{ lookup('file', repair_evidence ~ '/before-repair-sha256.json') | from_json }}"
+        pressure_restored: "{{ lookup('file', replay_records ~ '/attempts/20261018T065913Z-5f203375/observations/pressure-restored.json') | from_json }}"
+    - name: 只接受本次实际失败的批次
+      ansible.builtin.assert:
+        that:
+          - replay_records == replay_root ~ '/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-20261018T051927Z-ha-fix-20261018T063407Z'
+          - pressure_context.run == '20261018T051939Z-bca4cc12'
+          - pressure_context.cluster_uid == '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'
+    - name: 验证成功检查点原件与指纹
+      ansible.builtin.stat:
+        path: '{{ replay_records }}/checkpoints/{{ item }}.json'
+        get_checksum: true
+        checksum_algorithm: sha256
+      loop: '{{ pressure_carried }}'
+      register: pressure_carried_stats
+    - name: 已通过组必须属于原运行且字节未变
+      ansible.builtin.assert:
+        that:
+          - saved.passed | bool
+          - saved.run == pressure_context.run
+          - saved.cluster_uid == pressure_context.cluster_uid
+          - item.stat.checksum == pressure_before['checkpoints/' ~ item.item ~ '.json']
+      vars:
+        saved: "{{ lookup('file', replay_records ~ '/checkpoints/' ~ item.item ~ '.json') | from_json }}"
+      loop: '{{ pressure_carried_stats.results }}'
+      loop_control: {label: '{{ item.item }}'}
+    - name: 不允许已成功、未恢复或已结束的压力批次登记为本次失败
+      ansible.builtin.stat: {path: '{{ replay_records }}/{{ item }}'}
+      loop: [checkpoints/04-pressure.json, state/pressure-recovery.json, state/closed-by-cleanup.json]
+      register: pressure_blockers
+    - name: 失败批次恢复状态符合预期
+      ansible.builtin.assert:
+        that: not item.stat.exists
+      loop: '{{ pressure_blockers.results }}'
+      loop_control: {label: '{{ item.item }}'}
+    - name: 只读确认当前十节点和系统负载健康
+      ansible.builtin.command: {argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]}
+      register: pressure_health
+      changed_when: false
+    - name: 当前必须仍是原集群
+      ansible.builtin.assert:
+        that: (pressure_health.stdout | from_json).cluster_uid == pressure_context.cluster_uid
+    - name: 只读复核 worker02 原 kubelet 字节
+      ansible.builtin.stat:
+        path: /var/lib/kubelet/config.yaml
+        get_checksum: true
+        checksum_algorithm: sha256
+      delegate_to: worker02
+      register: pressure_original_stat
+    - name: 失败后恢复确实保留原配置
+      ansible.builtin.assert:
+        that: pressure_original_stat.stat.checksum == pressure_restored.original_sha256
+    - name: 审计修复源码和历史原始记录
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', audit, --root, '{{ replay_root }}', --output, '{{ repair_evidence }}/current-source.json']
+      register: pressure_audit
+      changed_when: false
+    - name: 绑定新实现
+      ansible.builtin.set_fact:
+        pressure_current_source: '{{ (pressure_audit.stdout | from_json).source_sha256 }}'
+    - name: 计算准确的源码路径差异
+      ansible.builtin.set_fact:
+        pressure_changed_paths: '{{ ((pressure_context.implementation | dict2items | difference(pressure_current_source | dict2items)) + (pressure_current_source | dict2items | difference(pressure_context.implementation | dict2items))) | map(attribute="key") | unique | sort }}'
+    - name: 只允许压力流程和只读检查器两处执行源码变更
+      ansible.builtin.assert:
+        that: pressure_changed_paths == ['ops/01-kubernetes/ansible/tasks/replay/case-04-pressure.yml', 'ops/01-kubernetes/checks/lab-check.py']
+    - name: 创建新的上下文版本归档目录
+      ansible.builtin.file: {path: '{{ replay_records }}/{{ pressure_revision }}', state: directory, mode: '0700'}
+    - name: 查询是否已经有本次版本归档
+      ansible.builtin.stat: {path: '{{ replay_records }}/{{ pressure_revision }}/context.json'}
+      register: pressure_archive
+    - name: 历史原件禁止覆盖
+      ansible.builtin.assert: {that: not pressure_archive.stat.exists}
+    - name: 先原样归档失败前的 context
+      ansible.builtin.copy:
+        src: '{{ replay_records }}/context.json'
+        dest: '{{ replay_records }}/{{ pressure_revision }}/context.json'
+        mode: '0600'
+    - name: 核对归档原件 SHA
+      ansible.builtin.stat:
+        path: '{{ replay_records }}/{{ pressure_revision }}/context.json'
+        get_checksum: true
+        checksum_algorithm: sha256
+      register: pressure_origin
+    - name: 原上下文与修复前指纹一致
+      ansible.builtin.assert:
+        that: pressure_origin.stat.checksum == pressure_before['context.json']
+    - name: 记录准确差异、原件 SHA 和沿用成功断点
+      ansible.builtin.copy:
+        content: '{{ {"reason": "stable-soft-eviction-resume", "run": pressure_context.run, "cluster_uid": pressure_context.cluster_uid, "previous_context_sha256": pressure_origin.stat.checksum, "changed_paths": pressure_changed_paths, "old_implementation": pressure_context.implementation, "new_implementation": pressure_current_source, "carried_pass": pressure_carried, "pressure_passed": false} | to_nice_json }}'
+        dest: '{{ replay_records }}/{{ pressure_revision }}/source-revision.json'
+        mode: '0600'
+    - name: 仅更新同目录的当前源码版本，不写实验 PASS
+      ansible.builtin.copy:
+        content: '{{ pressure_context | combine({"implementation": pressure_current_source, "previous_context_sha256": pressure_origin.stat.checksum, "latest_source_revision": pressure_revision ~ "/source-revision.json"}) | to_nice_json }}'
+        dest: '{{ replay_records }}/context.json'
+        mode: '0600'

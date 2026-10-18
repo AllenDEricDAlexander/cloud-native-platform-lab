@@ -76,6 +76,16 @@
       ansible.builtin.command:
         argv: "{{ replay_a + ['cordon', replay_worker02] }}"
       changed_when: true
+    - name: 封锁调度后重新核对受影响的所有 Pod
+      ansible.builtin.command:
+        argv: "{{ replay_a + ['get', 'pods', '-A', '--field-selector=spec.nodeName=' ~ replay_worker02, '-o', 'json'] }}"
+      register: pressure_cordoned_pods
+      changed_when: false
+    - name: 临时阈值只允许影响本次受害 Pod
+      ansible.builtin.assert:
+        that: item.metadata.uid == pressure_pod_uid or (item.metadata.namespace == 'kube-system' and item.spec.priority | default(0) | int >= 2000000000)
+      loop: "{{ (pressure_cordoned_pods.stdout | from_json)['items'] | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+      loop_control: {label: '{{ item.metadata.name }}'}
     - name: 等内存盘实际计入 kubelet workingSet
       ansible.builtin.command:
         argv: "{{ replay_a + ['get', '--raw=/api/v1/nodes/' ~ replay_worker02 ~ '/proxy/stats/summary'] }}"
@@ -84,9 +94,12 @@
       until: pressure_stats.rc == 0 and (((pressure_stats.stdout | from_json).pods | selectattr('podRef.uid', 'equalto', pressure_pod_uid) | map(attribute='memory.workingSetBytes') | list | first | default(0)) | int >= 67108864)
       retries: 23
       delay: 2
-    - name: 真实可用内存至少 4GiB；软阈值只调到当前可用加 16Mi
+    - name: 真实可用内存至少 4GiB，不通过真实耗尽触发实验
       ansible.builtin.assert:
         that: (pressure_stats.stdout | from_json).node.memory.availableBytes | int >= 4294967296
+    - name: 软阈值绑定节点总内存，避免一次采样加 16Mi 被波动抵消
+      ansible.builtin.set_fact:
+        pressure_threshold: '{{ (pressure_stats.stdout | from_json).node.memory.availableBytes | int + (pressure_stats.stdout | from_json).node.memory.workingSetBytes | int }}'
     - name: 保存本次阈值和 Pod 统计
       ansible.builtin.copy:
         content: '{{ pressure_stats.stdout }}'
@@ -94,7 +107,7 @@
         mode: '0600'
     - name: 写入临时配置暂存（尚未替换运行配置）
       ansible.builtin.copy:
-        content: "{{ pressure_config | combine({'evictionSoft': {'memory.available': ((pressure_stats.stdout | from_json).node.memory.availableBytes | int + 16777216) | string}, 'evictionSoftGracePeriod': {'memory.available': '45s'}, 'evictionMaxPodGracePeriod': 5}) | to_nice_json }}\n"
+        content: "{{ pressure_config | combine({'evictionSoft': {'memory.available': pressure_threshold | string}, 'evictionSoftGracePeriod': {'memory.available': '45s'}, 'evictionMaxPodGracePeriod': 5}) | to_nice_json }}\n"
         dest: '/root/cnpl-replay-pressure-{{ replay_run }}/temporary.yaml'
         mode: '0600'
       delegate_to: worker02
@@ -129,32 +142,10 @@
     - name: 加载本次临时阈值
       ansible.builtin.systemd_service: {name: kubelet, state: restarted}
       delegate_to: worker02
-    - name: 必须观察到真实 MemoryPressure
-      ansible.builtin.include_tasks: wait-field.yml
-      vars:
-        wait_admin: true
-        wait_resource: 'node/{{ replay_worker02 }}'
-        wait_field: '{.status.conditions[?(@.type=="MemoryPressure")].status}'
-        wait_values: ['True']
-        wait_retries: 40
-        wait_delay: 2
-    - name: 保存压力状态节点证据
-      ansible.builtin.include_tasks: store-object.yml
-      vars: {store_kind: node, store_name: '{{ replay_worker02 }}', store_id: pressure-node, store_admin: true}
-    - name: 必须观察到 kubelet 驱逐而非 API 删除
-      ansible.builtin.include_tasks: wait-field.yml
-      vars:
-        wait_resource: pod/p04-pressure
-        wait_field: '{.status.reason}'
-        wait_values: [Evicted]
-        wait_retries: 50
-        wait_delay: 2
-    - name: 读取真实驱逐原因
-      ansible.builtin.include_tasks: get.yml
-      vars: {get_kind: pod, get_name: p04-pressure}
-    - name: 驱逐消息明确是 memory
-      ansible.builtin.assert:
-        that: "'memory' in replay_object.status.message | lower"
+    - name: 同一 105 秒窗口只读核对实际配置、压力和同 UID 的内存驱逐
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', pressure, --context, '{{ replay_records }}/context.json', --node, '{{ replay_worker02 }}', --node-uid, '{{ pressure_node_uid }}', --pod-uid, '{{ pressure_pod_uid }}', --threshold, '{{ pressure_threshold }}', --seconds, '105', --output, '{{ replay_attempt }}/observations/04-pressure-eviction.json']
+      changed_when: false
     - name: 保存驱逐后证据
       ansible.builtin.include_tasks: snapshot.yml
   always:

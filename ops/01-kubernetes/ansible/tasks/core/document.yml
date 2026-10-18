@@ -2,7 +2,7 @@
 - name: 校验资源类型、归属与命名空间
   ansible.builtin.assert:
     that:
-      - core_document.kind in ['Namespace','Pod','Service','ConfigMap','ServiceAccount','ResourceQuota','LimitRange','NetworkPolicy','Deployment','ReplicaSet','StatefulSet','DaemonSet','Job','CronJob','HorizontalPodAutoscaler','Role','RoleBinding','ClusterRole','ClusterRoleBinding','APIService']
+      - core_document.kind in ['Namespace','Pod','Service','ConfigMap','ServiceAccount','ResourceQuota','LimitRange','NetworkPolicy','CiliumNetworkPolicy','Deployment','ReplicaSet','StatefulSet','DaemonSet','Job','CronJob','HorizontalPodAutoscaler','Role','RoleBinding','ClusterRole','ClusterRoleBinding','APIService']
       - core_document.metadata.labels['cnpl.io/core-run'] == core_run
       - core_document.kind in ['Namespace','ClusterRole','ClusterRoleBinding','APIService'] or (core_document.metadata.namespace is defined and core_document.metadata.namespace in ([core_metrics_namespace, 'kube-system'] if core_addon | default(false) else [core_namespace]))
       - core_document.kind != 'Namespace' or core_document.metadata.name == (core_metrics_namespace if core_addon | default(false) else core_namespace)

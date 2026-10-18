@@ -4,7 +4,7 @@
     argv: "{{ [core_python, core_check, core_wait_action, '--context', core_records ~ '/context.json', '--output', core_attempt ~ '/observations/' ~ core_wait_id ~ '.json'] + core_wait_args | default([]) }}"
   register: core_wait_result
   changed_when: false
-  until: core_wait_result.rc == 0
+  until: core_wait_result.rc == 0 or (core_wait_action == 'job' and core_wait_result.rc == 2)
   retries: '{{ core_wait_retries | default(90) }}'
   delay: '{{ core_wait_delay | default(2) }}'
 - name: 绑定已通过的只读结果

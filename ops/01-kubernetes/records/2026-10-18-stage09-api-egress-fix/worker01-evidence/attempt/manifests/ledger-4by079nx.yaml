@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p09-ledger
+  namespace: 'cnpl-jobfix-8818f284'
+  labels: {cnpl.io/core-run: 'jobfix-8818f284'}
+data: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p09-ledger-writer
+  namespace: 'cnpl-jobfix-8818f284'
+  labels: {cnpl.io/core-run: 'jobfix-8818f284'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: p09-ledger-writer
+  namespace: 'cnpl-jobfix-8818f284'
+  labels: {cnpl.io/core-run: 'jobfix-8818f284'}
+rules: [{apiGroups: [''], resources: [configmaps], resourceNames: [p09-ledger], verbs: [get, update]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p09-ledger-writer
+  namespace: 'cnpl-jobfix-8818f284'
+  labels: {cnpl.io/core-run: 'jobfix-8818f284'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: p09-ledger-writer}
+subjects: [{kind: ServiceAccount, name: p09-ledger-writer, namespace: 'cnpl-jobfix-8818f284'}]

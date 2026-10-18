@@ -33,6 +33,8 @@ bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/script
 
 测试账本不代表生产业务数据库的持久化或分布式事务保证，整个 `lab-p09` 在验收后回收。CronJob 也不提供严格恰好一次；示例通过业务键避免重试重复效果。
 
+本集群使用 Cilium。公共 baseline 通过 namespaced CiliumNetworkPolicy 的 kube-apiserver 实体及 TCP 443/6443 放行本 run 的 API 请求；集群节点身份不能依靠默认 ipBlock 规则放行。该策略同时进入归属检查、快照和 Namespace 清理。Job 已进入与预期相反的终态时立即报告真实原因，不再等完整重试窗口。
+
 Job 的首次退出 7、永久错误退出 42、DeadlineExceeded，以及零 CPU 请求 HPA 的 FailedGetResourceMetric 都是有意设置的反例；脚本必须确认预期原因后才通过。Ansible 的最终 `failed=0` 和两个总 PASS 才代表本阶段成功。
 
 ## 恢复与清理

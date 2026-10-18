@@ -83,7 +83,18 @@ spec:
   - to: [{podSelector: {}}]
   - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
     ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
-  - to: [{ipBlock: {cidr: 192.168.20.1/32}}]
-    ports: [{protocol: TCP, port: 443}]
-  - to: [{ipBlock: {cidr: 192.168.9.101/32}}, {ipBlock: {cidr: 192.168.9.102/32}}, {ipBlock: {cidr: 192.168.9.103/32}}]
-    ports: [{protocol: TCP, port: 6443}]
+---
+# Cilium 默认不以 CIDR 匹配集群节点；API 流量按实体和端口授权。
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: core-api-egress
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+spec:
+  endpointSelector:
+    matchLabels: {cnpl.io/core-run: '{{ core_run }}'}
+  egress:
+  - toEntities: [kube-apiserver]
+    toPorts:
+    - ports: [{port: '443', protocol: TCP}, {port: '6443', protocol: TCP}]

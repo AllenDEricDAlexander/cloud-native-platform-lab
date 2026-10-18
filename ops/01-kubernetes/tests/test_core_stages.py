@@ -5,6 +5,7 @@ from datetime import datetime,timezone,timedelta
 import importlib.util
 import ipaddress
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -68,6 +69,32 @@ class CoreStageTests(unittest.TestCase):
         self.assertEqual(core.job(Reader([obj]),a)['job']['metadata']['name'],'job')
         obj['status']['conditions'][0]['reason']='BackoffLimitExceeded'
         with self.assertRaises(ValueError):core.job(Reader([obj]),a)
+        a.condition='Complete';a.reason=None
+        with self.assertRaisesRegex(core.TerminalJobFailure,'BackoffLimitExceeded'):core.job(Reader([obj]),a)
+
+    def test_native_job_wait_stops_after_terminal_exit_code(self):
+        with tempfile.TemporaryDirectory(prefix='cnpl-job-wait-') as temporary:
+            folder=Path(temporary);counter=folder/'calls';check=folder/'check.py'
+            check.write_text('from pathlib import Path\np=Path('+repr(str(counter))+')\np.write_text((p.read_text() if p.exists() else "")+"1")\nprint(\'{"terminal_failure":true,"error":"FIXTURE TERMINAL JOB"}\')\nraise SystemExit(2)\n')
+            play=[{'name':'Job 终态等待器有限回归','hosts':'localhost','connection':'local','gather_facts':False,'vars':{'core_python':str(Path.home()/'.venvs/cnpl-ansible/bin/python'),'core_check':str(check),'core_records':str(folder),'core_attempt':str(folder),'core_wait_name':'有限等待器','core_wait_action':'job','core_wait_id':'fixture','core_wait_retries':3,'core_wait_delay':0},'tasks':[{'ansible.builtin.include_tasks':str(BASE/'ansible/tasks/core/wait.yml')}]}]
+            source=folder/'play.yml';source.write_text(yaml.safe_dump(play,allow_unicode=True))
+            env=dict(os.environ,ANSIBLE_CONFIG=str(ROOT/'ops/00-preparation/ansible/ansible.cfg'))
+            result=subprocess.run([str(Path.home()/'.venvs/cnpl-ansible/bin/ansible-playbook'),str(source)],capture_output=True,text=True,env=env,timeout=30)
+            self.assertNotEqual(result.returncode,0)
+            self.assertIn('FIXTURE TERMINAL JOB',result.stdout)
+            self.assertEqual(counter.read_text(),'1')
+
+    def test_indexed_retry_checks_exit_codes_for_each_business_key(self):
+        obj={'kind':'Job','metadata':meta('job'),'spec':{'completionMode':'Indexed','completions':3},'status':{'conditions':[{'type':'Complete','status':'True'}]}}
+        rows=[obj]
+        for index in range(3):
+            for code in [7,0]:
+                p=pod(str(index)+'-'+str(code),parent='job');p['metadata']['annotations']={'batch.kubernetes.io/job-completion-index':str(index)}
+                p['status']['containerStatuses']=[{'name':'app','state':{'terminated':{'exitCode':code}}}];rows.append(p)
+        a=SimpleNamespace(name='job',condition='Complete',reason=None,retry_exit_code=7)
+        self.assertEqual(core.job(Reader(rows),a)['exit_codes_by_index'],{'0':[7,0],'1':[7,0],'2':[7,0]})
+        rows[1]['status']['containerStatuses'][0]['state']['terminated']['exitCode']=1
+        with self.assertRaises(core.TerminalJobFailure):core.job(Reader(rows),a)
 
     def test_cron_requires_controller_owner_and_real_scheduled_timestamp(self):
         parents=[];jobs=[]

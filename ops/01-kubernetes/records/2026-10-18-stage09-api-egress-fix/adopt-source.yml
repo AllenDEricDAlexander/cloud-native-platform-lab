@@ -1,0 +1,98 @@
+---
+# 仅登记当前未完成 09 的六条修复路径；原 context 和失败证据先按字节归档。
+- name: 为原 09 批次登记已验证的 API 出口修复
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ core_root }}/ops/01-kubernetes/ansible/vars/core.yml']
+  vars:
+    core_records: '{{ core_root }}/ops/01-kubernetes/records/core-07-10/runs/09-20261018T113437Z'
+    revision: origin/api-egress-fix-0001
+    expected_paths:
+      - ops/01-kubernetes/ansible/tasks/core/document.yml
+      - ops/01-kubernetes/ansible/tasks/core/stage-09.yml
+      - ops/01-kubernetes/ansible/tasks/core/wait.yml
+      - ops/01-kubernetes/checks/core-check.py
+      - ops/01-kubernetes/core-resources/jobs/README.md
+      - ops/01-kubernetes/core-resources/shared/manifests/baseline.yaml.j2
+  tasks:
+    - name: 读取原运行上下文和修复前摘要
+      ansible.builtin.set_fact:
+        prior: '{{ lookup("file",core_records ~ "/context.json") | from_json }}'
+        original_sums: '{{ lookup("file",playbook_dir ~ "/before-sha256.json") | from_json }}'
+    - name: 仅允许本次未完成批次
+      ansible.builtin.assert:
+        that:
+          - prior.stage == '09' and prior.namespace == 'lab-p09'
+          - prior.run == '20261018T113444Z-f130c045'
+          - prior.records == core_records
+    - name: 已成功批次不得改写来源
+      ansible.builtin.stat: {path: '{{ item }}'}
+      loop: ['{{ core_records }}/passed.json','{{ core_progress }}/09.json']
+      register: success_files
+    - name: 必须尚未完成实际验收
+      ansible.builtin.assert:
+        that: success_files.results | selectattr('stat.exists') | list | length == 0
+    - name: 检查仍为原健康集群
+      ansible.builtin.command: {argv: ['{{ core_python }}','{{ core_root }}/ops/01-kubernetes/checks/lab-check.py',preflight]}
+      register: health
+      changed_when: false
+    - name: 校验集群身份
+      ansible.builtin.assert:
+        that: (health.stdout | from_json).cluster_uid == prior.cluster_uid
+    - name: 原实验空间 UID 仍须匹配
+      ansible.builtin.command: {argv: '{{ core_a + ["get","namespace",prior.namespace,"-o","json"] }}'}
+      register: current_namespace
+      changed_when: false
+    - name: 核对本次空间归属
+      ansible.builtin.assert:
+        that:
+          - (current_namespace.stdout | from_json).metadata.uid == (lookup('file',core_records ~ '/state/namespace.json') | from_json).uid
+          - (current_namespace.stdout | from_json).metadata.labels['cnpl.io/core-run'] == prior.run
+    - name: 当前源码及全部更早原始记录摘要
+      ansible.builtin.command: {argv: ['{{ core_python }}','{{ core_root }}/ops/01-kubernetes/checks/lab-check.py',audit,--root,'{{ core_root }}']}
+      register: audit
+      changed_when: false
+    - name: 保留版本锁原字节绑定
+      ansible.builtin.stat: {path: '{{ core_root }}/ops/versions.lock.yaml', get_checksum: true, checksum_algorithm: sha256}
+      register: versions
+    - name: 绑定修复后的实际来源
+      ansible.builtin.set_fact:
+        current_source: '{{ (audit.stdout | from_json).source_sha256 | combine({"ops/versions.lock.yaml":versions.stat.checksum}) }}'
+    - name: 仅在来源尚未登记时归档并切换
+      when: prior.implementation != current_source
+      block:
+        - name: 计算实际差异路径
+          ansible.builtin.set_fact:
+            changed_paths: '{{ ((prior.implementation | dict2items | difference(current_source | dict2items)) + (current_source | dict2items | difference(prior.implementation | dict2items))) | map(attribute="key") | unique | sort }}'
+        - name: 拒绝混入未核验的其他来源变化
+          ansible.builtin.assert:
+            that: changed_paths == expected_paths | sort
+        - name: 核对尚未切换的原 context 字节
+          ansible.builtin.stat: {path: '{{ core_records }}/context.json', get_checksum: true, checksum_algorithm: sha256}
+          register: context_sum
+        - name: 原 context 必须与修复前快照一致
+          ansible.builtin.assert:
+            that: context_sum.stat.checksum == original_sums['ops/01-kubernetes/records/core-07-10/runs/09-20261018T113437Z/context.json']
+        - name: 创建原来源归档目录
+          ansible.builtin.file: {path: '{{ core_records }}/{{ revision }}', state: directory, mode: '0700'}
+        - name: 先保存原 context 字节，绝不覆盖已有原件
+          ansible.builtin.copy: {src: '{{ core_records }}/context.json', dest: '{{ core_records }}/{{ revision }}/context.json', force: false, mode: '0600'}
+        - name: 再核对归档原件
+          ansible.builtin.stat: {path: '{{ core_records }}/{{ revision }}/context.json', get_checksum: true, checksum_algorithm: sha256}
+          register: archived
+        - name: 归档须与原字节相同
+          ansible.builtin.assert: {that: archived.stat.checksum == context_sum.stat.checksum}
+        - name: 保存六条差异和新旧实现绑定
+          ansible.builtin.copy:
+            content: '{{ {"reason":"cilium-api-egress-fix","run":prior.run,"cluster_uid":prior.cluster_uid,"previous_context_sha256":archived.stat.checksum,"changed_paths":changed_paths,"old_implementation":prior.implementation,"new_implementation":current_source} | to_nice_json }}'
+            dest: '{{ core_records }}/{{ revision }}/source-revision.json'
+            mode: '0600'
+        - name: 登记当前来源，保留同一 run 和全部失败证据
+          ansible.builtin.copy:
+            content: '{{ prior | combine({"implementation":current_source,"previous_context_sha256":archived.stat.checksum,"latest_source_revision":revision ~ "/source-revision.json"}) | to_nice_json }}'
+            dest: '{{ core_records }}/context.json'
+            mode: '0600'
+    - name: 来源登记完成
+      ansible.builtin.debug: {msg: 原 09 run 已登记 API 出口修复；未写成功回执，可同目录 resume}

@@ -418,6 +418,8 @@ Indexed Job 重试幂等、失败/超时、真实分钟调度、时区/并发/�
 
 执行前已补齐 CronJob 暂停创建、统一启用和同一计划时间检查，并完成有限测试、真实 validate、服务端准入及 Linux 回退夹具，详见[09 执行前核验](records/2026-10-18-stage09-review/README.md)。09 正式实验仍由下面的 run 开始；其清理回收 lab-p09，保留安全指标基础组件。
 
+当前实际执行在 Job API 请求处发现 Cilium 节点身份与 ipBlock 不匹配，已改为本 run 的 kube-apiserver 实体精确放行；两个 worker 均完成真实 Indexed Job 的 7→0 重试和幂等账本验证，原批次已登记修复来源并通过同目录 validate。详见[API 出口修复与原批次恢复](records/2026-10-18-stage09-api-egress-fix/README.md)，当前使用原目录 resume 完成后续实验。
+
 独立源码、逐条命令解释、预期结果和恢复说明见 [01.09 完整手册](core-resources/jobs/README.md)。每阶段只执行自己；正式运行前检查上一阶段的真实回执。
 
 ```bash

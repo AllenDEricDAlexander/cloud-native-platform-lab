@@ -7,7 +7,7 @@
   vars: {core_source: core-resources/jobs/manifests/job.yaml.j2, core_resource_id: retry-job, job_mode: retry}
 - name: 每个序号重试后真正 Complete
   ansible.builtin.include_tasks: wait.yml
-  vars: {core_wait_name: 并行重试 Job 完成, core_wait_action: job, core_wait_id: job-retry-complete, core_wait_args: [--name,p09-retry,--condition,Complete], core_wait_retries: 120}
+  vars: {core_wait_name: 并行重试 Job 完成, core_wait_action: job, core_wait_id: job-retry-complete, core_wait_args: [--name,p09-retry,--condition,Complete,--retry-exit-code,'7'], core_wait_retries: 120}
 - name: 必须确实发生失败重试而非偶然一次成功
   ansible.builtin.assert:
     that: "core_observation.job.status.succeeded == 3 and core_observation.job.status.failed | int >= 3"

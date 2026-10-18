@@ -19,7 +19,7 @@ lab=importlib.util.module_from_spec(spec);spec.loader.exec_module(lab)
 require,save=lab.require,lab.save
 traffic_spec=importlib.util.spec_from_file_location('core_traffic',Path(__file__).with_name('traffic.py'))
 traffic=importlib.util.module_from_spec(traffic_spec);traffic_spec.loader.exec_module(traffic)
-PUBLIC_KINDS='pods,services,configmaps,serviceaccounts,resourcequotas,limitranges,networkpolicies,deployments,replicasets,statefulsets,daemonsets,controllerrevisions,jobs,cronjobs,horizontalpodautoscalers,roles,rolebindings'
+PUBLIC_KINDS='pods,services,configmaps,serviceaccounts,resourcequotas,limitranges,networkpolicies,ciliumnetworkpolicies,deployments,replicasets,statefulsets,daemonsets,controllerrevisions,jobs,cronjobs,horizontalpodautoscalers,roles,rolebindings'
 NODE_IPS={name+'.k8s.internal.egon.top':'192.168.9.'+str(ip) for name,ip in [('cp01',101),('cp02',102),('cp03',103),('infra01',104),('infra02',105),('storage01',106),('storage02',107),('storage03',108),('worker01',109),('worker02',110)]}
 
 
@@ -87,11 +87,29 @@ def workload(reader,a):
     return {'parent':parent,'pods':pods,'ready':sorted(ready)}
 
 
+class TerminalJobFailure(ValueError):
+    """Job 已进入不可能满足预期的终态，等待器应立即停止。"""
+
+
 def job(reader,a):
     obj=reader.read('job',a.name);owned(reader.context,obj)
+    opposite='Failed' if a.condition=='Complete' else 'Complete'
+    if lab.condition(obj,opposite,'True'):
+        detail=next(c for c in obj['status']['conditions'] if c['type']==opposite and c['status']=='True')
+        raise TerminalJobFailure(a.name+' 已进入 '+opposite+'：'+detail.get('reason','')+' '+detail.get('message',''))
     require(lab.condition(obj,a.condition,'True'),'Job 尚未达到 '+a.condition)
     if a.reason:require(any(c['type']==a.condition and c['status']=='True' and c.get('reason')==a.reason for c in obj['status']['conditions']),'Job 结束原因不符')
     pods=[p for p in reader.owned('pods') if lab.owner(p).get('uid')==obj['metadata']['uid']]
+    if getattr(a,'retry_exit_code',None) is not None:
+        require(obj['spec'].get('completionMode')=='Indexed','重试退出码检查需要 Indexed Job')
+        exits={str(index):[] for index in range(obj['spec']['completions'])}
+        for pod in pods:
+            index=pod['metadata'].get('annotations',{}).get('batch.kubernetes.io/job-completion-index')
+            require(index in exits,'Job Pod 缺少有效序号')
+            exits[index]+=[c['state']['terminated']['exitCode'] for c in pod['status'].get('containerStatuses',[]) if c['name']=='app' and 'terminated' in c.get('state',{})]
+        if not all(a.retry_exit_code in codes and 0 in codes and set(codes)<={0,a.retry_exit_code} for codes in exits.values()):
+            raise TerminalJobFailure(a.name+' 序号重试退出码不符：'+json.dumps(exits))
+        return {'job':obj,'pods':pods,'exit_codes_by_index':exits}
     return {'job':obj,'pods':pods}
 
 
@@ -211,6 +229,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['guard','workload','job','cron','hpa','csr','metrics','snapshot','deleted','objects','pool-empty','tls','app-mode','pod'])
     parser.add_argument('--context',type=Path,required=True);parser.add_argument('--output');parser.add_argument('--input',type=Path)
     parser.add_argument('--kind');parser.add_argument('--name');parser.add_argument('--count',type=int,default=1);parser.add_argument('--image');parser.add_argument('--old-image');parser.add_argument('--partition',type=int);parser.add_argument('--not-ready');parser.add_argument('--nodes');parser.add_argument('--condition',default='Complete');parser.add_argument('--reason');parser.add_argument('--ip');parser.add_argument('--mode')
+    parser.add_argument('--retry-exit-code',type=int)
     a=parser.parse_args();context=json.loads(a.context.read_text());reader=Reader(context)
     try:
         if a.action=='guard':result=guard(reader)
@@ -236,6 +255,8 @@ def main():
             if a.action=='hpa':
                 with Path(a.output+'.jsonl').open('a') as stream:stream.write(json.dumps(result)+'\n')
         print(json.dumps(result,ensure_ascii=False))
+    except TerminalJobFailure as error:
+        print(json.dumps({'ok':False,'terminal_failure':True,'error':str(error)},ensure_ascii=False));return 2
     except (ValueError,KeyError,OSError,lab.subprocess.SubprocessError,http.client.HTTPException) as error:
         print(json.dumps({'ok':False,'error':str(error)},ensure_ascii=False));return 1
     return 0

@@ -1,0 +1,65 @@
+---
+# 有界 Indexed Job 集成验证；只在唯一临时 Namespace 中运行，结束必定回收。
+- name: 验证真实 Cilium API 出口、SA 权限和 Indexed Job 重试
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../ansible/vars/core.yml]
+  tasks:
+    - name: 验证只能使用唯一临时空间和隔离证据目录
+      ansible.builtin.assert:
+        that:
+          - core_namespace.startswith('cnpl-jobfix-')
+          - core_records.startswith('/private/tmp/')
+          - core_workers | length == 1
+          - core_workers[0] in ['worker01.k8s.internal.egon.top','worker02.k8s.internal.egon.top']
+    - name: 创建有限验证记录目录
+      ansible.builtin.file: {path: '{{ core_attempt }}/{{ item }}', state: directory, mode: '0700'}
+      loop: [manifests,observations,snapshots]
+    - name: 创建 UID 绑定目录
+      ansible.builtin.file: {path: '{{ core_records }}/state', state: directory, mode: '0700'}
+    - name: 读取实际集群身份
+      ansible.builtin.command: {argv: '{{ core_a + ["get","namespace","kube-system","-o","jsonpath={.metadata.uid}"] }}'}
+      register: probe_cluster
+      changed_when: false
+    - name: 绑定有限测试集群
+      ansible.builtin.set_fact: {core_cluster_uid: '{{ probe_cluster.stdout }}'}
+    - name: 保存有限验证上下文
+      ansible.builtin.copy:
+        content: '{{ {"run":core_run,"stage":"09","namespace":core_namespace,"records":core_records,"cluster_uid":core_cluster_uid} | to_nice_json }}'
+        dest: '{{ core_records }}/context.json'
+        mode: '0600'
+    - name: 实际运行原 Job，结束始终回收临时空间
+      block:
+        - name: 使用原生受限 baseline 和 Cilium API 实体放行
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/shared/manifests/baseline.yaml.j2, core_resource_id: baseline, core_resource_admin: true}
+        - name: 使用原始最小权限账本
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/jobs/manifests/ledger.yaml.j2, core_resource_id: ledger, core_resource_admin: true}
+        - name: 使用原始 Indexed Job 清单和原镜像
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/jobs/manifests/job.yaml.j2, core_resource_id: retry-job, job_mode: retry}
+        - name: 必须由实际 Pod 完成三个序号
+          ansible.builtin.include_tasks: ../ansible/tasks/core/wait.yml
+          vars: {core_wait_name: Indexed Job 真实网络与重试, core_wait_action: job, core_wait_id: retry-complete, core_wait_args: [--name,p09-retry,--condition,Complete,--retry-exit-code,'7'], core_wait_retries: 120}
+        - name: 核对三个成功与实际受控失败
+          ansible.builtin.assert:
+            that:
+              - core_observation.job.status.succeeded == 3
+              - core_observation.job.status.failed | int >= 3
+              - core_observation.pods | map(attribute='spec.nodeName') | unique | list == core_workers
+        - name: 读取真实账本
+          ansible.builtin.include_tasks: ../ansible/tasks/core/get.yml
+          vars: {core_kind: configmap, core_name: p09-ledger}
+        - name: 三个业务键各生效一次
+          ansible.builtin.assert:
+            that: core_object.data == {'business-0':'1','business-1':'1','business-2':'1'}
+      always:
+        - name: 保留实际 Pod 退出码、账本和网络策略
+          ansible.builtin.include_tasks: ../ansible/tasks/core/snapshot.yml
+        - name: 使用真实归属检查和精确清理器
+          ansible.builtin.include_tasks: ../ansible/tasks/core/cleanup.yml
+    - name: 有限 Job 集成验证结果
+      ansible.builtin.debug: {msg: CORE JOB API NETWORK AND RETRY PASS}

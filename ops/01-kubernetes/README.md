@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，DNS 短名补测也已通过；01.04.01–05、总体验收与清理全部通过，01.05 尚未开始。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03 完整备份、取回、单 VM HA 与清理也已通过，DNS 短名补测也已通过；01.04.01–05、总体验收与清理全部通过，01.05 探针/终止实验与清理通过；01.06 未开始。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -354,66 +354,27 @@ bash ops/01-kubernetes/core-resources/pods/run.sh "$CNPL04"
 
 独立批次按组顺序执行，真实错误立即停止并保留状态/事件/日志；预期故障逐项断言。普通资源用 lab-ops，只有预算/节点维护等管理操作显式使用管理员。故障只在指定 worker，不改变控制平面和存储保护。驱逐采用临时提高 kubelet soft 阈值并自动恢复，不耗尽整台节点内存；150 秒独立定时器应对 Mac 中断。
 
-交付清单由 lab.py render 生成到证据目录；可控制应用源码 app.sh 留供 01.05 复用。当前全部场景、TERM 回执和零残留清理均有真实证据；01.05 尚未执行。
+交付清单由 lab.py render 生成到证据目录；app.sh 保留为本专题的可控 HTTP 示例。当前全部场景、TERM 回执和零残留清理均有真实证据；01.05 使用支持真实长连接和消息排空的标准库 Go 应用，已完成真实验收，完整入口见下节。
 
 <a id="01-05"></a>
 
 ## 01.05 三类探针与优雅终止
 
-输入：01.04 的可控应用及持续请求脚本。
+完整脚本、执行命令、逐条作用和预期结果已交付，见 [01.05 完整手册](core-resources/probes/README.md)。本批五组真实实验、总验收和清理均已通过，见 [01.05 实验小结](records/2026-10-17-restart/acceptance.md#6-0105-实验小结)。
 
-1. 创建 Startup/Liveness/Readiness 独立变体，明确 path、period、timeout、failureThreshold；启动慢场景验证 Startup 窗口而非无限重试。
-2. 让 Liveness 失败并观察重启；让 Readiness 失败并同时 watch EndpointSlice 和持续请求，证明流量摘除而非容器一定重启。
-3. 为应用添加 SIGTERM 处理和 PreStop，设置 terminationGracePeriodSeconds；在长请求执行中删除测试 Pod，记录钩子、信号、端点变化、请求完成或中断。
+本批依次验证：Startup 对 6/12/20 秒初始化的保护和超窗重启；真实依赖超时与本地 worker 失活的不同处理；Readiness/EndpointSlice、新连接和既有 HTTP/1.1 连接；PreStop/SIGTERM、长短请求、消息排空、强杀后的租约重投与幂等提交；HTTP/TCP/Exec/原生 gRPC 的判定与误判。
 
-### 操作命令与目的
+应用源码、静态 OCI 构建、编排与断点执行统一保存在 core-resources/probes/，终止场景与探针共享同一实现和回执，不另复制一套生命周期脚本。已有 etcd 镜像用于 gRPC，业务实验镜像只依赖 Go 标准库，并在两个 worker 按 Digest 导入；保持 restricted、SELinux 与 firewalld 基线。
 
-约定实验镜像提供 `/startup`、`/live`、`/ready`，并将 `/tmp/not-ready` 解释为 Readiness 失败；这是测试应用需要实现的控制入口。
+从管理 Mac 执行以下完整入口，所有内部步骤已在手册逐条解释：
 
 ```bash
-kubectl -n lab-core apply -f probe-demo.yaml
-kubectl -n lab-core rollout status deployment/probe-demo
-kubectl -n lab-core get endpointslice -l kubernetes.io/service-name=probe-demo -w
-# 在另一终端选择一个 Pod，让其暂时退出服务端点，再恢复
-kubectl -n lab-core exec "$LAB_PROBE_POD" -- touch /tmp/not-ready
-kubectl -n lab-core exec "$LAB_PROBE_POD" -- rm /tmp/not-ready
-# 持续请求期间删除这个 Pod，观察 PreStop、SIGTERM 和请求结束
-kubectl -n lab-core delete pod "$LAB_PROBE_POD" --wait=false
-kubectl -n lab-core get pods -w
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+CNPL05="$PWD/ops/01-kubernetes/records/2026-10-17-restart/evidence/01.05-$(date +%Y%m%d-%H%M%S)"
+bash ops/01-kubernetes/core-resources/probes/run.sh "$CNPL05"
 ```
 
-### 配置示例
-
-Deployment 的 `spec.template.spec` 片段；应用须处理 SIGTERM，`sleep` 仅用于观察端点传播窗口：
-
-```yaml
-terminationGracePeriodSeconds: 40
-containers:
-  - name: app
-    image: "<内网探针实验镜像>"
-    ports: [{name: http, containerPort: 8080}]
-    startupProbe:
-      httpGet: {path: /startup, port: http}
-      periodSeconds: 2
-      failureThreshold: 30
-    livenessProbe:
-      httpGet: {path: /live, port: http}
-      periodSeconds: 5
-    readinessProbe:
-      httpGet: {path: /ready, port: http}
-      periodSeconds: 2
-    lifecycle:
-      preStop:
-        exec: {command: [sh, -c, "sleep 5"]}
-```
-
-### 预期结果
-
-Readiness 失败后 EndpointSlice 中该端点变为不就绪，容器不必重启；Liveness 失败才触发重启。Startup 阶段保护慢启动。删除时观测钩子、信号和请求结果，超过终止期限的长请求可能被中断，不能把 PreStop 等同于绝对无损。
-
-交付：`ops/01-kubernetes/core-resources/probes/`、`lifecycle/`；探针阈值与终止时间线。
-
-检查与失败处理：分别证明启动保护、自愈、流量可用性和终止期限；失败修正应用或阈值，不能用取消探针掩盖。
+最终要求同时出现 PROBE LIFECYCLE ACCEPTANCE PASS、PROBE LAB CLEANUP PASS；失败保留现场和证据，同一命令追加 --resume 可保存旧现场后从未完成组重建继续。本批实际结果已归档，保留入口供复现。
 
 <a id="01-06"></a>
 

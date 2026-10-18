@@ -444,3 +444,23 @@ bash ops/00-preparation/scripts/collect-node-readiness.sh \
 本次只提交 01.04 实现/测试/公开证据、对应验收与状态文档，不纳入无关的 00 fetch-k8s-clients.sh；不重跑故障实验、不启动 01.05。01.04.01–05 均通过，整个 Phase 01 尚未完成；.15 分发、在线灾难重建及物理故障域等既有边界继续保留。
 
 提交前 [53 项完整离线回归](evidence/01.04-checkpoint-regression.txt)全部通过；[文档链接、JSON/YAML/Python/Shell 语法与公开材料敏感字段检查](evidence/01.04-checkpoint-static.txt)通过。保持原始终端输出的空白和失败记录，不机械改写证据或历史源码快照；静态检查和离线回归与用户真实验收分别陈述。
+
+## 32. 2026-10-17 交付 01.05 完整探针与优雅终止实验
+
+用户要求一次给齐脚本、执行命令、逐条作用与预期结果，并在交付前认真核验。[完整手册](../../core-resources/probes/README.md)与 run.sh 已交付，覆盖 01.05.01–05；当前状态为已准备、真实实验待用户执行。
+
+应用用标准库 Go 提供 HTTP/1.1、慢初始化、本地 worker 心跳、真实依赖超时、请求排空和租约消费者；broker 为独立实验 Pod，透明 TCP 客户端从 Pod 内发起真正的 Service 连接，避免宿主机网络身份与网络策略影响流量实验。正常和不足宽限期两种终止均要求绑定 UID 的真实状态，并用请求完成时间及消息提交时间证明是否在 TERM 后排空。HTTP/TCP/Exec 使用同一业务判定，原生 gRPC 复用已有 etcd 镜像，故意配置错误 readiness service 观测 NotFound，而不重启健康进程。
+
+脚本只在 worker01/02 创建本批实验对象，保持 restricted、SELinux、firewalld 和节点配置。应用镜像为标准静态 OCI，按 manifest Digest 固定；编译器隔离于 Mac 用户目录，节点不新增包。Ansible 只复制/核验/导入镜像，之后普通资源由原受限身份创建。失败保留现场与公开证据；续跑核对集群/物料和顺序检查点，保存旧现场后只重建未通过组。删除前核对整组归属及 finalizer，清理后查询对象与 EndpointSlice 零残留。
+
+[交付核验](evidence/01.05-delivery-20261017/README.md)保存 9 项 Go 竞态/行为测试、10 项编排回归、26 份真实 server dry-run、确定性重复构建、ELF 静态核验、两 worker 最终镜像导入和零变更幂等复验。初次 Digest 别名缺失导致的预检失败及修正均保留；最终 Ansible 两主机 failed=0、unreachable=0，幂等 changed=0。线上只读确认十节点 Ready、lab-core 无 Pod、两个 worker 安全基线保持，未创建实验工作负载。
+
+以上不是五组真实实验的验收。其 kubelet 探针、Cilium 连接与端点、CRI 信号/强杀和补偿结果，须由用户执行完整批次后另行核对；不提前写入 acceptance.md 的通过列表。
+
+## 33. 2026-10-17 完成 01.05 验收与提交检查点
+
+用户确认两个总 PASS。核对 [真实批次](evidence/01.05-20261017-224949/state.json) 的 startup/liveness/readiness/termination/protocols/verify/cleanup 七个检查点、各组实际回执、Completed/0 与强杀终态、消息 attempts=2/effects=1、对象及 EndpointSlice 零残留。原始输出、源码快照、之前的交付核验失败与修正均保持。
+
+[检查点只读核验](evidence/01.05-checkpoint-verification.json)确认集群 UID、十节点健康、所有运行源码 SHA 与当前实现一致，本批线上无资源。提交前重新执行 [10 项 Python 回归](evidence/01.05-checkpoint-python.txt)和 [9 项 Go 竞态测试](evidence/01.05-checkpoint-go.txt)，不重跑真实故障实验。01.05 的完整实现、公开运行证据和验收文档一并提交；无关的 fetch-k8s-clients.sh 不纳入。
+
+01.06 将在此检查点之后交付脚本，真实控制器、扩缩、发布和回滚实验由用户启动；.15 管理机分发、物理故障域及在线灾难重建等既有未完成边界保持。

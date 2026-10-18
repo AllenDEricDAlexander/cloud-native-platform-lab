@@ -1,0 +1,59 @@
+
+PLAY [仅向两个实验 worker 导入 01.05 的本地静态应用镜像] ***********************
+
+TASK [检查输入限定为本实验内容寻址镜像] ****************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建独立物料目录] ********************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [复制内容寻址 OCI 归档] ***************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [使用 Python 核对归档 SHA256（不依赖节点 OpenSSL）] ***********************
+ok: [worker02]
+ok: [worker01]
+
+TASK [查询同名镜像的实际清单摘要] **********************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [导入并展开 Linux amd64 镜像（不创建容器）] *******************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [建立带完整仓库名称的 Digest 引用（import 的匿名摘要名不能替代它）] *******
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [再查镜像清单摘要] ********************************************************
+ok: [worker02]
+ok: [worker01]
+
+TASK [核对导入结果] ************************************************************
+ok: [worker01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [确认 CRI 可以按完整名称找到镜像] *****************************************
+ok: [worker02]
+ok: [worker01]
+
+PLAY RECAP *********************************************************************
+worker01                   : ok=8    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+worker02                   : ok=8    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+

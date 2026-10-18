@@ -146,4 +146,4 @@ Mac 断线时，定时器还原配置并恢复 kubelet，**保留 cordon**；恢
 
 脚本使用既有原生 Pod/ConfigMap/NetworkPolicy/配额和顺序编排，公共 Pod 字段只由一个模板生成；没有引入策略/工厂等额外架构。最初 18 份资源已做 server dry-run；本次增加终止专用 ConfigMap 后重新验证当前 19 份清单。没有自动部署新负载。离线回归覆盖资源边界、外来对象拒删、Crash/Init 无 exec 窗口恢复、过期 Pod 重试、继续入口跳过已通过步骤和原证据保留、压力轻量探针/准备失败安全重试、压力前检/失败回退、独立定时器先于变更、配置逐字节恢复和第三方漂移拒绝；本批 OOM、驱逐、CRI 临时容器、Sidecar 和修复后的 14–16 均已由用户实际执行通过；最终回执与清理记录已核验。有限信号测试和模拟 API 回归保留其验证边界，不代替实际证据。
 
-01.05 可以复用 app.sh：START_DELAY 控制启动延迟；`/work/startup`、live、ready 文件控制对应 CGI 响应 200/503；`/work/delay` 为 0–5 秒请求延迟；TERM 日志说明退出。访问入口为 `/cgi-bin/check?startup`、`?live`、`?ready`、`?delay`，身份接口为 `/`。本次没有提前实施 01.05 的完整探针矩阵。
+app.sh 的 START_DELAY、健康标记和 0–5 秒 CGI 延迟保留用于复现本专题。下一专题需要真正的 HTTP/1.1 连接保留、长请求及消息排空，已另交付标准库 Go 应用与 [01.05 完整入口](../probes/README.md)，不把本 BusyBox 示例当作完整探针矩阵。

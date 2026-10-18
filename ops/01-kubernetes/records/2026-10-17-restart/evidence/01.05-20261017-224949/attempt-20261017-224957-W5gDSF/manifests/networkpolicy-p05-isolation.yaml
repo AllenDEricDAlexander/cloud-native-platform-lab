@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: p05-isolation
+  namespace: lab-core
+  labels:
+    app.kubernetes.io/part-of: cnpl-probe-lab
+    cnpl.io/probe-stage: prepare
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: cnpl-probe-lab
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: cnpl-probe-lab
+  - from:
+    - ipBlock:
+        cidr: 192.168.9.109/32
+    - ipBlock:
+        cidr: 192.168.9.110/32
+    ports:
+    - port: 8080
+    - port: 9090
+    - port: 2379
+    - port: 2381
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: cnpl-probe-lab
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

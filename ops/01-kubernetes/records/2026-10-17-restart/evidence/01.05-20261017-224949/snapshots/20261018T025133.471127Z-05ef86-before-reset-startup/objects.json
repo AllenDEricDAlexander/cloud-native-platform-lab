@@ -1,0 +1,418 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T02:51:20Z",
+        "generation": 1,
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-probe-lab",
+          "cnpl.io/probe-role": "start-over",
+          "cnpl.io/probe-run": "20261018t025019-998040z-d55f51",
+          "cnpl.io/probe-stage": "startup"
+        },
+        "name": "p05-start-over",
+        "namespace": "lab-core",
+        "resourceVersion": "154978",
+        "uid": "58d222b4-22a0-40e8-9074-fd117c425f99"
+      },
+      "spec": {
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "command": [
+              "/probe-lab",
+              "server"
+            ],
+            "env": [
+              {
+                "name": "POD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "POD_UID",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.uid"
+                  }
+                }
+              },
+              {
+                "name": "START_SECONDS",
+                "value": "45"
+              }
+            ],
+            "image": "cnpl.local/phase01/probe-lab@sha256:f173f2e04a71e7fbf77cafca184f2aec6f5255d01d44d97a26167bda90cdbf1b",
+            "imagePullPolicy": "Never",
+            "livenessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/live",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 2,
+              "successThreshold": 1,
+              "timeoutSeconds": 3
+            },
+            "name": "app",
+            "readinessProbe": {
+              "failureThreshold": 1,
+              "httpGet": {
+                "path": "/ready",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 2,
+              "successThreshold": 1,
+              "timeoutSeconds": 3
+            },
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "32Mi",
+                "memory": "128Mi"
+              },
+              "requests": {
+                "cpu": "20m",
+                "ephemeral-storage": "1Mi",
+                "memory": "32Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true
+            },
+            "startupProbe": {
+              "failureThreshold": 4,
+              "httpGet": {
+                "path": "/startup",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 2,
+              "successThreshold": 1,
+              "terminationGracePeriodSeconds": 1,
+              "timeoutSeconds": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/work",
+                "name": "work"
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "worker01.k8s.internal.egon.top",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "fsGroup": 1000,
+          "runAsGroup": 1000,
+          "runAsNonRoot": true,
+          "runAsUser": 1000,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 25,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "emptyDir": {
+              "sizeLimit": "32Mi"
+            },
+            "name": "work"
+          }
+        ]
+      },
+      "status": {
+        "allocatedResources": {
+          "cpu": "20m",
+          "ephemeral-storage": "1Mi",
+          "memory": "32Mi"
+        },
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T02:51:22Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T02:51:20Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T02:51:20Z",
+            "message": "containers with unready status: [app]",
+            "observedGeneration": 1,
+            "reason": "ContainersNotReady",
+            "status": "False",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T02:51:20Z",
+            "message": "containers with unready status: [app]",
+            "observedGeneration": 1,
+            "reason": "ContainersNotReady",
+            "status": "False",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T02:51:20Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "allocatedResources": {
+              "cpu": "20m",
+              "ephemeral-storage": "1Mi",
+              "memory": "32Mi"
+            },
+            "containerID": "containerd://52b69a3999c4a09a394952545d2226c89730e9bc6231daaadf144d10101abe9e",
+            "image": "cnpl.local/phase01/probe-lab:sha256-69b2b96895bee390e785f0930c71c4f176eeb3c4fe3b7eb8d7afd026df53048f",
+            "imageID": "cnpl.local/phase01/probe-lab@sha256:f173f2e04a71e7fbf77cafca184f2aec6f5255d01d44d97a26167bda90cdbf1b",
+            "lastState": {
+              "terminated": {
+                "containerID": "containerd://3199628524d9c0464aa5fec7705e7352f0b31e1ad02c733dcfad7fb747336c9b",
+                "exitCode": 0,
+                "finishedAt": "2026-10-18T02:51:30Z",
+                "message": "{\"completed\":null,\"drained\":true,\"finished_at\":\"2026-10-18T02:51:30.709095597Z\",\"prestop_at\":\"0001-01-01T00:00:00Z\",\"signal\":\"TERM\",\"term_at\":\"2026-10-18T02:51:30.708276451Z\",\"uid\":\"58d222b4-22a0-40e8-9074-fd117c425f99\"}",
+                "reason": "Completed",
+                "startedAt": "2026-10-18T02:51:23Z"
+              }
+            },
+            "name": "app",
+            "ready": false,
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "32Mi",
+                "memory": "128Mi"
+              },
+              "requests": {
+                "cpu": "20m",
+                "ephemeral-storage": "1Mi",
+                "memory": "32Mi"
+              }
+            },
+            "restartCount": 1,
+            "started": false,
+            "state": {
+              "running": {
+                "startedAt": "2026-10-18T02:51:31Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 1000,
+                "supplementalGroups": [
+                  1000
+                ],
+                "uid": 1000
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/work",
+                "name": "work"
+              }
+            ]
+          }
+        ],
+        "hostIP": "192.168.9.109",
+        "hostIPs": [
+          {
+            "ip": "192.168.9.109"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.244.8.155",
+        "podIPs": [
+          {
+            "ip": "10.244.8.155"
+          }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+          "limits": {
+            "cpu": "500m",
+            "memory": "128Mi"
+          },
+          "requests": {
+            "memory": "32Mi"
+          }
+        },
+        "startTime": "2026-10-18T02:51:20Z"
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T02:50:20Z",
+        "generation": 1,
+        "labels": {
+          "app.kubernetes.io/part-of": "cnpl-probe-lab",
+          "cnpl.io/probe-run": "20261018t025019-998040z-d55f51",
+          "cnpl.io/probe-stage": "prepare"
+        },
+        "name": "p05-isolation",
+        "namespace": "lab-core",
+        "resourceVersion": "154597",
+        "uid": "5351fc26-3b1b-4a62-a55e-824f9d3fda57"
+      },
+      "spec": {
+        "egress": [
+          {
+            "to": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "app.kubernetes.io/part-of": "cnpl-probe-lab",
+                    "cnpl.io/probe-run": "20261018t025019-998040z-d55f51"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 53,
+                "protocol": "UDP"
+              },
+              {
+                "port": 53,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "kubernetes.io/metadata.name": "kube-system"
+                  }
+                },
+                "podSelector": {
+                  "matchLabels": {
+                    "k8s-app": "kube-dns"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "app.kubernetes.io/part-of": "cnpl-probe-lab",
+                    "cnpl.io/probe-run": "20261018t025019-998040z-d55f51"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "from": [
+              {
+                "ipBlock": {
+                  "cidr": "192.168.9.109/32"
+                }
+              },
+              {
+                "ipBlock": {
+                  "cidr": "192.168.9.110/32"
+                }
+              }
+            ],
+            "ports": [
+              {
+                "port": 8080,
+                "protocol": "TCP"
+              },
+              {
+                "port": 9090,
+                "protocol": "TCP"
+              },
+              {
+                "port": 2379,
+                "protocol": "TCP"
+              },
+              {
+                "port": 2381,
+                "protocol": "TCP"
+              }
+            ]
+          }
+        ],
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/part-of": "cnpl-probe-lab",
+            "cnpl.io/probe-run": "20261018t025019-998040z-d55f51"
+          }
+        },
+        "policyTypes": [
+          "Ingress",
+          "Egress"
+        ]
+      }
+    }
+  ],
+  "kind": "List",
+  "metadata": {
+    "resourceVersion": ""
+  }
+}

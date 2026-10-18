@@ -1,0 +1,1125 @@
+
+PLAY [完整 02.02 的统一前置、物料与源码校验] ***********************************
+
+TASK [限定整组模式和证据目录] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成本次 attempt 身份] ***************************************************
+ok: [localhost]
+
+TASK [绑定独立取证路径] ********************************************************
+ok: [localhost]
+
+TASK [创建本机记录目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018T225144Z/attempts/20261018T225145Z-60d15fe2-all)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018T225144Z/state)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/components)
+
+TASK [查询前序执行状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [清理恢复必须有原上下文，已通过或关闭的批次不得重跑] **********************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对原集群、前序完成回执、Mac 来源和控制器冲突] **************************
+ok: [localhost]
+
+TASK [绑定整组身份和运行条件] **************************************************
+ok: [localhost]
+
+TASK [记录实际源码及输入摘要] **************************************************
+ok: [localhost]
+
+TASK [未清理批次只允许使用同一套源码] ******************************************
+skipping: [localhost]
+
+TASK [统一校验所有内网镜像的完整摘要] ******************************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/metallb-controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/metallb-speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/services-diag@sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f)
+
+TASK [离线构建并核对诊断源码、Linux 平台和已发布镜像摘要] **********************
+ok: [localhost]
+
+TASK [绑定已验镜像和仅用于 dry-run 的手工端点预览值] ***************************
+ok: [localhost]
+
+TASK [一次生成完整应用及前置配置，运行时动态端点另按真实 UID 重新生成] *********
+changed: [localhost] => (item=services/suite-fixtures.yaml)
+changed: [localhost] => (item=services/nodeport.yaml)
+changed: [localhost] => (item=services/loadbalancer.yaml)
+changed: [localhost] => (item=services/discovery.yaml)
+changed: [localhost] => (item=services/manual-endpoints.yaml)
+changed: [localhost] => (item=services/late-service.yaml)
+changed: [localhost] => (item=metallb/test-pool.yaml)
+changed: [localhost] => (item=metallb/namespace.yaml)
+
+TASK [统一检查全部业务 YAML 和测试地址池] **************************************
+ok: [localhost] => (item=suite-fixtures)
+ok: [localhost] => (item=nodeport)
+ok: [localhost] => (item=loadbalancer)
+ok: [localhost] => (item=discovery)
+ok: [localhost] => (item=manual-endpoints)
+ok: [localhost] => (item=late-service)
+ok: [localhost] => (item=test-pool)
+ok: [localhost] => (item=namespace)
+
+TASK [核验锁定 Chart、L2-only 镜像及控制器/CRD 服务端 schema] ******************
+ok: [localhost]
+
+TASK [保存已有工作负载及关键 ConfigMap 的 UID/spec 摘要] ***********************
+ok: [localhost]
+
+TASK [变更前首次绑定源码与保护基线，不覆盖原回执] ******************************
+changed: [localhost] => (item=source)
+changed: [localhost] => (item=protected)
+
+PLAY [两台 VM 的只读安全、内网 TLS 和 VIP 冲突检查] ****************************
+
+TASK [核对身份、Enforcing、服务及内网 TLS；首次声明 VIP 前执行 ARP 重复检测] ***
+ok: [worker02]
+ok: [worker01]
+
+TASK [保存 VM 输出到本次本机 attempt] ******************************************
+changed: [worker02 -> localhost]
+changed: [worker01 -> localhost]
+
+PLAY [前置与全部源码通过后才创建隔离实验对象] **********************************
+
+TASK [绑定 VM 接口 IP/MAC，供 VIP 实际入口识别] ********************************
+ok: [localhost]
+
+TASK [更新已核对的 VM 接口上下文] **********************************************
+ok: [localhost]
+
+TASK [报告整组源码校验结果] ****************************************************
+ok: [localhost] => {
+    "msg": "02.02 SOURCE VALIDATION PASS；整组配置与镜像均已核验，CR 的实际准入在安装匹配 CRD/Webhook 后执行。"
+}
+
+TASK [顺序创建 Namespace、公开 CA、后端与两台客户端] ***************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Namespace/lab-services)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=ConfigMap/public-ca)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Deployment/echo)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/echo)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Pod/client-worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Pod/client-worker02)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+changed: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [等待两后端、两客户端及自动端点收敛] **************************************
+ok: [localhost]
+
+PLAY [02.02.02 NodePort、源地址和 ClientIP 会话保持] ***************************
+
+TASK [创建由 API 自动分配端口的两种流量策略] ***********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/nodeport-cluster)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/nodeport-local)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [读取真实 NodePort，生成仅允许管理 Mac 的规则] ****************************
+ok: [localhost]
+
+TASK [为两台 worker 暂时开放本次端口] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-open.yml for localhost => (item=worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-open.yml for localhost => (item=worker02)
+
+TASK [为本主机和规则集合绑定原始状态文件] **************************************
+ok: [localhost]
+
+TASK [查询是否已有不可覆盖的原始状态] ******************************************
+ok: [localhost]
+
+TASK [读取原运行规则] **********************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept)
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept)
+
+TASK [单独读取原永久规则] ******************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept)
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept)
+
+TASK [任何变更前先保存原始状态] ************************************************
+changed: [localhost]
+
+TASK [仅添加已限定来源的规则] **************************************************
+changed: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept)
+changed: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept)
+
+TASK [为本主机和规则集合绑定原始状态文件] **************************************
+ok: [localhost]
+
+TASK [查询是否已有不可覆盖的原始状态] ******************************************
+ok: [localhost]
+
+TASK [读取原运行规则] **********************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept)
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept)
+
+TASK [单独读取原永久规则] ******************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept)
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept)
+
+TASK [任何变更前先保存原始状态] ************************************************
+changed: [localhost]
+
+TASK [仅添加已限定来源的规则] **************************************************
+changed: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept)
+changed: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept)
+
+TASK [核对跨节点 Cluster、本地 Local、无本地端点拒绝和源地址] ******************
+ok: [localhost]
+
+TASK [为 Cluster Service 开启 ClientIP 会话保持] *******************************
+changed: [localhost]
+
+TASK [验证十个独立连接保持相同后端 UID] ****************************************
+ok: [localhost]
+
+TASK [恢复两台 VM 的临时 NodePort 规则] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-restore.yml for localhost => (item=worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-restore.yml for localhost => (item=worker02)
+
+TASK [从原始回执生成本主机所有临时 NodePort 规则恢复计划] **********************
+ok: [localhost]
+
+TASK [按原回执恢复永久配置，保留用户原有规则] **********************************
+changed: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+changed: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [独立恢复运行配置] ********************************************************
+changed: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+changed: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验运行规则恢复到原状态] ************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验永久规则恢复到原状态] ************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [写入本次已核验的防火墙恢复回执] ******************************************
+changed: [localhost]
+
+TASK [从原始回执生成本主机所有临时 NodePort 规则恢复计划] **********************
+ok: [localhost]
+
+TASK [按原回执恢复永久配置，保留用户原有规则] **********************************
+changed: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+changed: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [独立恢复运行配置] ********************************************************
+changed: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+changed: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验运行规则恢复到原状态] ************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验永久规则恢复到原状态] ************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [写入本次已核验的防火墙恢复回执] ******************************************
+changed: [localhost]
+
+TASK [报告 NodePort 通过] ******************************************************
+ok: [localhost] => {
+    "msg": "02.02.02 PASS；Cluster/Local、源地址、ClientIP 与主机防火墙恢复均通过。"
+}
+
+PLAY [02.02.03 安装最小 L2 依赖并验证真实 VIP 访问和再分配] ********************
+
+TASK [创建同集群专用 MetalLB 空间] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Namespace/metallb-system)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [为两个 speaker 保留必需的节点成员通信规则] *******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-open.yml for localhost => (item=worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-open.yml for localhost => (item=worker02)
+
+TASK [为本主机和规则集合绑定原始状态文件] **************************************
+ok: [localhost]
+
+TASK [查询是否已有不可覆盖的原始状态] ******************************************
+ok: [localhost]
+
+TASK [读取原运行规则] **********************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept)
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept)
+
+TASK [单独读取原永久规则] ******************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept)
+ok: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept)
+
+TASK [任何变更前先保存原始状态] ************************************************
+changed: [localhost]
+
+TASK [仅添加已限定来源的规则] **************************************************
+changed: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept)
+changed: [localhost -> worker01(192.168.9.109)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept)
+
+TASK [为本主机和规则集合绑定原始状态文件] **************************************
+ok: [localhost]
+
+TASK [查询是否已有不可覆盖的原始状态] ******************************************
+ok: [localhost]
+
+TASK [读取原运行规则] **********************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept)
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept)
+
+TASK [单独读取原永久规则] ******************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept)
+ok: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept)
+
+TASK [任何变更前先保存原始状态] ************************************************
+changed: [localhost]
+
+TASK [仅添加已限定来源的规则] **************************************************
+changed: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept)
+changed: [localhost -> worker02(192.168.9.110)] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept)
+
+TASK [安装锁定的 L2-only MetalLB，先等待控制器和 Webhook] **********************
+changed: [localhost]
+
+TASK [等待本次所需 CRD 建立] ***************************************************
+ok: [localhost]
+
+TASK [核对控制器和两个 speaker 的实际镜像与就绪数] *****************************
+ok: [localhost]
+
+TASK [Webhook 就绪后严格准入受控 .202 测试池] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=IPAddressPool/cnpl-services-test)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=L2Advertisement/cnpl-services-test)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [重试前只移除本批先前创建的 VIP 测试 Service] *****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost => (item=loadbalancer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost => (item=loadbalancer-reuse)
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+skipping: [localhost]
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+skipping: [localhost]
+
+TASK [创建首个 LoadBalancer Service] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/loadbalancer)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [从管理 Mac 实测 VIP HTTP、后端 UID 和实际 ARP 邻居] **********************
+FAILED - RETRYING: [localhost]: 从管理 Mac 实测 VIP HTTP、后端 UID 和实际 ARP 邻居 (29 retries left).
+ok: [localhost]
+
+TASK [释放首个 Service 的指定 VIP] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+changed: [localhost]
+
+TASK [生成不同对象身份的 VIP 再分配用例] ***************************************
+changed: [localhost]
+
+TASK [创建第二个 Service 重新申请同一 VIP] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/loadbalancer-reuse)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [再次实测相同 VIP 的完整数据路径] *****************************************
+ok: [localhost]
+
+TASK [删除再分配实验入口] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+changed: [localhost]
+
+TASK [报告 LoadBalancer 通过] **************************************************
+ok: [localhost] => {
+    "msg": "02.02.03 PASS；VIP 实际可达并在不同 Service UID 间回收再分配，MetalLB 保留供 02.03 使用。"
+}
+
+PLAY [02.02.04 Headless 和无 Selector Service] *********************************
+
+TASK [创建 Headless、手工端点 Service 和 DNS 别名] *****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/headless)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/manual)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/echo-alias)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/registry-alias)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [从 API 获取真实 Service UID 和就绪 Pod 身份] *****************************
+ok: [localhost]
+
+TASK [绑定真实端点，替换只用于 dry-run 的预览值] *******************************
+ok: [localhost]
+
+TASK [生成手工维护的 EndpointSlice] ********************************************
+changed: [localhost]
+
+TASK [严格准入并应用具有明确维护责任的手工端点] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=EndpointSlice/manual)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [核对 Headless UDP/TCP DNS 集合及手工 Service 的实际 HTTP 后端] ***********
+ok: [localhost]
+
+TASK [报告服务发现通过] ********************************************************
+ok: [localhost] => {
+    "msg": "02.02.04 PASS；Headless 返回 Pod IP，手工 Service 通过独立维护的 EndpointSlice 转发。"
+}
+
+PLAY [02.02.05 ExternalName、HTTP Host 与 TLS SNI] *****************************
+
+TASK [验证 CNAME、Host 保留、受信任原域名 HTTPS 和别名证书不匹配] **************
+ok: [localhost]
+
+TASK [报告 ExternalName 通过] **************************************************
+ok: [localhost] => {
+    "msg": "02.02.05 PASS；CNAME 解析与 Host/SNI 行为一致；明确的证书主机名不匹配属于预期断言，不计为 Ansible failed。"
+}
+
+PLAY [02.02.06 域名、搜索域、正负缓存和名称恢复] *******************************
+
+TASK [重试前清除本批上次创建的 late Service] ***********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+skipping: [localhost]
+
+TASK [实测三类域名和固定 CoreDNS 实例的正负缓存命中增量] ***********************
+ok: [localhost]
+
+TASK [创建此前不存在的 Service] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-apply.yml for localhost
+
+TASK [按完整清单顺序核对、准入并应用对象] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/services-document.yml for localhost => (item=Service/late)
+
+TASK [限定业务、地址池与组件 Namespace 范围] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取同名对象防止接管外来运行] ********************************************
+ok: [localhost]
+
+TASK [原对象归属必须相同] ******************************************************
+skipping: [localhost]
+
+TASK [查询原始对象身份回执] ****************************************************
+ok: [localhost]
+
+TASK [对已存在的对象核对原始 UID，防止同标签重建后被接管] **********************
+skipping: [localhost]
+
+TASK [在真实目标空间严格准入后应用] ********************************************
+ok: [localhost]
+
+TASK [应用当前对象] ************************************************************
+changed: [localhost]
+
+TASK [保存当前对象 UID 和创建归属] *********************************************
+changed: [localhost]
+
+TASK [Namespace 创建后立即绑定 UID] ********************************************
+skipping: [localhost]
+
+TASK [观察同一 CoreDNS 从 NXDOMAIN 恢复为真实地址并执行 HTTP] ******************
+ok: [localhost]
+
+TASK [报告 DNS 通过] ***********************************************************
+ok: [localhost] => {
+    "msg": "02.02.06 PASS；短名/FQDN/搜索域、内外网域名、正负缓存和 Service 创建后的恢复均通过；CoreDNS 配置未修改。"
+}
+
+PLAY [整组验收、清理和交接] ****************************************************
+
+TASK [汇总全部专题真实结果，禁止缺项或改变已有配置后通过] **********************
+ok: [localhost]
+
+TASK [无论原流程停在哪一处都恢复临时 NodePort 规则] ****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-restore.yml for localhost => (item=worker01)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-firewall-restore.yml for localhost => (item=worker02)
+
+TASK [从原始回执生成本主机所有临时 NodePort 规则恢复计划] **********************
+ok: [localhost]
+
+TASK [按原回执恢复永久配置，保留用户原有规则] **********************************
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [独立恢复运行配置] ********************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验运行规则恢复到原状态] ************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验永久规则恢复到原状态] ************************************************
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker01(192.168.9.109)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [写入本次已核验的防火墙恢复回执] ******************************************
+ok: [localhost]
+
+TASK [从原始回执生成本主机所有临时 NodePort 规则恢复计划] **********************
+ok: [localhost]
+
+TASK [按原回执恢复永久配置，保留用户原有规则] **********************************
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [独立恢复运行配置] ********************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验运行规则恢复到原状态] ************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [核验永久规则恢复到原状态] ************************************************
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32474" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+ok: [localhost -> worker02(192.168.9.110)] => (item={'rule': 'rule family="ipv4" source address="192.168.9.200/32" port port="32737" protocol="tcp" accept', 'runtime': False, 'permanent': False})
+
+TASK [写入本次已核验的防火墙恢复回执] ******************************************
+ok: [localhost]
+
+TASK [删除测试池前先撤销本批的两个 VIP Service] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost => (item=loadbalancer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost => (item=loadbalancer-reuse)
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+skipping: [localhost]
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+skipping: [localhost]
+
+TASK [核对 Namespace UID 和空间内全部对象的运行归属] ***************************
+ok: [localhost]
+
+TASK [回收本批隔离 Namespace] **************************************************
+changed: [localhost]
+
+TASK [回收本批测试池和 L2 宣告] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost => (item=l2advertisement)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/services-delete.yml for localhost => (item=ipaddresspool)
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+changed: [localhost]
+
+TASK [核对删除对象的原始 UID 与运行标签] ***************************************
+ok: [localhost]
+
+TASK [只删除已核对的本批对象] **************************************************
+changed: [localhost]
+
+TASK [核对临时对象清空、原集群健康、控制台保护和防火墙回执] ********************
+ok: [localhost]
+
+TASK [报告清理完成] ************************************************************
+ok: [localhost] => {
+    "msg": "02.02 CLEANUP PASS；临时 Namespace/VIP/NodePort/测试池均已回收，保留已登记的 MetalLB 及其必要节点规则。"
+}
+
+TASK [报告整组全部通过] ********************************************************
+ok: [localhost] => {
+    "msg": "02.02 ALL PASS；02.02.01 引用既有完整验收，02.02.02–06 已在本次全部验证并清理。"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=270  changed=65   unreachable=0    failed=0    skipped=62   rescued=0    ignored=0   
+worker01                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

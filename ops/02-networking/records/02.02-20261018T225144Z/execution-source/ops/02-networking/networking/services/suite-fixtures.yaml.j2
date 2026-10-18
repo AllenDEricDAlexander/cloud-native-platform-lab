@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: '{{ services_namespace }}'
+  labels:
+    cnpl.io/services-run: '{{ services_run }}'
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: public-ca
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+data:
+  ca.crt: |
+{{ lookup('file', services_root ~ '/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt') | indent(4, true) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: services-echo, cnpl.io/services-run: '{{ services_run }}'}
+  template:
+    metadata:
+      labels: {app: services-echo, cnpl.io/services-run: '{{ services_run }}'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      nodeSelector: {kubernetes.io/hostname: worker02.k8s.internal.egon.top}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: net
+          image: '{{ services_image.image }}'
+          imagePullPolicy: IfNotPresent
+          command: [/net-lab, serve]
+          workingDir: /
+          env:
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+          ports: [{name: http, containerPort: 8080}, {name: udp, containerPort: 9090, protocol: UDP}]
+          readinessProbe: {httpGet: {path: /, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources:
+            requests: {cpu: 20m, memory: 16Mi}
+            limits: {cpu: 500m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  selector: {app: services-echo, cnpl.io/services-run: '{{ services_run }}'}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+{% for worker in ['worker01','worker02'] %}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: 'client-{{ worker }}'
+  namespace: '{{ services_namespace }}'
+  labels: {app: services-client, cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 2
+  nodeSelector: {kubernetes.io/hostname: '{{ worker }}.k8s.internal.egon.top'}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+    - name: net
+      image: '{{ services_image.image }}'
+      imagePullPolicy: IfNotPresent
+      command: [/net-lab, serve]
+      workingDir: /
+      env:
+        - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+        - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+        - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 250m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: [ALL]}
+      volumeMounts: [{name: ca, mountPath: /ca, readOnly: true}]
+    - name: tools
+      image: '{{ services_client_image }}'
+      imagePullPolicy: IfNotPresent
+      command: [/bin/sh, -ec, 'exec sleep 86400']
+      resources:
+        requests: {cpu: 10m, memory: 8Mi}
+        limits: {cpu: 100m, memory: 32Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: [ALL]}
+  volumes:
+    - name: ca
+      configMap: {name: public-ca}
+---
+{% endfor %}

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  clusterIP: None
+  selector: {app: services-echo, cnpl.io/services-run: '{{ services_run }}'}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: manual
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  ports: [{name: http, port: 8080, targetPort: 8080}]
+---
+{% for name, target in [('echo-alias','echo.' ~ services_namespace ~ '.svc.cluster.local'),('registry-alias','harbor.k8s.internal.egon.top')] %}
+apiVersion: v1
+kind: Service
+metadata:
+  name: '{{ name }}'
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  type: ExternalName
+  externalName: '{{ target }}'
+---
+{% endfor %}

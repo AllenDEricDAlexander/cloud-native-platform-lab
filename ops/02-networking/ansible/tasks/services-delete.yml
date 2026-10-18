@@ -1,0 +1,9 @@
+---
+- name: 核对删除对象的原始 UID 与运行标签
+  ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', delete-plan, --records, '{{ services_records }}', --kind, '{{ services_delete_kind }}', --name, '{{ services_delete_name }}', --namespace, '{{ services_delete_namespace | default(services_namespace) }}', --output, '{{ services_attempt }}/delete-{{ services_delete_kind }}-{{ services_delete_name }}.json']}
+  register: services_delete_plan
+  changed_when: false
+- name: 只删除已核对的本批对象
+  ansible.builtin.command: {argv: '{{ services_k + ["delete",services_delete_kind,services_delete_name,"-n",services_delete_namespace | default(services_namespace),"--ignore-not-found","--wait=true","--timeout=60s"] }}'}
+  when: (services_delete_plan.stdout | from_json).exists
+  changed_when: true

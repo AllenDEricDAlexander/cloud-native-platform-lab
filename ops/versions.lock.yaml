@@ -582,14 +582,33 @@ components:
     compatibility_evidence: []
     execution_evidence: []
     status: selected
+  services_diagnostics:
+    phase: "02"
+    source_sha256: ee99f3af8e0cd5c089343ff29d9fe8ae2e843c58969c8580e1c6b00a1dfc73bd
+    manifest_digest: sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa
+    internal_source: harbor.k8s.internal.egon.top/bootstrap/services-diag@sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa
+    architecture: linux/amd64
+    go_version: go1.27.2
+    execution_evidence: ["ops/02-networking/records/02.02-20261018T225144Z/README.md"]
+    status: built_registry_and_cluster_runtime_verified
   metallb:
     phase: "02"
-    candidate: null
-    version: null
-    artifacts: []
-    compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    candidate: "0.16.1"
+    version: "0.16.1"
+    chart:
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/metallb/metallb-0.16.1.tgz
+      source: https://github.com/metallb/metallb/releases/download/metallb-chart-0.16.1/metallb-0.16.1.tgz
+      sha256: fb06bb584fcb7856f15733b2a6a2aff5b61b5c350687e341c163ae24a5938adc
+    artifacts:
+      - name: controller
+        source: quay.io/metallb/controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/metallb-controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c
+      - name: speaker
+        source: quay.io/metallb/speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/metallb-speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e
+    compatibility_evidence: ["https://metallb.io/installation/", "https://metallb.io/configuration/"]
+    execution_evidence: ["ops/02-networking/records/02.02-20261018T225144Z/README.md"]
+    status: deployed_l2_baseline_verified_failover_not_yet_tested
   gateway_api:
     phase: "02"
     candidate: null

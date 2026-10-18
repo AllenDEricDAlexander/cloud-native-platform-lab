@@ -1,0 +1,5 @@
+---
+- name: 按完整清单顺序核对、准入并应用对象
+  ansible.builtin.include_tasks: services-document.yml
+  loop: '{{ lookup("file",services_manifest) | from_yaml_all | select | list }}'
+  loop_control: {loop_var: services_document, label: '{{ services_document.kind }}/{{ services_document.metadata.name }}'}

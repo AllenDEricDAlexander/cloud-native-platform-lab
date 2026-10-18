@@ -1,0 +1,34 @@
+---
+- name: 02.02.04 Headless 和无 Selector Service
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 执行服务发现实验
+      when: services_execute
+      block:
+        - name: 创建 Headless、手工端点 Service 和 DNS 别名
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/discovery.yaml'}
+        - name: 从 API 获取真实 Service UID 和就绪 Pod 身份
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', manual, --records, '{{ services_records }}', --output, '{{ services_attempt }}/manual-plan.json']}
+          register: services_manual_plan
+          changed_when: false
+        - name: 绑定真实端点，替换只用于 dry-run 的预览值
+          ansible.builtin.set_fact: {services_manual: '{{ services_manual_plan.stdout | from_json }}'}
+        - name: 生成手工维护的 EndpointSlice
+          ansible.builtin.template: {src: ../../networking/services/manual-endpoints.yaml.j2, dest: '{{ services_attempt }}/manual-endpoints.yaml', mode: '0600'}
+        - name: 严格准入并应用具有明确维护责任的手工端点
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/manual-endpoints.yaml'}
+        - name: 核对 Headless UDP/TCP DNS 集合及手工 Service 的实际 HTTP 后端
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', discovery, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/discovery.json']}
+          register: services_discovery_test
+          changed_when: false
+          retries: 15
+          delay: 3
+          until: services_discovery_test.rc == 0
+        - name: 报告服务发现通过
+          ansible.builtin.debug: {msg: '02.02.04 PASS；Headless 返回 Pod IP，手工 Service 通过独立维护的 EndpointSlice 转发。'}

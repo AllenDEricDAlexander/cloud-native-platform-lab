@@ -1,0 +1,20 @@
+---
+services_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+services_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+services_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+services_helm: '{{ lookup("env", "HOME") }}/.cnpl/bin/helm'
+services_crane: /opt/homebrew/bin/crane
+services_config: '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+services_k: ['{{ services_kubectl }}', --kubeconfig, '{{ services_config }}', --request-timeout=20s]
+services_check: '{{ services_root }}/ops/02-networking/tests/integration/services/check.py'
+services_namespace: lab-services
+services_metallb_namespace: metallb-system
+services_metallb_release: cnpl-metallb
+services_pool: cnpl-services-test
+services_vip: 192.168.9.202
+services_client_image: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+services_lock: '{{ lookup("file", services_root ~ "/ops/versions.lock.yaml") | from_yaml }}'
+services_metallb_chart: '{{ services_lock.components.metallb.chart.local_source }}'
+services_progress: '{{ services_root }}/ops/02-networking/records/components'
+services_workers: [worker01, worker02]
+services_execute: '{{ services_mode in ["all", "run"] }}'

@@ -1,0 +1,43 @@
+---
+- name: 限定业务、地址池与组件 Namespace 范围
+  ansible.builtin.assert:
+    that:
+      - services_document.kind in ['Namespace','ConfigMap','Deployment','Pod','Service','EndpointSlice','IPAddressPool','L2Advertisement']
+      - (services_document.kind == 'Namespace' and services_document.metadata.name == services_metallb_namespace and services_document.metadata.labels['cnpl.io/component'] == 'metallb' and services_document.metadata.labels['cnpl.io/cluster-uid'] == services_context.cluster_uid) or services_document.metadata.labels.get('cnpl.io/services-run') == services_run
+      - (services_document.kind == 'Namespace' and services_document.metadata.name in [services_namespace,services_metallb_namespace]) or services_document.metadata.namespace | default('') == services_namespace or (services_document.kind in ['IPAddressPool','L2Advertisement'] and services_document.metadata.namespace == services_metallb_namespace)
+- name: 读取同名对象防止接管外来运行
+  ansible.builtin.command:
+    argv: '{{ services_k + ["get",services_document.kind | lower,services_document.metadata.name,"--ignore-not-found","-o","json"] + (["-n",services_document.metadata.namespace] if services_document.kind != "Namespace" else []) }}'
+  register: services_existing
+  changed_when: false
+- name: 原对象归属必须相同
+  ansible.builtin.assert:
+    that: existing.metadata.get('labels', {}).get('cnpl.io/services-run') == services_run or (services_document.kind == 'Namespace' and services_document.metadata.name == services_metallb_namespace and existing.metadata.get('labels', {}).get('cnpl.io/component') == 'metallb' and existing.metadata.labels.get('cnpl.io/cluster-uid') == services_context.cluster_uid)
+  vars: {existing: '{{ services_existing.stdout | from_json }}'}
+  when: services_existing.stdout | trim | length > 0
+- name: 查询原始对象身份回执
+  ansible.builtin.stat:
+    path: '{{ services_records }}/state/object-{{ services_document.kind | lower }}-{{ services_document.metadata.namespace | default("") }}-{{ services_document.metadata.name }}.json'
+  register: services_object_saved
+- name: 对已存在的对象核对原始 UID，防止同标签重建后被接管
+  ansible.builtin.assert:
+    that: (lookup('file', services_object_saved.stat.path) | from_json).uid == (services_existing.stdout | from_json).metadata.uid
+  when: services_object_saved.stat.exists and services_existing.stdout | trim | length > 0
+- name: 在真实目标空间严格准入后应用
+  ansible.builtin.command: {argv: '{{ services_k + ["apply","--dry-run=server","--validate=strict","-f","-"] }}', stdin: '{{ services_document | to_json }}'}
+  changed_when: false
+- name: 应用当前对象
+  ansible.builtin.command: {argv: '{{ services_k + ["apply","-f","-","-o","json"] }}', stdin: '{{ services_document | to_json }}'}
+  register: services_applied
+  changed_when: true
+- name: 保存当前对象 UID 和创建归属
+  ansible.builtin.copy:
+    content: '{{ {"uid":(services_applied.stdout | from_json).metadata.uid,"run":services_run,"kind":services_document.kind,"name":services_document.metadata.name,"namespace":services_document.metadata.namespace | default("")} | to_nice_json }}'
+    dest: '{{ services_records }}/state/object-{{ services_document.kind | lower }}-{{ services_document.metadata.namespace | default("") }}-{{ services_document.metadata.name }}.json'
+    mode: '0600'
+- name: Namespace 创建后立即绑定 UID
+  ansible.builtin.copy:
+    content: '{{ {"run":services_run,"uid":(services_applied.stdout | from_json).metadata.uid} | to_nice_json }}'
+    dest: '{{ services_records }}/state/namespace.json'
+    mode: '0600'
+  when: services_document.kind == 'Namespace' and services_document.metadata.name == services_namespace

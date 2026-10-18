@@ -13,16 +13,18 @@ import (
 func TestHandlerReturnsObservedSourceAndPayload(t *testing.T) {
 	t.Setenv("NODE_NAME", "worker01")
 	t.Setenv("POD_NAME", "echo-one")
+	t.Setenv("POD_UID", "echo-one-uid")
 	body := bytes.Repeat([]byte("x"), 128*1024)
 	request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	request.RemoteAddr = "10.244.8.5:12345"
+	request.Host = "alias.lab.svc.cluster.local:8080"
 	writer := httptest.NewRecorder()
 	handler(writer, request)
 	var value echo
 	if err := json.Unmarshal(writer.Body.Bytes(), &value); err != nil {
 		t.Fatal(err)
 	}
-	if value.Peer != request.RemoteAddr || value.Node != "worker01" || value.Pod != "echo-one" || value.Bytes != len(body) || value.SHA256 != digest(body) {
+	if value.Peer != request.RemoteAddr || value.Host != request.Host || value.UID != "echo-one-uid" || value.Node != "worker01" || value.Pod != "echo-one" || value.Bytes != len(body) || value.SHA256 != digest(body) {
 		t.Fatalf("wrong echo: %+v", value)
 	}
 }

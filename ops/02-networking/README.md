@@ -30,7 +30,7 @@
 
 ## 02.02 Service、CoreDNS 与 EndpointSlice
 
-**02.02.01 已验收并清理**，见[实际结果](records/02.02.01-fixed-20261018T152113Z/README.md)。用户要求剩余 02.02.02–02.02.06 统一批次：剧本按专题分开，整组一次校验、执行、清理；下面仍保留各专题的设计参考，统一执行入口在本轮补齐。
+**02.02 整组已验收并清理**，见[实际结果与交接](records/02.02-20261018T225144Z/README.md)。[整组 Ansible、YAML、命令与预期结果](examples/services/README.md)保留作复现；真实 NodePort、VIP 回收再分配、Headless、手工 EndpointSlice、ExternalName 和 DNS 缓存均通过。MetalLB controller 1/1、两个 worker speaker 2/2 保留供 02.03。以下示例仅供概念查阅。
 
 输入：稳定的 HTTP/gRPC 测试后端。
 

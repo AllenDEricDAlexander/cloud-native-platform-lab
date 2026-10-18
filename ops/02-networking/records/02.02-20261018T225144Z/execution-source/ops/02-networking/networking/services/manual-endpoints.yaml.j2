@@ -1,0 +1,17 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: manual
+  namespace: '{{ services_namespace }}'
+  labels:
+    cnpl.io/services-run: '{{ services_run }}'
+    kubernetes.io/service-name: manual
+    endpointslice.kubernetes.io/managed-by: cnpl.io.services-suite
+  ownerReferences:
+    - {apiVersion: v1, kind: Service, name: manual, uid: '{{ services_manual.service_uid }}'}
+addressType: IPv4
+ports: [{name: http, protocol: TCP, port: 8080}]
+endpoints:
+  - addresses: ['{{ services_manual.pod_ip }}']
+    conditions: {ready: true}
+    targetRef: {kind: Pod, name: '{{ services_manual.pod }}', namespace: '{{ services_namespace }}', uid: '{{ services_manual.pod_uid }}'}

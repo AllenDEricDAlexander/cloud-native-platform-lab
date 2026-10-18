@@ -1,0 +1,25 @@
+---
+- name: 02.02.06 域名、搜索域、正负缓存和名称恢复
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 执行完整 DNS 实验
+      when: services_execute
+      block:
+        - name: 重试前清除本批上次创建的 late Service
+          ansible.builtin.include_tasks: ../tasks/services-delete.yml
+          vars: {services_delete_kind: service, services_delete_name: late}
+        - name: 实测三类域名和固定 CoreDNS 实例的正负缓存命中增量
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', dns-before, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/dns-before.json']}
+          changed_when: false
+        - name: 创建此前不存在的 Service
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/late-service.yaml'}
+        - name: 观察同一 CoreDNS 从 NXDOMAIN 恢复为真实地址并执行 HTTP
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', dns-after, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/dns-after.json']}
+          changed_when: false
+        - name: 报告 DNS 通过
+          ansible.builtin.debug: {msg: '02.02.06 PASS；短名/FQDN/搜索域、内外网域名、正负缓存和 Service 创建后的恢复均通过；CoreDNS 配置未修改。'}

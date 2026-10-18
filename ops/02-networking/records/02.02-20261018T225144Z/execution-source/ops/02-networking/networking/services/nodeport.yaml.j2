@@ -1,0 +1,15 @@
+{% for policy in ['Cluster','Local'] %}
+apiVersion: v1
+kind: Service
+metadata:
+  name: 'nodeport-{{ policy | lower }}'
+  namespace: '{{ services_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  type: NodePort
+  externalTrafficPolicy: {{ policy }}
+  sessionAffinity: None
+  selector: {app: services-echo, cnpl.io/services-run: '{{ services_run }}'}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+{% endfor %}

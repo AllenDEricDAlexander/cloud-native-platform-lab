@@ -1,0 +1,19 @@
+---
+- name: 02.02.05 ExternalName、HTTP Host 与 TLS SNI
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 验证 CNAME、Host 保留、受信任原域名 HTTPS 和别名证书不匹配
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', aliases, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/aliases.json']}
+      register: services_alias_test
+      changed_when: false
+      retries: 10
+      delay: 3
+      until: services_alias_test.rc == 0
+      when: services_execute
+    - name: 报告 ExternalName 通过
+      ansible.builtin.debug: {msg: '02.02.05 PASS；CNAME 解析与 Host/SNI 行为一致；明确的证书主机名不匹配属于预期断言，不计为 Ansible failed。'}
+      when: services_execute

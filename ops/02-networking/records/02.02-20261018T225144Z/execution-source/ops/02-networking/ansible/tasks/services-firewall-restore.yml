@@ -1,0 +1,42 @@
+---
+- name: 从原始回执生成本主机所有临时 NodePort 规则恢复计划
+  ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', firewall-restore, --records, '{{ services_records }}', --name, '{{ services_fw_host }}', --output, '{{ services_attempt }}/firewall-restore-{{ services_fw_host }}.json']}
+  register: services_fw_restore
+  changed_when: false
+- name: 按原回执恢复永久配置，保留用户原有规则
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: '{{ item.rule }}'
+    state: '{{ "enabled" if item.permanent else "disabled" }}'
+    permanent: true
+    immediate: false
+  loop: '{{ (services_fw_restore.stdout | from_json).rules }}'
+  delegate_to: '{{ services_fw_host }}'
+- name: 独立恢复运行配置
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: '{{ item.rule }}'
+    state: '{{ "enabled" if item.runtime else "disabled" }}'
+    permanent: false
+    immediate: true
+  loop: '{{ (services_fw_restore.stdout | from_json).rules }}'
+  delegate_to: '{{ services_fw_host }}'
+- name: 核验运行规则恢复到原状态
+  ansible.builtin.command: {argv: [firewall-cmd, --zone=public, '--query-rich-rule={{ item.rule }}']}
+  loop: '{{ (services_fw_restore.stdout | from_json).rules }}'
+  delegate_to: '{{ services_fw_host }}'
+  register: services_fw_check
+  changed_when: false
+  failed_when: services_fw_check.rc != (0 if item.runtime else 1)
+- name: 核验永久规则恢复到原状态
+  ansible.builtin.command: {argv: [firewall-cmd, --permanent, --zone=public, '--query-rich-rule={{ item.rule }}']}
+  loop: '{{ (services_fw_restore.stdout | from_json).rules }}'
+  delegate_to: '{{ services_fw_host }}'
+  register: services_fw_check
+  changed_when: false
+  failed_when: services_fw_check.rc != (0 if item.permanent else 1)
+- name: 写入本次已核验的防火墙恢复回执
+  ansible.builtin.copy:
+    content: '{{ {"restored":true,"run":services_run,"host":services_fw_host,"rules":(services_fw_restore.stdout | from_json).rules} | to_nice_json }}'
+    dest: '{{ services_records }}/state/firewall-restored-{{ services_fw_host }}.json'
+    mode: '0600'

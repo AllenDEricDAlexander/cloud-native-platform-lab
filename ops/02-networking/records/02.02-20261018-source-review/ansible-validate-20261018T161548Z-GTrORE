@@ -1,0 +1,87 @@
+
+PLAY [完整 02.02 的统一前置、物料与源码校验] ***********************************
+
+TASK [限定整组模式和证据目录] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成本次 attempt 身份] ***************************************************
+ok: [localhost]
+
+TASK [绑定独立取证路径] ********************************************************
+ok: [localhost]
+
+TASK [创建本机记录目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review/attempts/20261018T161548Z-7545badc-validate)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review/state)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/components)
+
+TASK [查询前序执行状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [清理恢复必须有原上下文，已通过或关闭的批次不得重跑] **********************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对原集群、前序完成回执、Mac 来源和控制器冲突] **************************
+ok: [localhost]
+
+TASK [绑定整组身份和运行条件] **************************************************
+ok: [localhost]
+
+TASK [记录实际源码及输入摘要] **************************************************
+ok: [localhost]
+
+TASK [未清理批次只允许使用同一套源码] ******************************************
+skipping: [localhost]
+
+TASK [统一校验所有内网镜像的完整摘要] ******************************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/metallb-controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/metallb-speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/services-diag@sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f)
+
+TASK [离线构建并核对诊断源码、Linux 平台和已发布镜像摘要] **********************
+ok: [localhost]
+
+TASK [绑定已验镜像和仅用于 dry-run 的手工端点预览值] ***************************
+ok: [localhost]
+
+TASK [一次生成完整应用及前置配置，运行时动态端点另按真实 UID 重新生成] *********
+changed: [localhost] => (item=services/suite-fixtures.yaml)
+changed: [localhost] => (item=services/nodeport.yaml)
+changed: [localhost] => (item=services/loadbalancer.yaml)
+changed: [localhost] => (item=services/discovery.yaml)
+changed: [localhost] => (item=services/manual-endpoints.yaml)
+changed: [localhost] => (item=services/late-service.yaml)
+changed: [localhost] => (item=metallb/test-pool.yaml)
+changed: [localhost] => (item=metallb/namespace.yaml)
+
+TASK [统一检查全部业务 YAML 和测试地址池] **************************************
+ok: [localhost] => (item=suite-fixtures)
+ok: [localhost] => (item=nodeport)
+ok: [localhost] => (item=loadbalancer)
+ok: [localhost] => (item=discovery)
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/services-prepare.yml:69:7
+
+67       loop: [services/suite-fixtures.yaml, services/nodeport.yaml, services/loadbalancer.yaml, services/discovery....
+68       when: services_mode in ['validate','run','all']
+69     - name: 统一检查全部业务 YAML 和测试地址池
+         ^ column 7
+
+failed: [localhost] (item=manual-endpoints) => {"ansible_loop_var": "item", "changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/services/check.py", "validate", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review", "--manifest", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review/attempts/20261018T161548Z-7545badc-validate/manual-endpoints.yaml", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review/attempts/20261018T161548Z-7545badc-validate/admission-manual-endpoints.json"], "delta": "0:00:00.203419", "end": "2026-10-18 12:16:07.999133", "item": "manual-endpoints", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-18 12:16:07.795714", "stderr": "kubectl: The EndpointSlice \"manual\" is invalid: metadata.labels: Invalid value: \"cnpl.io/services-suite\": a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345', regex used for validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')", "stderr_lines": ["kubectl: The EndpointSlice \"manual\" is invalid: metadata.labels: Invalid value: \"cnpl.io/services-suite\": a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345', regex used for validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"], "stdout": "", "stdout_lines": []}
+ok: [localhost] => (item=late-service)
+ok: [localhost] => (item=test-pool)
+ok: [localhost] => (item=namespace)
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=2    unreachable=0    failed=1    skipped=1    rescued=0    ignored=0   
+

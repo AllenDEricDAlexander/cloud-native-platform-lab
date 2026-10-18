@@ -1,0 +1,141 @@
+---
+- name: 完整 02.02 的统一前置、物料与源码校验
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 限定整组模式和证据目录
+      ansible.builtin.assert:
+        that:
+          - services_mode in ['all','validate','run','cleanup','recover']
+          - services_records.startswith(services_root ~ '/ops/02-networking/records/02.02-')
+          - services_records | realpath == services_records
+    - name: 生成本次 attempt 身份
+      ansible.builtin.command: {argv: ['{{ services_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']}
+      register: services_clock
+      changed_when: false
+    - name: 绑定独立取证路径
+      ansible.builtin.set_fact: {services_attempt: '{{ services_records }}/attempts/{{ services_clock.stdout }}-{{ services_mode }}'}
+    - name: 创建本机记录目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ services_attempt }}', '{{ services_records }}/state', '{{ services_progress }}']
+    - name: 查询前序执行状态
+      ansible.builtin.stat: {path: '{{ services_records }}/{{ item }}'}
+      loop: [context.json, passed.json, state/closed.json, state/source.json]
+      register: services_prior
+    - name: 清理恢复必须有原上下文，已通过或关闭的批次不得重跑
+      ansible.builtin.assert:
+        that:
+          - services_mode not in ['cleanup','recover'] or services_prior.results[0].stat.exists
+          - not services_execute or (not services_prior.results[1].stat.exists and not services_prior.results[2].stat.exists)
+    - name: 核对原集群、前序完成回执、Mac 来源和控制器冲突
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', '{{ "identity" if services_mode in ["cleanup","recover"] else "preflight" }}', --records, '{{ services_records }}', --output, '{{ services_attempt }}/preflight.json']}
+      register: services_preflight
+      changed_when: false
+    - name: 绑定整组身份和运行条件
+      ansible.builtin.set_fact:
+        services_context: '{{ services_preflight.stdout | from_json }}'
+        services_run: '{{ (services_preflight.stdout | from_json).run }}'
+    - name: 记录实际源码及输入摘要
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', source, --records, '{{ services_records }}', --output, '{{ services_attempt }}/source.json']}
+      changed_when: false
+    - name: 未清理批次只允许使用同一套源码
+      ansible.builtin.assert:
+        that: lookup('file', services_attempt ~ '/source.json') | from_json == lookup('file', services_records ~ '/state/source.json') | from_json
+      when: services_execute and services_prior.results[3].stat.exists
+    - name: 统一校验所有内网镜像的完整摘要
+      ansible.builtin.command: {argv: ['{{ services_crane }}', digest, --platform, linux/amd64, '{{ item }}']}
+      loop: '{{ (services_lock.components.metallb.artifacts | map(attribute="internal_source") | list) + [services_lock.components.services_diagnostics.internal_source,services_client_image] }}'
+      register: services_registry
+      changed_when: false
+      failed_when: services_registry.rc != 0 or services_registry.stdout | trim != item.split('@')[1]
+      when: services_mode in ['validate','run','all']
+    - name: 离线构建并核对诊断源码、Linux 平台和已发布镜像摘要
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', build, --records, '{{ services_records }}', --output, '{{ services_attempt }}/image.json']}
+      register: services_build
+      changed_when: false
+      when: services_mode in ['validate','run','all']
+    - name: 绑定已验镜像和仅用于 dry-run 的手工端点预览值
+      ansible.builtin.set_fact:
+        services_image: '{{ services_build.stdout | from_json }}'
+        services_manual: {service_uid: '00000000-0000-0000-0000-000000000001', pod: preview-only, pod_uid: '00000000-0000-0000-0000-000000000002', pod_ip: 10.244.9.2}
+      when: services_mode in ['validate','run','all']
+    - name: 一次生成完整应用及前置配置，运行时动态端点另按真实 UID 重新生成
+      ansible.builtin.template: {src: '../../networking/{{ item }}.j2', dest: '{{ services_attempt }}/{{ item | basename }}', mode: '0600'}
+      loop: [services/suite-fixtures.yaml, services/nodeport.yaml, services/loadbalancer.yaml, services/discovery.yaml, services/manual-endpoints.yaml, services/late-service.yaml, metallb/test-pool.yaml, metallb/namespace.yaml]
+      when: services_mode in ['validate','run','all']
+    - name: 统一检查全部业务 YAML 和测试地址池
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', validate, --records, '{{ services_records }}', --manifest, '{{ services_attempt }}/{{ item }}.yaml', --output, '{{ services_attempt }}/admission-{{ item }}.json']}
+      loop: [suite-fixtures, nodeport, loadbalancer, discovery, manual-endpoints, late-service, test-pool, namespace]
+      changed_when: false
+      when: services_mode in ['validate','run','all']
+    - name: 核验锁定 Chart、L2-only 镜像及控制器/CRD 服务端 schema
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', controller, --records, '{{ services_records }}', --output, '{{ services_attempt }}/metallb-rendered.json']}
+      changed_when: false
+      when: services_mode in ['validate','run','all']
+    - name: 保存已有工作负载及关键 ConfigMap 的 UID/spec 摘要
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', protected, --records, '{{ services_records }}', --output, '{{ services_attempt }}/protected.json']}
+      changed_when: false
+      when: services_mode in ['validate','run','all']
+    - name: 变更前首次绑定源码与保护基线，不覆盖原回执
+      ansible.builtin.copy: {src: '{{ services_attempt }}/{{ item }}.json', dest: '{{ services_records }}/state/{{ item }}.json', mode: '0600', force: false}
+      loop: [source, protected]
+      when: services_execute
+
+- name: 两台 VM 的只读安全、内网 TLS 和 VIP 冲突检查
+  hosts: worker01:worker02
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 核对身份、Enforcing、服务及内网 TLS；首次声明 VIP 前执行 ARP 重复检测
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname)" = '{{ node_fqdn }}'
+        test "$(getenforce)" = Enforcing
+        systemctl is-active firewalld containerd kubelet
+        test "$(firewall-cmd --get-zone-of-interface=ens33)" = public
+        firewall-cmd --info-ipset=k8s-nodes
+        firewall-cmd --permanent --info-ipset=k8s-nodes
+        ip -j address show ens33
+        curl -q --noproxy '*' --connect-timeout 3 --max-time 10 --silent --show-error -o /dev/null -w 'harbor_http=%{http_code} tls=%{ssl_verify_result}\n' https://harbor.k8s.internal.egon.top/v2/
+        {% if not hostvars.localhost.services_context.get('vip_owned', false) %}
+        arping -D -I ens33 -c 2 -w 3 '{{ services_vip }}'
+        {% endif %}
+      args: {executable: /bin/bash}
+      register: services_host
+      changed_when: false
+      when: services_mode in ['validate','run','all']
+    - name: 保存 VM 输出到本次本机 attempt
+      ansible.builtin.copy: {content: '{{ services_host.stdout ~ "\n" }}', dest: '{{ hostvars.localhost.services_attempt }}/host-{{ inventory_hostname }}.txt', mode: '0600'}
+      delegate_to: localhost
+      when: services_mode in ['validate','run','all']
+
+- name: 前置与全部源码通过后才创建隔离实验对象
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 绑定 VM 接口 IP/MAC，供 VIP 实际入口识别
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', hosts, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/vm-interfaces.json']}
+      register: services_vm_interfaces
+      changed_when: false
+      when: services_mode in ['validate','run','all']
+    - name: 更新已核对的 VM 接口上下文
+      ansible.builtin.set_fact: {services_context: '{{ services_vm_interfaces.stdout | from_json }}'}
+      when: services_mode in ['validate','run','all']
+    - name: 报告整组源码校验结果
+      ansible.builtin.debug: {msg: '02.02 SOURCE VALIDATION PASS；整组配置与镜像均已核验，CR 的实际准入在安装匹配 CRD/Webhook 后执行。'}
+      when: services_mode in ['validate','run','all']
+    - name: 顺序创建 Namespace、公开 CA、后端与两台客户端
+      ansible.builtin.include_tasks: ../tasks/services-apply.yml
+      vars: {services_manifest: '{{ services_attempt }}/suite-fixtures.yaml'}
+      when: services_execute
+    - name: 等待两后端、两客户端及自动端点收敛
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', fixtures, --records, '{{ services_records }}', --output, '{{ services_attempt }}/fixtures.json']}
+      changed_when: false
+      when: services_execute

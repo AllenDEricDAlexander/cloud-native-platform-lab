@@ -26,9 +26,11 @@ import (
 type echo struct {
 	Node   string `json:"node"`
 	Pod    string `json:"pod"`
+	UID    string `json:"uid"`
 	Peer   string `json:"peer"`
 	Bytes  int    `json:"bytes"`
 	SHA256 string `json:"sha256"`
+	Host   string `json:"host,omitempty"`
 }
 
 func digest(b []byte) string {
@@ -37,7 +39,7 @@ func digest(b []byte) string {
 }
 
 func response(peer string, b []byte) echo {
-	return echo{os.Getenv("NODE_NAME"), os.Getenv("POD_NAME"), peer, len(b), digest(b)}
+	return echo{Node: os.Getenv("NODE_NAME"), Pod: os.Getenv("POD_NAME"), UID: os.Getenv("POD_UID"), Peer: peer, Bytes: len(b), SHA256: digest(b)}
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +56,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response(r.RemoteAddr, b))
+	value := response(r.RemoteAddr, b)
+	value.Host = r.Host
+	_ = json.NewEncoder(w).Encode(value)
 }
 
 func serve() error {
@@ -200,12 +204,24 @@ func udpProbe(p probe, out *result, body []byte) error {
 }
 
 func dnsProbe(p probe, out *result) error {
+	network := strings.TrimPrefix(p.Protocol, "dns-")
+	if p.Protocol == "dns-cname" {
+		network = "udp"
+	}
 	resolver := &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, strings.TrimPrefix(p.Protocol, "dns-"), "192.168.20.10:53")
+		return (&net.Dialer{}).DialContext(ctx, network, "192.168.20.10:53")
 	}}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(p.Timeout)*time.Millisecond)
 	defer cancel()
-	addresses, err := resolver.LookupHost(ctx, p.Target)
+	var addresses []string
+	var err error
+	if p.Protocol == "dns-cname" {
+		var name string
+		name, err = resolver.LookupCNAME(ctx, p.Target)
+		addresses = []string{name}
+	} else {
+		addresses, err = resolver.LookupHost(ctx, p.Target)
+	}
 	if err != nil {
 		return err
 	}
@@ -242,7 +258,7 @@ func matrix() error {
 				err = httpProbe(p, &out, body)
 			case "udp":
 				err = udpProbe(p, &out, body)
-			case "dns-udp", "dns-tcp":
+			case "dns-udp", "dns-tcp", "dns-cname":
 				err = dnsProbe(p, &out)
 			default:
 				return fmt.Errorf("unknown protocol %s", p.Protocol)

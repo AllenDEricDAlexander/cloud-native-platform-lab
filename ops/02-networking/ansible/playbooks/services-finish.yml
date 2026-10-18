@@ -1,0 +1,46 @@
+---
+- name: 整组验收、清理和交接
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 汇总全部专题真实结果，禁止缺项或改变已有配置后通过
+      ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', accept, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_records }}/passed.json']}
+      changed_when: false
+      when: services_execute
+    - name: 回收批次临时对象
+      when: services_mode in ['all','cleanup','recover']
+      block:
+        - name: 无论原流程停在哪一处都恢复临时 NodePort 规则
+          ansible.builtin.include_tasks: ../tasks/services-firewall-restore.yml
+          vars: {services_fw_host: '{{ services_worker }}'}
+          loop: '{{ services_workers }}'
+          loop_control: {loop_var: services_worker}
+        - name: 删除测试池前先撤销本批的两个 VIP Service
+          ansible.builtin.include_tasks: ../tasks/services-delete.yml
+          vars: {services_delete_kind: service, services_delete_name: '{{ services_lb_old }}'}
+          loop: [loadbalancer, loadbalancer-reuse]
+          loop_control: {loop_var: services_lb_old}
+        - name: 核对 Namespace UID 和空间内全部对象的运行归属
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', cleanup-plan, --records, '{{ services_records }}', --output, '{{ services_attempt }}/cleanup-plan.json']}
+          register: services_cleanup
+          changed_when: false
+        - name: 回收本批隔离 Namespace
+          ansible.builtin.command: {argv: '{{ services_k + ["delete","namespace",services_namespace,"--wait=true","--timeout=180s"] }}'}
+          changed_when: true
+          when: (services_cleanup.stdout | from_json).namespace_exists
+        - name: 回收本批测试池和 L2 宣告
+          ansible.builtin.include_tasks: ../tasks/services-delete.yml
+          vars: {services_delete_kind: '{{ services_cr_kind }}', services_delete_name: '{{ services_pool }}', services_delete_namespace: '{{ services_metallb_namespace }}'}
+          loop: [l2advertisement, ipaddresspool]
+          loop_control: {loop_var: services_cr_kind}
+        - name: 核对临时对象清空、原集群健康、控制台保护和防火墙回执
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', final, --records, '{{ services_records }}', --output, '{{ services_records }}/state/closed.json']}
+          changed_when: false
+        - name: 报告清理完成
+          ansible.builtin.debug: {msg: '02.02 CLEANUP PASS；临时 Namespace/VIP/NodePort/测试池均已回收，保留已登记的 MetalLB 及其必要节点规则。'}
+    - name: 报告整组全部通过
+      ansible.builtin.debug: {msg: '02.02 ALL PASS；02.02.01 引用既有完整验收，02.02.02–06 已在本次全部验证并清理。'}
+      when: services_mode == 'all'

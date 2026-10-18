@@ -1,0 +1,39 @@
+---
+- name: 为本主机和规则集合绑定原始状态文件
+  ansible.builtin.set_fact:
+    services_fw_path: '{{ services_records }}/state/firewall-{{ services_fw_purpose }}-{{ services_fw_host }}-{{ services_fw_rules | to_json | hash("sha256") }}.json'
+- name: 查询是否已有不可覆盖的原始状态
+  ansible.builtin.stat: {path: '{{ services_fw_path }}'}
+  register: services_fw_saved
+- name: 读取原运行规则
+  ansible.builtin.command: {argv: [firewall-cmd, --zone=public, '--query-rich-rule={{ item }}']}
+  delegate_to: '{{ services_fw_host }}'
+  loop: '{{ services_fw_rules }}'
+  register: services_fw_runtime
+  changed_when: false
+  failed_when: services_fw_runtime.rc not in [0,1]
+  when: not services_fw_saved.stat.exists
+- name: 单独读取原永久规则
+  ansible.builtin.command: {argv: [firewall-cmd, --permanent, --zone=public, '--query-rich-rule={{ item }}']}
+  delegate_to: '{{ services_fw_host }}'
+  loop: '{{ services_fw_rules }}'
+  register: services_fw_permanent
+  changed_when: false
+  failed_when: services_fw_permanent.rc not in [0,1]
+  when: not services_fw_saved.stat.exists
+- name: 任何变更前先保存原始状态
+  ansible.builtin.copy:
+    content: '{{ {"run":services_run,"cluster_uid":services_context.cluster_uid,"host":services_fw_host,"purpose":services_fw_purpose,"rules":services_fw_rules,"runtime":services_fw_runtime.results | map(attribute="rc") | list,"permanent":services_fw_permanent.results | map(attribute="rc") | list} | to_nice_json }}'
+    dest: '{{ services_fw_path }}'
+    mode: '0600'
+    force: false
+  when: not services_fw_saved.stat.exists
+- name: 仅添加已限定来源的规则
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: '{{ item }}'
+    state: enabled
+    permanent: true
+    immediate: true
+  loop: '{{ services_fw_rules }}'
+  delegate_to: '{{ services_fw_host }}'

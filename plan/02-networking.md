@@ -1,6 +1,6 @@
 # Phase 02｜云原生网络、调度与服务治理
 
-文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[02.02.01](../ops/02-networking/records/02.02.01-fixed-20261018T152113Z/README.md)正式验收及清理通过；剩余 02.02 按统一批次准备，其他步骤未执行。步骤数：45。
+文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整 02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)正式验收及清理通过；完整 02.03 正在准备，其他步骤未执行。步骤数：45。
 
 从可观测的基础通信开始，建立 Service、网关、证书、网络隔离和调度规则，再逐项比较 eBPF、负载均衡、出站治理与服务网格。
 
@@ -61,6 +61,8 @@
 ## 02.02 完整验证 Service 与服务发现
 
 [本专题具体操作、配置与检查](../ops/02-networking/README.md#02-02)
+
+[02.02 整组 Ansible、YAML、命令与预期结果](../ops/02-networking/examples/services/README.md)：引用已完成的 02.02.01，统一执行 02.02.02–06；最小 MetalLB L2 依赖随批准备，02.03 的故障漂移另按其计划验收。
 
 ### 02.02.01 验证 ClusterIP 与端点选择
 

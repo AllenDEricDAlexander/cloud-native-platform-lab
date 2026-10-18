@@ -1,0 +1,285 @@
+
+PLAY [完整 02.02 的统一前置、物料与源码校验] ***********************************
+
+TASK [限定整组模式和证据目录] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成本次 attempt 身份] ***************************************************
+ok: [localhost]
+
+TASK [绑定独立取证路径] ********************************************************
+ok: [localhost]
+
+TASK [创建本机记录目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review/attempts/20261018T162130Z-b558da63-validate)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.02-20261018-source-review/state)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/components)
+
+TASK [查询前序执行状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [清理恢复必须有原上下文，已通过或关闭的批次不得重跑] **********************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对原集群、前序完成回执、Mac 来源和控制器冲突] **************************
+ok: [localhost]
+
+TASK [绑定整组身份和运行条件] **************************************************
+ok: [localhost]
+
+TASK [记录实际源码及输入摘要] **************************************************
+ok: [localhost]
+
+TASK [未清理批次只允许使用同一套源码] ******************************************
+skipping: [localhost]
+
+TASK [统一校验所有内网镜像的完整摘要] ******************************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/metallb-controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/metallb-speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/services-diag@sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f)
+
+TASK [离线构建并核对诊断源码、Linux 平台和已发布镜像摘要] **********************
+ok: [localhost]
+
+TASK [绑定已验镜像和仅用于 dry-run 的手工端点预览值] ***************************
+ok: [localhost]
+
+TASK [一次生成完整应用及前置配置，运行时动态端点另按真实 UID 重新生成] *********
+changed: [localhost] => (item=services/suite-fixtures.yaml)
+changed: [localhost] => (item=services/nodeport.yaml)
+changed: [localhost] => (item=services/loadbalancer.yaml)
+changed: [localhost] => (item=services/discovery.yaml)
+changed: [localhost] => (item=services/manual-endpoints.yaml)
+changed: [localhost] => (item=services/late-service.yaml)
+changed: [localhost] => (item=metallb/test-pool.yaml)
+changed: [localhost] => (item=metallb/namespace.yaml)
+
+TASK [统一检查全部业务 YAML 和测试地址池] **************************************
+ok: [localhost] => (item=suite-fixtures)
+ok: [localhost] => (item=nodeport)
+ok: [localhost] => (item=loadbalancer)
+ok: [localhost] => (item=discovery)
+ok: [localhost] => (item=manual-endpoints)
+ok: [localhost] => (item=late-service)
+ok: [localhost] => (item=test-pool)
+ok: [localhost] => (item=namespace)
+
+TASK [核验锁定 Chart、L2-only 镜像及控制器/CRD 服务端 schema] ******************
+ok: [localhost]
+
+TASK [保存已有工作负载及关键 ConfigMap 的 UID/spec 摘要] ***********************
+ok: [localhost]
+
+TASK [变更前首次绑定源码与保护基线，不覆盖原回执] ******************************
+skipping: [localhost] => (item=source) 
+skipping: [localhost] => (item=protected) 
+skipping: [localhost]
+
+PLAY [两台 VM 的只读安全、内网 TLS 和 VIP 冲突检查] ****************************
+
+TASK [核对身份、Enforcing、服务及内网 TLS；首次声明 VIP 前执行 ARP 重复检测] ***
+ok: [worker02]
+ok: [worker01]
+
+TASK [保存 VM 输出到本次本机 attempt] ******************************************
+changed: [worker02 -> localhost]
+changed: [worker01 -> localhost]
+
+PLAY [前置与全部源码通过后才创建隔离实验对象] **********************************
+
+TASK [绑定 VM 接口 IP/MAC，供 VIP 实际入口识别] ********************************
+ok: [localhost]
+
+TASK [更新已核对的 VM 接口上下文] **********************************************
+ok: [localhost]
+
+TASK [报告整组源码校验结果] ****************************************************
+ok: [localhost] => {
+    "msg": "02.02 SOURCE VALIDATION PASS；整组配置与镜像均已核验，CR 的实际准入在安装匹配 CRD/Webhook 后执行。"
+}
+
+TASK [顺序创建 Namespace、公开 CA、后端与两台客户端] ***************************
+skipping: [localhost]
+
+TASK [等待两后端、两客户端及自动端点收敛] **************************************
+skipping: [localhost]
+
+PLAY [02.02.02 NodePort、源地址和 ClientIP 会话保持] ***************************
+
+TASK [创建由 API 自动分配端口的两种流量策略] ***********************************
+skipping: [localhost]
+
+TASK [读取真实 NodePort，生成仅允许管理 Mac 的规则] ****************************
+skipping: [localhost]
+
+TASK [为两台 worker 暂时开放本次端口] ******************************************
+skipping: [localhost] => (item=worker01) 
+skipping: [localhost] => (item=worker02) 
+skipping: [localhost]
+
+TASK [核对跨节点 Cluster、本地 Local、无本地端点拒绝和源地址] ******************
+skipping: [localhost]
+
+TASK [为 Cluster Service 开启 ClientIP 会话保持] *******************************
+skipping: [localhost]
+
+TASK [验证十个独立连接保持相同后端 UID] ****************************************
+skipping: [localhost]
+
+TASK [恢复两台 VM 的临时 NodePort 规则] ****************************************
+skipping: [localhost] => (item=worker01) 
+skipping: [localhost] => (item=worker02) 
+skipping: [localhost]
+
+TASK [报告 NodePort 通过] ******************************************************
+skipping: [localhost]
+
+PLAY [02.02.03 安装最小 L2 依赖并验证真实 VIP 访问和再分配] ********************
+
+TASK [创建同集群专用 MetalLB 空间] *********************************************
+skipping: [localhost]
+
+TASK [为两个 speaker 保留必需的节点成员通信规则] *******************************
+skipping: [localhost] => (item=worker01) 
+skipping: [localhost] => (item=worker02) 
+skipping: [localhost]
+
+TASK [安装锁定的 L2-only MetalLB，先等待控制器和 Webhook] **********************
+skipping: [localhost]
+
+TASK [等待本次所需 CRD 建立] ***************************************************
+skipping: [localhost]
+
+TASK [核对控制器和两个 speaker 的实际镜像与就绪数] *****************************
+skipping: [localhost]
+
+TASK [Webhook 就绪后严格准入受控 .202 测试池] **********************************
+skipping: [localhost]
+
+TASK [重试前只移除本批先前创建的 VIP 测试 Service] *****************************
+skipping: [localhost] => (item=loadbalancer) 
+skipping: [localhost] => (item=loadbalancer-reuse) 
+skipping: [localhost]
+
+TASK [创建首个 LoadBalancer Service] *******************************************
+skipping: [localhost]
+
+TASK [从管理 Mac 实测 VIP HTTP、后端 UID 和实际 ARP 邻居] **********************
+skipping: [localhost]
+
+TASK [释放首个 Service 的指定 VIP] *********************************************
+skipping: [localhost]
+
+TASK [生成不同对象身份的 VIP 再分配用例] ***************************************
+skipping: [localhost]
+
+TASK [创建第二个 Service 重新申请同一 VIP] *************************************
+skipping: [localhost]
+
+TASK [再次实测相同 VIP 的完整数据路径] *****************************************
+skipping: [localhost]
+
+TASK [删除再分配实验入口] ******************************************************
+skipping: [localhost]
+
+TASK [报告 LoadBalancer 通过] **************************************************
+skipping: [localhost]
+
+PLAY [02.02.04 Headless 和无 Selector Service] *********************************
+
+TASK [创建 Headless、手工端点 Service 和 DNS 别名] *****************************
+skipping: [localhost]
+
+TASK [从 API 获取真实 Service UID 和就绪 Pod 身份] *****************************
+skipping: [localhost]
+
+TASK [绑定真实端点，替换只用于 dry-run 的预览值] *******************************
+skipping: [localhost]
+
+TASK [生成手工维护的 EndpointSlice] ********************************************
+skipping: [localhost]
+
+TASK [严格准入并应用具有明确维护责任的手工端点] ********************************
+skipping: [localhost]
+
+TASK [核对 Headless UDP/TCP DNS 集合及手工 Service 的实际 HTTP 后端] ***********
+skipping: [localhost]
+
+TASK [报告服务发现通过] ********************************************************
+skipping: [localhost]
+
+PLAY [02.02.05 ExternalName、HTTP Host 与 TLS SNI] *****************************
+
+TASK [验证 CNAME、Host 保留、受信任原域名 HTTPS 和别名证书不匹配] **************
+skipping: [localhost]
+
+TASK [报告 ExternalName 通过] **************************************************
+skipping: [localhost]
+
+PLAY [02.02.06 域名、搜索域、正负缓存和名称恢复] *******************************
+
+TASK [重试前清除本批上次创建的 late Service] ***********************************
+skipping: [localhost]
+
+TASK [实测三类域名和固定 CoreDNS 实例的正负缓存命中增量] ***********************
+skipping: [localhost]
+
+TASK [创建此前不存在的 Service] ************************************************
+skipping: [localhost]
+
+TASK [观察同一 CoreDNS 从 NXDOMAIN 恢复为真实地址并执行 HTTP] ******************
+skipping: [localhost]
+
+TASK [报告 DNS 通过] ***********************************************************
+skipping: [localhost]
+
+PLAY [整组验收、清理和交接] ****************************************************
+
+TASK [汇总全部专题真实结果，禁止缺项或改变已有配置后通过] **********************
+skipping: [localhost]
+
+TASK [无论原流程停在哪一处都恢复临时 NodePort 规则] ****************************
+skipping: [localhost] => (item=worker01) 
+skipping: [localhost] => (item=worker02) 
+skipping: [localhost]
+
+TASK [删除测试池前先撤销本批的两个 VIP Service] ********************************
+skipping: [localhost] => (item=loadbalancer) 
+skipping: [localhost] => (item=loadbalancer-reuse) 
+skipping: [localhost]
+
+TASK [核对 Namespace UID 和空间内全部对象的运行归属] ***************************
+skipping: [localhost]
+
+TASK [回收本批隔离 Namespace] **************************************************
+skipping: [localhost]
+
+TASK [回收本批测试池和 L2 宣告] ************************************************
+skipping: [localhost] => (item=l2advertisement) 
+skipping: [localhost] => (item=ipaddresspool) 
+skipping: [localhost]
+
+TASK [核对临时对象清空、原集群健康、控制台保护和防火墙回执] ********************
+skipping: [localhost]
+
+TASK [报告清理完成] ************************************************************
+skipping: [localhost]
+
+TASK [报告整组全部通过] ********************************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=19   changed=2    unreachable=0    failed=0    skipped=50   rescued=0    ignored=0   
+worker01                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

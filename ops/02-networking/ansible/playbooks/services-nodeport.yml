@@ -1,0 +1,53 @@
+---
+- name: 02.02.02 NodePort、源地址和 ClientIP 会话保持
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 执行有界外部端口实验，成功或失败均恢复主机规则
+      when: services_execute
+      block:
+        - name: 创建由 API 自动分配端口的两种流量策略
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/nodeport.yaml'}
+        - name: 读取真实 NodePort，生成仅允许管理 Mac 的规则
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', nodeport-plan, --records, '{{ services_records }}', --output, '{{ services_attempt }}/nodeport-plan.json']}
+          register: services_np_plan
+          changed_when: false
+        - name: 为两台 worker 暂时开放本次端口
+          ansible.builtin.include_tasks: ../tasks/services-firewall-open.yml
+          vars:
+            services_fw_host: '{{ services_worker }}'
+            services_fw_purpose: nodeport
+            services_fw_rules: '{{ (services_np_plan.stdout | from_json).rules }}'
+          loop: '{{ services_workers }}'
+          loop_control: {loop_var: services_worker}
+        - name: 核对跨节点 Cluster、本地 Local、无本地端点拒绝和源地址
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', nodeport, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/nodeport.json']}
+          register: services_np_test
+          changed_when: false
+          retries: 12
+          delay: 3
+          until: services_np_test.rc == 0
+        - name: 为 Cluster Service 开启 ClientIP 会话保持
+          ansible.builtin.command:
+            argv: '{{ services_k + ["patch","service","nodeport-cluster","-n",services_namespace,"--type=merge","-p",{"spec":{"sessionAffinity":"ClientIP","sessionAffinityConfig":{"clientIP":{"timeoutSeconds":60}}}} | to_json] }}'
+          changed_when: true
+        - name: 验证十个独立连接保持相同后端 UID
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', affinity, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/affinity.json']}
+          register: services_affinity
+          changed_when: false
+          retries: 10
+          delay: 3
+          until: services_affinity.rc == 0
+      always:
+        - name: 恢复两台 VM 的临时 NodePort 规则
+          ansible.builtin.include_tasks: ../tasks/services-firewall-restore.yml
+          vars: {services_fw_host: '{{ services_worker }}'}
+          loop: '{{ services_workers }}'
+          loop_control: {loop_var: services_worker}
+    - name: 报告 NodePort 通过
+      ansible.builtin.debug: {msg: '02.02.02 PASS；Cluster/Local、源地址、ClientIP 与主机防火墙恢复均通过。'}
+      when: services_execute

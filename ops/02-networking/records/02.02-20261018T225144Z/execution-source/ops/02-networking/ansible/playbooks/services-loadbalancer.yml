@@ -1,0 +1,78 @@
+---
+- name: 02.02.03 安装最小 L2 依赖并验证真实 VIP 访问和再分配
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/services.yml]
+  tasks:
+    - name: 执行完整 LoadBalancer 实验
+      when: services_execute
+      block:
+        - name: 创建同集群专用 MetalLB 空间
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/namespace.yaml'}
+        - name: 为两个 speaker 保留必需的节点成员通信规则
+          ansible.builtin.include_tasks: ../tasks/services-firewall-open.yml
+          vars:
+            services_fw_host: '{{ services_worker }}'
+            services_fw_purpose: memberlist
+            services_fw_rules:
+              - 'rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="tcp" accept'
+              - 'rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="udp" accept'
+          loop: '{{ services_workers }}'
+          loop_control: {loop_var: services_worker}
+        - name: 安装锁定的 L2-only MetalLB，先等待控制器和 Webhook
+          ansible.builtin.command:
+            argv: ['{{ services_helm }}', --kubeconfig, '{{ services_config }}', upgrade, --install, '{{ services_metallb_release }}', '{{ services_metallb_chart }}', --namespace, '{{ services_metallb_namespace }}', --values, '{{ services_root }}/ops/02-networking/networking/metallb/values.yaml', --rollback-on-failure, '--wait=watcher', --timeout, 10m]
+          changed_when: true
+          when: services_context.metallb.install
+        - name: 等待本次所需 CRD 建立
+          ansible.builtin.command: {argv: '{{ services_k + ["wait","--for=condition=Established","--timeout=120s","crd/ipaddresspools.metallb.io","crd/l2advertisements.metallb.io"] }}'}
+          changed_when: false
+        - name: 核对控制器和两个 speaker 的实际镜像与就绪数
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', component-ready, --records, '{{ services_records }}', --output, '{{ services_progress }}/metallb.json']}
+          register: services_component
+          changed_when: false
+          retries: 20
+          delay: 3
+          until: services_component.rc == 0
+        - name: Webhook 就绪后严格准入受控 .202 测试池
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/test-pool.yaml'}
+        - name: 重试前只移除本批先前创建的 VIP 测试 Service
+          ansible.builtin.include_tasks: ../tasks/services-delete.yml
+          vars: {services_delete_kind: service, services_delete_name: '{{ services_lb_old }}'}
+          loop: [loadbalancer, loadbalancer-reuse]
+          loop_control: {loop_var: services_lb_old}
+        - name: 创建首个 LoadBalancer Service
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/loadbalancer.yaml'}
+        - name: 从管理 Mac 实测 VIP HTTP、后端 UID 和实际 ARP 邻居
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', loadbalancer, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/loadbalancer.json']}
+          register: services_lb_test
+          changed_when: false
+          retries: 30
+          delay: 3
+          until: services_lb_test.rc == 0
+        - name: 释放首个 Service 的指定 VIP
+          ansible.builtin.include_tasks: ../tasks/services-delete.yml
+          vars: {services_delete_kind: service, services_delete_name: loadbalancer}
+        - name: 生成不同对象身份的 VIP 再分配用例
+          ansible.builtin.template: {src: ../../networking/services/loadbalancer.yaml.j2, dest: '{{ services_attempt }}/loadbalancer-reuse.yaml', mode: '0600'}
+          vars: {services_lb_name: loadbalancer-reuse}
+        - name: 创建第二个 Service 重新申请同一 VIP
+          ansible.builtin.include_tasks: ../tasks/services-apply.yml
+          vars: {services_manifest: '{{ services_attempt }}/loadbalancer-reuse.yaml'}
+        - name: 再次实测相同 VIP 的完整数据路径
+          ansible.builtin.command: {argv: ['{{ services_python }}', '{{ services_check }}', loadbalancer, --name, loadbalancer-reuse, --records, '{{ services_records }}', --attempt, '{{ services_attempt }}', --output, '{{ services_attempt }}/loadbalancer-reuse.json']}
+          register: services_lb_reuse
+          changed_when: false
+          retries: 30
+          delay: 3
+          until: services_lb_reuse.rc == 0
+        - name: 删除再分配实验入口
+          ansible.builtin.include_tasks: ../tasks/services-delete.yml
+          vars: {services_delete_kind: service, services_delete_name: loadbalancer-reuse}
+        - name: 报告 LoadBalancer 通过
+          ansible.builtin.debug: {msg: '02.02.03 PASS；VIP 实际可达并在不同 Service UID 间回收再分配，MetalLB 保留供 02.03 使用。'}

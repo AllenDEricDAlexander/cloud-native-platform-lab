@@ -1,0 +1,23 @@
+---
+- name: 校验源码入口与证据文件名
+  ansible.builtin.assert:
+    that:
+      - core_source is match('^(core-resources|examples)/[a-zA-Z0-9_./-]+\.j2$')
+      - "'..' not in core_source.split('/')"
+      - core_resource_id is match('^[a-zA-Z0-9._-]+$')
+- name: 每次渲染使用独立文件，保留之前版本
+  ansible.builtin.tempfile:
+    state: file
+    path: '{{ core_attempt }}/manifests'
+    prefix: '{{ core_resource_id }}-'
+    suffix: .yaml
+  register: core_rendered
+- name: 从源码渲染 Kubernetes YAML
+  ansible.builtin.template:
+    src: '{{ core_root }}/ops/01-kubernetes/{{ core_source }}'
+    dest: '{{ core_rendered.path }}'
+    mode: '0600'
+- name: 按文档顺序校验与执行，先建立引用依赖
+  ansible.builtin.include_tasks: document.yml
+  loop: '{{ lookup("file", core_rendered.path) | from_yaml_all | list }}'
+  loop_control: {loop_var: core_document, label: '{{ core_document.kind }}/{{ core_document.metadata.name }}'}

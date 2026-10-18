@@ -1,0 +1,21 @@
+---
+- name: 查询本次私有镜像引用清理索引
+  ansible.builtin.stat: {path: '{{ core_records }}/state/private-images.json'}
+  register: core_private_images_index
+- name: 限定为本次私有项目和原 busybox 摘要
+  ansible.builtin.assert:
+    that: item.startswith(core_registry ~ '/cnpl-p10-' ~ (core_run | lower) ~ '-') and item.endswith('@' ~ core_busybox.split('@')[1])
+  loop: '{{ lookup("file", core_records ~ "/state/private-images.json") | from_json if core_private_images_index.stat.exists else [] }}'
+- name: 只删除 worker 上两个私有别名，不按 image ID 删除共享镜像
+  ansible.builtin.command: {argv: [/usr/bin/ctr,-n,k8s.io,images,rm,'{{ item.1 }}']}
+  loop: '{{ ["worker01","worker02"] | product(lookup("file",core_records ~ "/state/private-images.json") | from_json if core_private_images_index.stat.exists else []) | list }}'
+  delegate_to: '{{ item.0 }}'
+  register: core_private_image_removed
+  failed_when: core_private_image_removed.rc != 0 and 'not found' not in core_private_image_removed.stderr
+  changed_when: true
+- name: 归档已清理的精确引用
+  ansible.builtin.copy: {src: '{{ core_records }}/state/private-images.json', dest: '{{ core_attempt }}/observations/private-images-cleaned.json', mode: '0600'}
+  when: core_private_images_index.stat.exists
+- name: 清除本次已完成的镜像清理索引
+  ansible.builtin.file: {path: '{{ core_records }}/state/private-images.json', state: absent}
+  when: core_private_images_index.stat.exists

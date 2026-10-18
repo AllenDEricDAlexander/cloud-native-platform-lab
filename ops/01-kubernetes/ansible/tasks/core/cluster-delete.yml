@@ -1,0 +1,16 @@
+---
+- name: 读取临时集群授权的当前 UID
+  ansible.builtin.command: {argv: '{{ core_a + ["get", core_cluster_ref.kind | lower, core_cluster_ref.name, "--ignore-not-found", "-o", "json"] }}'}
+  register: core_cluster_now
+  changed_when: false
+- name: 只删除同一 UID 与同一 run 的授权
+  when: core_cluster_now.stdout | length > 0
+  block:
+    - name: 拒绝接管已重建或其他运行的对象
+      ansible.builtin.assert:
+        that:
+          - (core_cluster_now.stdout | from_json).metadata.uid == core_cluster_ref.uid
+          - (core_cluster_now.stdout | from_json).metadata.labels.get('cnpl.io/core-run','') == core_run
+    - name: 删除本次临时集群授权
+      ansible.builtin.command: {argv: '{{ core_a + ["delete", core_cluster_ref.kind | lower, core_cluster_ref.name, "--wait=true"] }}'}
+      changed_when: true

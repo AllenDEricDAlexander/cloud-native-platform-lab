@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: '{{ core_metrics_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}', pod-security.kubernetes.io/enforce: restricted, pod-security.kubernetes.io/enforce-version: v1.36}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metrics-server
+  namespace: '{{ core_metrics_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cnpl-metrics-server
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+rules:
+- apiGroups: ['']
+  resources: [nodes/metrics]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [nodes, pods]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cnpl-metrics-server
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cnpl-metrics-server}
+subjects: [{kind: ServiceAccount, name: metrics-server, namespace: '{{ core_metrics_namespace }}'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cnpl-metrics-auth-delegator
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: 'system:auth-delegator'}
+subjects: [{kind: ServiceAccount, name: metrics-server, namespace: '{{ core_metrics_namespace }}'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnpl-metrics-auth-reader
+  namespace: kube-system
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: extension-apiserver-authentication-reader}
+subjects: [{kind: ServiceAccount, name: metrics-server, namespace: '{{ core_metrics_namespace }}'}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubelet-ca
+  namespace: '{{ core_metrics_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+data:
+  ca.crt: |
+{{ core_kubelet_ca_pem | indent(4, true) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-server
+  namespace: '{{ core_metrics_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+spec:
+  selector: {app.kubernetes.io/name: metrics-server, cnpl.io/cluster-uid: '{{ core_cluster_uid }}'}
+  ports: [{name: https, port: 443, targetPort: https}]

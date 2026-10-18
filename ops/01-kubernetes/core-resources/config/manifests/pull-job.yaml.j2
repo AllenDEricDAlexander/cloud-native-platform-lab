@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'p10-pull-{{ pull_variant }}'
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {cnpl.io/core-run: '{{ core_run }}', cnpl.io/pull-variant: '{{ pull_variant }}'}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      imagePullSecrets: [{name: '{{ "p10-pull-bad" if pull_variant == "bad" else "p10-pull" }}'}]
+      nodeSelector: {kubernetes.io/hostname: worker01.k8s.internal.egon.top}
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: app
+        image: '{{ core_registry }}/{{ core_harbor_project }}/busybox-{{ "v2" if pull_variant == "v2" else "v1" }}@{{ core_busybox.split("@")[1] }}'
+        imagePullPolicy: Always
+        workingDir: /
+        command: [/bin/sh, -ec, 'echo PRIVATE_PULL_AUTHENTICATED']
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        resources: {requests: {cpu: 10m, memory: 16Mi, ephemeral-storage: 1Mi}, limits: {cpu: 200m, memory: 64Mi, ephemeral-storage: 16Mi}}

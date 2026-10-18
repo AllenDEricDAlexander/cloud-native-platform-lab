@@ -537,6 +537,26 @@ components:
     compatibility_evidence: []
     execution_evidence: []
     status: selected
+  metrics_server:
+    phase: "01"
+    candidate: "0.9.0"
+    version: "0.9.0"
+    purpose: 01.09 资源指标与基础 HPA；不是 Phase 05 长期监控平台
+    artifacts:
+      - name: registry.k8s.io/metrics-server/metrics-server:v0.9.0
+        type: oci_image
+        architecture: linux/amd64
+        index_digest: sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0
+        platform_manifest_digest: sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f
+        config_digest: sha256:d7b01abacd67fcd2cd2f61b87cb46c850c4f090e77d3d5ae0878b9894e0fcd0f
+        source: registry.k8s.io/metrics-server/metrics-server:v0.9.0
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/metrics-server@sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f
+        metadata_verified_at: '2026-10-18'
+        evidence: ops/01-kubernetes/records/2026-10-18-core-stages-delivery/metrics-image-metadata.json
+    compatibility_evidence:
+      - https://github.com/kubernetes-sigs/metrics-server/tree/v0.9.0
+    execution_evidence: []
+    status: selected_metadata_verified_runtime_pending
   k8s_clients:
     phase: "01"
     runs_on: 管理 Mac（darwin/arm64），安装到 ~/.cnpl/bin（scripts/fetch-k8s-clients.sh）
@@ -612,7 +632,7 @@ pending_by_phase:
   # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。
   "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider]
   # cni_plugins 因 kubelet RPM 依赖于 2026-10-16 提升到 00 的 components 记录。
-  "01": [etcd, coredns, metrics_server]
+  "01": [etcd, coredns]
   "02": [istio, spire, ingress_comparison_controller]
   "03": [cloudnativepg, postgresql, redis, strimzi, kafka, rabbitmq_operator, rabbitmq, nats, mysql, eck, elasticsearch, operator_toolchain]
   "04": [gitlab_runner, jenkins, jenkins_plugins, buildkit, argocd, argo_rollouts, helm, kustomize, cosign, kyverno, backstage, crossplane, tekton, flux, dragonfly, prometheus_minimal]

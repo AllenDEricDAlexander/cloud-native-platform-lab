@@ -1,0 +1,32 @@
+---
+- name: 管理端真实证书生成与私有模板有限验证
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../ansible/vars/core.yml]
+  tasks:
+    - name: 测试私有目录必须是独立临时目录
+      ansible.builtin.assert:
+        that: "'cnpl-core-tls-' in core_private and core_private.startswith('/private/')"
+    - name: 创建测试私有目录
+      ansible.builtin.file: {path: '{{ core_private }}', state: directory, mode: '0700'}
+    - name: 使用实际 Ansible helper 生成两个用途的材料
+      ansible.builtin.include_tasks: ../ansible/tasks/core/tls-material.yml
+      loop: [metrics-server,app-tls]
+      loop_control: {loop_var: tls_case}
+      vars: {core_cert_name: '{{ tls_case }}', core_cert_dns: ['{{ tls_case }}.unit.svc','{{ tls_case }}.unit.svc.cluster.local']}
+    - name: 重复执行同一证书入口必须复用有效材料
+      ansible.builtin.include_tasks: ../ansible/tasks/core/tls-material.yml
+      vars: {core_cert_name: app-tls, core_cert_dns: [app-tls.unit.svc,app-tls.unit.svc.cluster.local]}
+    - name: 仅在测试私有目录渲染 Secret 与 TokenReview 模板
+      ansible.builtin.template:
+        src: '{{ core_root }}/ops/01-kubernetes/{{ item.source }}'
+        dest: '{{ core_private }}/{{ item.name }}.yaml'
+        mode: '0600'
+      loop:
+      - {name: opaque, source: core-resources/config/manifests/secret.yaml.j2}
+      - {name: tls-secret, source: core-resources/config/manifests/tls-secret.yaml.j2}
+      - {name: metrics-secret, source: core-resources/autoscaling/manifests/metrics-secret.yaml.j2}
+      - {name: pull-secret, source: core-resources/config/manifests/pull-secret.yaml.j2}
+      - {name: token-review, source: core-resources/rbac/manifests/token-review.yaml.j2}
+      no_log: true

@@ -1,0 +1,65 @@
+---
+- name: 准备本次私有项目与可追踪镜像
+  ansible.builtin.include_tasks: harbor-prepare.yml
+- name: 创建第一代最小 pull 凭据并提交 Secret
+  ansible.builtin.include_tasks: harbor-robot.yml
+  vars: {robot_version: v1}
+- name: 为反例生成结构正确但认证失败的配置
+  ansible.builtin.set_fact:
+    core_pull_config: '{{ {"auths":{core_registry:{"auth":(core_robot_created.json.name ~ ":intentionally-invalid") | b64encode}}} }}'
+  no_log: true
+- name: 反例凭据只写入本实验 Secret
+  ansible.builtin.include_tasks: secret.yml
+  vars: {core_secret_source: core-resources/config/manifests/pull-secret.yaml.j2, core_secret_name: p10-pull-bad, core_pull_secret_name: p10-pull-bad}
+- name: 新私有 repository scope 下发起真实错误认证
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/pull-job.yaml.j2, core_resource_id: pull-bad, pull_variant: bad}
+- name: 必须观察到真实拉取失败
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","pods","-l","cnpl.io/pull-variant=bad","-o","json"] }}'}
+  register: pull_bad_pods
+  until: pull_bad_pods.rc == 0 and ('ErrImagePull' in pull_bad_pods.stdout or 'ImagePullBackOff' in pull_bad_pods.stdout)
+  retries: 45
+  delay: 2
+  changed_when: false
+- name: 认证拒绝事件不能被一般网络故障代替
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","events","--field-selector=involvedObject.uid=" ~ (pull_bad_pods.stdout | from_json)["items"][0].metadata.uid,"-o","json"] }}'}
+  register: pull_bad_events
+  until: pull_bad_events.rc == 0 and ('unauthorized' in pull_bad_events.stdout | lower or '401' in pull_bad_events.stdout or 'denied' in pull_bad_events.stdout | lower)
+  retries: 20
+  delay: 1
+  changed_when: false
+- name: 保留真实认证反例
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 回收错误凭据 Job
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","job","p10-pull-bad","--cascade=foreground","--wait=true"] }}'}
+  changed_when: true
+- name: 第一代凭据必须真实拉取并执行成功
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/pull-job.yaml.j2, core_resource_id: pull-v1, pull_variant: v1}
+- name: 校验第一代私有拉取完成
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 私有镜像第一代认证成功, core_wait_action: job, core_wait_id: pull-v1-complete, core_wait_args: [--name,p10-pull-v1,--condition,Complete]}
+- name: 创建第二代凭据并更新同一 Secret
+  ansible.builtin.include_tasks: harbor-robot.yml
+  vars: {robot_version: v2}
+- name: 撤销第一代账号，保留第二代最小 pull 权限
+  ansible.builtin.uri:
+    url: 'https://{{ core_registry }}/api/v2.0/robots/{{ core_harbor_state.robots[0].id }}'
+    method: DELETE
+    url_username: admin
+    url_password: '{{ lookup("file",core_admin_password_file) }}'
+    force_basic_auth: true
+    ca_path: '{{ core_registry_ca }}'
+    use_proxy: false
+    status_code: 200
+  no_log: true
+- name: 第二代使用新 repository scope，避免旧 bearer token 缓存伪造轮换成功
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/pull-job.yaml.j2, core_resource_id: pull-v2, pull_variant: v2}
+- name: 新凭据真实拉取与执行
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 私有镜像轮换后实际成功, core_wait_action: job, core_wait_id: pull-v2-complete, core_wait_args: [--name,p10-pull-v2,--condition,Complete]}
+- name: 通过 CRI 核对第二代完整摘要引用
+  ansible.builtin.command: {argv: [/usr/bin/crictl,inspecti,'{{ core_registry }}/{{ core_harbor_project }}/busybox-v2@{{ core_busybox.split("@")[1] }}']}
+  delegate_to: worker01
+  changed_when: false

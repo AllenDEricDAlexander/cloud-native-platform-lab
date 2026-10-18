@@ -1,0 +1,20 @@
+[req]
+prompt = no
+distinguished_name = dn
+x509_extensions = ca_ext
+[dn]
+CN = cnpl-core-{{ core_cert_name }}-{{ core_run }}
+[ca_ext]
+basicConstraints = critical,CA:TRUE,pathlen:0
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+[server_ext]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @names
+authorityKeyIdentifier = keyid,issuer
+[names]
+{% for name in core_cert_dns %}
+DNS.{{ loop.index }} = {{ name }}
+{% endfor %}

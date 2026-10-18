@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: 'p09-allow'
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e', cnpl.io/core-case: cron, cnpl.io/cron-policy: 'Allow'}
+spec:
+  schedule: '* * * * *'
+  timeZone: Asia/Shanghai
+  concurrencyPolicy: 'Allow'
+  startingDeadlineSeconds: 30
+  suspend: false
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels: {cnpl.io/core-run: 'schema-7bceada43e', cnpl.io/core-case: cron, cnpl.io/cron-policy: 'Allow'}
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 150
+      template:
+        metadata:
+          labels: {cnpl.io/core-run: 'schema-7bceada43e', cnpl.io/core-case: cron, cnpl.io/cron-policy: 'Allow'}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          terminationGracePeriodSeconds: 10
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms: [{matchExpressions: [{key: kubernetes.io/hostname, operator: In, values: ["worker01.k8s.internal.egon.top", "worker02.k8s.internal.egon.top"]}]}]
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+          containers:
+          - name: app
+            image: 'cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc'
+            imagePullPolicy: Never
+            workingDir: /
+            command: [/core-lab, sleep, '90']
+            securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+            resources: {requests: {cpu: 10m, memory: 16Mi, ephemeral-storage: 1Mi}, limits: {cpu: 200m, memory: 64Mi, ephemeral-storage: 16Mi}}

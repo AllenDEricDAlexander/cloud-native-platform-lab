@@ -1,0 +1,98 @@
+---
+- name: 独立执行、取证、恢复和清理当前专题
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/core.yml]
+  tasks:
+    - name: 已验收阶段保持原断点
+      ansible.builtin.debug: {msg: '01.{{ core_stage }} 已通过，保留原证据并跳过'}
+      when: core_already_passed and core_mode == 'run'
+    - name: 已通过阶段也可修复中断的进度指针发布，不重跑实验
+      ansible.builtin.copy: {src: '{{ core_records }}/passed.json', dest: '{{ core_progress }}/{{ core_stage }}.json', mode: '0600'}
+      when: core_already_passed and core_mode == 'run'
+    - name: 仅执行尚未通过的当前专题
+      when: core_mode == 'run' and not core_already_passed
+      block:
+        - name: 先撤销上次中断遗留的外部临时凭据
+          ansible.builtin.include_tasks: ../tasks/core/harbor-cleanup.yml
+          when: core_stage == '10'
+        - name: 原空间已经消失时也处理遗留的私有镜像别名
+          ansible.builtin.include_tasks: ../tasks/core/private-image-cleanup.yml
+          when: core_stage == '10' and not core_namespace_exists
+        - name: 重试前取证并回收本批未完成空间
+          ansible.builtin.include_tasks: ../tasks/core/cleanup.yml
+          when: core_namespace_exists | bool
+        - name: 创建受限空间及实验运维授权
+          ansible.builtin.include_tasks: ../tasks/core/resource.yml
+          vars: {core_source: core-resources/shared/manifests/baseline.yaml.j2, core_resource_id: baseline, core_resource_admin: true}
+        - name: 读取 Namespace 实际 UID
+          ansible.builtin.include_tasks: ../tasks/core/get.yml
+          vars: {core_kind: namespace, core_name: '{{ core_namespace }}'}
+        - name: 绑定空间 UID，后续恢复和清理拒绝同名重建
+          ansible.builtin.copy:
+            content: '{{ {"run":core_run,"uid":core_object.metadata.uid,"namespace":core_namespace} | to_nice_json }}'
+            dest: '{{ core_records }}/state/namespace.json'
+            mode: '0600'
+        - name: 执行当前专题的显式步骤
+          ansible.builtin.include_tasks: '../tasks/core/stage-{{ core_stage }}.yml'
+        - name: 保存最终实验现场
+          ansible.builtin.include_tasks: ../tasks/core/snapshot.yml
+        - name: 回收本次测试对象与临时授权
+          ansible.builtin.include_tasks: ../tasks/core/cleanup.yml
+        - name: 全局健康复核
+          ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_root }}/ops/01-kubernetes/checks/lab-check.py', preflight]}
+          changed_when: false
+        - name: 清理之后指标服务仍须正常
+          ansible.builtin.include_tasks: ../tasks/core/wait.yml
+          vars: {core_wait_name: 持久指标组件仍安全健康, core_wait_action: metrics, core_wait_id: metrics-after-cleanup}
+          when: core_stage in ['09','10']
+        - name: 回收本批已经失效的私有测试凭据文件
+          ansible.builtin.file: {path: '{{ core_private }}', state: absent}
+          when: core_stage == '10'
+        - name: 保存实际清理后的 Phase 02 交接索引
+          ansible.builtin.copy:
+            content: '{{ {"cluster_uid":core_cluster_uid,"core_stages":["03-06","07","08","09","10"],"preceding_acceptance":core_previous_records ~ "/acceptance.json","core_progress":core_progress,"current_evidence":core_attempt,"temporary_namespace_absent":true,"metrics_component_retained":core_metrics_namespace,"persistent_storage_verified":false,"next_phase":"02"} | to_nice_json }}'
+            dest: '{{ core_records }}/handoff.json'
+            mode: '0600'
+          when: core_stage == '10'
+        - name: 写入本阶段真实成功回执
+          ansible.builtin.copy:
+            content: '{{ {"run":core_run,"stage":core_stage,"cluster_uid":core_cluster_uid,"passed":true,"cleanup_passed":true,"records":core_records,"attempt":core_attempt,"implementation":core_implementation} | to_nice_json }}'
+            dest: '{{ core_records }}/passed.json'
+            mode: '0600'
+        - name: 发布本阶段完成指针，供下一阶段核验
+          ansible.builtin.copy: {src: '{{ core_records }}/passed.json', dest: '{{ core_progress }}/{{ core_stage }}.json', mode: '0600'}
+        - name: 本阶段验收与清理结果
+          ansible.builtin.debug: {msg: '01.{{ core_stage }} ACCEPTANCE PASS；01.{{ core_stage }} CLEANUP PASS'}
+      rescue:
+        - name: 记录实际失败步骤
+          ansible.builtin.set_fact: {core_failure: '{{ ansible_failed_task.name }}'}
+        - name: 先保存原始失败步骤，恢复错误不能覆盖记录
+          ansible.builtin.copy:
+            content: '{{ {"run":core_run,"stage":core_stage,"failed_task":core_failure,"passed":false} | to_nice_json }}'
+            dest: '{{ core_attempt }}/observations/failure.json'
+            mode: '0600'
+        - name: 恢复之前尽量保存原始失败现场
+          ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', snapshot, --context, '{{ core_records }}/context.json', --output, '{{ core_attempt }}/snapshots']}
+          changed_when: false
+          failed_when: false
+        - name: 失败也恢复本次节点标签和污点
+          ansible.builtin.include_tasks: ../tasks/core/node-recover.yml
+          when: core_stage == '07'
+        - name: 失败也撤销本次外部临时凭据
+          ansible.builtin.include_tasks: ../tasks/core/harbor-cleanup.yml
+          when: core_stage == '10'
+        - name: 尽量保留失败现场
+          ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', snapshot, --context, '{{ core_records }}/context.json', --output, '{{ core_attempt }}/snapshots']}
+          changed_when: false
+          failed_when: false
+        - name: 当前阶段停止，不补写成功
+          ansible.builtin.fail: {msg: '01.{{ core_stage }} 失败于 {{ core_failure }}；证据 {{ core_records }}，修正后同目录 resume。'}
+    - name: 显式清理已有本批空间
+      ansible.builtin.include_tasks: ../tasks/core/cleanup.yml
+      when: core_mode == 'cleanup'
+    - name: 显式放弃 10 时一并删除本批失效的私有测试材料
+      ansible.builtin.file: {path: '{{ core_private }}', state: absent}
+      when: core_mode == 'cleanup' and core_stage == '10'

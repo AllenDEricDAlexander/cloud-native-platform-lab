@@ -1,0 +1,102 @@
+---
+# 只创建带本次标签的临时 Namespace、SA、模拟 ConfigMap；所有工作负载和集群授权仅 server dry-run。
+- name: 四个专题的真实服务端准入与精确清理检查
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../ansible/vars/core.yml]
+  tasks:
+    - name: 测试目录和命名空间必须独立
+      ansible.builtin.assert:
+        that:
+          - core_namespace.startswith('cnpl-schema-')
+          - core_metrics_namespace.startswith('cnpl-metrics-schema-')
+          - core_records.startswith('/private/tmp/') or core_records.startswith('/var/folders/') or core_records.startswith('/private/var/folders/')
+    - name: 准备测试证据目录
+      ansible.builtin.file: {path: '{{ core_attempt }}/{{ item }}', state: directory, mode: '0700'}
+      loop: [manifests,observations,snapshots]
+    - name: 创建测试索引目录
+      ansible.builtin.file: {path: '{{ core_records }}/state', state: directory, mode: '0700'}
+    - name: 绑定当前真实集群 UID
+      ansible.builtin.command: {argv: '{{ core_a + ["get","namespace","kube-system","-o","jsonpath={.metadata.uid}"] }}'}
+      register: core_schema_cluster
+      changed_when: false
+    - name: 绑定当前集群
+      ansible.builtin.set_fact: {core_cluster_uid: '{{ core_schema_cluster.stdout }}', core_namespace_exists: true}
+    - name: 保存测试上下文
+      ansible.builtin.copy:
+        content: '{{ {"run":core_run,"stage":"schema","namespace":core_namespace,"cluster_uid":core_cluster_uid,"records":core_records} | to_nice_json }}'
+        dest: '{{ core_records }}/context.json'
+        mode: '0600'
+    - name: 本次验证始终回收临时空间
+      block:
+        - name: 创建只有元数据测试对象的空间
+          ansible.builtin.command:
+            argv: '{{ core_a + ["create","-f","-"] }}'
+            stdin: '{{ {"apiVersion":"v1","kind":"Namespace","metadata":{"name":item,"labels":{"cnpl.io/core-run":core_run,"pod-security.kubernetes.io/enforce":"restricted","pod-security.kubernetes.io/enforce-version":"v1.36"}}} | to_json }}'
+          loop: ['{{ core_namespace }}','{{ core_metrics_namespace }}']
+          changed_when: true
+        - name: 为 Pod 准入创建 SA，不创建 RBAC 授权或运行 Pod
+          ansible.builtin.command:
+            argv: '{{ core_a + ["create","-f","-"] }}'
+            stdin: '{{ {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"name":item,"namespace":core_namespace,"labels":{"cnpl.io/core-run":core_run}},"automountServiceAccountToken":false} | to_json }}'
+          loop: [p09-ledger-writer,p10-reader,p10-config-reader,p10-operator]
+          changed_when: true
+        - name: 指标 Pod 模板的 SA 只在验证空间创建，不授予采集权限
+          ansible.builtin.command:
+            argv: '{{ core_a + ["create","-f","-"] }}'
+            stdin: '{{ {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"name":"metrics-server","namespace":core_metrics_namespace,"labels":{"cnpl.io/core-run":core_run}},"automountServiceAccountToken":false} | to_json }}'
+          changed_when: true
+        - name: 通过实际 Ansible 渲染所有公开源码变体
+          ansible.builtin.include_tasks: ../ansible/tasks/core/validate-catalog.yml
+          loop: ['07','08','09','10']
+          loop_control: {loop_var: schema_stage}
+          vars: {core_stage: '{{ schema_stage }}'}
+        - name: 获取本次全部渲染文件
+          ansible.builtin.find: {paths: '{{ core_attempt }}/manifests', patterns: '*.yaml'}
+          register: core_schema_files
+        - name: 真实服务端逐文档 dry-run，不启动任何工作负载
+          ansible.builtin.command:
+            argv: '{{ core_a + ["apply","--dry-run=server","-f",item.path] }}'
+          loop: '{{ core_schema_files.files }}'
+          loop_control: {label: '{{ item.path | basename }}'}
+          changed_when: false
+        - name: 用实际预算和默认限制验证 PodTemplate 准入
+          ansible.builtin.include_tasks: core-pod-admission.yml
+          loop: '{{ core_schema_files.files }}'
+          loop_control: {loop_var: core_schema_manifest, label: '{{ core_schema_manifest.path | basename }}'}
+        - name: 创建仅供精确 finalizer 清理验证的模拟对象
+          ansible.builtin.command:
+            argv: '{{ core_a + ["create","-f","-"] }}'
+            stdin: '{{ {"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"p08-finalizer","namespace":core_namespace,"labels":{"cnpl.io/core-run":core_run},"finalizers":["cnpl.io/core-cleanup"]},"data":{"state":"schema-cleanup-only"}} | to_json }}'
+          changed_when: true
+      always:
+        - name: 核对验证空间实际 UID
+          ansible.builtin.command: {argv: '{{ core_a + ["get","namespace",core_namespace,"--ignore-not-found","-o","json"] }}'}
+          register: core_schema_namespace
+          changed_when: false
+        - name: 为真实清理 helper 记录 UID
+          ansible.builtin.copy:
+            content: '{{ {"uid":(core_schema_namespace.stdout | from_json).metadata.uid} | to_nice_json }}'
+            dest: '{{ core_records }}/state/namespace.json'
+            mode: '0600'
+          when: core_schema_namespace.stdout | length > 0
+        - name: 清理测试只走 08 的精确恢复路径，不操作节点或 Harbor
+          ansible.builtin.include_tasks: ../ansible/tasks/core/cleanup.yml
+          vars: {core_stage: '08'}
+        - name: 指标验证空间也必须仍属于本次测试
+          ansible.builtin.command: {argv: '{{ core_a + ["get","namespace",core_metrics_namespace,"--ignore-not-found","-o","json"] }}'}
+          register: core_schema_metrics_namespace
+          changed_when: false
+        - name: 最后清理仅含系统默认对象的指标验证空间
+          when: core_schema_metrics_namespace.stdout | length > 0
+          block:
+            - name: 核对归属
+              ansible.builtin.assert:
+                that: (core_schema_metrics_namespace.stdout | from_json).metadata.labels.get('cnpl.io/core-run','') == core_run
+            - name: 删除本次指标验证空间
+              ansible.builtin.command: {argv: '{{ core_a + ["delete","namespace",core_metrics_namespace,"--wait=true","--timeout=120s"] }}'}
+              changed_when: true
+    - name: 真实准入与清理验证通过
+      ansible.builtin.debug: {msg: CORE SERVER SCHEMA AND CLEANUP PASS；没有启动 07–10 工作负载}

@@ -1,0 +1,117 @@
+---
+# 真正 Linux bash/flock 上执行隔离恢复夹具；路径改为 /tmp，systemctl/kubectl 均由夹具替身拦截。
+- name: 远程 kubelet 回退入口有限验证，不修改真实配置或服务
+  hosts: worker02
+  gather_facts: false
+  vars:
+    core_run: fixture-run
+  tasks:
+    - name: 记录真实 kubelet 配置 SHA
+      ansible.builtin.stat: {path: /var/lib/kubelet/config.yaml, get_checksum: true, checksum_algorithm: sha256}
+      register: actual_before
+    - name: 记录真实 kubelet PID
+      ansible.builtin.command: {argv: [/usr/bin/systemctl,show,kubelet,--property=MainPID,--value]}
+      register: actual_pid_before
+      changed_when: false
+    - name: 创建唯一隔离目录
+      ansible.builtin.tempfile: {state: directory, path: /tmp, prefix: cnpl-core-restore-}
+      register: fixture
+    - name: 验证结束始终回收自己的临时文件
+      block:
+        - name: 创建夹具目录
+          ansible.builtin.file: {path: '{{ fixture.path }}/{{ item }}', state: directory, mode: '0700'}
+          loop: [stage,bin]
+        - name: 写两个非生产配置样本
+          ansible.builtin.copy: {content: 'fixture: {{ item }}', dest: '{{ fixture.path }}/stage/{{ item }}.yaml', mode: '0600'}
+          loop: [original,temporary]
+        - name: 样本 SHA 原生核对
+          ansible.builtin.stat: {path: '{{ fixture.path }}/stage/{{ item }}.yaml', get_checksum: true, checksum_algorithm: sha256}
+          loop: [original,temporary]
+          register: fixture_sums
+        - name: 仅拦截测试脚本内部的 systemctl
+          ansible.builtin.copy:
+            content: '#!/bin/sh
+
+              printf "%s\n" "$*" >> "{{ fixture.path }}/systemctl-called"
+
+              exit 0
+
+              '
+            dest: '{{ fixture.path }}/bin/systemctl'
+            mode: '0700'
+        - name: 渲染实际恢复脚本
+          ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/ansible/templates/core-kubelet-restore.sh.j2', dest: '{{ fixture.path }}/restore.sh', mode: '0700'}
+          vars:
+            core_tls_original: '{{ fixture_sums.results[0] }}'
+            core_tls_temporary: '{{ fixture_sums.results[1] }}'
+        - name: 测试只替换两个路径，不改变恢复逻辑
+          ansible.builtin.lineinfile: {path: '{{ fixture.path }}/restore.sh', regexp: '{{ item.regexp }}', line: '{{ item.line }}'}
+          loop:
+          - {regexp: '^readonly stage=', line: 'readonly stage={{ fixture.path }}/stage'}
+          - {regexp: '^readonly config=', line: 'readonly config={{ fixture.path }}/current.yaml'}
+        - name: 当前样本设为临时字节
+          ansible.builtin.copy: {remote_src: true, src: '{{ fixture.path }}/stage/temporary.yaml', dest: '{{ fixture.path }}/current.yaml', mode: '0600'}
+        - name: 正常回退执行实际 bash/flock
+          ansible.builtin.command: {argv: [/bin/bash,'{{ fixture.path }}/restore.sh',restore]}
+          environment: {PATH: '{{ fixture.path }}/bin:/usr/sbin:/usr/bin:/bin'}
+          changed_when: false
+        - name: 当前样本必须恢复原字节
+          ansible.builtin.stat: {path: '{{ fixture.path }}/current.yaml', get_checksum: true, checksum_algorithm: sha256}
+          register: restored_fixture
+        - name: 原字节回退确认
+          ansible.builtin.assert:
+            that: restored_fixture.stat.checksum == fixture_sums.results[0].stat.checksum
+        - name: 第三方修改样本
+          ansible.builtin.copy: {content: third-party, dest: '{{ fixture.path }}/current.yaml', mode: '0600'}
+        - name: 第三方修改必须被拒绝
+          ansible.builtin.command: {argv: [/bin/bash,'{{ fixture.path }}/restore.sh',restore]}
+          environment: {PATH: '{{ fixture.path }}/bin:/usr/sbin:/usr/bin:/bin'}
+          register: rejected_fixture
+          changed_when: false
+          failed_when: false
+        - name: 确认拒绝实际发生
+          ansible.builtin.assert: {that: rejected_fixture.rc != 0 and '第三方' in rejected_fixture.stderr}
+        - name: 再设置为本次临时样本
+          ansible.builtin.copy: {remote_src: true, src: '{{ fixture.path }}/stage/temporary.yaml', dest: '{{ fixture.path }}/current.yaml', mode: '0600'}
+        - name: 成功提交后 timer 不能再回退
+          ansible.builtin.command: {argv: [/bin/bash,'{{ fixture.path }}/restore.sh','{{ item }}']}
+          environment: {PATH: '{{ fixture.path }}/bin:/usr/sbin:/usr/bin:/bin'}
+          loop: [commit,restore]
+          changed_when: false
+        - name: 提交后保持临时样本字节
+          ansible.builtin.stat: {path: '{{ fixture.path }}/current.yaml', get_checksum: true, checksum_algorithm: sha256}
+          register: committed_fixture
+        - name: 同锁提交与恢复结果确认
+          ansible.builtin.assert:
+            that: committed_fixture.stat.checksum == fixture_sums.results[1].stat.checksum
+        - name: 移除测试提交标记
+          ansible.builtin.file: {path: '{{ fixture.path }}/stage/committed', state: absent}
+        - name: 模拟 timer 先赢得锁并回退
+          ansible.builtin.command: {argv: [/bin/bash,'{{ fixture.path }}/restore.sh',restore]}
+          environment: {PATH: '{{ fixture.path }}/bin:/usr/sbin:/usr/bin:/bin'}
+          changed_when: false
+        - name: 回退之后不能再虚假提交
+          ansible.builtin.command: {argv: [/bin/bash,'{{ fixture.path }}/restore.sh',commit]}
+          environment: {PATH: '{{ fixture.path }}/bin:/usr/sbin:/usr/bin:/bin'}
+          register: late_commit
+          failed_when: false
+          changed_when: false
+        - name: 过期提交必须失败
+          ansible.builtin.assert: {that: late_commit.rc != 0}
+      always:
+        - name: 只清理本次唯一隔离目录
+          ansible.builtin.file: {path: '{{ fixture.path }}', state: absent}
+    - name: 真实 kubelet 配置 SHA 复核
+      ansible.builtin.stat: {path: /var/lib/kubelet/config.yaml, get_checksum: true, checksum_algorithm: sha256}
+      register: actual_after
+    - name: 真实 kubelet PID 复核
+      ansible.builtin.command: {argv: [/usr/bin/systemctl,show,kubelet,--property=MainPID,--value]}
+      register: actual_pid_after
+      changed_when: false
+    - name: 夹具没有修改真实配置或重启真实服务
+      ansible.builtin.assert:
+        that:
+          - actual_after.stat.checksum == actual_before.stat.checksum
+          - actual_pid_after.stdout == actual_pid_before.stdout
+    - name: 独立回退有限验证完成
+      ansible.builtin.debug: {msg: CORE RECOVERY FIXTURE PASS；真实 kubelet SHA 与 PID 未改变}

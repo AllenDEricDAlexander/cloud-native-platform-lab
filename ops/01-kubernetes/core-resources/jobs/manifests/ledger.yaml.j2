@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p09-ledger
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+data: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p09-ledger-writer
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: p09-ledger-writer
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+rules: [{apiGroups: [''], resources: [configmaps], resourceNames: [p09-ledger], verbs: [get, update]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p09-ledger-writer
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: p09-ledger-writer}
+subjects: [{kind: ServiceAccount, name: p09-ledger-writer, namespace: '{{ core_namespace }}'}]

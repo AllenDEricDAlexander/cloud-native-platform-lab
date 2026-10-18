@@ -1,0 +1,48 @@
+---
+- name: 创建 {{ gc_action }} 的独立父子对象
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: examples/garbage-collection/manifests/controller.yaml.j2, core_resource_id: '{{ gc_name }}'}
+- name: 等父子 UID 与真实副本共同收敛
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ gc_action }} 父子链就绪', core_wait_action: workload, core_wait_id: '{{ gc_name }}-before', core_wait_args: [--kind, deployment, --name, '{{ gc_name }}', --count, '2', --image, '{{ core_images.v1.image }}']}
+- name: 绑定父对象和受控子对象 UID
+  ansible.builtin.set_fact:
+    gc_parent: '{{ core_observation.parent }}'
+    gc_child: '{{ core_observation.pods[0] }}'
+- name: 确认子对象没有其他 finalizer
+  ansible.builtin.assert:
+    that: "gc_child.metadata.get('finalizers',[]) | length == 0"
+- name: 给本次子对象加唯一观测 finalizer
+  ansible.builtin.command:
+    argv: '{{ core_k + ["-n",core_namespace,"patch","pod",gc_child.metadata.name,"--type=json","-p",[{"op":"test","path":"/metadata/uid","value":gc_child.metadata.uid},{"op":"add","path":"/metadata/finalizers","value":["cnpl.io/core-cleanup"]}] | to_json] }}'
+  changed_when: true
+- name: 触发明确的删除传播策略
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","deployment",gc_name,"--cascade=" ~ gc_action,"--wait=false"] }}'}
+  changed_when: true
+- name: Foreground 父对象必须仍在等待子对象
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","deployment",gc_name,"-o","json"] }}'}
+  register: gc_foreground
+  changed_when: false
+  until: gc_foreground.rc == 0 and (gc_foreground.stdout | from_json).metadata.deletionTimestamp is defined and 'foregroundDeletion' in (gc_foreground.stdout | from_json).metadata.get('finalizers',[])
+  retries: 30
+  delay: 1
+  when: gc_action == 'foreground'
+- name: Background 父对象实际消失而非只是提交删除
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Background 父对象消失, core_wait_action: deleted, core_wait_id: background-parent-gone, core_wait_args: [--kind, deployment, --name, '{{ gc_name }}']}
+  when: gc_action == 'background'
+- name: 等同一子对象进入删除而仍被本实验标记保留
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","pod",gc_child.metadata.name,"-o","json"] }}'}
+  register: gc_child_deleting
+  changed_when: false
+  until: gc_child_deleting.rc == 0 and (gc_child_deleting.stdout | from_json).metadata.uid == gc_child.metadata.uid and (gc_child_deleting.stdout | from_json).metadata.deletionTimestamp is defined
+  retries: 60
+  delay: 1
+- name: 保存传播顺序中的完整现场
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 只解除本实验对子对象的观测标记
+  ansible.builtin.include_tasks: release-finalizer.yml
+  vars: {core_held: {kind: Pod, name: '{{ gc_child.metadata.name }}', uid: '{{ gc_child.metadata.uid }}'}}
+- name: 最终父子对象必须全部消失
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ gc_action }} 最终清理', core_wait_action: pool-empty, core_wait_id: '{{ gc_name }}-gone', core_wait_args: [--name, '{{ gc_name }}']}

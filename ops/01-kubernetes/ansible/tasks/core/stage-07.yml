@@ -1,0 +1,141 @@
+---
+- name: 01.07.01 建立有序稳定身份
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/statefulset/manifests/state.yaml.j2, core_resource_id: ordered-v1}
+- name: 两个序号的实际镜像与 Ready
+  ansible.builtin.include_tasks: wait.yml
+  vars:
+    core_wait_name: 有序两个副本均 Ready
+    core_wait_action: workload
+    core_wait_id: state-initial
+    core_wait_args: [--kind, statefulset, --name, p07-state, --count, '2', --image, '{{ core_images.v1.image }}']
+- name: 绑定原序号和 UID
+  ansible.builtin.set_fact:
+    state_initial: '{{ core_observation.pods | sort(attribute="metadata.name") }}'
+- name: 有序启动和固定序号
+  ansible.builtin.assert:
+    that:
+      - state_initial | map(attribute='metadata.name') | list == ['p07-state-0','p07-state-1']
+      - state_initial[1].metadata.creationTimestamp >= (state_initial[0].status.conditions | selectattr('type','equalto','Ready') | first).lastTransitionTime
+- name: 验证 Headless Service 的 cluster.local DNS
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"exec","p07-state-1","--","/core-lab","dns","p07-state-0.p07-state-headless." ~ core_namespace ~ ".svc.cluster.local"] }}'}
+  register: state_dns
+  until: state_dns.rc == 0 and state_initial[0].status.podIP in (state_dns.stdout | from_json).ips
+  retries: 30
+  delay: 1
+  changed_when: false
+- name: 写入仅属于原 Pod 的临时数据
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 写入 emptyDir 测试标记, core_exec_pod: p07-state-0, core_exec_args: [local, 'temporary-{{ state_initial[0].metadata.uid }}'], core_exec_change: true}
+- name: 删除原 Pod，交给 StatefulSet 重建
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod","p07-state-0","--wait=true"] }}'}
+  changed_when: true
+- name: 等同名 Pod 真正重建
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 同名序号重建后 Ready, core_wait_action: workload, core_wait_id: state-recreated, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '2', --image, '{{ core_images.v1.image }}']}
+- name: 同名而非同一 UID
+  ansible.builtin.assert:
+    that: (core_observation.pods | selectattr('metadata.name','equalto','p07-state-0') | first).metadata.uid != state_initial[0].metadata.uid
+- name: 同一 DNS 名称必须最终解析到新 Pod IP
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"exec","p07-state-1","--","/core-lab","dns","p07-state-0.p07-state-headless." ~ core_namespace ~ ".svc.cluster.local"] }}'}
+  register: state_dns_recreated
+  until: state_dns_recreated.rc == 0 and (core_observation.pods | selectattr('metadata.name','equalto','p07-state-0') | first).status.podIP in (state_dns_recreated.stdout | from_json).ips
+  retries: 30
+  delay: 1
+  changed_when: false
+- name: 读取重建后临时数据
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 核对新 Pod 身份与 emptyDir, core_exec_pod: p07-state-0, core_exec_args: [identity]}
+- name: 稳定名称不代表数据持久化
+  ansible.builtin.assert:
+    that:
+      - (core_exec_result.stdout | from_json).pod == 'p07-state-0'
+      - (core_exec_result.stdout | from_json).local == (core_exec_result.stdout | from_json).uid
+      - (core_exec_result.stdout | from_json).local != 'temporary-' ~ state_initial[0].metadata.uid
+- name: 01.07.02 未就绪副本阻挡 OrderedReady 扩容
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 暂时关闭序号 1 就绪, core_exec_pod: p07-state-1, core_exec_args: [ready, 'false'], core_exec_change: true}
+- name: 必须是 kubelet 已报告 NotReady
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 序号 1 已 NotReady, core_wait_action: workload, core_wait_id: ordered-blocked-before-scale, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '2', --not-ready, p07-state-1]}
+- name: 扩到三个序号
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"scale","statefulset/p07-state","--replicas=3"] }}'}
+  changed_when: true
+- name: 留出实际控制器观测窗口
+  ansible.builtin.pause: {seconds: 5}
+- name: 扩容仍停在两个 Pod
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 未就绪阻挡新序号, core_wait_action: workload, core_wait_id: ordered-blocked, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '2', --not-ready, p07-state-1], core_wait_retries: 1}
+- name: 恢复原副本就绪
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 恢复序号 1 就绪, core_exec_pod: p07-state-1, core_exec_args: [ready, 'true'], core_exec_change: true}
+- name: 三个副本最终就绪
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 有序扩容恢复, core_wait_action: workload, core_wait_id: ordered-expanded, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '3']}
+- name: 手动缩回两个序号
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"scale","statefulset/p07-state","--replicas=2"] }}'}
+  changed_when: true
+- name: 最高序号回收，保留较低序号
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: StatefulSet 缩容到两个, core_wait_action: workload, core_wait_id: ordered-scaledown, core_wait_args: [--kind,statefulset,--name,p07-state,--count,'2']}
+- name: 缩容后序号集合符合预期
+  ansible.builtin.assert:
+    that: core_observation.pods | map(attribute='metadata.name') | sort == ['p07-state-0','p07-state-1']
+- name: 为分区实验重新扩到三个
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"scale","statefulset/p07-state","--replicas=3"] }}'}
+  changed_when: true
+- name: 分区发布前恢复三个就绪副本
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 分区发布前基线, core_wait_action: workload, core_wait_id: ordered-rescaled, core_wait_args: [--kind,statefulset,--name,p07-state,--count,'3']}
+- name: 分区更新只更新序号 1 及以上
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/statefulset/manifests/state.yaml.j2, core_resource_id: partition-v2, state_count: 3, state_version: v2, state_partition: 1}
+- name: 核对实际分区结果
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 分区实际镜像就绪, core_wait_action: workload, core_wait_id: partition-v2, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '3', --partition, '1', --image, '{{ core_images.v2.image }}', --old-image, '{{ core_images.v1.image }}']}
+- name: 解除分区并更新全部序号
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/statefulset/manifests/state.yaml.j2, core_resource_id: partition-zero-v2, state_count: 3, state_version: v2}
+- name: 等全部真实镜像 v2
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 全部序号 v2, core_wait_action: workload, core_wait_id: state-all-v2, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '3', --image, '{{ core_images.v2.image }}']}
+- name: 绑定 OnDelete 更新前 UID
+  ansible.builtin.set_fact: {state_ondelete_before: '{{ core_observation.pods | sort(attribute="metadata.name") }}'}
+- name: 切换 OnDelete，清除 RollingUpdate 专属字段
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/statefulset/manifests/state.yaml.j2, core_resource_id: state-ondelete-v1, state_count: 3, state_version: v1, state_strategy: OnDelete}
+- name: 等待控制器观察但不手动删除
+  ansible.builtin.pause: {seconds: 5}
+- name: OnDelete 不自动替换现有副本
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: OnDelete 保留旧镜像, core_wait_action: workload, core_wait_id: state-ondelete-unchanged, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '3', --image, '{{ core_images.v2.image }}']}
+- name: UID 也保持原值
+  ansible.builtin.assert:
+    that: '(core_observation.pods | map(attribute="metadata.uid") | sort) == (state_ondelete_before | map(attribute="metadata.uid") | sort)'
+- name: 手动删除序号 2
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod","p07-state-2","--wait=true"] }}'}
+  changed_when: true
+- name: 只有手动删除的序号换到 v1
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: OnDelete 单序号更新, core_wait_action: workload, core_wait_id: state-ondelete-one, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '3', --partition, '2', --image, '{{ core_images.v1.image }}', --old-image, '{{ core_images.v2.image }}']}
+- name: 依次删除其余两个原序号
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod",item,"--wait=true"] }}'}
+  loop: [p07-state-0,p07-state-1]
+  changed_when: true
+- name: OnDelete 全部恢复到 v1
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: OnDelete 完成, core_wait_action: workload, core_wait_id: state-ondelete-complete, core_wait_args: [--kind, statefulset, --name, p07-state, --count, '3', --image, '{{ core_images.v1.image }}']}
+- name: 新建 Parallel 变体，不修改不可变 podManagementPolicy
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/statefulset/manifests/state.yaml.j2, core_resource_id: parallel-v1, state_name: p07-parallel, state_policy: Parallel, state_count: 3, state_block: '0'}
+- name: 0 未就绪时其他两个序号仍创建就绪
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Parallel 与 OrderedReady 对照, core_wait_action: workload, core_wait_id: parallel-blocked, core_wait_args: [--kind, statefulset, --name, p07-parallel, --count, '3', --not-ready, p07-parallel-0]}
+- name: 恢复 Parallel 阻挡
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 恢复 Parallel 序号 0, core_exec_pod: p07-parallel-0, core_exec_args: [ready, 'true'], core_exec_change: true}
+- name: Parallel 全部就绪
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Parallel 恢复, core_wait_action: workload, core_wait_id: parallel-restored, core_wait_args: [--kind, statefulset, --name, p07-parallel, --count, '3']}
+- name: 01.07.03–04 DaemonSet 节点覆盖、污点和发布
+  ansible.builtin.include_tasks: stage-07-daemon.yml

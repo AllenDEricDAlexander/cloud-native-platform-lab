@@ -1,0 +1,28 @@
+---
+- name: 读取节点 UID 及本实验元数据
+  ansible.builtin.command: {argv: '{{ core_a + ["get", "node", core_node_binding.name, "-o", "json"] }}'}
+  register: core_node_current
+  changed_when: false
+- name: 为本次恢复分配独立证据文件
+  ansible.builtin.tempfile: {path: '{{ core_attempt }}/observations', state: file, prefix: 'node-before-restore-{{ core_node_binding.name }}-', suffix: .json}
+  register: core_node_restore_evidence
+- name: 保留恢复前的原始节点元数据
+  ansible.builtin.copy: {content: '{{ core_node_current.stdout }}', dest: '{{ core_node_restore_evidence.path }}', mode: '0600'}
+- name: 核对原节点和元数据归属
+  ansible.builtin.assert:
+    that:
+      - node.metadata.uid == core_node_binding.uid
+      - node.metadata.get('labels',{}).get('cnpl.io/core07',core_run) == core_run
+      - node.spec.get('taints',[]) | selectattr('key','equalto','cnpl.io/core07') | rejectattr('value','equalto',core_run) | list | length == 0
+  vars: {node: '{{ core_node_current.stdout | from_json }}'}
+- name: 只移除本次 NoSchedule 污点，原子保护其他污点
+  ansible.builtin.command:
+    argv: '{{ core_a + ["patch", "node", core_node_binding.name, "--type=json", "-p", [{"op":"test","path":"/metadata/uid","value":node.metadata.uid},{"op":"test","path":"/spec/taints","value":node.spec.taints},{"op":"replace","path":"/spec/taints","value":node.spec.taints | rejectattr("key","equalto","cnpl.io/core07") | list}] | to_json] }}'
+  vars: {node: '{{ core_node_current.stdout | from_json }}'}
+  when: (core_node_current.stdout | from_json).spec.get('taints',[]) | selectattr('key','equalto','cnpl.io/core07') | list | length > 0
+  changed_when: true
+- name: 只移除本次标签
+  ansible.builtin.command:
+    argv: '{{ core_a + ["patch", "node", core_node_binding.name, "--type=json", "-p", [{"op":"test","path":"/metadata/uid","value":core_node_binding.uid},{"op":"test","path":"/metadata/labels/cnpl.io~1core07","value":core_run},{"op":"remove","path":"/metadata/labels/cnpl.io~1core07"}] | to_json] }}'
+  when: core_restore_label | default(true) and (core_node_current.stdout | from_json).metadata.get('labels',{}).get('cnpl.io/core07','') == core_run
+  changed_when: true

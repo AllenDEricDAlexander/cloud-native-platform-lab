@@ -1,0 +1,124 @@
+---
+- name: 01.10.01 创建公开配置 v1
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/config.yaml.j2, core_resource_id: config-v1}
+- name: 生成本批随机应用凭据，不在命令行或公开日志输出
+  ansible.builtin.set_fact:
+    core_secret_value: '{{ lookup("password", core_private ~ "/secret-v1", length=32, chars=["ascii_letters","digits"]) }}'
+  no_log: true
+- name: 从私有源码提交 Opaque Secret
+  ansible.builtin.include_tasks: secret.yml
+  vars: {core_secret_source: core-resources/config/manifests/secret.yaml.j2, core_secret_name: p10-app-secret}
+- name: 生成仅用于本实验的 TLS 材料
+  ansible.builtin.include_tasks: tls-material.yml
+  vars: {core_cert_name: app-tls, core_cert_dns: ['p10-demo.{{ core_namespace }}.svc','p10-demo.{{ core_namespace }}.svc.cluster.local']}
+- name: 从私有源码提交 TLS Secret
+  ansible.builtin.include_tasks: secret.yml
+  vars: {core_secret_source: core-resources/config/manifests/tls-secret.yaml.j2, core_secret_name: p10-app-tls}
+- name: 创建同时读取 env、普通卷与 subPath 的消费者
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/consumer.yaml.j2, core_resource_id: config-consumer-v1}
+- name: 等消费者 Ready
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 配置消费者就绪, core_wait_action: pod, core_wait_id: config-before, core_wait_args: [--name,p10-config-consumer]}
+- name: 绑定原消费者 UID
+  ansible.builtin.set_fact: {config_original_uid: '{{ core_observation.pod.metadata.uid }}'}
+- name: 核对三种注入最初均为 v1
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 读取实际配置 v1, core_exec_pod: p10-config-consumer, core_exec_args: [identity]}
+- name: v1 实际读取结果
+  ansible.builtin.assert:
+    that: (core_exec_result.stdout | from_json).env == 'v1' and (core_exec_result.stdout | from_json).volume == 'v1' and (core_exec_result.stdout | from_json).subpath == 'v1'
+- name: 只更新 ConfigMap 到 v2
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/config.yaml.j2, core_resource_id: config-v2, config_value: v2}
+- name: 等普通卷真实刷新，env 与 subPath 仍保持原值
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"exec","p10-config-consumer","--","/core-lab","identity"] }}'}
+  register: config_refreshed
+  until: config_refreshed.rc == 0 and (config_refreshed.stdout | from_json).volume == 'v2' and (config_refreshed.stdout | from_json).env == 'v1' and (config_refreshed.stdout | from_json).subpath == 'v1'
+  retries: 90
+  delay: 2
+  changed_when: false
+- name: 保存配置传播的真实结果
+  ansible.builtin.copy: {content: '{{ config_refreshed.stdout }}', dest: '{{ core_attempt }}/observations/config-volume-refreshed.json', mode: '0600'}
+- name: 重建消费者以刷新环境和 subPath
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod","p10-config-consumer","--wait=true"] }}'}
+  changed_when: true
+- name: 按同一源码创建新消费者
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/consumer.yaml.j2, core_resource_id: config-consumer-v2}
+- name: 新消费者 Ready
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 配置重建后就绪, core_wait_action: pod, core_wait_id: config-after-recreate, core_wait_args: [--name,p10-config-consumer]}
+- name: 真实容器被重建且没有默认 Token
+  ansible.builtin.assert:
+    that:
+      - core_observation.pod.metadata.uid != config_original_uid
+      - not core_observation.pod.spec.automountServiceAccountToken
+- name: 核对重建后的所有公开配置
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 读取重建后的配置, core_exec_pod: p10-config-consumer, core_exec_args: [identity]}
+- name: env、普通卷和 subPath 均刷新到 v2
+  ansible.builtin.assert:
+    that: (core_exec_result.stdout | from_json).env == 'v2' and (core_exec_result.stdout | from_json).volume == 'v2' and (core_exec_result.stdout | from_json).subpath == 'v2'
+- name: 创建不可变配置 v1
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/config.yaml.j2, core_resource_id: immutable-v1, config_name: p10-immutable, config_immutable: true}
+- name: 渲染不可变配置的更新反例
+  ansible.builtin.template:
+    src: '{{ core_root }}/ops/01-kubernetes/core-resources/config/manifests/config.yaml.j2'
+    dest: '{{ core_attempt }}/manifests/immutable-update-rejected.yaml'
+    mode: '0600'
+  vars: {config_name: p10-immutable, config_value: v2, config_immutable: true}
+- name: 服务端必须拒绝更新不可变数据
+  ansible.builtin.command: {argv: '{{ core_k + ["apply","--dry-run=server","-f",core_attempt ~ "/manifests/immutable-update-rejected.yaml"] }}'}
+  register: immutable_rejected
+  changed_when: false
+  failed_when: false
+- name: 必须是明确的 immutable 错误
+  ansible.builtin.assert:
+    that: "immutable_rejected.rc != 0 and 'immutable' in immutable_rejected.stderr | lower"
+- name: 01.10.02 应用凭据正反认证均有实际响应
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 应用认证允许与拒绝, core_exec_pod: p10-config-consumer, core_exec_args: [auth-check]}
+- name: 初始 Secret 卷与 env 匹配，但不输出正文
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 初始 Secret 可用性, core_exec_pod: p10-config-consumer, core_exec_args: [secret-match,'true']}
+- name: 核对 TLS 私钥对、CA 和 DNS SAN 可用
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: TLS Secret 实际可用性, core_exec_pod: p10-config-consumer, core_exec_args: [tls-check]}
+- name: 生成第二代随机凭据
+  ansible.builtin.set_fact:
+    core_secret_value: '{{ lookup("password", core_private ~ "/secret-v2", length=32, chars=["ascii_letters","digits"]) }}'
+  no_log: true
+- name: 更新同名 Secret，保留原消费者观察传播
+  ansible.builtin.include_tasks: secret.yml
+  vars: {core_secret_source: core-resources/config/manifests/secret.yaml.j2, core_secret_name: p10-app-secret}
+- name: Secret 卷刷新后与旧 env 不再匹配
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"exec","p10-config-consumer","--","/core-lab","secret-match","false"] }}'}
+  register: secret_refreshed
+  until: secret_refreshed.rc == 0
+  retries: 90
+  delay: 2
+  changed_when: false
+- name: 认证实际使用新的卷中凭据
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 轮换后的认证正反对照, core_exec_pod: p10-config-consumer, core_exec_args: [auth-check]}
+- name: 重建消费者刷新 Secret env
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod","p10-config-consumer","--wait=true"] }}'}
+  changed_when: true
+- name: 重建后使用当前 Secret
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/config/manifests/consumer.yaml.j2, core_resource_id: secret-consumer-v2}
+- name: 消费者最终 Ready
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Secret env 刷新, core_wait_action: pod, core_wait_id: secret-after-recreate, core_wait_args: [--name,p10-config-consumer]}
+- name: Secret env 与卷再次匹配
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: 第二代 Secret 读取验证, core_exec_pod: p10-config-consumer, core_exec_args: [secret-match,'true']}
+- name: 私有镜像凭据与轮换实验
+  ansible.builtin.include_tasks: stage-10-registry.yml
+- name: 01.10.03 最小身份与实际授权边界
+  ansible.builtin.include_tasks: stage-10-rbac.yml
+- name: 01.10.04 保存前序阶段和基础平台交接结果
+  ansible.builtin.include_tasks: stage-10-handoff.yml

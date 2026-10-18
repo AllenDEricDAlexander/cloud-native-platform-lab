@@ -1,0 +1,6 @@
+---
+- name: 由实际 Pod 身份执行 {{ rbac_probe.id }}
+  ansible.builtin.include_tasks: exec.yml
+  vars: {core_exec_name: '{{ rbac_probe.id }} 实际 API 请求', core_exec_pod: '{{ rbac_probe.pod }}', core_exec_args: [api,'{{ rbac_probe.method }}','{{ rbac_probe.path }}','{{ rbac_probe.codes }}']}
+- name: 保存仅含 HTTP 状态和公开 JWT 声明的结果
+  ansible.builtin.copy: {content: '{{ core_exec_result.stdout }}', dest: '{{ core_attempt }}/observations/rbac-{{ rbac_probe.id }}.json', mode: '0600'}

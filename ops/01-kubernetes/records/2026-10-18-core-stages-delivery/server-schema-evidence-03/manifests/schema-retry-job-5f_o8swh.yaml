@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'p09-retry'
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+spec:
+  completions: 3
+  parallelism: 3
+  completionMode: 'Indexed'
+  backoffLimit: 6
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      serviceAccountName: 'p09-ledger-writer'
+      terminationGracePeriodSeconds: 10
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms: [{matchExpressions: [{key: kubernetes.io/hostname, operator: In, values: ["worker01.k8s.internal.egon.top", "worker02.k8s.internal.egon.top"]}]}]
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: app
+        image: 'cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc'
+        imagePullPolicy: Never
+        workingDir: /
+        command: ["/core-lab", "job"]
+        env:
+        - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+        - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+        - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+        - {name: CORE_RUN, value: 'schema-7bceada43e'}
+        - name: JOB_COMPLETION_INDEX
+          valueFrom: {fieldRef: {fieldPath: "metadata.annotations['batch.kubernetes.io/job-completion-index']"}}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        resources: {requests: {cpu: 50m, memory: 32Mi, ephemeral-storage: 1Mi}, limits: {cpu: 200m, memory: 128Mi, ephemeral-storage: 32Mi}}
+        volumeMounts: [{name: identity, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}]
+      volumes:
+      - name: identity
+        projected:
+          defaultMode: 288
+          sources:
+          - serviceAccountToken: {path: token, expirationSeconds: 600, audience: 'https://kubernetes.default.svc.cluster.local'}
+          - configMap: {name: kube-root-ca.crt, items: [{key: ca.crt, path: ca.crt}]}
+          - downwardAPI: {items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]}

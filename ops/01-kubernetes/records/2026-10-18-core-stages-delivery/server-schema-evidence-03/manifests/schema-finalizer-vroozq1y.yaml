@@ -1,0 +1,17 @@
+# 两个对象都只是本批模拟资源，不代表云资源/PVC 的真实回收控制器。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p08-external
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+data: {state: simulated-only}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p08-finalizer
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+  finalizers: [cnpl.io/core-cleanup]
+data: {external-name: p08-external}

@@ -1,0 +1,84 @@
+---
+- name: 创建独立身份与明确授权
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/rbac/manifests/identities.yaml.j2, core_resource_id: rbac-identities, core_resource_admin: true}
+- name: 创建五种实际身份消费者
+  ansible.builtin.include_tasks: resource.yml
+  loop:
+  - {pod: p10-reader, sa: p10-reader, token: true}
+  - {pod: p10-config-reader, sa: p10-config-reader, token: true}
+  - {pod: p10-operator, sa: p10-operator, token: true}
+  - {pod: p10-anonymous, sa: default, token: false}
+  - {pod: p10-wrong-audience, sa: p10-reader, token: true, audience: core-lab-p10}
+  loop_control: {loop_var: rbac_identity, label: '{{ rbac_identity.pod }}'}
+  vars:
+    core_source: core-resources/rbac/manifests/pod.yaml.j2
+    core_resource_id: '{{ rbac_identity.pod }}'
+    rbac_pod: '{{ rbac_identity.pod }}'
+    rbac_sa: '{{ rbac_identity.sa }}'
+    rbac_token: '{{ rbac_identity.token }}'
+    rbac_audience: '{{ rbac_identity.audience | default(core_api_audience) }}'
+- name: 五种消费者均需真正 Ready
+  ansible.builtin.include_tasks: wait.yml
+  loop: [p10-reader,p10-config-reader,p10-operator,p10-anonymous,p10-wrong-audience]
+  loop_control: {loop_var: rbac_wait_pod}
+  vars: {core_wait_name: '{{ rbac_wait_pod }} 就绪', core_wait_action: pod, core_wait_id: '{{ rbac_wait_pod }}-ready', core_wait_args: [--name,'{{ rbac_wait_pod }}']}
+- name: 保存拒绝删除对象原 UID
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: configmap, core_name: p10-delete-denied}
+- name: 绑定拒绝对象身份
+  ansible.builtin.set_fact: {rbac_denied_uid: '{{ core_object.metadata.uid }}'}
+- name: 用 can-i 对照最小允许与拒绝矩阵
+  ansible.builtin.command:
+    argv: '{{ core_a + ["auth","can-i",item.verb,item.resource,"-n",core_namespace,"--as=system:serviceaccount:" ~ core_namespace ~ ":p10-reader"] }}'
+  loop:
+  - {verb: list, resource: pods, expected: 'yes'}
+  - {verb: delete, resource: pods, expected: 'no'}
+  - {verb: get, resource: secrets, expected: 'no'}
+  - {verb: list, resource: nodes, expected: 'yes'}
+  register: rbac_can_i
+  changed_when: false
+  failed_when: false
+- name: can-i 必须返回明确的 yes/no，而非一般通信错误
+  ansible.builtin.assert:
+    that: "item.stdout == item.item.expected"
+  loop: '{{ rbac_can_i.results }}'
+  loop_control: {label: '{{ item.item.verb }} {{ item.item.resource }}'}
+- name: 实际允许与拒绝请求，验证身份认证和授权是两层
+  ansible.builtin.include_tasks: rbac-request.yml
+  loop:
+  - {id: reader-pods, pod: p10-reader, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/pods', codes: '200'}
+  - {id: reader-secrets-denied, pod: p10-reader, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/secrets', codes: '403'}
+  - {id: reader-delete-denied, pod: p10-reader, method: DELETE, path: '/api/v1/namespaces/{{ core_namespace }}/configmaps/p10-delete-denied', codes: '403'}
+  - {id: clusterrolebinding-nodes, pod: p10-reader, method: GET, path: /api/v1/nodes, codes: '200'}
+  - {id: rolebinding-config, pod: p10-config-reader, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/configmaps/p10-config', codes: '200'}
+  - {id: rolebinding-other-namespace-denied, pod: p10-config-reader, method: GET, path: /api/v1/namespaces/lab-core/configmaps/p10-config, codes: '403'}
+  - {id: operator-owned-delete, pod: p10-operator, method: DELETE, path: '/api/v1/namespaces/{{ core_namespace }}/configmaps/p10-delete-allowed', codes: '200,202'}
+  - {id: anonymous-denied, pod: p10-anonymous, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/secrets', codes: '401,403'}
+  - {id: wrong-audience-denied, pod: p10-wrong-audience, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/pods', codes: '401'}
+  loop_control: {loop_var: rbac_probe, label: '{{ rbac_probe.id }}'}
+- name: 显式 Token audience 与有限有效期
+  ansible.builtin.command: {argv: [date,-u,'+%s']}
+  register: rbac_clock
+  changed_when: false
+- name: 校验公开声明，不输出 Token 本身
+  ansible.builtin.assert:
+    that:
+      - reader_result.audience == [core_api_audience]
+      - reader_result.expires_at | int > rbac_clock.stdout | int
+      - reader_result.expires_at | int - rbac_clock.stdout | int <= 610
+      - not anonymous_result.token_mounted
+  vars:
+    reader_result: '{{ lookup("file",core_attempt ~ "/observations/rbac-reader-pods.json") | from_json }}'
+    anonymous_result: '{{ lookup("file",core_attempt ~ "/observations/rbac-anonymous-denied.json") | from_json }}'
+- name: 拒绝操作后原对象保持 UID
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: configmap, core_name: p10-delete-denied}
+- name: 原拒绝对象没有被删后重建
+  ansible.builtin.assert:
+    that: "core_object.metadata.uid == rbac_denied_uid"
+- name: 允许的删除操作必须实际完成
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 允许操作实际完成, core_wait_action: deleted, core_wait_id: rbac-allowed-deleted, core_wait_args: [--kind,configmap,--name,p10-delete-allowed]}
+- name: Bound Token 生命周期检查
+  ansible.builtin.include_tasks: stage-10-token.yml

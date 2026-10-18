@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p10-reader
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p10-config-reader
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p10-operator
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: p10-reader
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+rules: [{apiGroups: [''], resources: [pods], verbs: [get,list,watch]}, {apiGroups: [''], resources: [pods/log], verbs: [get]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p10-reader
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: p10-reader}
+subjects: [{kind: ServiceAccount, name: p10-reader, namespace: 'cnpl-schema-7bceada43e'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: 'cnpl-p10-config-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+rules: [{apiGroups: [''], resources: [configmaps], resourceNames: [p10-config], verbs: [get]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p10-config-reader
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: 'cnpl-p10-config-schema-7bceada43e'}
+subjects: [{kind: ServiceAccount, name: p10-config-reader, namespace: 'cnpl-schema-7bceada43e'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: p10-operator
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+rules: [{apiGroups: [''], resources: [configmaps], resourceNames: [p10-delete-allowed], verbs: [get,delete]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p10-operator
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: p10-operator}
+subjects: [{kind: ServiceAccount, name: p10-operator, namespace: 'cnpl-schema-7bceada43e'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: 'cnpl-p10-nodes-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+rules: [{apiGroups: [''], resources: [nodes], verbs: [get,list,watch]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: 'cnpl-p10-nodes-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: 'cnpl-p10-nodes-schema-7bceada43e'}
+subjects: [{kind: ServiceAccount, name: p10-reader, namespace: 'cnpl-schema-7bceada43e'}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p10-delete-allowed
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+data: {purpose: allowed-delete}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p10-delete-denied
+  namespace: 'cnpl-schema-7bceada43e'
+  labels: {cnpl.io/core-run: 'schema-7bceada43e'}
+data: {purpose: denied-delete}

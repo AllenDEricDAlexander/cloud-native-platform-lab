@@ -1,0 +1,43 @@
+---
+- name: 01.09.01 创建最小权限幂等测试账本
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/jobs/manifests/ledger.yaml.j2, core_resource_id: job-ledger, core_resource_admin: true}
+- name: 创建有三个业务键的 Indexed Job，首次提交后主动退出 7
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/jobs/manifests/job.yaml.j2, core_resource_id: retry-job, job_mode: retry}
+- name: 每个序号重试后真正 Complete
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 并行重试 Job 完成, core_wait_action: job, core_wait_id: job-retry-complete, core_wait_args: [--name,p09-retry,--condition,Complete], core_wait_retries: 120}
+- name: 必须确实发生失败重试而非偶然一次成功
+  ansible.builtin.assert:
+    that: "core_observation.job.status.succeeded == 3 and core_observation.job.status.failed | int >= 3"
+- name: 读取实际业务效果账本
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: configmap, core_name: p09-ledger}
+- name: 三个业务键各生效一次
+  ansible.builtin.assert:
+    that: core_object.data == {'business-0':'1','business-1':'1','business-2':'1'}
+- name: 保存重试 Pod UID、退出原因和账本
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 创建不可重试的 42 退出反例
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/jobs/manifests/job.yaml.j2, core_resource_id: permanent-job, job_mode: permanent}
+- name: 由 podFailurePolicy 确认失败
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 不可重试错误立即失败, core_wait_action: job, core_wait_id: job-permanent, core_wait_args: [--name,p09-permanent,--condition,Failed,--reason,PodFailurePolicy]}
+- name: 不可重试错误没有创建额外重试 Pod
+  ansible.builtin.assert:
+    that: "core_observation.pods | length == 1"
+- name: 创建 activeDeadline 超时反例
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/jobs/manifests/job.yaml.j2, core_resource_id: timeout-job, job_mode: timeout}
+- name: 必须是 DeadlineExceeded，而非镜像或调度错误
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Job 总时间上限, core_wait_action: job, core_wait_id: job-deadline, core_wait_args: [--name,p09-timeout,--condition,Failed,--reason,DeadlineExceeded]}
+- name: 真实 CronJob 调度与时区实验
+  ansible.builtin.include_tasks: stage-09-cron.yml
+- name: 指标仍需真实可用
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: HPA 前确认十节点指标, core_wait_action: metrics, core_wait_id: metrics-before-hpa}
+- name: CPU 与内存 HPA 受控负载实验
+  ansible.builtin.include_tasks: stage-09-hpa.yml

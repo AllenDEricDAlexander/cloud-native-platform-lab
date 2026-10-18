@@ -1,0 +1,12 @@
+---
+- name: '{{ core_wait_name }}'
+  ansible.builtin.command:
+    argv: "{{ [core_python, core_check, core_wait_action, '--context', core_records ~ '/context.json', '--output', core_attempt ~ '/observations/' ~ core_wait_id ~ '.json'] + core_wait_args | default([]) }}"
+  register: core_wait_result
+  changed_when: false
+  until: core_wait_result.rc == 0
+  retries: '{{ core_wait_retries | default(90) }}'
+  delay: '{{ core_wait_delay | default(2) }}'
+- name: 绑定已通过的只读结果
+  ansible.builtin.set_fact:
+    core_observation: '{{ core_wait_result.stdout | from_json }}'

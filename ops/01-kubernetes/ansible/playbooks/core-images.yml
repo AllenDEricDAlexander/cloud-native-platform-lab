@@ -1,0 +1,16 @@
+---
+- name: 在两个 worker 准备本阶段精确镜像，不启动容器
+  hosts: worker01:worker02
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/core.yml]
+  tasks:
+    - name: 为本阶段创建物料目录
+      ansible.builtin.file: {path: /var/cache/cnpl/core-stages, state: directory, mode: '0750'}
+      when: core_mode == 'run' and not hostvars.localhost.core_already_passed
+    - name: 逐个导入两个已核验版本
+      ansible.builtin.include_tasks: ../tasks/core/import-image.yml
+      loop: '{{ hostvars.localhost.core_images | default({}) | dict2items }}'
+      loop_control: {label: '{{ item.key }}'}
+      vars: {core_image: '{{ item.value }}'}
+      when: core_mode == 'run' and not hostvars.localhost.core_already_passed

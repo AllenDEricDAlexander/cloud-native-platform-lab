@@ -1,0 +1,14 @@
+---
+- name: 查询本批是否存在临时集群级授权索引
+  ansible.builtin.stat: {path: '{{ core_records }}/state/cluster-objects.json'}
+  register: core_cluster_index
+- name: 按精确 UID 回收临时授权
+  ansible.builtin.include_tasks: cluster-delete.yml
+  loop: '{{ lookup("file", core_records ~ "/state/cluster-objects.json") | from_json if core_cluster_index.stat.exists else [] }}'
+  loop_control: {loop_var: core_cluster_ref, label: '{{ core_cluster_ref.name }}'}
+- name: 已处理的授权索引归档到此次证据
+  ansible.builtin.copy: {src: '{{ core_records }}/state/cluster-objects.json', dest: '{{ core_attempt }}/observations/cluster-objects-cleaned.json', mode: '0600'}
+  when: core_cluster_index.stat.exists
+- name: 清除已完成的临时授权待办
+  ansible.builtin.file: {path: '{{ core_records }}/state/cluster-objects.json', state: absent}
+  when: core_cluster_index.stat.exists

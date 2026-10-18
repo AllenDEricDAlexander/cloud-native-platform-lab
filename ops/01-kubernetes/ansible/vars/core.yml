@@ -1,0 +1,26 @@
+---
+core_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+core_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+core_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+core_go: '{{ lookup("env", "HOME") }}/.cnpl/toolchains/go1.27.2/go/bin/go'
+core_go_archive: '{{ lookup("env", "HOME") }}/.cnpl/toolchains/go1.27.2/download.tar.gz'
+core_go_sha256: 76812b213b1b2302c978d28fa52fa92d541704b9e7d9d5db8002c50e4018c4c5
+core_crane: /opt/homebrew/bin/crane
+core_check: '{{ core_root }}/ops/01-kubernetes/checks/core-check.py'
+core_mode: validate
+core_resume: false
+core_namespace: 'lab-p{{ core_stage }}'
+core_operator_name: cnpl-mac-operator
+core_k: ['{{ core_kubectl }}', --kubeconfig, '{{ lookup("env", "HOME") }}/.cnpl-secrets/access/lab-primary/mac.conf', --context, lab-primary-lab-ops, --request-timeout=15s]
+core_a: ['{{ core_kubectl }}', --kubeconfig, '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary', --request-timeout=15s]
+core_workers: [worker01.k8s.internal.egon.top, worker02.k8s.internal.egon.top]
+core_previous_records: '{{ core_root }}/ops/01-kubernetes/records/2026-10-18-ansible-replay/runs/03-06-20261018T051927Z-ha-fix-20261018T063407Z'
+core_progress: '{{ core_root }}/ops/01-kubernetes/records/core-07-10/completed'
+core_registry: harbor.k8s.internal.egon.top
+core_registry_ca: '{{ core_root }}/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt'
+core_admin_password_file: '{{ lookup("env", "HOME") }}/.cnpl-secrets/harbor_admin_password'
+core_busybox: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+core_metrics_namespace: cnpl-metrics
+core_metrics_image: harbor.k8s.internal.egon.top/bootstrap/metrics-server@sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f
+core_metrics_source: registry.k8s.io/metrics-server/metrics-server@sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f
+core_api_audience: https://kubernetes.default.svc.cluster.local

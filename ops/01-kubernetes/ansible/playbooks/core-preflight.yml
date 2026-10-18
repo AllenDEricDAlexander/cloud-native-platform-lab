@@ -1,0 +1,180 @@
+---
+- name: 单阶段源码、输入与工具链前检
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/core.yml]
+  tasks:
+    - name: 校验阶段、模式与受控证据目录
+      ansible.builtin.assert:
+        that:
+          - core_stage in ['07','08','09','10']
+          - core_mode in ['validate','run','cleanup']
+          - core_records.startswith(core_root ~ '/ops/01-kubernetes/records/core-07-10/runs/' ~ core_stage ~ '-')
+          - core_records | realpath == core_records
+    - name: 创建记录与公共进度目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ core_records }}', '{{ core_records }}/state', '{{ core_progress }}']
+    - name: 查询原上下文和完成断点
+      ansible.builtin.stat: {path: '{{ core_records }}/{{ item }}'}
+      loop: [context.json, passed.json]
+      register: core_prior_files
+    - name: 绑定是否已有执行上下文
+      ansible.builtin.set_fact:
+        core_has_context: '{{ core_prior_files.results[0].stat.exists }}'
+        core_already_passed: '{{ core_prior_files.results[1].stat.exists }}'
+    - name: cleanup 只能处理已有批次
+      ansible.builtin.assert: {that: core_mode != 'cleanup' or core_has_context | bool}
+    - name: 读取已有上下文
+      ansible.builtin.set_fact:
+        core_context: '{{ lookup("file", core_records ~ "/context.json") | from_json }}'
+      when: core_has_context | bool
+    - name: 产生此次执行的独立身份
+      ansible.builtin.command: {argv: [date, -u, '+%Y%m%dT%H%M%SZ']}
+      register: core_clock
+      changed_when: false
+    - name: 产生执行随机后缀
+      ansible.builtin.command: {argv: [uuidgen]}
+      register: core_nonce
+      changed_when: false
+    - name: 绑定本批和此次 attempt
+      ansible.builtin.set_fact:
+        core_run: '{{ core_context.run if core_has_context else core_clock.stdout ~ "-" ~ (core_nonce.stdout | lower | replace("-", ""))[0:8] }}'
+        core_attempt: '{{ core_records }}/attempts/{{ core_clock.stdout }}-{{ (core_nonce.stdout | lower | replace("-", ""))[0:8] }}'
+    - name: 创建此次独立证据目录
+      ansible.builtin.file: {path: '{{ core_attempt }}/{{ item }}', state: directory, mode: '0700'}
+      loop: [manifests, observations, snapshots, artifacts]
+    - name: 绑定管理端私有材料目录
+      ansible.builtin.set_fact:
+        core_private: '{{ lookup("env", "HOME") }}/.cnpl-secrets/core-stages/{{ core_run }}'
+    - name: 创建私有材料目录，不进入仓库
+      ansible.builtin.file: {path: '{{ core_private }}', state: directory, mode: '0700'}
+    - name: 审计实际源码并复核原始执行记录
+      ansible.builtin.command:
+        argv: ['{{ core_python }}', '{{ core_root }}/ops/01-kubernetes/checks/lab-check.py', audit, --root, '{{ core_root }}', --output, '{{ core_attempt }}/implementation-sha256.json']
+      register: core_audit
+      changed_when: false
+    - name: 绑定实际源码 SHA
+      ansible.builtin.set_fact:
+        core_implementation: '{{ (core_audit.stdout | from_json).source_sha256 }}'
+    - name: 绑定本轮版本锁原字节 SHA
+      ansible.builtin.stat: {path: '{{ core_root }}/ops/versions.lock.yaml', get_checksum: true, checksum_algorithm: sha256}
+      register: core_version_file
+    - name: 源码上下文同时覆盖版本锁
+      ansible.builtin.set_fact:
+        core_implementation: '{{ core_implementation | combine({"ops/versions.lock.yaml":core_version_file.stat.checksum}) }}'
+    - name: 同目录不得混用源码或其他阶段
+      ansible.builtin.assert:
+        that:
+          - core_context.stage == core_stage
+          - core_context.namespace == core_namespace
+          - core_mode == 'cleanup' or core_context.implementation == core_implementation
+      when: core_has_context | bool
+    - name: 已有 07 维护状态先恢复，再做健康前检
+      ansible.builtin.include_tasks: ../tasks/core/node-recover.yml
+      when: core_has_context | bool and core_stage == '07'
+    - name: 十节点、角色、安全策略和系统负载只读前检
+      ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_root }}/ops/01-kubernetes/checks/lab-check.py', preflight]}
+      register: core_health
+      changed_when: false
+    - name: 绑定原集群
+      ansible.builtin.set_fact:
+        core_cluster_uid: '{{ (core_health.stdout | from_json).cluster_uid }}'
+    - name: 原集群不可改变
+      ansible.builtin.assert: {that: core_context.cluster_uid == core_cluster_uid}
+      when: core_has_context | bool
+    - name: 成功断点必须有同一运行、阶段、集群和恢复结果
+      ansible.builtin.assert:
+        that:
+          - saved.passed | bool and saved.cleanup_passed | bool
+          - saved.run == core_run and saved.stage == core_stage
+          - saved.cluster_uid == core_cluster_uid
+          - saved.implementation == core_context.implementation
+      vars: {saved: '{{ lookup("file", core_records ~ "/passed.json") | from_json }}'}
+      when: core_already_passed | bool
+    - name: 核对 03–06 的真实完成回执
+      ansible.builtin.assert:
+        that:
+          - prior.all_26_checkpoints_passed | bool
+          - prior.cluster_uid == core_cluster_uid
+          - prior.owned_resources_remaining == 0
+      vars:
+        prior: '{{ lookup("file", core_previous_records ~ "/acceptance.json") | from_json }}'
+    - name: 本阶段运行前必须完成上一阶段
+      ansible.builtin.assert:
+        that: previous.passed | bool and previous.cleanup_passed | bool and previous.cluster_uid == core_cluster_uid and previous.stage | int == core_stage | int - 1
+      vars:
+        previous: '{{ lookup("file", core_progress ~ "/" ~ ("%02d" | format(core_stage | int - 1)) ~ ".json") | from_json }}'
+      when: core_mode == 'run' and core_stage != '07'
+    - name: 镜像及证书准备所需的既有工具前检
+      ansible.builtin.command: {argv: ['{{ core_crane }}',version]}
+      register: core_registry_tool
+      changed_when: false
+      when: core_stage in ['09','10'] and core_mode != 'cleanup'
+    - name: 沿用已有镜像工具，不隐式升级
+      ansible.builtin.assert: {that: core_registry_tool.stdout == '0.22.1'}
+      when: core_stage in ['09','10'] and core_mode != 'cleanup'
+    - name: 检查管理端证书工具
+      ansible.builtin.command: {argv: [/usr/bin/openssl,version]}
+      changed_when: false
+      when: core_stage in ['09','10'] and core_mode != 'cleanup'
+    - name: 记录当前上下文（新批次，不覆盖历史）
+      ansible.builtin.copy:
+        content: '{{ {"schema_version": 1, "run": core_run, "stage": core_stage, "namespace": core_namespace, "records": core_records, "cluster_uid": core_cluster_uid, "implementation": core_implementation} | to_nice_json }}'
+        dest: '{{ core_records }}/context.json'
+        mode: '0600'
+      when: not core_has_context | bool
+    - name: 查询本阶段命名空间
+      ansible.builtin.command: {argv: '{{ core_a + ["get", "namespace", core_namespace, "--ignore-not-found", "-o", "json"] }}'}
+      register: core_namespace_query
+      changed_when: false
+    - name: 绑定空间是否存在
+      ansible.builtin.set_fact:
+        core_namespace_exists: '{{ core_namespace_query.stdout | length > 0 }}'
+    - name: 已存在的空间必须归属于原运行；正式重试需明确 resume
+      ansible.builtin.assert:
+        that:
+          - (core_namespace_query.stdout | from_json).metadata.labels.get('cnpl.io/core-run', '') == core_run
+          - core_mode != 'run' or core_resume | bool
+      when: core_namespace_exists | bool
+    - name: 已通过阶段必须仍保持本批空间已清理
+      ansible.builtin.assert:
+        that: not core_namespace_exists
+      when: core_already_passed and core_mode == 'run'
+    - name: 核对锁定工具链归档 SHA
+      ansible.builtin.stat: {path: '{{ core_go_archive }}', get_checksum: true, checksum_algorithm: sha256}
+      register: core_go_file
+      when: core_mode != 'cleanup'
+    - name: 拒绝非锁定工具链
+      ansible.builtin.assert: {that: core_go_file.stat.checksum == core_go_sha256}
+      when: core_mode != 'cleanup'
+    - name: 有限应用单元测试
+      ansible.builtin.command: {argv: ['{{ core_go }}', test, ./...], chdir: '{{ core_root }}/ops/01-kubernetes/core-resources/shared'}
+      environment: {CGO_ENABLED: '0', GOTOOLCHAIN: local, GOPROXY: 'off'}
+      changed_when: false
+      when: core_mode != 'cleanup'
+    - name: 编译静态 linux amd64 测试应用
+      ansible.builtin.command:
+        argv: ['{{ core_go }}', build, -trimpath, '-buildvcs=false', -ldflags, '-s -w -buildid=', -o, '{{ core_attempt }}/artifacts/core-lab', .]
+        chdir: '{{ core_root }}/ops/01-kubernetes/core-resources/shared'
+      environment: {CGO_ENABLED: '0', GOOS: linux, GOARCH: amd64, GOTOOLCHAIN: local, GOPROXY: 'off'}
+      changed_when: true
+      when: core_mode != 'cleanup'
+    - name: 用现有打包工具生成两个精确版本
+      ansible.builtin.command:
+        argv: ['{{ core_go }}', run, '{{ core_root }}/ops/01-kubernetes/tools/imagepack.go', --family, core, --source, '{{ core_root }}/ops/01-kubernetes/core-resources/shared', --binary, '{{ core_attempt }}/artifacts/core-lab', --output, '{{ core_attempt }}/artifacts/images.json']
+      environment: {GOTOOLCHAIN: local, GOPROXY: 'off'}
+      changed_when: true
+      when: core_mode != 'cleanup'
+    - name: 绑定不可变镜像引用
+      ansible.builtin.set_fact:
+        core_images: '{{ (lookup("file", core_attempt ~ "/artifacts/images.json") | from_json).images }}'
+      when: core_mode != 'cleanup'
+    - name: 按当前阶段渲染并结构核验全部清单及策略变体
+      ansible.builtin.include_tasks: ../tasks/core/validate-catalog.yml
+      when: core_mode == 'validate'
+    - name: 本阶段源码和输入前检结果
+      ansible.builtin.debug:
+        msg: '01.{{ core_stage }} SOURCE VALIDATION PASS；真实实验仅由本阶段 run/resume 执行'
+      when: core_mode == 'validate'

@@ -1,0 +1,133 @@
+---
+- name: 查询本批外部资源恢复索引
+  ansible.builtin.stat: {path: '{{ core_records }}/state/harbor.json'}
+  register: core_harbor_pending
+- name: 只撤销本次创建的 Harbor 对象
+  when: core_harbor_pending.stat.exists
+  block:
+    - name: 读取公开索引
+      ansible.builtin.set_fact:
+        core_harbor_cleanup: '{{ lookup("file", core_records ~ "/state/harbor.json") | from_json }}'
+        core_cleanup_robots: []
+    - name: 拒绝其他批次或普通项目
+      ansible.builtin.assert:
+        that:
+          - core_harbor_cleanup.run == core_run
+          - core_harbor_cleanup.project_name.startswith('cnpl-p10-' ~ (core_run | lower) ~ '-')
+    - name: 私密管理请求不记录认证响应
+      no_log: true
+      block:
+        - name: 查找精确项目名前缀的机器人，涵盖响应丢失的创建
+          ansible.builtin.uri:
+            url: 'https://{{ core_registry }}/api/v2.0/robots?page_size=100&q={{ ("name=~" ~ core_harbor_cleanup.project_name) | urlencode }}'
+            url_username: admin
+            url_password: '{{ lookup("file", core_admin_password_file) }}'
+            force_basic_auth: true
+            ca_path: '{{ core_registry_ca }}'
+            use_proxy: false
+            status_code: 200
+          register: core_robot_list
+        - name: 恢复列表必须完整
+          ansible.builtin.assert:
+            that: "core_robot_list.x_total_count | default(core_robot_list.json | length) | int <= 100"
+        - name: 只选择精确运行描述与创建意图匹配的账户
+          ansible.builtin.set_fact: {core_cleanup_robots: '{{ core_cleanup_robots + [{"id":item.id,"name":item.name}] }}'}
+          loop: '{{ core_robot_list.json }}'
+          when: item.description | default('') == 'cnpl-core-' ~ core_run and (core_harbor_cleanup.project_name ~ '+') in item.name and item.name.split('+')[-1] in core_harbor_cleanup.robot_intents
+        - name: 撤销本次临时账户
+          ansible.builtin.uri:
+            url: 'https://{{ core_registry }}/api/v2.0/robots/{{ item.id }}'
+            method: DELETE
+            url_username: admin
+            url_password: '{{ lookup("file", core_admin_password_file) }}'
+            force_basic_auth: true
+            ca_path: '{{ core_registry_ca }}'
+            use_proxy: false
+            status_code: [200,404]
+          loop: '{{ core_cleanup_robots }}'
+        - name: 项目若混入其他账户则保留，不能顺便删除
+          ansible.builtin.assert:
+            that: "core_cleanup_robots | length == core_robot_list.json | length"
+        - name: 查询当前项目身份
+          ansible.builtin.uri:
+            url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_cleanup.project_name }}'
+            url_username: admin
+            url_password: '{{ lookup("file", core_admin_password_file) }}'
+            force_basic_auth: true
+            ca_path: '{{ core_registry_ca }}'
+            use_proxy: false
+            status_code: [200,404]
+          register: core_harbor_project_now
+        - name: 按原项目身份回收两个明确的测试仓库
+          when: core_harbor_project_now.status == 200
+          block:
+            - name: 同名重建或非私有项目不接管
+              ansible.builtin.assert:
+                that:
+                  - core_harbor_cleanup.project_id == none or core_harbor_project_now.json.project_id == core_harbor_cleanup.project_id
+                  - core_harbor_project_now.json.name == core_harbor_cleanup.project_name
+                  - core_harbor_project_now.json.metadata.public == 'false'
+            - name: 读取本项目仓库列表
+              ansible.builtin.uri:
+                url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_cleanup.project_name }}/repositories?page_size=100'
+                url_username: admin
+                url_password: '{{ lookup("file", core_admin_password_file) }}'
+                force_basic_auth: true
+                ca_path: '{{ core_registry_ca }}'
+                use_proxy: false
+                status_code: 200
+              register: core_harbor_repositories
+            - name: 其他新增仓库必须保留
+              ansible.builtin.assert:
+                that: "item.name in [core_harbor_cleanup.project_name ~ '/busybox-v1',core_harbor_cleanup.project_name ~ '/busybox-v2']"
+              loop: '{{ core_harbor_repositories.json }}'
+            - name: 只删除本次测试仓库引用，不运行全局垃圾回收
+              ansible.builtin.uri:
+                url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_cleanup.project_name }}/repositories/{{ item }}'
+                method: DELETE
+                url_username: admin
+                url_password: '{{ lookup("file", core_admin_password_file) }}'
+                force_basic_auth: true
+                ca_path: '{{ core_registry_ca }}'
+                use_proxy: false
+                status_code: [200,202,404]
+              loop: [busybox-v1,busybox-v2]
+            - name: 等仓库实际清空
+              ansible.builtin.uri:
+                url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_cleanup.project_name }}/repositories?page_size=100'
+                url_username: admin
+                url_password: '{{ lookup("file", core_admin_password_file) }}'
+                force_basic_auth: true
+                ca_path: '{{ core_registry_ca }}'
+                use_proxy: false
+                status_code: 200
+              register: core_harbor_empty
+              until: core_harbor_empty.json | length == 0
+              retries: 30
+              delay: 1
+            - name: 最后删除已经核对为空的原项目
+              ansible.builtin.uri:
+                url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_project_now.json.project_id }}'
+                method: DELETE
+                url_username: admin
+                url_password: '{{ lookup("file", core_admin_password_file) }}'
+                force_basic_auth: true
+                ca_path: '{{ core_registry_ca }}'
+                use_proxy: false
+                status_code: 200
+        - name: 项目必须实际不可再读取
+          ansible.builtin.uri:
+            url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_cleanup.project_name }}'
+            url_username: admin
+            url_password: '{{ lookup("file", core_admin_password_file) }}'
+            force_basic_auth: true
+            ca_path: '{{ core_registry_ca }}'
+            use_proxy: false
+            status_code: 404
+    - name: 保存仅含公开身份的清理结果
+      ansible.builtin.copy:
+        content: '{{ {"run":core_run,"project":core_harbor_cleanup.project_name,"revoked_accounts":core_cleanup_robots,"project_absent":true} | to_nice_json }}'
+        dest: '{{ core_attempt }}/observations/harbor-cleaned.json'
+        mode: '0600'
+    - name: 移除已完成的外部资源待办
+      ansible.builtin.file: {path: '{{ core_records }}/state/harbor.json', state: absent}

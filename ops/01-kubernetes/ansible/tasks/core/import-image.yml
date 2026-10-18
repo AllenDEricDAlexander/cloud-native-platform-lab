@@ -1,0 +1,30 @@
+---
+- name: 精确引用必须属于本测试应用
+  ansible.builtin.assert:
+    that:
+      - core_image.version in ['v1','v2']
+      - core_image.image == 'cnpl.local/phase01/core-lab@' ~ core_image.manifest_digest
+      - core_image.manifest_digest is match('^sha256:[a-f0-9]{64}$')
+- name: 复制当前版本 OCI 归档
+  ansible.builtin.copy: {src: '{{ core_image.archive }}', dest: '/var/cache/cnpl/core-stages/{{ core_image.archive_sha256 }}.tar', mode: '0640'}
+- name: 原生核对远端 SHA
+  ansible.builtin.stat: {path: '/var/cache/cnpl/core-stages/{{ core_image.archive_sha256 }}.tar', get_checksum: true, checksum_algorithm: sha256}
+  register: core_image_remote
+- name: 拒绝损坏物料
+  ansible.builtin.assert:
+    that: "core_image_remote.stat.checksum == core_image.archive_sha256"
+- name: 查询完整摘要引用
+  ansible.builtin.command: {argv: [/usr/bin/ctr, -n, k8s.io, images, list, 'name=={{ core_image.image }}']}
+  register: core_image_existing
+  changed_when: false
+- name: 导入指定平台
+  ansible.builtin.command: {argv: [/usr/bin/ctr, -n, k8s.io, images, import, --local, --platform, linux/amd64, '/var/cache/cnpl/core-stages/{{ core_image.archive_sha256 }}.tar']}
+  when: core_image.manifest_digest not in core_image_existing.stdout
+  changed_when: true
+- name: 建立完整 Digest 引用
+  ansible.builtin.command: {argv: [/usr/bin/ctr, -n, k8s.io, images, tag, '{{ core_image.import_tag }}', '{{ core_image.image }}']}
+  when: core_image.manifest_digest not in core_image_existing.stdout
+  changed_when: true
+- name: CRI 必须能够按 Digest 查到镜像
+  ansible.builtin.command: {argv: [/usr/bin/crictl, inspecti, '{{ core_image.image }}']}
+  changed_when: false

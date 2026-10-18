@@ -1,0 +1,17 @@
+---
+- name: 仅为验证空间应用实际预算/默认限制
+  ansible.builtin.command:
+    argv: '{{ core_a + ["apply","-f","-"] }}'
+    stdin: '{{ schema_object | to_json }}'
+  loop: '{{ lookup("file",core_schema_manifest.path) | from_yaml_all | list }}'
+  loop_control: {loop_var: schema_object, label: '{{ schema_object.kind }}/{{ schema_object.metadata.name }}'}
+  when: schema_object.kind in ['ResourceQuota','LimitRange']
+  changed_when: true
+- name: 从控制器源码的 PodTemplate 直接做 Pod server dry-run
+  ansible.builtin.command:
+    argv: '{{ core_a + ["create","--dry-run=server","-f","-"] }}'
+    stdin: '{{ {"apiVersion":"v1","kind":"Pod","metadata":{"generateName":"schema-pod-","namespace":schema_object.metadata.namespace,"labels":{"cnpl.io/core-run":core_run}},"spec":(schema_object.spec.jobTemplate.spec.template.spec if schema_object.kind == "CronJob" else schema_object.spec.template.spec)} | to_json }}'
+  loop: '{{ lookup("file",core_schema_manifest.path) | from_yaml_all | list }}'
+  loop_control: {loop_var: schema_object, label: '{{ schema_object.kind }}/{{ schema_object.metadata.name }}'}
+  when: schema_object.kind in ['Deployment','ReplicaSet','StatefulSet','DaemonSet','Job','CronJob']
+  changed_when: false

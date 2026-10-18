@@ -1,0 +1,44 @@
+---
+- name: 先恢复本次节点试验标签与污点
+  ansible.builtin.include_tasks: node-recover.yml
+  when: core_stage == '07'
+- name: 检查空间 UID、全部对象归属与 finalizer
+  ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', guard, --context, '{{ core_records }}/context.json']}
+  register: core_cleanup_guard
+  changed_when: false
+- name: 绑定清理清单
+  ansible.builtin.set_fact: {core_cleanup: '{{ core_cleanup_guard.stdout | from_json }}'}
+- name: 只清理已经核对的本批空间
+  when: not core_cleanup.get('namespace_absent', false)
+  block:
+    - name: 删除前保全现场
+      ansible.builtin.include_tasks: snapshot.yml
+    - name: Finalizer 模拟外部资源先按本批归属回收
+      ansible.builtin.command: {argv: '{{ core_a + ["-n", core_namespace, "delete", "configmap", "p08-external", "--ignore-not-found", "--wait=true"] }}'}
+      when: core_stage == '08'
+      changed_when: true
+    - name: 删除本批 Namespace，先禁止控制器再创建内容
+      ansible.builtin.command: {argv: '{{ core_a + ["delete", "namespace", core_namespace, "--wait=false"] }}'}
+      changed_when: true
+    - name: 仅解除本实验 finalizer，保留 Kubernetes 自己的标记
+      ansible.builtin.include_tasks: release-finalizer.yml
+      loop: '{{ core_cleanup.objects | selectattr("finalizers", "contains", "cnpl.io/core-cleanup") | list }}'
+      loop_control: {loop_var: core_held, label: '{{ core_held.kind }}/{{ core_held.name }}'}
+    - name: 等待整个空间实际消失
+      ansible.builtin.include_tasks: wait.yml
+      vars:
+        core_wait_name: Namespace 和本批资源完全清理
+        core_wait_action: deleted
+        core_wait_id: namespace-deleted
+        core_wait_args: [--kind, namespace, --name, '{{ core_namespace }}']
+        core_wait_retries: 120
+    - name: 更新当前空间存在状态
+      ansible.builtin.set_fact: {core_namespace_exists: false}
+- name: 回收仅属于本次的临时集群授权
+  ansible.builtin.include_tasks: cluster-cleanup.yml
+- name: 回收本次 Harbor 凭据与实验项目
+  ansible.builtin.include_tasks: harbor-cleanup.yml
+  when: core_stage == '10'
+- name: 只清理本次私有镜像别名
+  ansible.builtin.include_tasks: private-image-cleanup.yml
+  when: core_stage == '10'

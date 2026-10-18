@@ -1,0 +1,71 @@
+---
+- name: 01.09.02 创建三种真正按分钟调度的 CronJob
+  ansible.builtin.include_tasks: resource.yml
+  loop: [Allow,Forbid,Replace]
+  loop_control: {loop_var: cron_policy}
+  vars: {core_source: core-resources/jobs/manifests/cron.yaml.j2, core_resource_id: 'cron-{{ cron_policy | lower }}'}
+- name: 等控制器第一次真实调度，不用手工 Job 冒充并发策略
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 三种 CronJob 第一次真实调度, core_wait_action: cron, core_wait_id: cron-initial, core_wait_retries: 60, core_wait_delay: 2}
+- name: 保留初始 UID 对照
+  ansible.builtin.copy:
+    content: '{{ core_observation | to_nice_json }}'
+    dest: '{{ core_attempt }}/observations/cron-first.json'
+    mode: '0600'
+- name: 等下一分钟同时满足重叠、禁止重叠和替换
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: CronJob 三种并发策略实际对照, core_wait_action: cron, core_wait_id: cron-overlap, core_wait_args: [--input, '{{ core_attempt }}/observations/cron-first.json'], core_wait_retries: 60, core_wait_delay: 2}
+- name: 暂停三个调度器，不停止已开始的 Job
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"patch","cronjob",item,"--type=merge","-p",{"spec":{"suspend":true}} | to_json] }}'}
+  loop: [p09-allow,p09-forbid,p09-replace]
+  changed_when: true
+- name: 绑定暂停前最后一次 Forbid 调度
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: cronjob, core_name: p09-forbid}
+- name: 保存暂停基线
+  ansible.builtin.set_fact: {cron_last_before_suspend: '{{ core_object.status.lastScheduleTime }}'}
+- name: 跨过至少一个真实分钟刻度
+  ansible.builtin.pause: {seconds: 70}
+- name: 等待稳定的分钟中段再恢复，明确超过 20 秒错过期限
+  ansible.builtin.command: {argv: [date,-u,'+%S']}
+  register: cron_second
+  until: cron_second.stdout | int >= 35 and cron_second.stdout | int <= 40
+  retries: 70
+  delay: 1
+  changed_when: false
+- name: 暂停后确认调度时间确实没有前进
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: cronjob, core_name: p09-forbid}
+- name: 暂停没有继续产生调度
+  ansible.builtin.assert:
+    that: "core_object.spec.suspend and core_object.status.lastScheduleTime == cron_last_before_suspend"
+- name: 记录恢复 UTC 时间
+  ansible.builtin.command: {argv: [date,-u,'+%Y-%m-%dT%H:%M:%SZ']}
+  register: cron_resumed_at
+  changed_when: false
+- name: 使用 20 秒期限恢复 Forbid
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"patch","cronjob","p09-forbid","--type=merge","-p",{"spec":{"suspend":false,"startingDeadlineSeconds":20}} | to_json] }}'}
+  changed_when: true
+- name: 观察恢复后的即时窗口
+  ansible.builtin.pause: {seconds: 5}
+- name: 读取恢复状态
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: cronjob, core_name: p09-forbid}
+- name: 超过期限的那次没有被补跑
+  ansible.builtin.assert:
+    that: "core_object.status.lastScheduleTime == cron_last_before_suspend"
+- name: 下一个正常分钟必须继续真实调度
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","cronjob","p09-forbid","-o","json"] }}'}
+  register: cron_resumed
+  until: cron_resumed.rc == 0 and (cron_resumed.stdout | from_json).status.lastScheduleTime > cron_resumed_at.stdout
+  retries: 60
+  delay: 2
+  changed_when: false
+- name: 保存真实时区、暂停与恢复结果
+  ansible.builtin.copy: {content: '{{ cron_resumed.stdout }}', dest: '{{ core_attempt }}/observations/cron-resumed.json', mode: '0600'}
+- name: 删除前保存实际 Job 与计划时间注解
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 完成调度对照后回收三个调度器及其 Job
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","cronjob",item,"--cascade=foreground","--wait=true","--timeout=120s"] }}'}
+  loop: [p09-allow,p09-forbid,p09-replace]
+  changed_when: true

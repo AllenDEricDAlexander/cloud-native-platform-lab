@@ -1,0 +1,27 @@
+#!/bin/bash
+# 09 的有限服务证书配置回退；commit/restore 在同一锁内决定，避免 timer 与成功提交竞争。
+set -euo pipefail
+[[ $(id -u) == 0 && $(hostnamectl --static) == '{{ node_fqdn }}' ]]
+readonly stage=/root/cnpl-core09-{{ core_run }}
+readonly config=/var/lib/kubelet/config.yaml
+exec 9>"$stage/restore.lock"
+flock -x 9
+[[ $(sha256sum "$stage/original.yaml" | cut -d' ' -f1) == '{{ core_tls_original.stat.checksum }}' ]]
+original='{{ core_tls_original.stat.checksum }}'
+temporary='{{ core_tls_temporary.stat.checksum }}'
+current=$(sha256sum "$config" | cut -d' ' -f1)
+[[ "$current" == "$original" || "$current" == "$temporary" ]] || { echo '第三方配置变化，拒绝覆盖' >&2; exit 1; }
+if [[ ${1:-restore} == commit ]]; then
+  [[ "$current" == "$temporary" ]]
+  systemctl is-active --quiet kubelet
+  touch "$stage/committed"
+  echo 'KUBELET TLS CONFIG COMMITTED'
+elif [[ ! -f "$stage/committed" ]]; then
+  cp --preserve=all "$stage/original.yaml" "${config}.cnpl-core09"
+  mv -f "${config}.cnpl-core09" "$config"
+  restorecon "$config"
+  systemctl restart kubelet
+  systemctl is-active --quiet kubelet
+  [[ $(sha256sum "$config" | cut -d' ' -f1) == "$original" ]]
+  echo 'KUBELET ORIGINAL CONFIG RESTORED'
+fi

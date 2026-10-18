@@ -1,0 +1,61 @@
+---
+- name: 核对已有镜像导出工具版本
+  ansible.builtin.command: {argv: ['{{ core_crane }}', version]}
+  register: core_crane_version
+  changed_when: false
+- name: 使用已有锁定版本，不自动安装或升级工具
+  ansible.builtin.assert:
+    that: "core_crane_version.stdout == '0.22.1'"
+- name: 用本批私有认证准备镜像
+  block:
+    - name: 仅使用私有认证目录
+      ansible.builtin.include_tasks: registry-login.yml
+    - name: 先读取目标 tag，禁止覆盖不同摘要的既有物料
+      ansible.builtin.command: {argv: ['{{ core_crane }}', digest, '{{ core_registry }}/bootstrap/metrics-server:v0.9.0']}
+      environment: {DOCKER_CONFIG: '{{ core_private }}/docker-admin', NO_PROXY: '.internal.egon.top,192.168.9.0/24', no_proxy: '.internal.egon.top,192.168.9.0/24'}
+      register: core_metrics_prior_tag
+      changed_when: false
+      failed_when: false
+    - name: 目标 tag 只能是原摘要或明确不存在
+      ansible.builtin.assert:
+        that: (core_metrics_prior_tag.rc == 0 and core_metrics_prior_tag.stdout == core_metrics_image.split('@')[1]) or (core_metrics_prior_tag.rc != 0 and ('manifest_unknown' in core_metrics_prior_tag.stderr | lower or '404' in core_metrics_prior_tag.stderr))
+    - name: 按官方精确 amd64 摘要复制到既有 bootstrap 项目
+      ansible.builtin.command: {argv: ['{{ core_crane }}', copy, --platform, linux/amd64, '{{ core_metrics_source }}', '{{ core_registry }}/bootstrap/metrics-server:v0.9.0']}
+      environment: {DOCKER_CONFIG: '{{ core_private }}/docker-admin', NO_PROXY: '.internal.egon.top,192.168.9.0/24', no_proxy: '.internal.egon.top,192.168.9.0/24'}
+      changed_when: true
+      when: core_metrics_prior_tag.rc != 0
+    - name: 核对 Harbor 实际摘要
+      ansible.builtin.command: {argv: ['{{ core_crane }}', digest, '{{ core_registry }}/bootstrap/metrics-server:v0.9.0']}
+      environment: {DOCKER_CONFIG: '{{ core_private }}/docker-admin', NO_PROXY: '.internal.egon.top,192.168.9.0/24', no_proxy: '.internal.egon.top,192.168.9.0/24'}
+      register: core_metrics_digest
+      changed_when: false
+    - name: 镜像复制不允许摘要漂移
+      ansible.builtin.assert:
+        that: "core_metrics_digest.stdout == core_metrics_image.split('@')[1]"
+  always:
+    - name: 删除本次临时管理登录配置，保留原管理员凭据文件
+      ansible.builtin.file: {path: '{{ core_private }}/docker-admin', state: absent}
+- name: 两个 worker 从 Harbor 预拉精确镜像
+  ansible.builtin.command: {argv: [/usr/bin/crictl, pull, '{{ core_metrics_image }}']}
+  loop: [worker01,worker02]
+  delegate_to: '{{ item }}'
+  changed_when: true
+- name: 生成指标服务专用 TLS 材料
+  ansible.builtin.include_tasks: tls-material.yml
+  vars: {core_cert_name: metrics-server, core_cert_dns: ['metrics-server.{{ core_metrics_namespace }}.svc','metrics-server.{{ core_metrics_namespace }}.svc.cluster.local']}
+- name: 绑定公开的集群 CA 与服务端 CA
+  ansible.builtin.set_fact:
+    core_kubelet_ca_pem: '{{ (lookup("file", lookup("env","HOME") ~ "/.cnpl-secrets/kubeconfig-lab-primary") | from_yaml).clusters[0].cluster["certificate-authority-data"] | b64decode }}'
+    core_metrics_ca_pem: '{{ lookup("file", core_private ~ "/metrics-server/ca.crt", rstrip=false) }}'
+- name: 创建隔离的指标服务空间、最小权限和公开 CA
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/metrics-base.yaml.j2, core_resource_id: metrics-base, core_resource_admin: true, core_addon: true}
+- name: 仅在私有目录渲染指标服务 Secret
+  ansible.builtin.include_tasks: secret.yml
+  vars: {core_secret_source: core-resources/autoscaling/manifests/metrics-secret.yaml.j2, core_secret_name: metrics-server-tls, core_secret_namespace: '{{ core_metrics_namespace }}', core_addon: true}
+- name: 创建有信任链的指标服务和 APIService
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/metrics-server.yaml.j2, core_resource_id: metrics-server, core_resource_admin: true, core_addon: true}
+- name: 两个指标服务副本必须 Ready
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_metrics_namespace,"rollout","status","deployment/metrics-server","--timeout=180s"] }}'}
+  changed_when: false

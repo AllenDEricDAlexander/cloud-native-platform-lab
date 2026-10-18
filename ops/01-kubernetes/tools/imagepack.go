@@ -86,12 +86,12 @@ func pack(binary []byte, source, repo, entry, version string) ([]byte, map[strin
 }
 
 func main() {
-	family := flag.String("family", "", "probes|controllers")
+	family := flag.String("family", "", "probes|controllers|core")
 	sourceDir := flag.String("source", "", "source directory")
 	binaryPath := flag.String("binary", "", "linux/amd64 binary")
 	output := flag.String("output", "", "metadata JSON")
 	flag.Parse()
-	if *family != "probes" && *family != "controllers" {
+	if *family != "probes" && *family != "controllers" && *family != "core" {
 		panic("invalid image family")
 	}
 	var inputs []byte
@@ -109,6 +109,11 @@ func main() {
 		repo = "cnpl.local/phase01/controller-lab"
 		entry = "controller-app"
 		versions = []string{"v1", "v2", "bad"}
+	}
+	if *family == "core" {
+		repo = "cnpl.local/phase01/core-lab"
+		entry = "core-lab"
+		versions = []string{"v1", "v2"}
 	}
 	images := map[string]any{}
 	result := map[string]any{"schema_version": 1, "source_sha256": source, "go_version": "go1.27.2", "go_archive_sha256": "76812b213b1b2302c978d28fa52fa92d541704b9e7d9d5db8002c50e4018c4c5", "binary_sha256": hash(binary)}
@@ -137,7 +142,7 @@ func main() {
 			images[v] = meta
 		}
 	}
-	if *family == "controllers" {
+	if *family == "controllers" || *family == "core" {
 		result["images"] = images
 	}
 	b, e := json.MarshalIndent(result, "", "  ")

@@ -1,0 +1,37 @@
+---
+- name: 为 {{ hpa_resource }} 配置受控 HPA
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/hpa.yaml.j2, core_resource_id: 'hpa-{{ hpa_resource }}'}
+- name: 先确认当前指标有效且回到一个副本
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ hpa_resource }} 空闲基线', core_wait_action: hpa, core_wait_id: '{{ hpa_resource }}-baseline', core_wait_args: [--name,p09-load,--condition,down], core_wait_retries: 120, core_wait_delay: 3}
+- name: 只更新负载 ConfigMap，不手动修改 Deployment 副本数
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load-config.yaml.j2, core_resource_id: 'load-{{ hpa_resource }}', load_mode: '{{ hpa_resource }}'}
+- name: 等 HPA 指标驱动真实扩容到 2–4 个就绪副本
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ hpa_resource }} 真实扩容', core_wait_action: hpa, core_wait_id: '{{ hpa_resource }}-scaleup', core_wait_args: [--name,p09-load,--condition,up], core_wait_retries: 150, core_wait_delay: 3}
+- name: 核对应用实际运行当前负载模式
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ hpa_resource }} 负载实际生效', core_wait_action: app-mode, core_wait_id: '{{ hpa_resource }}-mode', core_wait_args: [--name,p09-load,--mode,'{{ hpa_resource }}']}
+- name: 内存保留对照：停止新的工作而保留已分配内存
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load-config.yaml.j2, core_resource_id: memory-hold, load_mode: hold}
+  when: hpa_resource == 'memory'
+- name: 必须实际进入持有模式后才观察指标
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 内存持有模式已被应用读取, core_wait_action: app-mode, core_wait_id: memory-hold-mode, core_wait_args: [--name,p09-load,--mode,hold]}
+  when: hpa_resource == 'memory'
+- name: 内存保留时不应误认为负载停止就会立即缩容
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 内存保留仍支撑多个副本, core_wait_action: hpa, core_wait_id: memory-held, core_wait_args: [--name,p09-load,--condition,up], core_wait_retries: 90, core_wait_delay: 3}
+  when: hpa_resource == 'memory'
+- name: 明确释放 CPU 或内存负载
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load-config.yaml.j2, core_resource_id: '{{ hpa_resource }}-load-off', load_mode: 'off'}
+- name: 指标刷新及 30 秒稳定窗口后真实缩容到一个副本
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ hpa_resource }} 真实缩容', core_wait_action: hpa, core_wait_id: '{{ hpa_resource }}-scaledown', core_wait_args: [--name,p09-load,--condition,down], core_wait_retries: 150, core_wait_delay: 3}
+- name: 应用也应实际停止并释放负载
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: '{{ hpa_resource }} 负载释放完成', core_wait_action: app-mode, core_wait_id: '{{ hpa_resource }}-off-mode', core_wait_args: [--name,p09-load,--mode,'off']}

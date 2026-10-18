@@ -1,0 +1,46 @@
+---
+- name: 绑定真实 reader Pod UID
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: pod, core_name: p10-reader}
+- name: 保存 Bound Token 关联 UID
+  ansible.builtin.set_fact: {core_bound_pod_uid: '{{ core_object.metadata.uid }}'}
+- name: TokenRequest 和 TokenReview 仅在私有目录处理
+  no_log: true
+  block:
+    - name: 为当前 Pod 创建十分钟且限定 audience 的临时 Token
+      ansible.builtin.command:
+        argv: '{{ core_a + ["-n",core_namespace,"create","token","p10-reader","--bound-object-kind=Pod","--bound-object-name=p10-reader","--bound-object-uid=" ~ core_bound_pod_uid,"--audience=core-lab-p10","--duration=10m"] }}'
+      register: core_token_created
+      changed_when: true
+    - name: 绑定私有 Token 输入
+      ansible.builtin.set_fact: {core_bound_token: '{{ core_token_created.stdout }}'}
+    - name: 从源码生成私有认证请求
+      ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/core-resources/rbac/manifests/token-review.yaml.j2', dest: '{{ core_private }}/token-review.yaml', mode: '0600'}
+    - name: Pod 仍存在时 TokenReview 必须通过
+      ansible.builtin.command: {argv: '{{ core_a + ["create","-f",core_private ~ "/token-review.yaml","-o","json"] }}'}
+      register: core_token_before
+      changed_when: false
+    - name: 必须是本次 SA 与所需 audience
+      ansible.builtin.assert:
+        that:
+          - (core_token_before.stdout | from_json).status.authenticated
+          - (core_token_before.stdout | from_json).status.user.username == 'system:serviceaccount:' ~ core_namespace ~ ':p10-reader'
+          - (core_token_before.stdout | from_json).status.audiences == ['core-lab-p10']
+- name: 删除绑定的原 Pod
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod","p10-reader","--wait=true"] }}'}
+  changed_when: true
+- name: Pod 消失后相同 Bound Token 必须失效
+  ansible.builtin.command: {argv: '{{ core_a + ["create","-f",core_private ~ "/token-review.yaml","-o","json"] }}'}
+  register: core_token_after
+  until: core_token_after.rc == 0 and not (core_token_after.stdout | from_json).status.get('authenticated',false)
+  retries: 90
+  delay: 1
+  changed_when: false
+  no_log: true
+- name: 保存公开的认证生命周期结果，不含 JWT
+  ansible.builtin.copy:
+    content: '{{ {"pod_uid":core_bound_pod_uid,"before_authenticated":true,"after_authenticated":false,"audience":"core-lab-p10","requested_lifetime_seconds":600} | to_nice_json }}'
+    dest: '{{ core_attempt }}/observations/bound-token-lifecycle.json'
+    mode: '0600'
+- name: 删除本次私有 TokenReview 输入
+  ansible.builtin.file: {path: '{{ core_private }}/token-review.yaml', state: absent}

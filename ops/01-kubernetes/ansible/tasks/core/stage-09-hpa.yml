@@ -1,0 +1,23 @@
+---
+- name: 01.09.04 创建负载开关
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load-config.yaml.j2, core_resource_id: load-off}
+- name: 创建有明确 requests/limits 的单副本应用
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load.yaml.j2, core_resource_id: load-deployment}
+- name: CPU 与内存分别完成独立的真实扩缩容
+  ansible.builtin.include_tasks: stage-09-hpa-one.yml
+  loop: [cpu,memory]
+  loop_control: {loop_var: hpa_resource}
+- name: 明确 CPU request=0 的不可计算反例
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load-config.yaml.j2, core_resource_id: zero-request-mode, load_name: p09-zero-request}
+- name: 只为独立反例应用设置零请求，仍有 500m 上限
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/load.yaml.j2, core_resource_id: zero-request-app, load_name: p09-zero-request, load_cpu_request: '0'}
+- name: 建立反例 HPA
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: core-resources/autoscaling/manifests/hpa.yaml.j2, core_resource_id: zero-request-hpa, load_name: p09-zero-request}
+- name: 不把 unknown 当正常通过，必须是此反例预期的指标失败
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: CPU 零请求反例, core_wait_action: hpa, core_wait_id: zero-request-observed, core_wait_args: [--name,p09-zero-request,--condition,missing], core_wait_retries: 90, core_wait_delay: 2}

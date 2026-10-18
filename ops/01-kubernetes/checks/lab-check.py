@@ -170,7 +170,7 @@ def snapshot(reader,topic,case,output):
 
 def audit(root, output):
     root=Path(root);base=root/'ops/01-kubernetes';paths=[]
-    for relative in ['ansible','checks','tools','scripts','core-resources','operations']:
+    for relative in ['ansible','checks','tools','scripts','core-resources','operations','examples']:
         paths += [p for p in (base/relative).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix not in ['.pyc']]
     sums={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
     legacy=base/'records/2026-10-18-ansible-replay/legacy/original-records-sha256.json'

@@ -1,0 +1,32 @@
+---
+- name: 证书材料必须使用本批私有目录与明确 DNS
+  ansible.builtin.assert:
+    that: core_cert_name is match('^[a-z0-9-]+$') and core_cert_dns | length > 0
+- name: 创建本用途私有证书目录
+  ansible.builtin.file: {path: '{{ core_private }}/{{ core_cert_name }}', state: directory, mode: '0700'}
+- name: 渲染证书用途与 SAN 源码
+  ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/ansible/templates/core-tls.cnf.j2', dest: '{{ core_private }}/{{ core_cert_name }}/openssl.cnf', mode: '0600'}
+- name: 生成本用途独立 CA，私钥不进入集群或 Git
+  ansible.builtin.command:
+    argv: [/usr/bin/openssl, req, -x509, -sha256, -newkey, 'rsa:2048', -nodes, -days, '30', -config, '{{ core_private }}/{{ core_cert_name }}/openssl.cnf', -keyout, '{{ core_private }}/{{ core_cert_name }}/ca.key', -out, '{{ core_private }}/{{ core_cert_name }}/ca.crt']
+    creates: '{{ core_private }}/{{ core_cert_name }}/ca.crt'
+  no_log: true
+- name: 为服务生成独立密钥和 CSR
+  ansible.builtin.command:
+    argv: [/usr/bin/openssl, req, -new, -sha256, -newkey, 'rsa:2048', -nodes, -config, '{{ core_private }}/{{ core_cert_name }}/openssl.cnf', -subj, '/CN={{ core_cert_dns[0] }}', -keyout, '{{ core_private }}/{{ core_cert_name }}/tls.key', -out, '{{ core_private }}/{{ core_cert_name }}/tls.csr']
+    creates: '{{ core_private }}/{{ core_cert_name }}/tls.csr'
+  no_log: true
+- name: 签发有 serverAuth 用途和明确 SAN 的服务证书
+  ansible.builtin.command:
+    argv: [/usr/bin/openssl, x509, -req, -sha256, -in, '{{ core_private }}/{{ core_cert_name }}/tls.csr', -CA, '{{ core_private }}/{{ core_cert_name }}/ca.crt', -CAkey, '{{ core_private }}/{{ core_cert_name }}/ca.key', -CAcreateserial, -days, '7', -extfile, '{{ core_private }}/{{ core_cert_name }}/openssl.cnf', -extensions, server_ext, -out, '{{ core_private }}/{{ core_cert_name }}/tls.crt']
+    creates: '{{ core_private }}/{{ core_cert_name }}/tls.crt'
+  no_log: true
+- name: 校验证书链和服务端用途
+  ansible.builtin.command: {argv: [/usr/bin/openssl, verify, -purpose, sslserver, -CAfile, '{{ core_private }}/{{ core_cert_name }}/ca.crt', '{{ core_private }}/{{ core_cert_name }}/tls.crt']}
+  changed_when: false
+- name: 已存在证书至少还需一天有效期
+  ansible.builtin.command: {argv: [/usr/bin/openssl, x509, -checkend, '86400', -noout, -in, '{{ core_private }}/{{ core_cert_name }}/tls.crt']}
+  changed_when: false
+- name: 保持私钥文件权限
+  ansible.builtin.file: {path: '{{ core_private }}/{{ core_cert_name }}/{{ item }}', mode: '0600'}
+  loop: [ca.key, tls.key]

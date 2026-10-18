@@ -1,0 +1,20 @@
+#!/bin/bash
+# 07 的独立回退只清除本次 worker02 NoSchedule；UID、标签和 taint 值均原子核对。
+set -euo pipefail
+umask 077
+[[ $(id -u) == 0 && $(hostnamectl --static) == cp01.k8s.internal.egon.top ]]
+stage=/root/cnpl-core07-{{ core_run }}
+exec 9>"$stage/restore.lock"
+flock -x 9
+kubectl --kubeconfig /etc/kubernetes/admin.conf get node worker02.k8s.internal.egon.top -o json > "$stage/node.json"
+/usr/bin/python3 - "$stage/node.json" > "$stage/patch.json" <<'PY'
+import json,sys
+n=json.load(open(sys.argv[1]));assert n['metadata']['uid']=='{{ core_node_bindings[1].uid }}','Node UID changed'
+taints=n['spec'].get('taints',[]);own=[t for t in taints if t['key']=='cnpl.io/core07']
+if not own:raise SystemExit(0)
+assert n['metadata'].get('labels',{}).get('cnpl.io/core07')=='{{ core_run }}' and all(t.get('value')=='{{ core_run }}' for t in own),'foreign maintenance'
+print(json.dumps([{'op':'test','path':'/metadata/uid','value':n['metadata']['uid']},{'op':'test','path':'/spec/taints','value':taints},{'op':'replace','path':'/spec/taints','value':[t for t in taints if t['key']!='cnpl.io/core07']}]))
+PY
+if [[ -s "$stage/patch.json" ]]; then
+  kubectl --kubeconfig /etc/kubernetes/admin.conf patch node worker02.k8s.internal.egon.top --type=json --patch-file "$stage/patch.json"
+fi

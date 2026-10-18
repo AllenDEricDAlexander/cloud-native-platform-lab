@@ -1,0 +1,36 @@
+---
+- name: 创建账号前先记录精确的恢复意图
+  ansible.builtin.set_fact:
+    core_harbor_state: '{{ core_harbor_state | combine({"robot_intents":core_harbor_state.robot_intents + ["pull-" ~ robot_version]}) }}'
+- name: 保存账号创建意图
+  ansible.builtin.copy: {content: '{{ core_harbor_state | to_nice_json }}', dest: '{{ core_records }}/state/harbor.json', mode: '0600'}
+- name: 创建只对本项目有 pull 权限的一天有效机器人
+  ansible.builtin.uri:
+    url: 'https://{{ core_registry }}/api/v2.0/robots'
+    method: POST
+    url_username: admin
+    url_password: '{{ lookup("file", core_admin_password_file) }}'
+    force_basic_auth: true
+    ca_path: '{{ core_registry_ca }}'
+    use_proxy: false
+    body_format: json
+    body: {name: 'pull-{{ robot_version }}', description: 'cnpl-core-{{ core_run }}', level: project, duration: 1, disable: false, permissions: [{kind: project, namespace: '{{ core_harbor_project }}', access: [{resource: repository, action: pull}]}]}
+    status_code: 201
+  register: core_robot_created
+  no_log: true
+- name: 机器人一次性返回的密钥仅保存在本批私有目录
+  ansible.builtin.copy: {content: '{{ core_robot_created.json | to_nice_json }}', dest: '{{ core_private }}/robot-{{ robot_version }}.json', mode: '0600'}
+  no_log: true
+- name: 只记录公开的撤销索引
+  ansible.builtin.set_fact:
+    core_harbor_state: '{{ core_harbor_state | combine({"robots":core_harbor_state.robots + [{"id":core_robot_created.json.id,"name":core_robot_created.json.name}]}) }}'
+  no_log: true
+- name: 写入公开恢复索引，禁止保存凭据正文
+  ansible.builtin.copy: {content: '{{ core_harbor_state | to_nice_json }}', dest: '{{ core_records }}/state/harbor.json', mode: '0600'}
+- name: 生成仅用于本次拉取的 dockerconfigjson
+  ansible.builtin.set_fact:
+    core_pull_config: '{{ {"auths":{core_registry:{"auth":(core_robot_created.json.name ~ ":" ~ core_robot_created.json.secret) | b64encode}}} }}'
+  no_log: true
+- name: 从源码提交受限镜像拉取 Secret
+  ansible.builtin.include_tasks: secret.yml
+  vars: {core_secret_source: core-resources/config/manifests/pull-secret.yaml.j2, core_secret_name: p10-pull, core_pull_secret_name: p10-pull}

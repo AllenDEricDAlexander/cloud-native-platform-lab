@@ -1,0 +1,33 @@
+---
+- name: 前序三个专题须有同集群真实验收回执
+  ansible.builtin.assert:
+    that: receipt.passed | bool and receipt.cleanup_passed | bool and receipt.cluster_uid == core_cluster_uid
+  loop: ['07','08','09']
+  vars: {receipt: '{{ lookup("file", core_progress ~ "/" ~ item ~ ".json") | from_json }}'}
+- name: 当前三控制平面 API readyz
+  ansible.builtin.command: {argv: '{{ core_a + ["--server=https://" ~ item ~ ":6443","get","--raw=/readyz"] }}'}
+  loop: [192.168.9.101,192.168.9.102,192.168.9.103]
+  register: core_api_handoff
+  changed_when: false
+- name: 三个 API 必须明确返回 ok
+  ansible.builtin.assert:
+    that: "item.stdout == 'ok'"
+  loop: '{{ core_api_handoff.results }}'
+  loop_control: {label: '{{ item.item }}'}
+- name: 从 cp01 对三个 etcd 端点只读健康检查
+  ansible.builtin.command:
+    argv: [kubectl,--kubeconfig,/etc/kubernetes/admin.conf,--server=https://192.168.9.101:6443,--request-timeout=30s,-n,kube-system,exec,etcd-cp01.k8s.internal.egon.top,--,etcdctl,'--endpoints=https://192.168.9.101:2379,https://192.168.9.102:2379,https://192.168.9.103:2379',--cacert=/etc/kubernetes/pki/etcd/ca.crt,--cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt,--key=/etc/kubernetes/pki/etcd/healthcheck-client.key,endpoint,health,-w,json]
+  delegate_to: cp01
+  register: core_etcd_handoff
+  changed_when: false
+- name: 三个 etcd 结果必须全部健康
+  ansible.builtin.assert:
+    that: core_etcd_handoff.stdout | from_json | length == 3 and (core_etcd_handoff.stdout | from_json | selectattr('health','equalto',true) | list | length == 3)
+- name: 当前资源指标 API 仍安全可用
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 交接指标 API, core_wait_action: metrics, core_wait_id: handoff-metrics}
+- name: 保存交接前检查，不冒充新的关机实验
+  ansible.builtin.copy:
+    content: '{{ {"cluster_uid":core_cluster_uid,"api_ready":core_api_handoff.results | map(attribute="stdout") | list,"etcd":core_etcd_handoff.stdout | from_json,"ha_reference":core_previous_records ~ "/checkpoints/03-ha.json","new_power_fault_performed":false,"preceding_stages":["07","08","09"]} | to_nice_json }}'
+    dest: '{{ core_attempt }}/observations/handoff-before-cleanup.json'
+    mode: '0600'

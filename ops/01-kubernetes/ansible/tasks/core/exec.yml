@@ -1,0 +1,6 @@
+---
+- name: '{{ core_exec_name }}'
+  ansible.builtin.command:
+    argv: "{{ core_k + ['-n', core_namespace, 'exec', core_exec_pod, '--', '/core-lab'] + core_exec_args }}"
+  register: core_exec_result
+  changed_when: '{{ core_exec_change | default(false) }}'

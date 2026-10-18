@@ -1,0 +1,115 @@
+
+PLAY [远程 kubelet 回退入口有限验证，不修改真实配置或服务] *********************
+
+TASK [记录真实 kubelet 配置 SHA] ***********************************************
+ok: [worker02]
+
+TASK [记录真实 kubelet PID] ****************************************************
+ok: [worker02]
+
+TASK [创建唯一隔离目录] ********************************************************
+changed: [worker02]
+
+TASK [创建夹具目录] ************************************************************
+changed: [worker02] => (item=stage)
+changed: [worker02] => (item=bin)
+
+TASK [写两个非生产配置样本] ****************************************************
+changed: [worker02] => (item=original)
+changed: [worker02] => (item=temporary)
+
+TASK [样本 SHA 原生核对] *******************************************************
+ok: [worker02] => (item=original)
+ok: [worker02] => (item=temporary)
+
+TASK [仅拦截测试脚本内部的 systemctl] ******************************************
+changed: [worker02]
+
+TASK [渲染实际恢复脚本] ********************************************************
+changed: [worker02]
+
+TASK [测试只替换两个路径，不改变恢复逻辑] **************************************
+changed: [worker02] => (item={'regexp': '^readonly stage=', 'line': 'readonly stage=/tmp/cnpl-core-restore-i08v3_t5/stage'})
+changed: [worker02] => (item={'regexp': '^readonly config=', 'line': 'readonly config=/tmp/cnpl-core-restore-i08v3_t5/current.yaml'})
+
+TASK [当前样本设为临时字节] ****************************************************
+changed: [worker02]
+
+TASK [正常回退执行实际 bash/flock] *********************************************
+ok: [worker02]
+
+TASK [当前样本必须恢复原字节] **************************************************
+ok: [worker02]
+
+TASK [原字节回退确认] **********************************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [第三方修改样本] **********************************************************
+changed: [worker02]
+
+TASK [第三方修改必须被拒绝] ****************************************************
+ok: [worker02]
+
+TASK [确认拒绝实际发生] ********************************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [再设置为本次临时样本] ****************************************************
+changed: [worker02]
+
+TASK [成功提交后 timer 不能再回退] *********************************************
+ok: [worker02] => (item=commit)
+ok: [worker02] => (item=restore)
+
+TASK [提交后保持临时样本字节] **************************************************
+ok: [worker02]
+
+TASK [同锁提交与恢复结果确认] **************************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [移除测试提交标记] ********************************************************
+changed: [worker02]
+
+TASK [模拟 timer 先赢得锁并回退] ***********************************************
+ok: [worker02]
+
+TASK [回退之后不能再虚假提交] **************************************************
+ok: [worker02]
+
+TASK [过期提交必须失败] ********************************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [只清理本次唯一隔离目录] **************************************************
+changed: [worker02]
+
+TASK [真实 kubelet 配置 SHA 复核] **********************************************
+ok: [worker02]
+
+TASK [真实 kubelet PID 复核] ***************************************************
+ok: [worker02]
+
+TASK [夹具没有修改真实配置或重启真实服务] **************************************
+ok: [worker02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [独立回退有限验证完成] ****************************************************
+ok: [worker02] => {
+    "msg": "CORE RECOVERY FIXTURE PASS；真实 kubelet SHA 与 PID 未改变"
+}
+
+PLAY RECAP *********************************************************************
+worker02                   : ok=29   changed=11   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

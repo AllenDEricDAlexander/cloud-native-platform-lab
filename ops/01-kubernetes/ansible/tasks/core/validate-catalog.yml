@@ -1,0 +1,10 @@
+---
+- name: 读取本阶段源码清单目录
+  ansible.builtin.include_vars: '{{ core_root }}/ops/01-kubernetes/ansible/vars/core-catalog.yml'
+- name: 仅使用公开 CA 校验 APIService 字段，不生成或部署私钥
+  ansible.builtin.set_fact:
+    core_schema_ca: '{{ (lookup("file", lookup("env","HOME") ~ "/.cnpl-secrets/kubeconfig-lab-primary") | from_yaml).clusters[0].cluster["certificate-authority-data"] | b64decode }}'
+- name: 逐份渲染本阶段资源及变体
+  ansible.builtin.include_tasks: validate-resource.yml
+  loop: '{{ core_catalog[core_stage] }}'
+  loop_control: {loop_var: core_catalog_item, label: '{{ core_catalog_item.id }}'}

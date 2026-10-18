@@ -1,0 +1,57 @@
+---
+# 只列源码及教学变体；不由检查器拼装 Kubernetes 对象。
+core_catalog:
+  '07':
+  - {id: baseline, source: core-resources/shared/manifests/baseline.yaml.j2}
+  - {id: ordered-v1, source: core-resources/statefulset/manifests/state.yaml.j2}
+  - {id: ordered-three, source: core-resources/statefulset/manifests/state.yaml.j2, params: {state_count: 3}}
+  - {id: partition-v2, source: core-resources/statefulset/manifests/state.yaml.j2, params: {state_count: 3, state_version: v2, state_partition: 1}}
+  - {id: full-v2, source: core-resources/statefulset/manifests/state.yaml.j2, params: {state_count: 3, state_version: v2}}
+  - {id: ondelete, source: core-resources/statefulset/manifests/state.yaml.j2, params: {state_count: 3, state_strategy: OnDelete}}
+  - {id: parallel, source: core-resources/statefulset/manifests/state.yaml.j2, params: {state_name: p07-parallel, state_policy: Parallel, state_count: 3, state_block: '0'}}
+  - {id: daemon-v1, source: core-resources/daemonset/manifests/daemon.yaml.j2}
+  - {id: daemon-toleration, source: core-resources/daemonset/manifests/daemon.yaml.j2, params: {daemon_tolerate: true}}
+  - {id: daemon-v2, source: core-resources/daemonset/manifests/daemon.yaml.j2, params: {daemon_version: v2}}
+  - {id: daemon-ondelete, source: core-resources/daemonset/manifests/daemon.yaml.j2, params: {daemon_strategy: OnDelete}}
+  '08':
+  - {id: baseline, source: core-resources/shared/manifests/baseline.yaml.j2}
+  - {id: foreground, source: examples/garbage-collection/manifests/controller.yaml.j2, params: {gc_name: p08-foreground}}
+  - {id: background, source: examples/garbage-collection/manifests/controller.yaml.j2, params: {gc_name: p08-background}}
+  - {id: orphan, source: examples/garbage-collection/manifests/controller.yaml.j2, params: {gc_name: p08-orphan}}
+  - {id: adopter, source: examples/garbage-collection/manifests/controller.yaml.j2, params: {gc_name: p08-adopter, gc_pool: p08-orphan, gc_kind: ReplicaSet}}
+  - {id: finalizer, source: examples/garbage-collection/manifests/finalizer.yaml.j2}
+  '09':
+  - {id: baseline, source: core-resources/shared/manifests/baseline.yaml.j2}
+  - {id: ledger, source: core-resources/jobs/manifests/ledger.yaml.j2}
+  - {id: retry-job, source: core-resources/jobs/manifests/job.yaml.j2, params: {job_mode: retry}}
+  - {id: permanent-job, source: core-resources/jobs/manifests/job.yaml.j2, params: {job_mode: permanent}}
+  - {id: timeout-job, source: core-resources/jobs/manifests/job.yaml.j2, params: {job_mode: timeout}}
+  - {id: cron-allow, source: core-resources/jobs/manifests/cron.yaml.j2, params: {cron_policy: Allow}}
+  - {id: cron-forbid, source: core-resources/jobs/manifests/cron.yaml.j2, params: {cron_policy: Forbid}}
+  - {id: cron-replace, source: core-resources/jobs/manifests/cron.yaml.j2, params: {cron_policy: Replace}}
+  - {id: load-off, source: core-resources/autoscaling/manifests/load-config.yaml.j2}
+  - {id: load-cpu, source: core-resources/autoscaling/manifests/load-config.yaml.j2, params: {load_mode: cpu}}
+  - {id: load-memory, source: core-resources/autoscaling/manifests/load-config.yaml.j2, params: {load_mode: memory}}
+  - {id: load-hold, source: core-resources/autoscaling/manifests/load-config.yaml.j2, params: {load_mode: hold}}
+  - {id: load-deployment, source: core-resources/autoscaling/manifests/load.yaml.j2}
+  - {id: zero-request, source: core-resources/autoscaling/manifests/load.yaml.j2, params: {load_name: p09-zero-request, load_cpu_request: '0'}}
+  - {id: hpa-cpu, source: core-resources/autoscaling/manifests/hpa.yaml.j2}
+  - {id: hpa-memory, source: core-resources/autoscaling/manifests/hpa.yaml.j2, params: {hpa_resource: memory}}
+  - {id: hpa-zero, source: core-resources/autoscaling/manifests/hpa.yaml.j2, params: {load_name: p09-zero-request}}
+  - {id: metrics-base, source: core-resources/autoscaling/manifests/metrics-base.yaml.j2, addon: true}
+  - {id: metrics-server, source: core-resources/autoscaling/manifests/metrics-server.yaml.j2, addon: true}
+  '10':
+  - {id: baseline, source: core-resources/shared/manifests/baseline.yaml.j2}
+  - {id: config-v1, source: core-resources/config/manifests/config.yaml.j2}
+  - {id: config-v2, source: core-resources/config/manifests/config.yaml.j2, params: {config_value: v2}}
+  - {id: immutable, source: core-resources/config/manifests/config.yaml.j2, params: {config_name: p10-immutable, config_immutable: true}}
+  - {id: consumer, source: core-resources/config/manifests/consumer.yaml.j2}
+  - {id: identities, source: core-resources/rbac/manifests/identities.yaml.j2}
+  - {id: reader, source: core-resources/rbac/manifests/pod.yaml.j2}
+  - {id: config-reader, source: core-resources/rbac/manifests/pod.yaml.j2, params: {rbac_pod: p10-config-reader, rbac_sa: p10-config-reader}}
+  - {id: operator, source: core-resources/rbac/manifests/pod.yaml.j2, params: {rbac_pod: p10-operator, rbac_sa: p10-operator}}
+  - {id: anonymous, source: core-resources/rbac/manifests/pod.yaml.j2, params: {rbac_pod: p10-anonymous, rbac_sa: default, rbac_token: false}}
+  - {id: wrong-audience, source: core-resources/rbac/manifests/pod.yaml.j2, params: {rbac_pod: p10-wrong-audience, rbac_audience: core-lab-p10}}
+  - {id: pull-bad, source: core-resources/config/manifests/pull-job.yaml.j2, params: {pull_variant: bad}}
+  - {id: pull-v1, source: core-resources/config/manifests/pull-job.yaml.j2, params: {pull_variant: v1}}
+  - {id: pull-v2, source: core-resources/config/manifests/pull-job.yaml.j2, params: {pull_variant: v2}}

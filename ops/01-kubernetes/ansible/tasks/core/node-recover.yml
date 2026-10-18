@@ -1,0 +1,20 @@
+---
+- name: 查询本阶段是否有节点恢复待办
+  ansible.builtin.stat: {path: '{{ core_records }}/state/nodes.json'}
+  register: core_nodes_pending
+- name: 仅恢复明确绑定的本批节点
+  ansible.builtin.include_tasks: node-restore-one.yml
+  loop: '{{ lookup("file", core_records ~ "/state/nodes.json") | from_json if core_nodes_pending.stat.exists else [] }}'
+  loop_control: {loop_var: core_node_binding, label: '{{ core_node_binding.name }}'}
+- name: 独立回退 timer 已完成用途（当前标签已清除，旧 timer 再触发也不能接管）
+  ansible.builtin.command: {argv: [systemctl, stop, 'cnpl-core07-{{ core_run | lower }}.timer']}
+  delegate_to: cp01
+  changed_when: false
+  failed_when: false
+  when: core_nodes_pending.stat.exists
+- name: 已恢复的节点索引保留到此次证据
+  ansible.builtin.copy: {src: '{{ core_records }}/state/nodes.json', dest: '{{ core_attempt }}/observations/nodes-restored.json', mode: '0600'}
+  when: core_nodes_pending.stat.exists
+- name: 清除已完成的恢复待办
+  ansible.builtin.file: {path: '{{ core_records }}/state/nodes.json', state: absent}
+  when: core_nodes_pending.stat.exists

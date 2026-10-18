@@ -1,0 +1,53 @@
+---
+- name: 校验资源类型、归属与命名空间
+  ansible.builtin.assert:
+    that:
+      - core_document.kind in ['Namespace','Pod','Service','ConfigMap','ServiceAccount','ResourceQuota','LimitRange','NetworkPolicy','Deployment','ReplicaSet','StatefulSet','DaemonSet','Job','CronJob','HorizontalPodAutoscaler','Role','RoleBinding','ClusterRole','ClusterRoleBinding','APIService']
+      - core_document.metadata.labels['cnpl.io/core-run'] == core_run
+      - core_document.kind in ['Namespace','ClusterRole','ClusterRoleBinding','APIService'] or (core_document.metadata.namespace is defined and core_document.metadata.namespace in ([core_metrics_namespace, 'kube-system'] if core_addon | default(false) else [core_namespace]))
+      - core_document.kind != 'Namespace' or core_document.metadata.name == (core_metrics_namespace if core_addon | default(false) else core_namespace)
+      - core_document.kind not in ['ClusterRole','ClusterRoleBinding'] or core_addon | default(false) or (core_document.metadata.name.startswith('cnpl-p10-') and core_run | lower in core_document.metadata.name)
+- name: 读取同名资源，避免接管其他运行
+  ansible.builtin.command:
+    argv: "{{ core_a + ['get', core_document.kind | lower, core_document.metadata.name, '--ignore-not-found', '-o', 'json'] + (['-n', core_document.metadata.namespace] if core_document.metadata.namespace is defined else []) }}"
+  register: core_existing
+  changed_when: false
+  when: core_mode != 'validate' or core_namespace_exists | bool or core_document.kind == 'Namespace' or core_addon | default(false)
+- name: 同名对象必须属于本次运行或已登记的同集群指标组件
+  ansible.builtin.assert:
+    that: existing.metadata.get('labels', {}).get('cnpl.io/core-run') == core_run or (core_addon | default(false) and existing.metadata.get('labels', {}).get('cnpl.io/component') == 'metrics-server' and existing.metadata.get('labels', {}).get('cnpl.io/cluster-uid') == core_cluster_uid)
+  vars:
+    existing: '{{ core_existing.stdout | default("{}", true) | from_json }}'
+  when: core_existing.stdout | default('') | length > 0
+- name: 只读验证源码结构（现存对象不会造成 create 冲突）
+  ansible.builtin.command:
+    argv: "{{ core_a + ['create', '--dry-run=client', '--validate=strict', '-f', '-'] }}"
+    stdin: '{{ core_document | to_json }}'
+  changed_when: false
+- name: 实际变更前使用相同语义的服务端准入
+  ansible.builtin.command:
+    argv: "{{ (core_a if core_resource_admin | default(false) else core_k) + ['apply', '--dry-run=server', '-f', '-'] }}"
+    stdin: '{{ core_document | to_json }}'
+  when: core_mode == 'run'
+  changed_when: false
+- name: 按源码执行当前资源
+  ansible.builtin.command:
+    argv: "{{ (core_a if core_resource_admin | default(false) else core_k) + ['apply', '-f', '-', '-o', 'json'] }}"
+    stdin: '{{ core_document | to_json }}'
+  when: core_mode == 'run'
+  changed_when: true
+  register: core_applied
+- name: Namespace 创建后立即绑定 UID，后续步骤失败仍可恢复
+  ansible.builtin.copy:
+    content: '{{ {"run":core_run,"uid":(core_applied.stdout | from_json).metadata.uid,"namespace":core_namespace} | to_nice_json }}'
+    dest: '{{ core_records }}/state/namespace.json'
+    mode: '0600'
+  when: core_mode == 'run' and core_document.kind == 'Namespace' and not core_addon | default(false)
+- name: 登记本次临时集群级授权的 UID
+  when: core_mode == 'run' and core_document.kind in ['ClusterRole','ClusterRoleBinding'] and not core_addon | default(false)
+  block:
+    - name: 保存临时授权对象引用
+      ansible.builtin.set_fact:
+        core_cluster_objects: '{{ core_cluster_objects | default([]) + [{"kind":core_document.kind,"name":core_document.metadata.name,"uid":(core_applied.stdout | from_json).metadata.uid}] }}'
+    - name: 记录精确清理索引
+      ansible.builtin.copy: {content: '{{ core_cluster_objects | to_nice_json }}', dest: '{{ core_records }}/state/cluster-objects.json', mode: '0600'}

@@ -1,0 +1,97 @@
+---
+- name: 查询同一运行先前是否留下配置回退入口
+  ansible.builtin.stat: {path: '/root/cnpl-core09-{{ core_run }}/restore.sh'}
+  register: core_tls_prior_restore
+- name: 中断重试先处理未提交的原配置，已提交节点保持配置
+  ansible.builtin.command: {argv: [/bin/bash, '/root/cnpl-core09-{{ core_run }}/restore.sh', restore]}
+  when: core_tls_prior_restore.stat.exists
+  changed_when: true
+- name: 只读检查现有 kubelet 证书的集群 CA 和节点 IP SAN
+  ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', tls, --context, '{{ core_records }}/context.json', --name, '{{ node_fqdn }}', --ip, '{{ ansible_host }}']}
+  delegate_to: localhost
+  register: core_tls_existing
+  changed_when: false
+  failed_when: false
+- name: 逐节点受控启用服务证书签发
+  when: core_tls_existing.rc != 0
+  block:
+    - name: 读取配置字节 SHA
+      ansible.builtin.stat: {path: /var/lib/kubelet/config.yaml, get_checksum: true, checksum_algorithm: sha256}
+      register: core_tls_original
+    - name: 读取原服务证书策略
+      ansible.builtin.slurp: {src: /var/lib/kubelet/config.yaml}
+      register: core_tls_configuration
+      no_log: true
+    - name: 不覆盖已配置但无法信任的第三方策略
+      ansible.builtin.assert:
+        that: not (core_tls_configuration.content | b64decode | from_yaml).get('serverTLSBootstrap',false)
+    - name: 创建节点私有恢复目录
+      ansible.builtin.file: {path: '/root/cnpl-core09-{{ core_run }}', state: directory, mode: '0700'}
+    - name: 保存原字节与临时副本
+      ansible.builtin.command: {argv: [cp, --preserve=all, /var/lib/kubelet/config.yaml, '/root/cnpl-core09-{{ core_run }}/{{ item }}.yaml']}
+      loop: [original, temporary]
+      changed_when: true
+    - name: 只在暂存副本启用服务证书引导
+      ansible.builtin.lineinfile: {path: '/root/cnpl-core09-{{ core_run }}/temporary.yaml', regexp: '^serverTLSBootstrap:', line: 'serverTLSBootstrap: true'}
+    - name: 绑定本次临时配置 SHA
+      ansible.builtin.stat: {path: '/root/cnpl-core09-{{ core_run }}/temporary.yaml', get_checksum: true, checksum_algorithm: sha256}
+      register: core_tls_temporary
+    - name: 安装独立字节回退和原子提交入口
+      ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/ansible/templates/core-kubelet-restore.sh.j2', dest: '/root/cnpl-core09-{{ core_run }}/restore.sh', mode: '0700'}
+    - name: 修改配置前建立 300 秒独立回退
+      ansible.builtin.command: {argv: [systemd-run, --collect, '--unit=cnpl-core09-{{ core_run | lower }}', --on-active=300s, --timer-property=AccuracySec=1s, /bin/bash, '/root/cnpl-core09-{{ core_run }}/restore.sh', restore]}
+      changed_when: true
+    - name: 加载受控配置并签发当前节点证书
+      block:
+        - name: 替换前再次核对原 SHA
+          ansible.builtin.stat: {path: /var/lib/kubelet/config.yaml, get_checksum: true, checksum_algorithm: sha256}
+          register: core_tls_before_change
+        - name: 拒绝覆盖并发配置修改
+          ansible.builtin.assert:
+            that: "core_tls_before_change.stat.checksum == core_tls_original.stat.checksum"
+        - name: 替换为本次精确配置
+          ansible.builtin.copy: {src: '/root/cnpl-core09-{{ core_run }}/temporary.yaml', remote_src: true, dest: /var/lib/kubelet/config.yaml, mode: '0600', owner: root, group: root}
+        - name: 保持 SELinux 配置标签
+          ansible.builtin.command: {argv: [restorecon, /var/lib/kubelet/config.yaml]}
+          changed_when: false
+        - name: 重启当前节点 kubelet
+          ansible.builtin.systemd_service: {name: kubelet, state: restarted}
+        - name: 等已验证的现有证书或当前节点合法新 CSR
+          ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', csr, --context, '{{ core_records }}/context.json', --name, '{{ node_fqdn }}', --ip, '{{ ansible_host }}']}
+          delegate_to: localhost
+          register: core_tls_csr
+          until: core_tls_csr.rc == 0
+          retries: 6
+          delay: 2
+          changed_when: false
+        - name: 只批准通过身份、SAN、用途和时效检查的精确 CSR
+          ansible.builtin.command: {argv: '{{ core_a + ["certificate","approve",item] }}'}
+          loop: '{{ (core_tls_csr.stdout | from_json).names }}'
+          delegate_to: localhost
+          changed_when: true
+        - name: 必须通过真正的 TLS 链与 IP SAN 验证
+          ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', tls, --context, '{{ core_records }}/context.json', --name, '{{ node_fqdn }}', --ip, '{{ ansible_host }}']}
+          delegate_to: localhost
+          register: core_tls_verified
+          until: core_tls_verified.rc == 0
+          retries: 10
+          delay: 2
+          changed_when: false
+        - name: 等当前节点恢复 Ready
+          ansible.builtin.command: {argv: '{{ core_a + ["wait","node/" ~ node_fqdn,"--for=condition=Ready","--timeout=60s"] }}'}
+          delegate_to: localhost
+          changed_when: false
+        - name: 原子提交当前节点配置，timer 不再回退成功版本
+          ansible.builtin.command: {argv: [/bin/bash, '/root/cnpl-core09-{{ core_run }}/restore.sh', commit]}
+          changed_when: true
+      rescue:
+        - name: 失败时恢复原 kubelet 配置
+          ansible.builtin.command: {argv: [/bin/bash, '/root/cnpl-core09-{{ core_run }}/restore.sh', restore]}
+          changed_when: true
+        - name: 停止本节点后续签发，不继续其他节点
+          ansible.builtin.fail: {msg: '{{ inventory_hostname }} 服务证书准备失败，已执行原字节回退；未批准其他身份 CSR。'}
+      always:
+        - name: 停止已完成用途的回退 timer
+          ansible.builtin.command: {argv: [systemctl, stop, 'cnpl-core09-{{ core_run | lower }}.timer']}
+          failed_when: false
+          changed_when: false

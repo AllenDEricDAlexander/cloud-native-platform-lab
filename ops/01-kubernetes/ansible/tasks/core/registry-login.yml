@@ -1,0 +1,15 @@
+---
+- name: 创建仅供本次管理请求使用的私有 Docker 配置目录
+  ansible.builtin.file: {path: '{{ core_private }}/docker-admin', state: directory, mode: '0700'}
+- name: 使用现有 crane，口令只通过 stdin 传入
+  ansible.builtin.command:
+    argv: ['{{ core_crane }}', auth, login, '{{ core_registry }}', -u, admin, --password-stdin]
+    stdin: '{{ lookup("file", core_admin_password_file) }}'
+  environment:
+    DOCKER_CONFIG: '{{ core_private }}/docker-admin'
+    NO_PROXY: '{{ lookup("env", "NO_PROXY") }},.internal.egon.top,192.168.9.0/24'
+    no_proxy: '{{ lookup("env", "NO_PROXY") }},.internal.egon.top,192.168.9.0/24'
+  no_log: true
+  changed_when: false
+- name: 限制本次注册表配置权限
+  ansible.builtin.file: {path: '{{ core_private }}/docker-admin/config.json', mode: '0600'}

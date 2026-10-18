@@ -1,0 +1,83 @@
+---
+- name: 每次 attempt 使用不同私有项目，避免旧 registry bearer token 缓存影响反例
+  ansible.builtin.set_fact:
+    core_harbor_project: 'cnpl-p10-{{ core_run | lower }}-{{ (core_attempt | basename).split("-")[-1] }}'
+- name: 项目名称必须属于本次批次
+  ansible.builtin.assert:
+    that: "core_harbor_project is match('^cnpl-p10-[a-z0-9-]+$') and core_run | lower in core_harbor_project"
+- name: 先确认项目不存在
+  ansible.builtin.uri:
+    url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_project }}'
+    method: GET
+    url_username: admin
+    url_password: '{{ lookup("file", core_admin_password_file) }}'
+    force_basic_auth: true
+    ca_path: '{{ core_registry_ca }}'
+    use_proxy: false
+    status_code: 404
+  no_log: true
+- name: 在任何外部创建之前记录恢复意图
+  ansible.builtin.set_fact:
+    core_harbor_state: {run: '{{ core_run }}', project_name: '{{ core_harbor_project }}', project_id: null, robots: [], robot_intents: []}
+- name: 保存公开意图索引
+  ansible.builtin.copy: {content: '{{ core_harbor_state | to_nice_json }}', dest: '{{ core_records }}/state/harbor.json', mode: '0600'}
+- name: 创建 64MiB 配额的专用私有项目
+  ansible.builtin.uri:
+    url: 'https://{{ core_registry }}/api/v2.0/projects'
+    method: POST
+    url_username: admin
+    url_password: '{{ lookup("file", core_admin_password_file) }}'
+    force_basic_auth: true
+    ca_path: '{{ core_registry_ca }}'
+    use_proxy: false
+    body_format: json
+    body: {project_name: '{{ core_harbor_project }}', metadata: {public: 'false'}, storage_limit: 67108864}
+    status_code: 201
+  no_log: true
+- name: 获取已创建项目的准确 ID
+  ansible.builtin.uri:
+    url: 'https://{{ core_registry }}/api/v2.0/projects/{{ core_harbor_project }}'
+    method: GET
+    url_username: admin
+    url_password: '{{ lookup("file", core_admin_password_file) }}'
+    force_basic_auth: true
+    ca_path: '{{ core_registry_ca }}'
+    use_proxy: false
+    status_code: 200
+  register: core_project_created
+  no_log: true
+- name: 项目确为私有
+  ansible.builtin.assert:
+    that: "core_project_created.json.metadata.public == 'false'"
+- name: 绑定公开项目身份
+  ansible.builtin.set_fact: {core_harbor_state: '{{ core_harbor_state | combine({"project_id":core_project_created.json.project_id}) }}'}
+- name: 保存精确恢复索引
+  ansible.builtin.copy: {content: '{{ core_harbor_state | to_nice_json }}', dest: '{{ core_records }}/state/harbor.json', mode: '0600'}
+- name: 复制两份同摘要测试代码到不同 repository scope
+  block:
+    - name: 使用本批私有管理登录
+      ansible.builtin.include_tasks: registry-login.yml
+    - name: 复制既有公开 busybox，不修改 bootstrap 源
+      ansible.builtin.command: {argv: ['{{ core_crane }}', copy, '{{ core_busybox }}', '{{ core_registry }}/{{ core_harbor_project }}/busybox-{{ item }}:test']}
+      environment: {DOCKER_CONFIG: '{{ core_private }}/docker-admin', NO_PROXY: '.internal.egon.top,192.168.9.0/24', no_proxy: '.internal.egon.top,192.168.9.0/24'}
+      loop: [v1,v2]
+      changed_when: true
+    - name: 验证两份私有引用的真实摘要
+      ansible.builtin.command: {argv: ['{{ core_crane }}', digest, '{{ core_registry }}/{{ core_harbor_project }}/busybox-{{ item }}:test']}
+      environment: {DOCKER_CONFIG: '{{ core_private }}/docker-admin', NO_PROXY: '.internal.egon.top,192.168.9.0/24', no_proxy: '.internal.egon.top,192.168.9.0/24'}
+      loop: [v1,v2]
+      register: core_private_digests
+      changed_when: false
+    - name: 私有测试引用不得漂移
+      ansible.builtin.assert:
+        that: "item.stdout == core_busybox.split('@')[1]"
+      loop: '{{ core_private_digests.results }}'
+      loop_control: {label: '{{ item.item }}'}
+  always:
+    - name: 删除本次临时管理登录
+      ansible.builtin.file: {path: '{{ core_private }}/docker-admin', state: absent}
+- name: 记录仅供本次清理的两个私有镜像引用
+  ansible.builtin.copy:
+    content: '{{ [core_registry ~ "/" ~ core_harbor_project ~ "/busybox-v1@" ~ core_busybox.split("@")[1], core_registry ~ "/" ~ core_harbor_project ~ "/busybox-v2@" ~ core_busybox.split("@")[1]] | to_nice_json }}'
+    dest: '{{ core_records }}/state/private-images.json'
+    mode: '0600'

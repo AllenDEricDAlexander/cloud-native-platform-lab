@@ -1,0 +1,136 @@
+---
+- name: 读取两个授权 worker 的 UID
+  ansible.builtin.command: {argv: '{{ core_a + ["get","nodes"] + core_workers + ["-o","json"] }}'}
+  register: daemon_nodes
+  changed_when: false
+- name: 原有同名试验元数据存在时拒绝接管
+  ansible.builtin.assert:
+    that:
+      - "'cnpl.io/core07' not in item.metadata.labels"
+      - item.spec.get('taints',[]) | selectattr('key','equalto','cnpl.io/core07') | list | length == 0
+  loop: '{{ (daemon_nodes.stdout | from_json)["items"] }}'
+  loop_control: {label: '{{ item.metadata.name }}'}
+- name: 绑定节点原身份
+  ansible.builtin.set_fact: {core_node_bindings: []}
+- name: 记录精确 UID
+  ansible.builtin.set_fact: {core_node_bindings: '{{ core_node_bindings + [{"name":item.metadata.name,"uid":item.metadata.uid}] }}'}
+  loop: '{{ (daemon_nodes.stdout | from_json)["items"] | sort(attribute="metadata.name") }}'
+  loop_control: {label: '{{ item.metadata.name }}'}
+- name: 先保存恢复意图再修改元数据
+  ansible.builtin.copy: {content: '{{ core_node_bindings | to_nice_json }}', dest: '{{ core_records }}/state/nodes.json', mode: '0600'}
+- name: 节点覆盖实验结束或失败均恢复
+  block:
+    - name: 仅授权 worker02
+      ansible.builtin.command: {argv: '{{ core_a + ["label","node",core_workers[1],"cnpl.io/core07=" ~ core_run] }}'}
+      changed_when: true
+    - name: 创建不使用特权和 hostPath 的守护进程
+      ansible.builtin.include_tasks: resource.yml
+      vars: {core_source: core-resources/daemonset/manifests/daemon.yaml.j2, core_resource_id: daemon-one-v1}
+    - name: 只有授权的 worker02 运行一个 Pod
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet 单节点覆盖, core_wait_action: workload, core_wait_id: daemon-one, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '1', --nodes, '{{ core_workers[1] }}', --image, '{{ core_images.v1.image }}']}
+    - name: 原子移除本次节点标签
+      ansible.builtin.command:
+        argv: '{{ core_a + ["patch","node",core_workers[1],"--type=json","-p",[{"op":"test","path":"/metadata/uid","value":core_node_bindings[1].uid},{"op":"test","path":"/metadata/labels/cnpl.io~1core07","value":core_run},{"op":"remove","path":"/metadata/labels/cnpl.io~1core07"}] | to_json] }}'
+      changed_when: true
+    - name: 标签不匹配后实际回收守护 Pod
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet 标签变化后的零覆盖, core_wait_action: workload, core_wait_id: daemon-zero, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '0']}
+    - name: 显式授权两个 worker
+      ansible.builtin.command: {argv: '{{ core_a + ["label","node",item,"cnpl.io/core07=" ~ core_run] }}'}
+      loop: '{{ core_workers }}'
+      changed_when: true
+    - name: 每个授权节点各有一个就绪 Pod
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet 双节点覆盖, core_wait_action: workload, core_wait_id: daemon-two, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '2', --nodes, '{{ core_workers | join(",") }}']}
+    - name: 绑定 worker02 守护 Pod
+      ansible.builtin.set_fact: {daemon_worker02_pod: '{{ (core_observation.pods | selectattr("spec.nodeName","equalto",core_workers[1]) | first).metadata.name }}'}
+    - name: 在 cp01 创建独立回退目录
+      ansible.builtin.file: {path: '/root/cnpl-core07-{{ core_run }}', state: directory, mode: '0700'}
+      delegate_to: cp01
+    - name: 先安装精确回退脚本
+      ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/ansible/templates/core-node-restore.sh.j2', dest: '/root/cnpl-core07-{{ core_run }}/restore.sh', mode: '0700'}
+      delegate_to: cp01
+    - name: 污点注入前建立 180 秒独立回退
+      ansible.builtin.command: {argv: [systemd-run, --collect, '--unit=cnpl-core07-{{ core_run | lower }}', --on-active=180s, --timer-property=AccuracySec=1s, /bin/bash, '/root/cnpl-core07-{{ core_run }}/restore.sh']}
+      delegate_to: cp01
+      changed_when: true
+    - name: 只为 worker02 加本次 NoSchedule，不驱逐已有其他 Pod
+      ansible.builtin.command: {argv: '{{ core_a + ["taint","node",core_workers[1],"cnpl.io/core07=" ~ core_run ~ ":NoSchedule"] }}'}
+      changed_when: true
+    - name: 删除本次守护 Pod 以观察无容忍时的覆盖
+      ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod",daemon_worker02_pod,"--wait=true"] }}'}
+      changed_when: true
+    - name: 未显式容忍的节点不再创建守护 Pod
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: NoSchedule 对 DaemonSet 的影响, core_wait_action: workload, core_wait_id: daemon-tainted, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '1', --nodes, '{{ core_workers[0] }}']}
+    - name: 仅增加精确试验污点容忍，不使用通配容忍
+      ansible.builtin.include_tasks: resource.yml
+      vars: {core_source: core-resources/daemonset/manifests/daemon.yaml.j2, core_resource_id: daemon-toleration, daemon_tolerate: true}
+    - name: 显式容忍后恢复两节点覆盖
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: 精确容忍恢复覆盖, core_wait_action: workload, core_wait_id: daemon-tolerated, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '2', --nodes, '{{ core_workers | join(",") }}']}
+    - name: 立即还原污点，保留标签继续发布实验
+      ansible.builtin.include_tasks: node-restore-one.yml
+      vars: {core_node_binding: '{{ core_node_bindings[1] }}', core_restore_label: false}
+    - name: 停止已完成用途的独立回退
+      ansible.builtin.command: {argv: [systemctl, stop, 'cnpl-core07-{{ core_run | lower }}.timer']}
+      delegate_to: cp01
+      changed_when: false
+      failed_when: false
+    - name: 01.07.04 滚动更新到 v2
+      ansible.builtin.include_tasks: resource.yml
+      vars: {core_source: core-resources/daemonset/manifests/daemon.yaml.j2, core_resource_id: daemon-v2, daemon_version: v2}
+    - name: 两节点实际镜像均为 v2
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet 滚动发布, core_wait_action: workload, core_wait_id: daemon-v2, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '2', --image, '{{ core_images.v2.image }}']}
+    - name: 读取本守护进程 ControllerRevision
+      ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","controllerrevisions","-l","cnpl.io/core-run=" ~ core_run ~ ",app.kubernetes.io/name=p07-daemon","-o","json"] }}'}
+      register: daemon_history
+      changed_when: false
+    - name: 绑定已验证的真实 revision
+      ansible.builtin.set_fact: {daemon_good_revision: '{{ (daemon_history.stdout | from_json)["items"] | map(attribute="revision") | max }}'}
+    - name: 发布不存在的精确本地镜像作为失败反例
+      ansible.builtin.include_tasks: resource.yml
+      vars: {core_source: core-resources/daemonset/manifests/daemon.yaml.j2, core_resource_id: daemon-bad, daemon_image_override: 'cnpl.local/phase01/core-missing@sha256:0000000000000000000000000000000000000000000000000000000000000000'}
+    - name: 必须观察到真实 ErrImageNeverPull
+      ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","pods","-l","app.kubernetes.io/name=p07-daemon","-o","jsonpath={.items[*].status.containerStatuses[0].state.waiting.reason}"] }}'}
+      register: daemon_bad
+      until: daemon_bad.rc == 0 and 'ErrImageNeverPull' in daemon_bad.stdout
+      retries: 45
+      delay: 2
+      changed_when: false
+    - name: 保留失败发布与 revision 现场
+      ansible.builtin.include_tasks: snapshot.yml
+    - name: 按已验证 revision 原生回滚
+      ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"rollout","undo","daemonset/p07-daemon","--to-revision=" ~ daemon_good_revision | string] }}'}
+      changed_when: true
+    - name: 回滚须两节点全部恢复
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet 失败版本恢复, core_wait_action: workload, core_wait_id: daemon-rollback, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '2', --image, '{{ core_images.v2.image }}']}
+    - name: 绑定 OnDelete 前 UID
+      ansible.builtin.set_fact: {daemon_before_ondelete: '{{ core_observation.pods }}'}
+    - name: 改为 OnDelete 和 v1 模板
+      ansible.builtin.include_tasks: resource.yml
+      vars: {core_source: core-resources/daemonset/manifests/daemon.yaml.j2, core_resource_id: daemon-ondelete, daemon_strategy: OnDelete, daemon_version: v1}
+    - name: 留出控制器观测窗口
+      ansible.builtin.pause: {seconds: 5}
+    - name: OnDelete 不自动更新实际 Pod
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet OnDelete 原 Pod 保留, core_wait_action: workload, core_wait_id: daemon-ondelete-before, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '2', --image, '{{ core_images.v2.image }}']}
+    - name: 原 Pod UID 均未改变
+      ansible.builtin.assert:
+        that: '(core_observation.pods | map(attribute="metadata.uid") | sort) == (daemon_before_ondelete | map(attribute="metadata.uid") | sort)'
+    - name: 逐个手动删除原 Pod
+      ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","pod",item.metadata.name,"--wait=true"] }}'}
+      loop: '{{ daemon_before_ondelete }}'
+      loop_control: {label: '{{ item.metadata.name }}'}
+      changed_when: true
+    - name: 手动更新后所有目标节点均为 v1
+      ansible.builtin.include_tasks: wait.yml
+      vars: {core_wait_name: DaemonSet OnDelete 完成, core_wait_action: workload, core_wait_id: daemon-ondelete-complete, core_wait_args: [--kind, daemonset, --name, p07-daemon, --count, '2', --nodes, '{{ core_workers | join(",") }}', --image, '{{ core_images.v1.image }}']}
+    - name: 清理之前保留完整 ControllerRevision 和覆盖证据
+      ansible.builtin.include_tasks: snapshot.yml
+  always:
+    - name: 还原本批所有节点元数据
+      ansible.builtin.include_tasks: node-recover.yml

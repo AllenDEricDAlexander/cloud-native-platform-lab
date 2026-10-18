@@ -1,0 +1,9 @@
+---
+- name: 读取 {{ core_kind }}/{{ core_name }} 的公开对象
+  ansible.builtin.command:
+    argv: "{{ core_a + ['get', core_kind, core_name, '-n', core_namespace, '-o', 'json'] }}"
+  register: core_get_result
+  changed_when: false
+- name: 保存当前公开结果
+  ansible.builtin.set_fact:
+    core_object: '{{ core_get_result.stdout | from_json }}'

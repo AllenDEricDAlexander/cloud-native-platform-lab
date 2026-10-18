@@ -1,0 +1,86 @@
+---
+- name: 决定是否复用已安全验收的资源指标组件
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../vars/core.yml]
+  tasks:
+    - name: 指标组件默认不修改
+      ansible.builtin.set_fact: {core_metrics_prepare: false}
+    - name: 正式执行前读取已有 APIService
+      ansible.builtin.command: {argv: '{{ core_a + ["get","apiservice","v1beta1.metrics.k8s.io","--ignore-not-found","-o","json"] }}'}
+      register: core_metrics_api
+      changed_when: false
+      when: core_mode == 'run' and not core_already_passed
+    - name: 真实检查既有指标 API
+      ansible.builtin.command: {argv: ['{{ core_python }}', '{{ core_check }}', metrics, --context, '{{ core_records }}/context.json']}
+      register: core_metrics_existing_health
+      changed_when: false
+      failed_when: false
+      when: core_mode == 'run' and not core_already_passed
+    - name: 外来不健康组件不得被覆盖
+      ansible.builtin.assert:
+        that: core_metrics_existing_health.rc == 0 or (core_metrics_api.stdout | from_json).metadata.get('labels',{}).get('cnpl.io/component') == 'metrics-server'
+      when: core_mode == 'run' and not core_already_passed and core_metrics_api.stdout | length > 0
+    - name: 只在缺失或本项目组件未就绪时准备
+      ansible.builtin.set_fact: {core_metrics_prepare: '{{ core_metrics_existing_health.rc != 0 }}'}
+      when: core_mode == 'run' and not core_already_passed
+
+- name: 逐节点验证或签发 kubelet 服务证书并保持安全基线
+  hosts: k8s_nodes
+  serial: 1
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/core.yml]
+  vars:
+    core_run: '{{ hostvars.localhost.core_run }}'
+    core_records: '{{ hostvars.localhost.core_records }}'
+    core_attempt: '{{ hostvars.localhost.core_attempt }}'
+    core_metrics_rule: 'rule family="ipv4" source address="10.244.0.0/16" port port="10250" protocol="tcp" accept'
+  tasks:
+    - name: 服务证书引导、精确 CSR 核验和独立回退
+      ansible.builtin.include_tasks: ../tasks/core/metrics-kubelet.yml
+      when: hostvars.localhost.core_metrics_prepare
+    - name: 确认 SELinux 与防火墙仍启用
+      ansible.builtin.command: {argv: [getenforce]}
+      register: core_metrics_selinux
+      changed_when: false
+      when: hostvars.localhost.core_metrics_prepare
+    - name: SELinux 必须 Enforcing
+      ansible.builtin.assert: {that: core_metrics_selinux.stdout == 'Enforcing'}
+      when: hostvars.localhost.core_metrics_prepare
+    - name: 查询 Pod 到 kubelet 的精确防火墙规则
+      ansible.builtin.command: {argv: [firewall-cmd, '--query-rich-rule={{ core_metrics_rule }}']}
+      register: core_metrics_firewall
+      failed_when: core_metrics_firewall.rc not in [0,1]
+      changed_when: false
+      when: hostvars.localhost.core_metrics_prepare
+    - name: 只放行 Pod CIDR 到 kubelet HTTPS 端口
+      ansible.builtin.command: {argv: [firewall-cmd, '--add-rich-rule={{ core_metrics_rule }}']}
+      when: hostvars.localhost.core_metrics_prepare and core_metrics_firewall.rc == 1
+      changed_when: true
+    - name: 查询持久防火墙规则
+      ansible.builtin.command: {argv: [firewall-cmd, --permanent, '--query-rich-rule={{ core_metrics_rule }}']}
+      register: core_metrics_firewall_persistent
+      failed_when: core_metrics_firewall_persistent.rc not in [0,1]
+      changed_when: false
+      when: hostvars.localhost.core_metrics_prepare
+    - name: 持久化精确规则，不重载或关闭防火墙
+      ansible.builtin.command: {argv: [firewall-cmd, --permanent, '--add-rich-rule={{ core_metrics_rule }}']}
+      when: hostvars.localhost.core_metrics_prepare and core_metrics_firewall_persistent.rc == 1
+      changed_when: true
+
+- name: 安装本集群资源指标入口
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/core.yml]
+  tasks:
+    - name: 管理端使用现有 crane 准备固定镜像
+      ansible.builtin.include_tasks: ../tasks/core/metrics-install.yml
+      when: core_metrics_prepare
+    - name: 准备完成后必须真实获得十节点指标
+      ansible.builtin.include_tasks: ../tasks/core/wait.yml
+      vars: {core_wait_name: 指标 API TLS 与十节点采集验收, core_wait_action: metrics, core_wait_id: metrics-ready, core_wait_retries: 90, core_wait_delay: 3}
+      when: core_mode == 'run' and not core_already_passed

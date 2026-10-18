@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: '{{ config_name | default("p10-config") }}'
+  namespace: '{{ core_namespace }}'
+  labels: {cnpl.io/core-run: '{{ core_run }}'}
+immutable: {{ config_immutable | default(false) | to_json }}
+data: {value: '{{ config_value | default("v1") }}'}

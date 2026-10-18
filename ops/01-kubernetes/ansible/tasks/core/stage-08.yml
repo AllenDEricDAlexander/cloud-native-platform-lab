@@ -1,0 +1,90 @@
+---
+- name: 01.08.01 比较两种真实删除传播
+  ansible.builtin.include_tasks: stage-08-cascade.yml
+  loop: [foreground, background]
+  loop_control: {loop_var: gc_action}
+  vars: {gc_name: 'p08-{{ gc_action }}'}
+- name: 01.08.02 为 Orphan 创建独立链
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: examples/garbage-collection/manifests/controller.yaml.j2, core_resource_id: orphan-before, gc_name: p08-orphan}
+- name: 绑定 Orphan 前真实父子关系
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Orphan 原父子链就绪, core_wait_action: workload, core_wait_id: orphan-before, core_wait_args: [--kind, deployment, --name, p08-orphan, --count, '2']}
+- name: 保存原 Deployment UID、Pod UID 集合
+  ansible.builtin.set_fact:
+    orphan_deployment: '{{ core_observation.parent.metadata.uid }}'
+    orphan_pod_uids: '{{ core_observation.pods | map(attribute="metadata.uid") | sort }}'
+- name: 读取原 ReplicaSet
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","replicasets","-l","app.kubernetes.io/name=p08-orphan,cnpl.io/core-run=" ~ core_run,"-o","json"] }}'}
+  register: orphan_sets
+  changed_when: false
+- name: 原链必须只有一个 RS
+  ansible.builtin.assert:
+    that: '(orphan_sets.stdout | from_json)["items"] | length == 1'
+- name: 绑定原 RS 身份
+  ansible.builtin.set_fact: {orphan_rs: '{{ (orphan_sets.stdout | from_json)["items"][0] }}'}
+- name: Orphan 删除 Deployment
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","deployment","p08-orphan","--cascade=orphan","--wait=true"] }}'}
+  changed_when: true
+- name: 直接子对象 RS 留存并解除原 Deployment 引用
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","replicaset",orphan_rs.metadata.name,"-o","json"] }}'}
+  register: orphan_rs_after
+  changed_when: false
+  until: orphan_rs_after.rc == 0 and (orphan_rs_after.stdout | from_json).metadata.uid == orphan_rs.metadata.uid and orphan_deployment not in ((orphan_rs_after.stdout | from_json).metadata.get('ownerReferences',[]) | map(attribute='uid') | list)
+  retries: 30
+  delay: 1
+- name: 留存 RS 仍控制原 Pod
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Orphan 只影响直接所有权边, core_wait_action: workload, core_wait_id: orphan-rs-preserved, core_wait_args: [--kind, replicaset, --name, '{{ orphan_rs.metadata.name }}', --count, '2']}
+- name: Pod 不是重新创建的替代品
+  ansible.builtin.assert:
+    that: '(core_observation.pods | map(attribute="metadata.uid") | sort) == orphan_pod_uids'
+- name: 再 Orphan 删除 RS，得到真正无控制器的 Pod
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","replicaset",orphan_rs.metadata.name,"--cascade=orphan","--wait=true"] }}'}
+  changed_when: true
+- name: 等原 Pod 的 RS ownerReferences 移除
+  ansible.builtin.command: {argv: '{{ core_a + ["-n",core_namespace,"get","pods","-l","app.kubernetes.io/name=p08-orphan,cnpl.io/core-run=" ~ core_run,"-o","json"] }}'}
+  register: orphan_pods
+  changed_when: false
+  until: orphan_pods.rc == 0 and ((orphan_pods.stdout | from_json)['items'] | length == 2) and ((orphan_pods.stdout | from_json)['items'] | selectattr('metadata.ownerReferences','defined') | map(attribute='metadata.ownerReferences') | flatten | list | length == 0)
+  retries: 30
+  delay: 1
+- name: 明确 Selector 的新 RS 接管原孤儿
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: examples/garbage-collection/manifests/controller.yaml.j2, core_resource_id: orphan-adopter, gc_name: p08-adopter, gc_pool: p08-orphan, gc_kind: ReplicaSet}
+- name: 按真实 owner UID 确认接管
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 新 ReplicaSet 接管原 Pod, core_wait_action: workload, core_wait_id: orphan-adopted, core_wait_args: [--kind, replicaset, --name, p08-adopter, --count, '2']}
+- name: 接管保持原两个 Pod UID
+  ansible.builtin.assert:
+    that: '(core_observation.pods | map(attribute="metadata.uid") | sort) == orphan_pod_uids'
+- name: 01.08.03 Finalizer 外部资源清理顺序
+  ansible.builtin.include_tasks: resource.yml
+  vars: {core_source: examples/garbage-collection/manifests/finalizer.yaml.j2, core_resource_id: finalizer-demo}
+- name: 删除带实验保护的对象
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","configmap","p08-finalizer","--wait=false"] }}'}
+  changed_when: true
+- name: 读取仍在等待清理的对象
+  ansible.builtin.include_tasks: get.yml
+  vars: {core_kind: configmap, core_name: p08-finalizer}
+- name: 确认删除已开始且只含本实验标记
+  ansible.builtin.assert:
+    that:
+      - core_object.metadata.deletionTimestamp is defined
+      - core_object.metadata.finalizers == ['cnpl.io/core-cleanup']
+- name: 绑定保护对象 UID
+  ansible.builtin.set_fact: {finalizer_uid: '{{ core_object.metadata.uid }}'}
+- name: 先清理本批模拟外部资源
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"delete","configmap","p08-external","--wait=true"] }}'}
+  changed_when: true
+- name: 外部模拟对象必须实际消失
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: 模拟外部清理完成, core_wait_action: deleted, core_wait_id: external-gone, core_wait_args: [--kind, configmap, --name, p08-external]}
+- name: 保存清理外部之后仍被保护的现场
+  ansible.builtin.include_tasks: snapshot.yml
+- name: 核验后解除自己的 Finalizer
+  ansible.builtin.include_tasks: release-finalizer.yml
+  vars: {core_held: {kind: ConfigMap, name: p08-finalizer, uid: '{{ finalizer_uid }}'}}
+- name: 对象最终删除完成
+  ansible.builtin.include_tasks: wait.yml
+  vars: {core_wait_name: Finalizer 顺序验收, core_wait_action: deleted, core_wait_id: finalizer-gone, core_wait_args: [--kind, configmap, --name, p08-finalizer]}

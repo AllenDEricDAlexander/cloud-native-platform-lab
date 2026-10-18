@@ -1,0 +1,22 @@
+---
+- name: 读取被本实验阻挡的当前对象
+  ansible.builtin.command:
+    argv: '{{ core_a + ["get", core_held.kind | lower, core_held.name, "-n", core_namespace, "--ignore-not-found", "-o", "json"] }}'
+  register: core_held_now
+  changed_when: false
+- name: 精确核对后解除本次标记
+  when: core_held_now.stdout | length > 0
+  block:
+    - name: 名称相同不等于原对象
+      ansible.builtin.assert:
+        that:
+          - held.metadata.uid == core_held.uid
+          - held.metadata.labels.get('cnpl.io/core-run','') == core_run
+          - held.metadata.get('finalizers',[]) | difference(['cnpl.io/core-cleanup','foregroundDeletion','batch.kubernetes.io/job-tracking']) | length == 0
+      vars: {held: '{{ core_held_now.stdout | from_json }}'}
+    - name: 原子校验 UID 和 finalizer 列表后移除自己的一个标记
+      ansible.builtin.command:
+        argv: '{{ core_a + ["-n", core_namespace, "patch", core_held.kind | lower, core_held.name, "--type=json", "-p", [{"op":"test","path":"/metadata/uid","value":held.metadata.uid},{"op":"test","path":"/metadata/finalizers","value":held.metadata.finalizers},{"op":"replace","path":"/metadata/finalizers","value":held.metadata.finalizers | difference(["cnpl.io/core-cleanup"])}] | to_json] }}'
+      vars: {held: '{{ core_held_now.stdout | from_json }}'}
+      when: "'cnpl.io/core-cleanup' in (core_held_now.stdout | from_json).metadata.get('finalizers',[])"
+      changed_when: true

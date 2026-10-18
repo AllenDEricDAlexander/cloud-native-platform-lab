@@ -1,0 +1,100 @@
+# 命名空间先落地；Ansible 按文档顺序执行后续引用依赖。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: 'lab-p10'
+  labels:
+    cnpl.io/core-run: '20261018T132021Z-f5b9bd22'
+    cnpl.io/core-stage: '10'
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: core-operator
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+rules:
+- apiGroups: ['']
+  resources: [pods, replicationcontrollers, services, configmaps, resourcequotas, limitranges]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: ['']
+  resources: [pods/log]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [pods/exec]
+  verbs: [get, create]
+- apiGroups: [apps]
+  resources: [deployments, deployments/scale, replicasets, statefulsets, statefulsets/scale, daemonsets, controllerrevisions]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [batch]
+  resources: [jobs, cronjobs]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [autoscaling]
+  resources: [horizontalpodautoscalers]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [networking.k8s.io]
+  resources: [networkpolicies]
+  verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: core-operator
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: core-operator}
+subjects: [{kind: User, apiGroup: rbac.authorization.k8s.io, name: 'cnpl-mac-operator'}]
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: core-budget
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+spec:
+  hard: {pods: '24', requests.cpu: '4', requests.memory: 2Gi, limits.cpu: '8', limits.memory: 4Gi, requests.ephemeral-storage: 1Gi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: core-limits
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+spec:
+  limits:
+  - type: Container
+    default: {cpu: 500m, memory: 192Mi, ephemeral-storage: 32Mi}
+    defaultRequest: {cpu: 20m, memory: 32Mi, ephemeral-storage: 1Mi}
+    max: {cpu: '1', memory: 256Mi, ephemeral-storage: 128Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: core-isolation
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress: [{from: [{podSelector: {}}]}]
+  egress:
+  - to: [{podSelector: {}}]
+  - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+---
+# Cilium 默认不以 CIDR 匹配集群节点；API 流量按实体和端口授权。
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: core-api-egress
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+spec:
+  endpointSelector:
+    matchLabels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+  egress:
+  - toEntities: [kube-apiserver]
+    toPorts:
+    - ports: [{port: '443', protocol: TCP}, {port: '6443', protocol: TCP}]

@@ -1,0 +1,380 @@
+{
+  "pod": {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"20261018T132021Z-f5b9bd22\"},\"name\":\"p10-config-consumer\",\"namespace\":\"lab-p10\"},\"spec\":{\"affinity\":{\"nodeAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":{\"nodeSelectorTerms\":[{\"matchExpressions\":[{\"key\":\"kubernetes.io/hostname\",\"operator\":\"In\",\"values\":[\"worker01.k8s.internal.egon.top\",\"worker02.k8s.internal.egon.top\"]}]}]}}},\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/core-lab\",\"serve\"],\"env\":[{\"name\":\"POD_NAME\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.name\"}}},{\"name\":\"POD_UID\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.uid\"}}},{\"name\":\"POD_NAMESPACE\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.namespace\"}}},{\"name\":\"APP_CONFIG\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"value\",\"name\":\"p10-config\"}}},{\"name\":\"SECRET_VALUE\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"value\",\"name\":\"p10-app-secret\"}}},{\"name\":\"TLS_NAME\",\"value\":\"p10-demo.lab-p10.svc\"}],\"image\":\"cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc\",\"imagePullPolicy\":\"Never\",\"name\":\"app\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/ready\",\"port\":\"http\"},\"periodSeconds\":2,\"timeoutSeconds\":2},\"resources\":{\"limits\":{\"cpu\":\"500m\",\"ephemeral-storage\":\"32Mi\",\"memory\":\"192Mi\"},\"requests\":{\"cpu\":\"20m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"32Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"volumeMounts\":[{\"mountPath\":\"/work\",\"name\":\"work\"},{\"mountPath\":\"/config\",\"name\":\"config\",\"readOnly\":true},{\"mountPath\":\"/subpath/value\",\"name\":\"config\",\"readOnly\":true,\"subPath\":\"value\"},{\"mountPath\":\"/secret\",\"name\":\"secret\",\"readOnly\":true},{\"mountPath\":\"/tls\",\"name\":\"tls\",\"readOnly\":true}]}],\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":10,\"volumes\":[{\"emptyDir\":{\"sizeLimit\":\"32Mi\"},\"name\":\"work\"},{\"configMap\":{\"name\":\"p10-config\"},\"name\":\"config\"},{\"name\":\"secret\",\"secret\":{\"defaultMode\":288,\"secretName\":\"p10-app-secret\"}},{\"name\":\"tls\",\"secret\":{\"defaultMode\":288,\"secretName\":\"p10-app-tls\"}}]}}\n"
+      },
+      "creationTimestamp": "2026-10-18T13:23:52Z",
+      "generation": 1,
+      "labels": {
+        "cnpl.io/core-run": "20261018T132021Z-f5b9bd22"
+      },
+      "name": "p10-config-consumer",
+      "namespace": "lab-p10",
+      "resourceVersion": "314389",
+      "uid": "95f2b686-a92c-4bbc-bd61-63c845b9e133"
+    },
+    "spec": {
+      "affinity": {
+        "nodeAffinity": {
+          "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "kubernetes.io/hostname",
+                    "operator": "In",
+                    "values": [
+                      "worker01.k8s.internal.egon.top",
+                      "worker02.k8s.internal.egon.top"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "automountServiceAccountToken": false,
+      "containers": [
+        {
+          "command": [
+            "/core-lab",
+            "serve"
+          ],
+          "env": [
+            {
+              "name": "POD_NAME",
+              "valueFrom": {
+                "fieldRef": {
+                  "apiVersion": "v1",
+                  "fieldPath": "metadata.name"
+                }
+              }
+            },
+            {
+              "name": "POD_UID",
+              "valueFrom": {
+                "fieldRef": {
+                  "apiVersion": "v1",
+                  "fieldPath": "metadata.uid"
+                }
+              }
+            },
+            {
+              "name": "POD_NAMESPACE",
+              "valueFrom": {
+                "fieldRef": {
+                  "apiVersion": "v1",
+                  "fieldPath": "metadata.namespace"
+                }
+              }
+            },
+            {
+              "name": "APP_CONFIG",
+              "valueFrom": {
+                "configMapKeyRef": {
+                  "key": "value",
+                  "name": "p10-config"
+                }
+              }
+            },
+            {
+              "name": "SECRET_VALUE",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "value",
+                  "name": "p10-app-secret"
+                }
+              }
+            },
+            {
+              "name": "TLS_NAME",
+              "value": "p10-demo.lab-p10.svc"
+            }
+          ],
+          "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+          "imagePullPolicy": "Never",
+          "name": "app",
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "readinessProbe": {
+            "failureThreshold": 3,
+            "httpGet": {
+              "path": "/ready",
+              "port": "http",
+              "scheme": "HTTP"
+            },
+            "periodSeconds": 2,
+            "successThreshold": 1,
+            "timeoutSeconds": 2
+          },
+          "resources": {
+            "limits": {
+              "cpu": "500m",
+              "ephemeral-storage": "32Mi",
+              "memory": "192Mi"
+            },
+            "requests": {
+              "cpu": "20m",
+              "ephemeral-storage": "1Mi",
+              "memory": "32Mi"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "ALL"
+              ]
+            },
+            "readOnlyRootFilesystem": true
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File",
+          "volumeMounts": [
+            {
+              "mountPath": "/work",
+              "name": "work"
+            },
+            {
+              "mountPath": "/config",
+              "name": "config",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/subpath/value",
+              "name": "config",
+              "readOnly": true,
+              "subPath": "value"
+            },
+            {
+              "mountPath": "/secret",
+              "name": "secret",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/tls",
+              "name": "tls",
+              "readOnly": true
+            }
+          ]
+        }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "worker02.k8s.internal.egon.top",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {
+        "fsGroup": 1000,
+        "runAsGroup": 1000,
+        "runAsNonRoot": true,
+        "runAsUser": 1000,
+        "seccompProfile": {
+          "type": "RuntimeDefault"
+        }
+      },
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 10,
+      "tolerations": [
+        {
+          "effect": "NoExecute",
+          "key": "node.kubernetes.io/not-ready",
+          "operator": "Exists",
+          "tolerationSeconds": 300
+        },
+        {
+          "effect": "NoExecute",
+          "key": "node.kubernetes.io/unreachable",
+          "operator": "Exists",
+          "tolerationSeconds": 300
+        }
+      ],
+      "volumes": [
+        {
+          "emptyDir": {
+            "sizeLimit": "32Mi"
+          },
+          "name": "work"
+        },
+        {
+          "configMap": {
+            "defaultMode": 420,
+            "name": "p10-config"
+          },
+          "name": "config"
+        },
+        {
+          "name": "secret",
+          "secret": {
+            "defaultMode": 288,
+            "secretName": "p10-app-secret"
+          }
+        },
+        {
+          "name": "tls",
+          "secret": {
+            "defaultMode": 288,
+            "secretName": "p10-app-tls"
+          }
+        }
+      ]
+    },
+    "status": {
+      "allocatedResources": {
+        "cpu": "20m",
+        "ephemeral-storage": "1Mi",
+        "memory": "32Mi"
+      },
+      "conditions": [
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-10-18T13:23:54Z",
+          "observedGeneration": 1,
+          "status": "True",
+          "type": "PodReadyToStartContainers"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-10-18T13:23:52Z",
+          "observedGeneration": 1,
+          "status": "True",
+          "type": "Initialized"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-10-18T13:23:55Z",
+          "observedGeneration": 1,
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-10-18T13:23:55Z",
+          "observedGeneration": 1,
+          "status": "True",
+          "type": "ContainersReady"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-10-18T13:23:52Z",
+          "observedGeneration": 1,
+          "status": "True",
+          "type": "PodScheduled"
+        }
+      ],
+      "containerStatuses": [
+        {
+          "allocatedResources": {
+            "cpu": "20m",
+            "ephemeral-storage": "1Mi",
+            "memory": "32Mi"
+          },
+          "containerID": "containerd://eb751a2bb74b3052c623ed86016f2ab5dda1fab81ff320f30fdf338ed22759de",
+          "image": "cnpl.local/phase01/core-lab:v1-sha256-4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+          "imageID": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+          "lastState": {},
+          "name": "app",
+          "ready": true,
+          "resources": {
+            "limits": {
+              "cpu": "500m",
+              "ephemeral-storage": "32Mi",
+              "memory": "192Mi"
+            },
+            "requests": {
+              "cpu": "20m",
+              "ephemeral-storage": "1Mi",
+              "memory": "32Mi"
+            }
+          },
+          "restartCount": 0,
+          "started": true,
+          "state": {
+            "running": {
+              "startedAt": "2026-10-18T13:23:55Z"
+            }
+          },
+          "user": {
+            "linux": {
+              "gid": 1000,
+              "supplementalGroups": [
+                1000
+              ],
+              "uid": 1000
+            }
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/work",
+              "name": "work"
+            },
+            {
+              "mountPath": "/config",
+              "name": "config",
+              "readOnly": true,
+              "recursiveReadOnly": "Disabled"
+            },
+            {
+              "mountPath": "/subpath/value",
+              "name": "config",
+              "readOnly": true,
+              "recursiveReadOnly": "Disabled"
+            },
+            {
+              "mountPath": "/secret",
+              "name": "secret",
+              "readOnly": true,
+              "recursiveReadOnly": "Disabled"
+            },
+            {
+              "mountPath": "/tls",
+              "name": "tls",
+              "readOnly": true,
+              "recursiveReadOnly": "Disabled"
+            }
+          ]
+        }
+      ],
+      "hostIP": "192.168.9.110",
+      "hostIPs": [
+        {
+          "ip": "192.168.9.110"
+        }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.9.172",
+      "podIPs": [
+        {
+          "ip": "10.244.9.172"
+        }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+        "limits": {
+          "cpu": "500m",
+          "ephemeral-storage": "32Mi",
+          "memory": "192Mi"
+        },
+        "requests": {
+          "cpu": "20m",
+          "ephemeral-storage": "1Mi",
+          "memory": "32Mi"
+        }
+      },
+      "startTime": "2026-10-18T13:23:52Z"
+    }
+  }
+}

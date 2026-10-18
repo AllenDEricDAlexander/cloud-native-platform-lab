@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p10-reader
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p10-config-reader
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p10-operator
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: p10-reader
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+rules: [{apiGroups: [''], resources: [pods], verbs: [get,list,watch]}, {apiGroups: [''], resources: [pods/log], verbs: [get]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p10-reader
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: p10-reader}
+subjects: [{kind: ServiceAccount, name: p10-reader, namespace: 'lab-p10'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: 'cnpl-p10-config-20261018t132021z-f5b9bd22'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+rules: [{apiGroups: [''], resources: [configmaps], resourceNames: [p10-config], verbs: [get]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p10-config-reader
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: 'cnpl-p10-config-20261018t132021z-f5b9bd22'}
+subjects: [{kind: ServiceAccount, name: p10-config-reader, namespace: 'lab-p10'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: p10-operator
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+rules: [{apiGroups: [''], resources: [configmaps], resourceNames: [p10-delete-allowed], verbs: [get,delete]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: p10-operator
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: p10-operator}
+subjects: [{kind: ServiceAccount, name: p10-operator, namespace: 'lab-p10'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: 'cnpl-p10-nodes-20261018t132021z-f5b9bd22'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+rules: [{apiGroups: [''], resources: [nodes], verbs: [get,list,watch]}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: 'cnpl-p10-nodes-20261018t132021z-f5b9bd22'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: 'cnpl-p10-nodes-20261018t132021z-f5b9bd22'}
+subjects: [{kind: ServiceAccount, name: p10-reader, namespace: 'lab-p10'}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p10-delete-allowed
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+data: {purpose: allowed-delete}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p10-delete-denied
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+data: {purpose: denied-delete}

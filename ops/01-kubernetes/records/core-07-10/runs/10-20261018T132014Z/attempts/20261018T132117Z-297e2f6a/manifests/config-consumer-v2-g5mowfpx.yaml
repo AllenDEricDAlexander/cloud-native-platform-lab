@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: p10-config-consumer
+  namespace: 'lab-p10'
+  labels: {cnpl.io/core-run: '20261018T132021Z-f5b9bd22'}
+spec:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 10
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms: [{matchExpressions: [{key: kubernetes.io/hostname, operator: In, values: ["worker01.k8s.internal.egon.top", "worker02.k8s.internal.egon.top"]}]}]
+  securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+  containers:
+  - name: app
+    image: 'cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc'
+    imagePullPolicy: Never
+    command: [/core-lab, serve]
+    env:
+    - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+    - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+    - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+    - {name: APP_CONFIG, valueFrom: {configMapKeyRef: {name: p10-config, key: value}}}
+    - {name: SECRET_VALUE, valueFrom: {secretKeyRef: {name: p10-app-secret, key: value}}}
+    - {name: TLS_NAME, value: 'p10-demo.lab-p10.svc'}
+    ports: [{name: http, containerPort: 8080}]
+    securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+    resources: {requests: {cpu: 20m, memory: 32Mi, ephemeral-storage: 1Mi}, limits: {cpu: 500m, memory: 192Mi, ephemeral-storage: 32Mi}}
+    readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+    volumeMounts:
+    - {name: work, mountPath: /work}
+    - {name: config, mountPath: /config, readOnly: true}
+    - {name: config, mountPath: /subpath/value, subPath: value, readOnly: true}
+    - {name: secret, mountPath: /secret, readOnly: true}
+    - {name: tls, mountPath: /tls, readOnly: true}
+  volumes:
+  - {name: work, emptyDir: {sizeLimit: 32Mi}}
+  - {name: config, configMap: {name: p10-config}}
+  - {name: secret, secret: {secretName: p10-app-secret, defaultMode: 288}}
+  - {name: tls, secret: {secretName: p10-app-tls, defaultMode: 288}}

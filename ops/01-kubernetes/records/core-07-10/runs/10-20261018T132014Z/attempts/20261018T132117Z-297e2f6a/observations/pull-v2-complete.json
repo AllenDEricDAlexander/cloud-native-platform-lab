@@ -1,0 +1,360 @@
+{
+  "job": {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"Job\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"20261018T132021Z-f5b9bd22\"},\"name\":\"p10-pull-v2\",\"namespace\":\"lab-p10\"},\"spec\":{\"activeDeadlineSeconds\":180,\"backoffLimit\":0,\"template\":{\"metadata\":{\"labels\":{\"cnpl.io/core-run\":\"20261018T132021Z-f5b9bd22\",\"cnpl.io/pull-variant\":\"v2\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/bin/sh\",\"-ec\",\"echo PRIVATE_PULL_AUTHENTICATED\"],\"image\":\"harbor.k8s.internal.egon.top/cnpl-p10-20261018t132021z-f5b9bd22-297e2f6a/busybox-v2@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f\",\"imagePullPolicy\":\"Always\",\"name\":\"app\",\"resources\":{\"limits\":{\"cpu\":\"200m\",\"ephemeral-storage\":\"16Mi\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"16Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"workingDir\":\"/\"}],\"imagePullSecrets\":[{\"name\":\"p10-pull\"}],\"nodeSelector\":{\"kubernetes.io/hostname\":\"worker01.k8s.internal.egon.top\"},\"restartPolicy\":\"Never\",\"securityContext\":{\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}}},\"ttlSecondsAfterFinished\":3600}}\n"
+      },
+      "creationTimestamp": "2026-10-18T13:26:13Z",
+      "generation": 1,
+      "labels": {
+        "cnpl.io/core-run": "20261018T132021Z-f5b9bd22"
+      },
+      "name": "p10-pull-v2",
+      "namespace": "lab-p10",
+      "resourceVersion": "315062",
+      "uid": "dee269f9-5c6b-456c-bf08-0232188ac966"
+    },
+    "spec": {
+      "activeDeadlineSeconds": 180,
+      "backoffLimit": 0,
+      "completionMode": "NonIndexed",
+      "completions": 1,
+      "manualSelector": false,
+      "parallelism": 1,
+      "podReplacementPolicy": "TerminatingOrFailed",
+      "selector": {
+        "matchLabels": {
+          "batch.kubernetes.io/controller-uid": "dee269f9-5c6b-456c-bf08-0232188ac966"
+        }
+      },
+      "suspend": false,
+      "template": {
+        "metadata": {
+          "labels": {
+            "batch.kubernetes.io/controller-uid": "dee269f9-5c6b-456c-bf08-0232188ac966",
+            "batch.kubernetes.io/job-name": "p10-pull-v2",
+            "cnpl.io/core-run": "20261018T132021Z-f5b9bd22",
+            "cnpl.io/pull-variant": "v2",
+            "controller-uid": "dee269f9-5c6b-456c-bf08-0232188ac966",
+            "job-name": "p10-pull-v2"
+          }
+        },
+        "spec": {
+          "automountServiceAccountToken": false,
+          "containers": [
+            {
+              "command": [
+                "/bin/sh",
+                "-ec",
+                "echo PRIVATE_PULL_AUTHENTICATED"
+              ],
+              "image": "harbor.k8s.internal.egon.top/cnpl-p10-20261018t132021z-f5b9bd22-297e2f6a/busybox-v2@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+              "imagePullPolicy": "Always",
+              "name": "app",
+              "resources": {
+                "limits": {
+                  "cpu": "200m",
+                  "ephemeral-storage": "16Mi",
+                  "memory": "64Mi"
+                },
+                "requests": {
+                  "cpu": "10m",
+                  "ephemeral-storage": "1Mi",
+                  "memory": "16Mi"
+                }
+              },
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                },
+                "readOnlyRootFilesystem": true
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "workingDir": "/"
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "imagePullSecrets": [
+            {
+              "name": "p10-pull"
+            }
+          ],
+          "nodeSelector": {
+            "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+          },
+          "restartPolicy": "Never",
+          "schedulerName": "default-scheduler",
+          "securityContext": {
+            "runAsGroup": 1000,
+            "runAsNonRoot": true,
+            "runAsUser": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "terminationGracePeriodSeconds": 30
+        }
+      },
+      "ttlSecondsAfterFinished": 3600
+    },
+    "status": {
+      "completionTime": "2026-10-18T13:26:20Z",
+      "conditions": [
+        {
+          "lastProbeTime": "2026-10-18T13:26:20Z",
+          "lastTransitionTime": "2026-10-18T13:26:20Z",
+          "message": "Reached expected number of succeeded pods",
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "SuccessCriteriaMet"
+        },
+        {
+          "lastProbeTime": "2026-10-18T13:26:20Z",
+          "lastTransitionTime": "2026-10-18T13:26:20Z",
+          "message": "Reached expected number of succeeded pods",
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "Complete"
+        }
+      ],
+      "ready": 0,
+      "startTime": "2026-10-18T13:26:13Z",
+      "succeeded": 1,
+      "terminating": 0,
+      "uncountedTerminatedPods": {}
+    }
+  },
+  "pods": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T13:26:13Z",
+        "generateName": "p10-pull-v2-",
+        "generation": 1,
+        "labels": {
+          "batch.kubernetes.io/controller-uid": "dee269f9-5c6b-456c-bf08-0232188ac966",
+          "batch.kubernetes.io/job-name": "p10-pull-v2",
+          "cnpl.io/core-run": "20261018T132021Z-f5b9bd22",
+          "cnpl.io/pull-variant": "v2",
+          "controller-uid": "dee269f9-5c6b-456c-bf08-0232188ac966",
+          "job-name": "p10-pull-v2"
+        },
+        "name": "p10-pull-v2-vpsjb",
+        "namespace": "lab-p10",
+        "ownerReferences": [
+          {
+            "apiVersion": "batch/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Job",
+            "name": "p10-pull-v2",
+            "uid": "dee269f9-5c6b-456c-bf08-0232188ac966"
+          }
+        ],
+        "resourceVersion": "315064",
+        "uid": "0979996b-5b98-4cc8-8ab1-4d471392ccac"
+      },
+      "spec": {
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "command": [
+              "/bin/sh",
+              "-ec",
+              "echo PRIVATE_PULL_AUTHENTICATED"
+            ],
+            "image": "harbor.k8s.internal.egon.top/cnpl-p10-20261018t132021z-f5b9bd22-297e2f6a/busybox-v2@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+            "imagePullPolicy": "Always",
+            "name": "app",
+            "resources": {
+              "limits": {
+                "cpu": "200m",
+                "ephemeral-storage": "16Mi",
+                "memory": "64Mi"
+              },
+              "requests": {
+                "cpu": "10m",
+                "ephemeral-storage": "1Mi",
+                "memory": "16Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "workingDir": "/"
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "imagePullSecrets": [
+          {
+            "name": "p10-pull"
+          }
+        ],
+        "nodeName": "worker01.k8s.internal.egon.top",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Never",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "runAsGroup": 1000,
+          "runAsNonRoot": true,
+          "runAsUser": 1000,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ]
+      },
+      "status": {
+        "allocatedResources": {
+          "cpu": "10m",
+          "ephemeral-storage": "1Mi",
+          "memory": "16Mi"
+        },
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T13:26:19Z",
+            "observedGeneration": 1,
+            "status": "False",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T13:26:13Z",
+            "observedGeneration": 1,
+            "reason": "PodCompleted",
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T13:26:18Z",
+            "observedGeneration": 1,
+            "reason": "PodCompleted",
+            "status": "False",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T13:26:18Z",
+            "observedGeneration": 1,
+            "reason": "PodCompleted",
+            "status": "False",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T13:26:13Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "allocatedResources": {
+              "cpu": "10m",
+              "ephemeral-storage": "1Mi",
+              "memory": "16Mi"
+            },
+            "containerID": "containerd://7c171234712dd146b6cc22bb1a2a6a0768d00f2b837981c079a8292aa15e43b4",
+            "image": "registry.k8s.io/e2e-test-images/busybox:1.38.0-1",
+            "imageID": "harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+            "lastState": {},
+            "name": "app",
+            "ready": false,
+            "resources": {
+              "limits": {
+                "cpu": "200m",
+                "ephemeral-storage": "16Mi",
+                "memory": "64Mi"
+              },
+              "requests": {
+                "cpu": "10m",
+                "ephemeral-storage": "1Mi",
+                "memory": "16Mi"
+              }
+            },
+            "restartCount": 0,
+            "started": false,
+            "state": {
+              "terminated": {
+                "containerID": "containerd://7c171234712dd146b6cc22bb1a2a6a0768d00f2b837981c079a8292aa15e43b4",
+                "exitCode": 0,
+                "finishedAt": "2026-10-18T13:26:17Z",
+                "reason": "Completed",
+                "startedAt": "2026-10-18T13:26:17Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 1000,
+                "supplementalGroups": [
+                  1000
+                ],
+                "uid": 1000
+              }
+            }
+          }
+        ],
+        "hostIP": "192.168.9.109",
+        "hostIPs": [
+          {
+            "ip": "192.168.9.109"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Succeeded",
+        "podIP": "10.244.8.226",
+        "podIPs": [
+          {
+            "ip": "10.244.8.226"
+          }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+          "requests": {
+            "memory": "16Mi"
+          }
+        },
+        "startTime": "2026-10-18T13:26:13Z"
+      }
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03–01.06 已完成源码 YAML + Ansible 的真实重跑验收，26 个成功断点与验收、清理两个总 PASS 齐全，详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。01.07–01.09 实验与清理均已实际通过，详见[07 验收归档](records/core-07-10/runs/07-20261018T102322Z/README.md)、[08 验收归档](records/core-07-10/runs/08-20261018T105000Z/README.md)、[09 验收归档](records/core-07-10/runs/09-20261018T113437Z/README.md)；下一专题为 01.10。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03–01.06 已完成源码 YAML + Ansible 的真实重跑验收，26 个成功断点与验收、清理两个总 PASS 齐全，详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。01.07–01.10 实验与清理均已实际通过，详见[07 验收归档](records/core-07-10/runs/07-20261018T102322Z/README.md)、[08 验收归档](records/core-07-10/runs/08-20261018T105000Z/README.md)、[09 验收归档](records/core-07-10/runs/09-20261018T113437Z/README.md)、[10 验收归档](records/core-07-10/runs/10-20261018T132014Z/README.md)。[清理后交接索引](records/core-07-10/runs/10-20261018T132014Z/handoff.json)已生成，后续阶段为 02，持久化存储尚未验证。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -441,7 +441,9 @@ bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/script
 
 配置注入/刷新、Secret 轮换和实际认证、私有 Registry 拉取及凭据轮换、SA/RBAC/audience/Bound Token，最后清理交接。
 
-执行前已完成 14 个公开变体 validate、16 项检查/证书测试，以及独立临时空间中的真实 Registry 认证与轮换、9 条 SA/RBAC 请求、Bound Token 失效和三 API/etcd 交接检查。Harbor 清理已改为按原项目 ID 查询项目机器人并明确撤销，所有验证资源已回收；详见[10 核验记录](records/2026-10-18-stage10-review/README.md)。正式 lab-p10 配置传播与全阶段验收仍由下面的 run 执行。
+正式运行已完成：ConfigMap 三种注入与刷新、不可变更新拒绝、Secret/TLS 和凭据轮换、私有 Registry 认证正反例、九条 SA/RBAC 实际请求及 Bound Token 失效均通过；验收和清理两个总 PASS 齐全，详见[10 实际验收归档](records/core-07-10/runs/10-20261018T132014Z/README.md)。归档时再次只读确认十节点、三个 API 和安全指标组件健康，测试空间、临时授权、私有项目和本批凭据已清理；[阶段交接索引](records/core-07-10/runs/10-20261018T132014Z/handoff.json)保留同集群的前序证据。
+
+执行前的 14 个公开变体 validate、16 项检查/证书测试及有限真实链路结果保留在[10 核验记录](records/2026-10-18-stage10-review/README.md)。下面保留本阶段的复现入口，当前无需重复运行。
 
 独立源码、逐条命令解释、预期结果和恢复说明见 [01.10 完整手册](core-resources/config/README.md)。每阶段只执行自己；正式运行前检查上一阶段的真实回执。
 

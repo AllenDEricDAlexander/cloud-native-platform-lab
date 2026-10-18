@@ -90,3 +90,5 @@ bash ops/01-kubernetes/scripts/replay-03-06.sh cleanup "$CNPL_REPLAY"
 ## 交付核验与待验收范围
 
 核验记录位于 `runs/delivery-final-validate-v2/` 及 `delivery/`。原始 01.06 六组和清理已核对通过；新实现执行了有限单测、真实 Ansible helper 离线集成、真实 API 准入及三控制平面只读检查。重跑故障实验由用户启动，此次静态/只读交付不算新实现运行验收，不开始 01.07。
+
+委派连接已明确固定到节点 SSH 和 `/usr/bin/python3`；`/usr/bin/python3.12` 不存在的报错及当前批次备份收尾，见 [2026-10-18 修复记录](repairs/20261018-delegation/README.md)。

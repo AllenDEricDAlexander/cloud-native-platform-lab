@@ -1,0 +1,40 @@
+---
+# 离线测试把 SSH 程序替换成拒绝联网的夹具；真实连接选择仍由 Ansible 完成。
+- name: 本地 play 向四个 Linux 目标委派
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: 节点连接和解释器必须来自自己的 inventory
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].ansible_connection == 'ssh'
+          - hostvars[item].ansible_python_interpreter == '/usr/bin/python3'
+      loop: [cp01, cp02, cp03, worker02]
+    - name: 本地 play 委派必须调用 SSH 夹具
+      ansible.builtin.raw: hostname
+      delegate_to: '{{ item }}'
+      loop: [cp01, cp02, cp03, worker02]
+      register: delegated_fixture
+      changed_when: false
+      ignore_unreachable: true
+    - name: 故意拒绝的 SSH 证明没有在 Mac 上执行节点命令
+      ansible.builtin.assert:
+        that:
+          - item.unreachable | default(false)
+          - "'CNPL_OFFLINE_SSH_SELECTED' in item.msg"
+      loop: '{{ delegated_fixture.results }}'
+      loop_control: {label: '{{ item.item }}'}
+- name: Linux play 反向委派管理 Mac
+  hosts: cp01
+  gather_facts: false
+  tasks:
+    - name: 管理端仍使用本地连接和当前 Ansible Python
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python }}', -c, 'import sys; print(sys.executable)']
+      delegate_to: localhost
+      register: management_python
+      changed_when: false
+    - name: 未把 Linux 解释器带到 Mac
+      ansible.builtin.assert:
+        that: management_python.stdout == ansible_playbook_python

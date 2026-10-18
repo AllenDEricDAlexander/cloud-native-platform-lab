@@ -1,0 +1,153 @@
+---
+# 本次失败的有限修复记录：只核验连接和既有备份，再完成自己的暂存清理。
+# 不调用 replay 主入口，不启动 HA、压力或实验工作负载。
+- name: 核验节点委派与当前备份凭据
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  tasks:
+    - name: 原上下文保持不变
+      ansible.builtin.set_fact:
+        repair_context: "{{ lookup('file', replay_records ~ '/context.json') | from_json }}"
+        repair_receipt: "{{ lookup('file', replay_records ~ '/backup-receipt.json') | from_json }}"
+    - name: 明确本次固定批次与原失败尝试
+      ansible.builtin.assert:
+        that:
+          - repair_context.run == '20261018T051939Z-bca4cc12'
+          - repair_failed_attempt == '20261018T052119Z-d762ed70'
+          - repair_receipt.run == repair_context.run
+    - name: 当前集群只读健康复核
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', preflight]
+      register: repair_cluster
+      changed_when: false
+    - name: 当前源码只读审计
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_check }}', audit, --root, '{{ replay_root }}']
+      register: repair_audit
+      changed_when: false
+    - name: 同集群同实现，修复连接不改动实验逻辑或原上下文
+      ansible.builtin.assert:
+        that:
+          - (repair_cluster.stdout | from_json).cluster_uid == repair_context.cluster_uid
+          - (repair_audit.stdout | from_json).source_sha256 == repair_context.implementation
+    - name: 备份凭据属于本批且仍在 24 小时内
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', validate-receipt, --context, '{{ replay_records }}/context.json', --input, '{{ replay_records }}/backup-receipt.json']
+      changed_when: false
+    - name: 绑定原有私有备份与节点暂存
+      ansible.builtin.set_fact:
+        repair_bundle: '{{ replay_private_root }}/bundles/{{ repair_context.run }}-{{ repair_failed_attempt }}'
+        repair_staging: '/root/cnpl-control-plane-backups/{{ repair_context.run }}-{{ repair_failed_attempt }}'
+    - name: 原包索引 SHA 与已验证的公开凭据一致
+      ansible.builtin.stat:
+        path: '{{ repair_bundle }}/manifest.json'
+        get_checksum: true
+        checksum_algorithm: sha256
+      register: repair_manifest
+    - name: 不能拿另一个备份包收尾
+      ansible.builtin.assert:
+        that: repair_manifest.stat.checksum == repair_receipt.manifest_sha256
+    - name: 本地原包逐文件复核（不重复远程备份或声称重新取回）
+      ansible.builtin.command:
+        argv: ['{{ replay_python }}', '{{ replay_root }}/ops/01-kubernetes/checks/backup-check.py', verify, --context, '{{ replay_records }}/context.json', --directory, '{{ repair_bundle }}', --restored, '{{ repair_bundle }}']
+      register: repair_files
+      changed_when: false
+    - name: 四个委派目标显式使用 SSH 和节点 Python
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].ansible_connection == 'ssh'
+          - hostvars[item].ansible_python_interpreter == '/usr/bin/python3'
+      loop: [cp01, cp02, cp03, worker02]
+    - name: 从本地 play 实际委派读取节点身份
+      ansible.builtin.command: {argv: [hostnamectl, --static]}
+      delegate_to: '{{ item }}'
+      loop: [cp01, cp02, cp03, worker02]
+      register: repair_hostnames
+      changed_when: false
+    - name: 必须在预期节点上执行
+      ansible.builtin.assert:
+        that: item.stdout == item.item ~ '.k8s.internal.egon.top'
+      loop: '{{ repair_hostnames.results }}'
+      loop_control: {label: '{{ item.item }}'}
+    - name: 从本地 play 实际委派执行 Python stat 模块
+      ansible.builtin.stat: {path: /usr/bin/python3, follow: true}
+      delegate_to: '{{ item }}'
+      loop: [cp01, cp02, cp03, worker02]
+      register: repair_python
+    - name: 节点解释器均有效
+      ansible.builtin.assert:
+        that: item.stat.isreg and item.stat.executable
+      loop: '{{ repair_python.results }}'
+      loop_control: {label: '{{ item.item }}'}
+    - name: 读取三个节点原暂存归属
+      ansible.builtin.slurp:
+        src: '{{ repair_staging }}/owner.json'
+      delegate_to: '{{ item }}'
+      loop: [cp01, cp02, cp03]
+      register: repair_owners
+    - name: 全部归属匹配后才能执行任何暂存删除
+      ansible.builtin.assert:
+        that: "(item.content | b64decode | from_json) == {'run': repair_context.run, 'node': item.item}"
+      loop: '{{ repair_owners.results }}'
+      loop_control: {label: '{{ item.item }}'}
+    - name: 保存本次远程归属核验
+      ansible.builtin.copy:
+        content: '{{ {"run": repair_context.run, "attempt": repair_failed_attempt, "owners": repair_owners.results, "local_bundle_files": repair_files.stdout | from_json, "node_identity": repair_hostnames.results} | to_nice_json }}'
+        dest: '{{ repair_evidence }}/remote-ownership-verified.json'
+        mode: '0600'
+- name: 反向委派不会把 Linux 连接配置带回管理 Mac
+  hosts: cp01
+  gather_facts: false
+  tasks:
+    - name: Linux play 中委派本地 Python 身份
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python }}', -c, 'import sys; print(sys.executable)']
+      delegate_to: localhost
+      register: repair_local_python
+      changed_when: false
+    - name: 使用当前管理端 Python
+      ansible.builtin.assert:
+        that: repair_local_python.stdout == ansible_playbook_python
+- name: 仅完成已验证备份的远端暂存清理和检查点
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: ['{{ replay_root }}/ops/01-kubernetes/ansible/vars/replay.yml']
+  tasks:
+    - name: 原运行中不能已有备份 PASS
+      ansible.builtin.stat: {path: '{{ replay_records }}/checkpoints/03-backup.json'}
+      register: repair_checkpoint
+    - name: 本次只补齐尚未完成的收尾
+      ansible.builtin.assert:
+        that: not repair_checkpoint.stat.exists
+    - name: 删除已核对归属且取回成功的本批节点暂存
+      ansible.builtin.file: {path: '{{ repair_staging }}', state: absent}
+      delegate_to: '{{ item }}'
+      loop: [cp01, cp02, cp03]
+    - name: 确认节点暂存已清理
+      ansible.builtin.stat: {path: '{{ repair_staging }}'}
+      delegate_to: '{{ item }}'
+      loop: [cp01, cp02, cp03]
+      register: repair_cleaned
+    - name: 三台暂存全部不存在
+      ansible.builtin.assert:
+        that: not item.stat.exists
+      loop: '{{ repair_cleaned.results }}'
+      loop_control: {label: '{{ item.item }}'}
+    - name: 仅在真实清理确认后写备份通过检查点
+      ansible.builtin.include_tasks: '{{ replay_root }}/ops/01-kubernetes/ansible/tasks/replay/checkpoint.yml'
+      vars:
+        replay_run: '{{ repair_context.run }}'
+        replay_cluster_uid: '{{ repair_context.cluster_uid }}'
+        replay_implementation_sha: '{{ repair_context.implementation }}'
+        replay_topic: '03'
+        replay_case: backup
+    - name: 保存清理后的明确结果
+      ansible.builtin.copy:
+        content: '{{ {"run": repair_context.run, "backup_complete": true, "remote_staging_removed": true, "original_context_unchanged": true, "ha_started": false, "private_bundle_retained": true} | to_nice_json }}'
+        dest: '{{ repair_evidence }}/completion.json'
+        mode: '0600'

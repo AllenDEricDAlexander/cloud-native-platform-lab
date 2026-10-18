@@ -1,0 +1,173 @@
+ansible-playbook [core 2.21.5]
+  config file = /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/ansible.cfg
+  configured module search path = ['/Users/mario/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible
+  ansible collection location = /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/collections
+  executable location = /Users/mario/.venvs/cnpl-ansible/bin/ansible-playbook
+  python version = 3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)] (/Users/mario/.venvs/cnpl-ansible/bin/python3.14)
+  jinja version = 3.1.6
+  pyyaml version = 6.0.3 (with libyaml v0.2.5)
+Using /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/ansible.cfg as config file
+host_list declined parsing /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/hosts.yml as it did not pass its verify_file() method
+script declined parsing /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/hosts.yml as it did not pass its verify_file() method
+Parsed /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/hosts.yml inventory source with yaml plugin
+Skipping callback 'minimal', as we already have a stdout callback.
+Skipping callback 'oneline', as we already have a stdout callback.
+
+PLAYBOOK: cnpl-delegate-repro.yml **********************************************
+2 plays in /tmp/cnpl-delegate-repro.yml
+
+PLAY [远程只读发现解释器] ******************************************************
+
+TASK [读取远程 Python 身份] ****************************************************
+task path: /tmp/cnpl-delegate-repro.yml:6
+<cp01> Attempting python interpreter discovery.
+<192.168.9.101> ESTABLISH SSH CONNECTION FOR USER: root
+<cp02> Attempting python interpreter discovery.
+<192.168.9.101> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/12b5e9b593"' -o NumberOfPasswordPrompts=1 192.168.9.101 '/bin/sh -c '"'"'echo FOUND; command -v '"'"'"'"'"'"'"'"'python3.14'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.13'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.12'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.11'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.10'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.9'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'/usr/bin/python3'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3'"'"'"'"'"'"'"'"'; echo ENDFOUND'"'"''
+<cp03> Attempting python interpreter discovery.
+<192.168.9.102> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.103> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.102> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/2c54efd110"' -o NumberOfPasswordPrompts=1 192.168.9.102 '/bin/sh -c '"'"'echo FOUND; command -v '"'"'"'"'"'"'"'"'python3.14'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.13'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.12'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.11'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.10'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.9'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'/usr/bin/python3'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3'"'"'"'"'"'"'"'"'; echo ENDFOUND'"'"''
+<192.168.9.103> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/f96f2ffa07"' -o NumberOfPasswordPrompts=1 192.168.9.103 '/bin/sh -c '"'"'echo FOUND; command -v '"'"'"'"'"'"'"'"'python3.14'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.13'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.12'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.11'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.10'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3.9'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'/usr/bin/python3'"'"'"'"'"'"'"'"'; command -v '"'"'"'"'"'"'"'"'python3'"'"'"'"'"'"'"'"'; echo ENDFOUND'"'"''
+<192.168.9.101> (0, b'FOUND\n/usr/bin/python3.12\n/usr/bin/python3\n/usr/bin/python3\nENDFOUND\n', b'')
+<192.168.9.102> (0, b'FOUND\n/usr/bin/python3.12\n/usr/bin/python3\n/usr/bin/python3\nENDFOUND\n', b'')
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/command.py
+<192.168.9.101> ESTABLISH SSH CONNECTION FOR USER: root
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/command.py
+<192.168.9.101> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/12b5e9b593"' -o NumberOfPasswordPrompts=1 192.168.9.101 '/bin/sh -c /usr/bin/python3.12'
+<192.168.9.102> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.102> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/2c54efd110"' -o NumberOfPasswordPrompts=1 192.168.9.102 '/bin/sh -c /usr/bin/python3.12'
+<192.168.9.103> (0, b'FOUND\n/usr/bin/python3.12\n/usr/bin/python3\n/usr/bin/python3\nENDFOUND\n', b'')
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/command.py
+<192.168.9.103> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.103> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/f96f2ffa07"' -o NumberOfPasswordPrompts=1 192.168.9.103 '/bin/sh -c /usr/bin/python3.12'
+<192.168.9.103> (0, b'\n{"changed": true, "stdout": "/usr/bin/python3", "stderr": "", "rc": 0, "cmd": ["/usr/bin/python3", "-c", "import sys; print(sys.executable)"], "start": "2026-10-18 13:27:39.147133", "end": "2026-10-18 13:27:39.197422", "delta": "0:00:00.050289", "msg": ""}\n', b'')
+<192.168.9.101> (0, b'\n{"changed": true, "stdout": "/usr/bin/python3", "stderr": "", "rc": 0, "cmd": ["/usr/bin/python3", "-c", "import sys; print(sys.executable)"], "start": "2026-10-18 13:27:39.160608", "end": "2026-10-18 13:27:39.219716", "delta": "0:00:00.059108", "msg": ""}\n', b'')
+ok: [cp03] => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3.12"
+    },
+    "changed": false,
+    "changed_when_result": false,
+    "cmd": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys; print(sys.executable)"
+    ],
+    "delta": "0:00:00.050289",
+    "end": "2026-10-18 13:27:39.197422",
+    "msg": "",
+    "rc": 0,
+    "start": "2026-10-18 13:27:39.147133",
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "/usr/bin/python3",
+    "stdout_lines": [
+        "/usr/bin/python3"
+    ]
+}
+ok: [cp01] => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3.12"
+    },
+    "changed": false,
+    "changed_when_result": false,
+    "cmd": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys; print(sys.executable)"
+    ],
+    "delta": "0:00:00.059108",
+    "end": "2026-10-18 13:27:39.219716",
+    "msg": "",
+    "rc": 0,
+    "start": "2026-10-18 13:27:39.160608",
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "/usr/bin/python3",
+    "stdout_lines": [
+        "/usr/bin/python3"
+    ]
+}
+<192.168.9.102> (0, b'\n{"changed": true, "stdout": "/usr/bin/python3", "stderr": "", "rc": 0, "cmd": ["/usr/bin/python3", "-c", "import sys; print(sys.executable)"], "start": "2026-10-18 13:27:39.158108", "end": "2026-10-18 13:27:39.206921", "delta": "0:00:00.048813", "msg": ""}\n', b'')
+ok: [cp02] => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3.12"
+    },
+    "changed": false,
+    "changed_when_result": false,
+    "cmd": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys; print(sys.executable)"
+    ],
+    "delta": "0:00:00.048813",
+    "end": "2026-10-18 13:27:39.206921",
+    "msg": "",
+    "rc": 0,
+    "start": "2026-10-18 13:27:39.158108",
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "/usr/bin/python3",
+    "stdout_lines": [
+        "/usr/bin/python3"
+    ]
+}
+
+PLAY [复现本地 play 委派的连接选择] ********************************************
+
+TASK [委派只读 hostname] *******************************************************
+task path: /tmp/cnpl-delegate-repro.yml:14
+<192.168.9.101> ESTABLISH LOCAL CONNECTION FOR USER: mario
+<192.168.9.101> EXEC hostname
+ok: [localhost -> cp01] => {
+    "changed": false,
+    "changed_when_result": false,
+    "rc": 0,
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "MarioMacBook-Pro.local\n",
+    "stdout_lines": [
+        "MarioMacBook-Pro.local"
+    ]
+}
+
+TASK [委派只读 stat] ***********************************************************
+task path: /tmp/cnpl-delegate-repro.yml:18
+<192.168.9.101> ESTABLISH LOCAL CONNECTION FOR USER: mario
+<192.168.9.101> EXEC /bin/sh -c 'echo ~mario'
+<192.168.9.101> EXEC /bin/sh -c '( umask 77 && mkdir -p "` echo /Users/mario/.ansible/tmp `"&& mkdir "` echo /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111 `" && echo ansible-tmp-1792301259.2505212-97076-116866419246111="` echo /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111 `" )'
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/stat.py
+<192.168.9.101> PUT /Users/mario/.ansible/tmp/ansible-local-970390zb1_z08/tmpvb8jt_bh TO /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111/AnsiballZ_stat.py
+<192.168.9.101> EXEC /bin/sh -c 'chmod u+rwx /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111/ /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111/AnsiballZ_stat.py'
+<192.168.9.101> EXEC /bin/sh -c '/usr/bin/python3.12 /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111/AnsiballZ_stat.py'
+<192.168.9.101> EXEC /bin/sh -c 'rm -f -r /Users/mario/.ansible/tmp/ansible-tmp-1792301259.2505212-97076-116866419246111/ > /dev/null 2>&1'
+[ERROR]: Task failed: Action failed: The module interpreter '/usr/bin/python3.12' was not found.
+
+Task failed: Action failed.
+Origin: /tmp/cnpl-delegate-repro.yml:18:7
+
+16       delegate_to: cp01
+17       changed_when: false
+18     - name: 委派只读 stat
+         ^ column 7
+
+<<< caused by >>>
+
+The module interpreter '/usr/bin/python3.12' was not found. Consider overriding the configured interpreter path for this host. See stdout/stderr for the returned output.
+
+fatal: [localhost -> cp01]: FAILED! => {
+    "changed": false,
+    "module_stderr": "/bin/sh: /usr/bin/python3.12: No such file or directory\n",
+    "module_stdout": "",
+    "msg": "The module interpreter '/usr/bin/python3.12' was not found.",
+    "rc": 127
+}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=1    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

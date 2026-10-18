@@ -1,0 +1,570 @@
+
+PLAY [核验节点委派与当前备份凭据] **********************************************
+
+TASK [原上下文保持不变] ********************************************************
+ok: [localhost]
+
+TASK [明确本次固定批次与原失败尝试] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [当前集群只读健康复核] ****************************************************
+ok: [localhost]
+
+TASK [当前源码只读审计] ********************************************************
+ok: [localhost]
+
+TASK [同集群同实现，修复连接不改动实验逻辑或原上下文] **************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [备份凭据属于本批且仍在 24 小时内] ****************************************
+ok: [localhost]
+
+TASK [绑定原有私有备份与节点暂存] **********************************************
+ok: [localhost]
+
+TASK [原包索引 SHA 与已验证的公开凭据一致] *************************************
+ok: [localhost]
+
+TASK [不能拿另一个备份包收尾] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本地原包逐文件复核（不重复远程备份或声称重新取回）] **********************
+ok: [localhost]
+
+TASK [四个委派目标显式使用 SSH 和节点 Python] **********************************
+ok: [localhost] => (item=cp01) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "cp01",
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "cp02",
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp03) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "cp03",
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=worker02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "worker02",
+    "msg": "All assertions passed"
+}
+
+TASK [从本地 play 实际委派读取节点身份] ****************************************
+ok: [localhost -> cp01(192.168.9.101)] => (item=cp01)
+ok: [localhost -> cp02(192.168.9.102)] => (item=cp02)
+ok: [localhost -> cp03(192.168.9.103)] => (item=cp03)
+ok: [localhost -> worker02(192.168.9.110)] => (item=worker02)
+
+TASK [必须在预期节点上执行] ****************************************************
+ok: [localhost] => (item=cp01) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "changed_when_result": false,
+        "cmd": [
+            "hostnamectl",
+            "--static"
+        ],
+        "delta": "0:00:00.856052",
+        "end": "2026-10-18 13:31:35.519136",
+        "failed": false,
+        "item": "cp01",
+        "msg": "",
+        "rc": 0,
+        "start": "2026-10-18 13:31:34.663084",
+        "stderr": "",
+        "stderr_lines": [],
+        "stdout": "cp01.k8s.internal.egon.top",
+        "stdout_lines": [
+            "cp01.k8s.internal.egon.top"
+        ]
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "changed_when_result": false,
+        "cmd": [
+            "hostnamectl",
+            "--static"
+        ],
+        "delta": "0:00:00.824362",
+        "end": "2026-10-18 13:31:38.489186",
+        "failed": false,
+        "item": "cp02",
+        "msg": "",
+        "rc": 0,
+        "start": "2026-10-18 13:31:37.664824",
+        "stderr": "",
+        "stderr_lines": [],
+        "stdout": "cp02.k8s.internal.egon.top",
+        "stdout_lines": [
+            "cp02.k8s.internal.egon.top"
+        ]
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp03) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "changed_when_result": false,
+        "cmd": [
+            "hostnamectl",
+            "--static"
+        ],
+        "delta": "0:00:00.805402",
+        "end": "2026-10-18 13:31:41.487092",
+        "failed": false,
+        "item": "cp03",
+        "msg": "",
+        "rc": 0,
+        "start": "2026-10-18 13:31:40.681690",
+        "stderr": "",
+        "stderr_lines": [],
+        "stdout": "cp03.k8s.internal.egon.top",
+        "stdout_lines": [
+            "cp03.k8s.internal.egon.top"
+        ]
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=worker02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "changed_when_result": false,
+        "cmd": [
+            "hostnamectl",
+            "--static"
+        ],
+        "delta": "0:00:00.550820",
+        "end": "2026-10-18 13:31:44.159961",
+        "failed": false,
+        "item": "worker02",
+        "msg": "",
+        "rc": 0,
+        "start": "2026-10-18 13:31:43.609141",
+        "stderr": "",
+        "stderr_lines": [],
+        "stdout": "worker02.k8s.internal.egon.top",
+        "stdout_lines": [
+            "worker02.k8s.internal.egon.top"
+        ]
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [从本地 play 实际委派执行 Python stat 模块] *******************************
+ok: [localhost -> cp01(192.168.9.101)] => (item=cp01)
+ok: [localhost -> cp02(192.168.9.102)] => (item=cp02)
+ok: [localhost -> cp03(192.168.9.103)] => (item=cp03)
+ok: [localhost -> worker02(192.168.9.110)] => (item=worker02)
+
+TASK [节点解释器均有效] ********************************************************
+ok: [localhost] => (item=cp01) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "cp01",
+        "stat": {
+            "atime": 1792237269.796195,
+            "attr_flags": "",
+            "attributes": [],
+            "block_size": 4096,
+            "blocks": 32,
+            "charset": "binary",
+            "checksum": "f74c109be5e86741f308a66558d26901102ac65b",
+            "ctime": 1791983300.0251982,
+            "dev": 64768,
+            "device_type": 0,
+            "disk_usage_bytes": 16384,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 34300778,
+            "isblk": false,
+            "ischr": false,
+            "isdir": false,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": true,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/symlink",
+            "mode": "0755",
+            "mtime": 1776297600.0,
+            "nlink": 1,
+            "path": "/usr/bin/python3",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 15800,
+            "uid": 0,
+            "version": null,
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "cp02",
+        "stat": {
+            "atime": 1792236402.3752604,
+            "attr_flags": "",
+            "attributes": [],
+            "block_size": 4096,
+            "blocks": 32,
+            "charset": "binary",
+            "checksum": "f74c109be5e86741f308a66558d26901102ac65b",
+            "ctime": 1791983300.0251982,
+            "dev": 64768,
+            "device_type": 0,
+            "disk_usage_bytes": 16384,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 34300778,
+            "isblk": false,
+            "ischr": false,
+            "isdir": false,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": true,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/symlink",
+            "mode": "0755",
+            "mtime": 1776297600.0,
+            "nlink": 1,
+            "path": "/usr/bin/python3",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 15800,
+            "uid": 0,
+            "version": null,
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp03) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "cp03",
+        "stat": {
+            "atime": 1792236701.7181177,
+            "attr_flags": "",
+            "attributes": [],
+            "block_size": 4096,
+            "blocks": 32,
+            "charset": "binary",
+            "checksum": "f74c109be5e86741f308a66558d26901102ac65b",
+            "ctime": 1791983300.0251982,
+            "dev": 64768,
+            "device_type": 0,
+            "disk_usage_bytes": 16384,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 34300778,
+            "isblk": false,
+            "ischr": false,
+            "isdir": false,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": true,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/symlink",
+            "mode": "0755",
+            "mtime": 1776297600.0,
+            "nlink": 1,
+            "path": "/usr/bin/python3",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 15800,
+            "uid": 0,
+            "version": null,
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=worker02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "worker02",
+        "stat": {
+            "atime": 1792240390.2414975,
+            "attr_flags": "",
+            "attributes": [],
+            "block_size": 4096,
+            "blocks": 32,
+            "charset": "binary",
+            "checksum": "f74c109be5e86741f308a66558d26901102ac65b",
+            "ctime": 1791983300.0251982,
+            "dev": 64768,
+            "device_type": 0,
+            "disk_usage_bytes": 16384,
+            "executable": true,
+            "exists": true,
+            "gid": 0,
+            "gr_name": "root",
+            "inode": 34300778,
+            "isblk": false,
+            "ischr": false,
+            "isdir": false,
+            "isfifo": false,
+            "isgid": false,
+            "islnk": false,
+            "isreg": true,
+            "issock": false,
+            "isuid": false,
+            "mimetype": "inode/symlink",
+            "mode": "0755",
+            "mtime": 1776297600.0,
+            "nlink": 1,
+            "path": "/usr/bin/python3",
+            "pw_name": "root",
+            "readable": true,
+            "rgrp": true,
+            "roth": true,
+            "rusr": true,
+            "size": 15800,
+            "uid": 0,
+            "version": null,
+            "wgrp": false,
+            "woth": false,
+            "writeable": true,
+            "wusr": true,
+            "xgrp": true,
+            "xoth": true,
+            "xusr": true
+        }
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [读取三个节点原暂存归属] **************************************************
+ok: [localhost -> cp01(192.168.9.101)] => (item=cp01)
+ok: [localhost -> cp02(192.168.9.102)] => (item=cp02)
+ok: [localhost -> cp03(192.168.9.103)] => (item=cp03)
+
+TASK [全部归属匹配后才能执行任何暂存删除] **************************************
+ok: [localhost] => (item=cp01) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "content": "eyJydW4iOiAiMjAyNjEwMThUMDUxOTM5Wi1iY2E0Y2MxMiIsICJub2RlIjogImNwMDEifQ==",
+        "encoding": "base64",
+        "failed": false,
+        "item": "cp01",
+        "source": "/root/cnpl-control-plane-backups/20261018T051939Z-bca4cc12-20261018T052119Z-d762ed70/owner.json"
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "content": "eyJydW4iOiAiMjAyNjEwMThUMDUxOTM5Wi1iY2E0Y2MxMiIsICJub2RlIjogImNwMDIifQ==",
+        "encoding": "base64",
+        "failed": false,
+        "item": "cp02",
+        "source": "/root/cnpl-control-plane-backups/20261018T051939Z-bca4cc12-20261018T052119Z-d762ed70/owner.json"
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp03) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "content": "eyJydW4iOiAiMjAyNjEwMThUMDUxOTM5Wi1iY2E0Y2MxMiIsICJub2RlIjogImNwMDMifQ==",
+        "encoding": "base64",
+        "failed": false,
+        "item": "cp03",
+        "source": "/root/cnpl-control-plane-backups/20261018T051939Z-bca4cc12-20261018T052119Z-d762ed70/owner.json"
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [保存本次远程归属核验] ****************************************************
+changed: [localhost]
+
+PLAY [反向委派不会把 Linux 连接配置带回管理 Mac] *******************************
+
+TASK [Linux play 中委派本地 Python 身份] ***************************************
+ok: [cp01 -> localhost]
+
+TASK [使用当前管理端 Python] ***************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+PLAY [仅完成已验证备份的远端暂存清理和检查点] **********************************
+
+TASK [原运行中不能已有备份 PASS] ***********************************************
+ok: [localhost]
+
+TASK [本次只补齐尚未完成的收尾] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除已核对归属且取回成功的本批节点暂存] **********************************
+changed: [localhost -> cp01(192.168.9.101)] => (item=cp01)
+changed: [localhost -> cp02(192.168.9.102)] => (item=cp02)
+changed: [localhost -> cp03(192.168.9.103)] => (item=cp03)
+
+TASK [确认节点暂存已清理] ******************************************************
+ok: [localhost -> cp01(192.168.9.101)] => (item=cp01)
+ok: [localhost -> cp02(192.168.9.102)] => (item=cp02)
+ok: [localhost -> cp03(192.168.9.103)] => (item=cp03)
+
+TASK [三台暂存全部不存在] ******************************************************
+ok: [localhost] => (item=cp01) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "cp01",
+        "stat": {
+            "exists": false
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp02) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "cp02",
+        "stat": {
+            "exists": false
+        }
+    },
+    "msg": "All assertions passed"
+}
+ok: [localhost] => (item=cp03) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": {
+        "ansible_loop_var": "item",
+        "changed": false,
+        "failed": false,
+        "item": "cp03",
+        "stat": {
+            "exists": false
+        }
+    },
+    "msg": "All assertions passed"
+}
+
+TASK [仅在真实清理确认后写备份通过检查点] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/checkpoint.yml for localhost
+
+TASK [写入本组通过检查点（仅在全部断言及所需恢复完成后）] **********************
+changed: [localhost]
+
+TASK [本组验收结果] ************************************************************
+ok: [localhost] => {
+    "msg": "03 BACKUP PASS"
+}
+
+TASK [保存清理后的明确结果] ****************************************************
+changed: [localhost]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=27   changed=4    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,0 +1,181 @@
+ansible-playbook [core 2.21.5]
+  config file = /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/ansible.cfg
+  configured module search path = ['/Users/mario/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible
+  ansible collection location = /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/collections
+  executable location = /Users/mario/.venvs/cnpl-ansible/bin/ansible-playbook
+  python version = 3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)] (/Users/mario/.venvs/cnpl-ansible/bin/python3.14)
+  jinja version = 3.1.6
+  pyyaml version = 6.0.3 (with libyaml v0.2.5)
+Using /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/ansible.cfg as config file
+host_list declined parsing /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/hosts.yml as it did not pass its verify_file() method
+script declined parsing /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/hosts.yml as it did not pass its verify_file() method
+Parsed /Users/mario/SelfProject/cloud-native-platform-lab/ops/00-preparation/ansible/inventories/lab/hosts.yml inventory source with yaml plugin
+Skipping callback 'minimal', as we already have a stdout callback.
+Skipping callback 'oneline', as we already have a stdout callback.
+
+PLAYBOOK: cnpl-delegate-repro.yml **********************************************
+2 plays in /tmp/cnpl-delegate-repro.yml
+
+PLAY [远程只读发现解释器] ******************************************************
+
+TASK [读取远程 Python 身份] ****************************************************
+task path: /tmp/cnpl-delegate-repro.yml:6
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/command.py
+<192.168.9.101> ESTABLISH SSH CONNECTION FOR USER: root
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/command.py
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/command.py
+<192.168.9.101> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/12b5e9b593"' -o NumberOfPasswordPrompts=1 192.168.9.101 '/bin/sh -c /usr/bin/python3'
+<192.168.9.103> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.102> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.103> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/f96f2ffa07"' -o NumberOfPasswordPrompts=1 192.168.9.103 '/bin/sh -c /usr/bin/python3'
+<192.168.9.102> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/2c54efd110"' -o NumberOfPasswordPrompts=1 192.168.9.102 '/bin/sh -c /usr/bin/python3'
+<192.168.9.103> (0, b'\n{"changed": true, "stdout": "/usr/bin/python3", "stderr": "", "rc": 0, "cmd": ["/usr/bin/python3", "-c", "import sys; print(sys.executable)"], "start": "2026-10-18 13:29:22.105767", "end": "2026-10-18 13:29:22.157382", "delta": "0:00:00.051615", "msg": ""}\n', b'')
+<192.168.9.101> (0, b'\n{"changed": true, "stdout": "/usr/bin/python3", "stderr": "", "rc": 0, "cmd": ["/usr/bin/python3", "-c", "import sys; print(sys.executable)"], "start": "2026-10-18 13:29:22.126327", "end": "2026-10-18 13:29:22.177608", "delta": "0:00:00.051281", "msg": ""}\n', b'')
+ok: [cp03] => {
+    "changed": false,
+    "changed_when_result": false,
+    "cmd": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys; print(sys.executable)"
+    ],
+    "delta": "0:00:00.051615",
+    "end": "2026-10-18 13:29:22.157382",
+    "msg": "",
+    "rc": 0,
+    "start": "2026-10-18 13:29:22.105767",
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "/usr/bin/python3",
+    "stdout_lines": [
+        "/usr/bin/python3"
+    ]
+}
+<192.168.9.102> (0, b'\n{"changed": true, "stdout": "/usr/bin/python3", "stderr": "", "rc": 0, "cmd": ["/usr/bin/python3", "-c", "import sys; print(sys.executable)"], "start": "2026-10-18 13:29:22.106753", "end": "2026-10-18 13:29:22.169121", "delta": "0:00:00.062368", "msg": ""}\n', b'')
+ok: [cp01] => {
+    "changed": false,
+    "changed_when_result": false,
+    "cmd": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys; print(sys.executable)"
+    ],
+    "delta": "0:00:00.051281",
+    "end": "2026-10-18 13:29:22.177608",
+    "msg": "",
+    "rc": 0,
+    "start": "2026-10-18 13:29:22.126327",
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "/usr/bin/python3",
+    "stdout_lines": [
+        "/usr/bin/python3"
+    ]
+}
+ok: [cp02] => {
+    "changed": false,
+    "changed_when_result": false,
+    "cmd": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys; print(sys.executable)"
+    ],
+    "delta": "0:00:00.062368",
+    "end": "2026-10-18 13:29:22.169121",
+    "msg": "",
+    "rc": 0,
+    "start": "2026-10-18 13:29:22.106753",
+    "stderr": "",
+    "stderr_lines": [],
+    "stdout": "/usr/bin/python3",
+    "stdout_lines": [
+        "/usr/bin/python3"
+    ]
+}
+
+PLAY [复现本地 play 委派的连接选择] ********************************************
+
+TASK [委派只读 hostname] *******************************************************
+task path: /tmp/cnpl-delegate-repro.yml:14
+<192.168.9.101> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.101> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/12b5e9b593"' -o NumberOfPasswordPrompts=1 -tt 192.168.9.101 hostname
+<192.168.9.101> (0, b'cp01.k8s.internal.egon.top\r\n', b'Shared connection to 192.168.9.101 closed.\r\n')
+ok: [localhost -> cp01(192.168.9.101)] => {
+    "changed": false,
+    "changed_when_result": false,
+    "rc": 0,
+    "stderr": "Shared connection to 192.168.9.101 closed.\r\n",
+    "stderr_lines": [
+        "Shared connection to 192.168.9.101 closed."
+    ],
+    "stdout": "cp01.k8s.internal.egon.top\r\n",
+    "stdout_lines": [
+        "cp01.k8s.internal.egon.top"
+    ]
+}
+
+TASK [委派只读 stat] ***********************************************************
+task path: /tmp/cnpl-delegate-repro.yml:18
+Using module file /Users/mario/.venvs/cnpl-ansible/lib/python3.14/site-packages/ansible/modules/stat.py
+<192.168.9.101> ESTABLISH SSH CONNECTION FOR USER: root
+<192.168.9.101> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o 'IdentityFile="/Users/mario/.ssh/cnpl_lab_ed25519"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o 'User="root"' -o ConnectTimeout=10 -o IdentitiesOnly=yes -o 'ControlPath="/Users/mario/.ansible/cp/12b5e9b593"' -o NumberOfPasswordPrompts=1 192.168.9.101 '/bin/sh -c /usr/bin/python3'
+<192.168.9.101> (0, b'\n{"changed": false, "stat": {"exists": true, "path": "/usr/bin/python3", "mode": "0777", "isdir": false, "ischr": false, "isblk": false, "isreg": false, "isfifo": false, "islnk": true, "issock": false, "uid": 0, "gid": 0, "size": 10, "inode": 34300777, "dev": 64768, "nlink": 1, "atime": 1792237269.796195, "mtime": 1776297600.0, "ctime": 1791983300.0251982, "wusr": true, "rusr": true, "xusr": true, "wgrp": true, "rgrp": true, "xgrp": true, "woth": true, "roth": true, "xoth": true, "isuid": false, "isgid": false, "blocks": 0, "disk_usage_bytes": 0, "block_size": 4096, "device_type": 0, "readable": true, "writeable": true, "executable": true, "lnk_source": "/usr/bin/python3.12", "lnk_target": "python3.12", "pw_name": "root", "gr_name": "root", "mimetype": "inode/symlink", "charset": "binary", "version": null, "attributes": [], "attr_flags": ""}}\n', b'')
+ok: [localhost -> cp01(192.168.9.101)] => {
+    "changed": false,
+    "stat": {
+        "atime": 1792237269.796195,
+        "attr_flags": "",
+        "attributes": [],
+        "block_size": 4096,
+        "blocks": 0,
+        "charset": "binary",
+        "ctime": 1791983300.0251982,
+        "dev": 64768,
+        "device_type": 0,
+        "disk_usage_bytes": 0,
+        "executable": true,
+        "exists": true,
+        "gid": 0,
+        "gr_name": "root",
+        "inode": 34300777,
+        "isblk": false,
+        "ischr": false,
+        "isdir": false,
+        "isfifo": false,
+        "isgid": false,
+        "islnk": true,
+        "isreg": false,
+        "issock": false,
+        "isuid": false,
+        "lnk_source": "/usr/bin/python3.12",
+        "lnk_target": "python3.12",
+        "mimetype": "inode/symlink",
+        "mode": "0777",
+        "mtime": 1776297600.0,
+        "nlink": 1,
+        "path": "/usr/bin/python3",
+        "pw_name": "root",
+        "readable": true,
+        "rgrp": true,
+        "roth": true,
+        "rusr": true,
+        "size": 10,
+        "uid": 0,
+        "version": null,
+        "wgrp": true,
+        "woth": true,
+        "writeable": true,
+        "wusr": true,
+        "xgrp": true,
+        "xoth": true,
+        "xusr": true
+    }
+}
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp02                       : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+cp03                       : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

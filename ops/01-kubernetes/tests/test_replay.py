@@ -164,6 +164,20 @@ class ReplayTests(unittest.TestCase):
             values=json.loads((legacy/manifest).read_text())
             for name,expected in values.items():self.assertEqual(hashlib.sha256((prefix/name).read_bytes()).hexdigest(),expected,name)
 
+
+    def test_real_ansible_delegation_selects_ssh_without_network(self):
+        with tempfile.TemporaryDirectory(prefix='cnpl-delegation-test-') as temporary:
+            folder=Path(temporary);ssh=folder/'deny-ssh';calls=folder/'calls'
+            ssh.write_text('#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$CNPL_DELEGATION_CALLS"\necho CNPL_OFFLINE_SSH_SELECTED >&2\nexit 255\n')
+            ssh.chmod(0o700)
+            values=folder/'vars.json';values.write_text(json.dumps({'ansible_ssh_executable':str(ssh)}))
+            env=dict(os.environ,ANSIBLE_CONFIG=str(ROOT/'ops/00-preparation/ansible/ansible.cfg'),CNPL_DELEGATION_CALLS=str(calls))
+            result=subprocess.run([str(ANSIBLE),str(BASE/'tests/replay-delegation.yml'),'-e','@'+str(values)],capture_output=True,text=True,env=env,timeout=45)
+            self.assertEqual(result.returncode,0,result.stdout[-6000:]+result.stderr[-1000:])
+            commands=calls.read_text()
+            for ip in ['192.168.9.101','192.168.9.102','192.168.9.103','192.168.9.110']:
+                self.assertIn(ip,commands)
+
     def test_actual_ansible_helpers_offline(self):
         with tempfile.TemporaryDirectory(prefix='cnpl-replay-test-') as temporary:
             folder=Path(temporary).resolve();db=folder/'api.json';fixture=BASE/'tests/replay-fixture.py'

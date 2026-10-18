@@ -1,0 +1,31 @@
+# 叠加到现有 1.20.2 release；不重置 CNI、IPAM、镜像或 kube-proxy 参数。
+rollOutCiliumPods: true
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate: {maxUnavailable: 1}
+hubble:
+  enabled: true
+  eventBufferCapacity: '4095'
+  eventQueueSize: '8192'
+  tls:
+    enabled: true
+    auto: {enabled: true, method: helm, certValidityDuration: 365}
+  relay:
+    enabled: true
+    rollOutPods: true
+    image:
+      repository: quay.io/cilium/hubble-relay
+      tag: v1.20.2
+      useDigest: true
+      digest: sha256:48d39e14cb2326c49d1903faed0508feb92ca0ceef9f3a1f1b779ca4c1e51c5d
+      pullPolicy: Never
+    nodeSelector: {kubernetes.io/hostname: worker01.k8s.internal.egon.top}
+    service: {type: ClusterIP}
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+    gops: {enabled: false}
+  ui: {enabled: false}
+  export:
+    static: {enabled: false}
+    dynamic: {enabled: false}

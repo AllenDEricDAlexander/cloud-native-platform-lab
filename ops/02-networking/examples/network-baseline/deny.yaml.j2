@@ -1,0 +1,11 @@
+# 仅隔离 peer 测试空间；观测完成或失败时 Ansible 都会撤销此对象。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: net-observe-deny
+  namespace: lab-net-peer
+  labels: {cnpl.io/net-run: '{{ net_run }}'}
+spec:
+  podSelector: {matchLabels: {app: net-echo}}
+  policyTypes: [Ingress]
+  ingress: []

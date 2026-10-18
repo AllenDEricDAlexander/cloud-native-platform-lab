@@ -1,0 +1,17 @@
+---
+net_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+net_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+net_go: '{{ lookup("env", "HOME") }}/.cnpl/toolchains/go1.27.2/go/bin/go'
+net_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+net_helm: '{{ lookup("env", "HOME") }}/.cnpl/bin/helm'
+net_crane: /opt/homebrew/bin/crane
+net_config: '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+net_k: ['{{ net_kubectl }}', --kubeconfig, '{{ net_config }}', --request-timeout=20s]
+net_check: '{{ net_root }}/ops/02-networking/tests/integration/network-baseline/check.py'
+net_lock: '{{ lookup("file", net_root ~ "/ops/versions.lock.yaml") | from_yaml }}'
+net_chart: '{{ net_lock.components.cilium.chart.local_source }}'
+net_relay: quay.io/cilium/hubble-relay@sha256:48d39e14cb2326c49d1903faed0508feb92ca0ceef9f3a1f1b779ca4c1e51c5d
+net_namespaces: [lab-net, lab-net-peer]
+net_firewall_rules:
+  - 'rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept'
+  - 'rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept'

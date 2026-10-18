@@ -1,0 +1,43 @@
+---
+- name: 读取本批 Hubble 变更回执
+  ansible.builtin.stat: {path: '{{ net_records }}/state/hubble.json'}
+  register: net_restore_stat
+- name: 回退本批启用的 Hubble
+  when: net_restore_stat.stat.exists
+  block:
+    - name: 绑定恢复索引
+      ansible.builtin.set_fact: {net_restore: '{{ lookup("file",net_records ~ "/state/hubble.json") | from_json }}'}
+    - name: 原身份必须匹配
+      ansible.builtin.assert: {that: net_restore.run == net_run and net_restore.cluster_uid == net_context.cluster_uid}
+    - name: 读取当前 Helm revision 的公开归属
+      ansible.builtin.command: {argv: ['{{ net_helm }}', status, cilium, -n, kube-system, --kubeconfig, '{{ net_config }}', -o, json]}
+      register: net_latest
+      no_log: true
+      changed_when: false
+    - name: 阻止回退覆盖他人的后续 Helm 变更
+      ansible.builtin.assert:
+        that: (net_latest.stdout | from_json).info.description == 'cnpl-02.01-' ~ net_run or (net_latest.stdout | from_json).info.description == 'Rollback to ' ~ net_restore.revision | string or (net_latest.stdout | from_json).version == net_restore.revision
+      when: net_restore.owned
+    - name: 使用原 revision 恢复原 Helm 配置
+      ansible.builtin.command: {argv: ['{{ net_helm }}', rollback, cilium, '{{ net_restore.revision | string }}', -n, kube-system, --kubeconfig, '{{ net_config }}', --wait=watcher, --timeout=10m]}
+      when: net_restore.owned and (net_latest.stdout | from_json).info.description == 'cnpl-02.01-' ~ net_run
+      no_log: true
+      changed_when: true
+    - name: 确认基础 Cilium 恢复健康
+      ansible.builtin.command: {argv: ['{{ lookup("env", "HOME") }}/.cnpl/bin/cilium', --kubeconfig, '{{ net_config }}', status, --wait, --wait-duration=5m]}
+      changed_when: false
+    - name: 等待 Agent 完成回退滚动更新
+      ansible.builtin.command: {argv: '{{ net_k + ["rollout","status","daemonset/cilium","-n","kube-system","--timeout=300s"] }}'}
+      changed_when: false
+- name: 删除本批首次创建且 UID 未改变的 Relay 策略
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', rollback-policy, --records, '{{ net_records }}', --output, '{{ net_attempt }}/rollback-policy.json']}
+  changed_when: false
+  register: net_remove_access
+- name: 精确撤销本批策略
+  ansible.builtin.command: {argv: '{{ net_k + ["delete","ciliumnetworkpolicy","cnpl-hubble-relay-access","-n","kube-system","--ignore-not-found","--wait=true","--timeout=30s"] }}'}
+  when: (net_remove_access.stdout | from_json).remove
+  changed_when: true
+- name: 允许恢复本批新加的主机规则
+  ansible.builtin.set_fact:
+    net_rollback_passed: true
+    net_rollback_remove_rules: '{{ not net_restore_stat.stat.exists or net_restore.owned | default(false) }}'

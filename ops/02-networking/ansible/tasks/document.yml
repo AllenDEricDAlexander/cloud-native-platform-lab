@@ -1,0 +1,29 @@
+---
+- name: 限定实验对象及运行归属
+  ansible.builtin.assert:
+    that:
+      - net_document.kind in ['Namespace','ConfigMap','DaemonSet','Service','NetworkPolicy']
+      - net_document.metadata.labels['cnpl.io/net-run'] == net_run
+      - (net_document.kind == 'Namespace' and net_document.metadata.name in net_namespaces) or net_document.metadata.namespace | default('') in net_namespaces
+- name: 读取同名对象，防止接管其他运行
+  ansible.builtin.command:
+    argv: '{{ net_k + ["get", net_document.kind | lower, net_document.metadata.name, "--ignore-not-found", "-o", "json"] + (["-n",net_document.metadata.namespace] if net_document.kind != "Namespace" else []) }}'
+  changed_when: false
+  register: net_existing
+- name: 同名对象必须属于本运行
+  ansible.builtin.assert:
+    that: (net_existing.stdout | from_json).metadata.get('labels', {}).get('cnpl.io/net-run') == net_run
+  when: net_existing.stdout | trim | length > 0
+- name: 在实际目标空间做严格服务端准入
+  ansible.builtin.command: {argv: '{{ net_k + ["apply","--dry-run=server","--validate=strict","-f","-"] }}', stdin: '{{ net_document | to_json }}'}
+  changed_when: false
+- name: 应用已核验的单个对象
+  ansible.builtin.command: {argv: '{{ net_k + ["apply","-f","-","-o","json"] }}', stdin: '{{ net_document | to_json }}'}
+  register: net_applied
+  changed_when: true
+- name: 创建命名空间后立即保存 UID，供中断后清理
+  ansible.builtin.copy:
+    content: '{{ {"run":net_run,"namespace":net_document.metadata.name,"uid":(net_applied.stdout | from_json).metadata.uid,"cluster_uid":net_context.cluster_uid} | to_nice_json }}'
+    dest: '{{ net_records }}/state/{{ net_document.metadata.name }}.json'
+    mode: '0600'
+  when: net_document.kind == 'Namespace'

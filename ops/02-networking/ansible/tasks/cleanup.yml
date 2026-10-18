@@ -1,0 +1,22 @@
+---
+- name: 检查清理归属、UID 和外来资源
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', cleanup-plan, --records, '{{ net_records }}', --output, '{{ net_attempt }}/cleanup-plan.json']}
+  changed_when: false
+  register: net_cleanup_plan
+- name: 按已验证的命名空间删除本批实验
+  ansible.builtin.command: {argv: '{{ net_k + ["delete","namespace",item,"--wait=true","--timeout=180s"] }}'}
+  loop: '{{ (net_cleanup_plan.stdout | from_json).namespaces }}'
+  changed_when: true
+- name: 验证两个测试空间均已消失
+  ansible.builtin.command: {argv: '{{ net_k + ["get","namespace",item,"--ignore-not-found","-o","name"] }}'}
+  loop: '{{ net_namespaces }}'
+  register: net_absent
+  changed_when: false
+  failed_when: net_absent.stdout | trim | length > 0
+- name: 保存本批关闭回执，不冒充实验已通过
+  ansible.builtin.copy:
+    content: '{{ {"run":net_run,"cluster_uid":net_context.cluster_uid,"cleanup_passed":true,"attempt":net_attempt,"hubble_retained":net_mode != "rollback"} | to_nice_json }}'
+    dest: '{{ net_records }}/state/closed.json'
+    mode: '0600'
+- name: 输出清理结果
+  ansible.builtin.debug: {msg: '02.01 CLEANUP PASS；本批次已关闭，新实验请用新目录。'}

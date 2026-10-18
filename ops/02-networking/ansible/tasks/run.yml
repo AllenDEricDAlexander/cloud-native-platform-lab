@@ -1,0 +1,115 @@
+---
+- name: 查询 Hubble 原始回执是否已经存在
+  ansible.builtin.stat: {path: '{{ net_records }}/state/hubble.json'}
+  register: net_hubble_saved
+- name: 读取变更前 Helm revision
+  ansible.builtin.command: {argv: ['{{ net_helm }}', status, cilium, -n, kube-system, --kubeconfig, '{{ net_config }}', -o, json]}
+  changed_when: false
+  register: net_helm_before
+  no_log: true
+- name: 在 Hubble 变更前保存公开恢复索引
+  ansible.builtin.copy:
+    content: '{{ {"run":net_run,"cluster_uid":net_context.cluster_uid,"revision":(net_helm_before.stdout | from_json).version,"owned":net_context.network["enable-hubble"] != "true"} | to_nice_json }}'
+    dest: '{{ net_records }}/state/hubble.json'
+    mode: '0600'
+  when: not net_hubble_saved.stat.exists
+- name: 读取同名 Relay 策略，禁止接管外来对象
+  ansible.builtin.command: {argv: '{{ net_k + ["get","ciliumnetworkpolicy","cnpl-hubble-relay-access","-n","kube-system","--ignore-not-found","-o","json"] }}'}
+  changed_when: false
+  register: net_existing_access
+- name: 同名策略归属必须一致
+  ansible.builtin.assert:
+    that: (net_existing_access.stdout | from_json).metadata.get('labels', {}).get('cnpl.io/component') == 'phase02-hubble'
+  when: net_existing_access.stdout | trim | length > 0
+- name: 先限制 Relay 查询入口
+  ansible.builtin.command: {argv: '{{ net_k + ["apply","-f",net_root ~ "/ops/02-networking/networking/hubble-access.yaml","-o","json"] }}'}
+  register: net_access_applied
+  changed_when: true
+- name: 保存策略 UID 和原来是否存在
+  ansible.builtin.copy:
+    content: '{{ {"uid":(net_access_applied.stdout | from_json).metadata.uid,"created":net_existing_access.stdout | trim | length == 0} | to_nice_json }}'
+    dest: '{{ net_records }}/state/hubble-access.json'
+    mode: '0600'
+    force: false
+- name: 用相同 Chart 开启 Hubble；失败由 Helm 4 回滚，保持原网络 values
+  ansible.builtin.command:
+    argv: ['{{ net_helm }}', upgrade, cilium, '{{ net_chart }}', --kubeconfig, '{{ net_config }}', -n, kube-system, --reuse-values, -f, '{{ net_root }}/ops/02-networking/networking/hubble-values.yaml', --rollback-on-failure, --timeout=10m, --description, 'cnpl-02.01-{{ net_run }}']
+  when: net_context.network['enable-hubble'] != 'true'
+  no_log: true
+  changed_when: true
+- name: 确认 Cilium、Envoy 和 Relay 健康
+  ansible.builtin.command: {argv: ['{{ lookup("env", "HOME") }}/.cnpl/bin/cilium', --kubeconfig, '{{ net_config }}', status, --wait, --wait-duration=5m]}
+  changed_when: false
+- name: 读取 Relay 状态，不能用 Agent 就绪替代 Relay
+  ansible.builtin.command: {argv: '{{ net_k + ["rollout","status","deployment/hubble-relay","-n","kube-system","--timeout=180s"] }}'}
+  changed_when: false
+- name: 顺序创建两个命名空间及其完整对象
+  ansible.builtin.include_tasks: document.yml
+  loop: '{{ lookup("file", net_attempt ~ "/fixtures.yaml") | from_yaml_all | select | list }}'
+  loop_control: {loop_var: net_document, label: '{{ net_document.kind }}/{{ net_document.metadata.name }}'}
+- name: 等待十台 VM 与 peer Pod 就绪
+  ansible.builtin.command: {argv: '{{ net_k + ["rollout","status","daemonset/net-echo","-n",item,"--timeout=180s"] }}'}
+  loop: '{{ net_namespaces }}'
+  changed_when: false
+- name: 执行 100 个 VM 对及 Service、DNS、UDP、MTU 负载和 Harbor TLS 基准
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', matrix, --records, '{{ net_records }}', --output, '{{ net_attempt }}/matrix.json']}
+  changed_when: false
+- name: 从管理 Mac 经当前已具备的 API 通道访问测试业务
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', mac, --records, '{{ net_records }}', --output, '{{ net_attempt }}/mac-business.json']}
+  changed_when: false
+- name: 为正常/超时观测记录开始时间
+  ansible.builtin.command: {argv: [date, -u, '+%Y-%m-%dT%H:%M:%SZ']}
+  register: net_timeout_start
+  changed_when: false
+- name: 先确认 peer 正常可达
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', recovery, --records, '{{ net_records }}', --output, '{{ net_attempt }}/known-success.json']}
+  changed_when: false
+- name: 单独核对正常请求的 FORWARDED 流量
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', flows, --case, recovery, --since, '{{ (lookup("file",net_attempt ~ "/known-success.json") | from_json).request.at }}', --records, '{{ net_records }}', --output, '{{ net_attempt }}/success-flows.json']}
+  changed_when: false
+- name: 制造应用响应超时，不改网络规则
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', timeout, --records, '{{ net_records }}', --output, '{{ net_attempt }}/timeout.json']}
+  changed_when: false
+- name: Hubble 必须看到已放行流量，不能把应用超时当作策略拒绝
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', flows, --case, timeout, --since, '{{ (lookup("file",net_attempt ~ "/timeout.json") | from_json).request.at }}', --records, '{{ net_records }}', --output, '{{ net_attempt }}/timeout-flows.json']}
+  changed_when: false
+- name: 策略拒绝实验，任何失败都撤销拒绝策略
+  block:
+    - name: 应用仅影响 peer 测试 Pod 的拒绝策略
+      ansible.builtin.include_tasks: document.yml
+      vars: {net_document: '{{ lookup("file", net_attempt ~ "/deny.yaml") | from_yaml }}'}
+    - name: 为拒绝观测记录开始时间
+      ansible.builtin.command: {argv: [date, -u, '+%Y-%m-%dT%H:%M:%SZ']}
+      changed_when: false
+      register: net_deny_start
+    - name: 等待数据面落实拒绝，成功响应不能冒充拒绝
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', deny, --records, '{{ net_records }}', --output, '{{ net_attempt }}/denied.json']}
+      register: net_denied
+      retries: 15
+      delay: 2
+      until: net_denied.rc == 0
+      changed_when: false
+    - name: Hubble 必须给出本次请求的 POLICY_DENIED
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', flows, --case, deny, --since, '{{ net_deny_start.stdout }}', --records, '{{ net_records }}', --output, '{{ net_attempt }}/denied-flows.json']}
+      changed_when: false
+  always:
+    - name: 只撤销本运行拥有的拒绝策略
+      ansible.builtin.command: {argv: '{{ net_k + ["delete","networkpolicy","-n","lab-net-peer","-l","cnpl.io/net-run=" ~ net_run,"--ignore-not-found","--wait=true","--timeout=30s"] }}'}
+      changed_when: true
+- name: 确认撤销后的同一路径恢复
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', recovery, --records, '{{ net_records }}', --output, '{{ net_attempt }}/recovery.json']}
+  register: net_recovered
+  retries: 15
+  delay: 2
+  until: net_recovered.rc == 0
+  changed_when: false
+- name: 再次复验原集群健康
+  ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', preflight, --records, '{{ net_records }}', --output, '{{ net_attempt }}/health-after.json']}
+  changed_when: false
+- name: 保存当前实验通过回执；清理另行执行
+  ansible.builtin.copy:
+    content: '{{ {"passed":true,"run":net_run,"cluster_uid":net_context.cluster_uid,"attempt":net_attempt,"source":lookup("file",net_attempt ~ "/source.json") | from_json,"cleanup_passed":false} | to_nice_json }}'
+    dest: '{{ net_records }}/passed.json'
+    mode: '0600'
+- name: 输出实验结果
+  ansible.builtin.debug: {msg: '02.01 ACCEPTANCE PASS；请执行 cleanup 归档清理回执。Hubble 保留供 02.02 使用。'}

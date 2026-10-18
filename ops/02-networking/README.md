@@ -1,6 +1,6 @@
 # Phase 02 实验操作手册
 
-与 [阶段正文](../../plan/02-networking.md) 配合执行，下面按原专题编号展开。当前均为计划，提到的配置和脚本应在实施时编写；命令只是操作/检查入口，不表示本仓库已经具备部署实现。
+与 [阶段正文](../../plan/02-networking.md) 配合执行，下面按原专题编号展开。02.01 正式实验与清理均已通过，详见[实际验收与交接](records/02.01-20261018T142346Z/README.md)；当前进入 02.02.01 的准备。后续示例命令不表示已经具备部署实现。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/02-networking/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -16,53 +16,15 @@
 
 ## 02.01 固定网络诊断基准
 
-输入：01 健康集群、精确节点/Pod/Service/VIP 台账。
+本专题完整实施入口为 [02.01 网络路径与诊断基准](examples/network-baseline/README.md)，包括所有执行命令、逐条作用/预期结果、完整 YAML、Ansible、离线物料、失败处理、清理与回退。当前状态见 [2026-10-18 实际验收与交接](records/02.01-20261018T142346Z/README.md)，前期只读及源码验证另见[准备记录](records/02.01-20261018-source-review/README.md)。
 
-1. 部署跨节点 client/server，记录 Pod IP、Node、物理宿主机、接口、MTU、实际 SNAT 和路由；分别测试同节点、跨节点、出集群。
-2. 启用所需 Hubble 观测，记录 `cilium status`、连接测试与 Flow；持续请求脚本输出时间、目标、状态码、延迟和源地址。
-3. 将后续每个网络实验都对照该基准，不能在同时更换 CNI 模式、入口和证书后才定位故障。
+- **输入**：Phase 01 原集群交接回执、十台 VM `.101–.110`、已有 Mac 工具链和原恢复管理员身份。
+- **02.01.01**：记录 Mac/API/业务、Pod/Pod、Pod/Service、Pod/Harbor 与节点/外网的 DNS、路由、TLS、代理和实际 SNAT 路径。
+- **02.01.02**：11 个普通诊断 Pod，覆盖 100 个 VM 有向对的 HTTP/TCP、UDP、跨空间、双协议 DNS、接口 MTU、大包、样本丢失与延迟。用户已明确屏蔽物理层感知，不依赖 ESXi 放置。
+- **02.01.03**：沿用 Cilium 1.20.2，增加有界 Hubble 缓冲、mTLS Relay 与受限查询入口；正常放行、应用超时、策略拒绝各有真实请求和 Flow 断言。
+- **交付与边界**：`examples/network-baseline/`、`networking/`、`ansible/`、`scripts/baseline.sh` 和 `tests/integration/network-baseline/`。保留 Overlay、kube-proxy、Enforcing 与 firewalld；源码校验不能代替正式运行验收。
 
-### 操作命令与目的
-
-```bash
-kubectl create namespace lab-net --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n lab-net apply -f network-fixtures.yaml  # client/server 分布到不同节点
-kubectl -n lab-net get pods -o wide
-cilium status --wait
-cilium connectivity test --test-namespace lab-connectivity
-kubectl -n lab-net exec "$LAB_CLIENT_POD" -- curl -fsS http://echo:8080/
-# Hubble Relay 的访问通道先按部署方式建立，再观察最近连接
-hubble status
-hubble observe --namespace lab-net --last 20
-```
-
-在节点上补充 `ip route`、`ip -d link`、`tracepath "$LAB_DESTINATION"`，用于区分路由、隧道和 MTU 问题。
-
-### 配置示例
-
-诊断 Pod 的节点约束片段；分别为 client/server 设置不同的实际 hostname：
-
-```yaml
-metadata:
-  name: net-client
-  namespace: lab-net
-  labels: {app: net-client}
-spec:
-  nodeSelector:
-    kubernetes.io/hostname: "<实际客户端节点名>"
-  containers:
-    - name: client
-      image: "<含 curl、dig、tracepath 的内网镜像>"
-      command: [sh, -c, "sleep 3600"]
-```
-
-### 预期结果
-
-同节点、跨节点、Pod→Service、Pod→内网仓库分别可达，Hubble Flow 能对应源、目的和 verdict；记录延迟及实际源 IP。连通测试工具自身创建的临时 Namespace 在实验结束后按其清理方式处理。
-
-交付：`ops/02-networking/tests/integration/network-baseline/`；`ops/02-networking/examples/` 诊断入口。
-
-检查与失败处理：主线通路可重复且故障定位到具体链路；先修复基线再引入新模式。
+先运行 `preflight`、`validate`，再由用户执行 `run`；看到 `02.01 ACCEPTANCE PASS` 后执行 `cleanup`，核对 `02.01 CLEANUP PASS`。本轮完成后再进入 02.02。
 
 <a id="02-02"></a>
 

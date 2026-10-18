@@ -1,0 +1,240 @@
+---
+- name: 02.01 绑定原集群、执行批次和源码
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 限定执行模式及证据目录
+      ansible.builtin.assert:
+        that:
+          - net_mode in ['preflight','validate','run','cleanup','rollback']
+          - net_records.startswith(net_root ~ '/ops/02-networking/records/02.01-')
+          - net_records | realpath == net_records
+    - name: 生成此次独立取证目录
+      ansible.builtin.command: {argv: ['{{ net_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']}
+      changed_when: false
+      register: net_clock
+    - name: 绑定此次路径
+      ansible.builtin.set_fact: {net_attempt: '{{ net_records }}/attempts/{{ net_clock.stdout }}-{{ net_mode }}'}
+    - name: 创建公开证据目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ net_attempt }}', '{{ net_records }}/state']
+    - name: 清理与回退必须使用原有批次
+      ansible.builtin.stat: {path: '{{ net_records }}/context.json'}
+      register: net_context_stat
+    - name: 拒绝凭空创建清理上下文
+      ansible.builtin.assert: {that: net_context_stat.stat.exists}
+      when: net_mode in ['cleanup','rollback']
+    - name: 复验交接、身份与当前健康
+      ansible.builtin.command:
+        argv: ['{{ net_python }}', '{{ net_check }}', '{{ "identity" if net_mode in ["cleanup","rollback"] else "preflight" }}', --records, '{{ net_records }}', --output, '{{ net_attempt }}/preflight.json']
+      changed_when: false
+      register: net_preflight
+    - name: 绑定运行身份
+      ansible.builtin.set_fact:
+        net_context: '{{ net_preflight.stdout | from_json }}'
+        net_run: '{{ (net_preflight.stdout | from_json).run }}'
+    - name: 保存实际源码摘要
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', source, --records, '{{ net_records }}', --output, '{{ net_attempt }}/source.json']}
+      changed_when: false
+    - name: 读取已有变更与关闭回执
+      ansible.builtin.stat: {path: '{{ net_records }}/state/{{ item }}'}
+      loop: [source.json, closed.json]
+      register: net_state
+    - name: 读取正式通过回执
+      ansible.builtin.stat: {path: '{{ net_records }}/passed.json'}
+      register: net_prior_passed
+    - name: 已通过的批次只做清理，不重复执行或覆盖回执
+      ansible.builtin.assert:
+        that: not net_prior_passed.stat.exists
+        fail_msg: 本批已通过，请先 cleanup；如需新实验请使用新记录目录。
+      when: net_mode == 'run'
+    - name: 关闭批次不能重新打开
+      ansible.builtin.assert: {that: 'not net_state.results[1].stat.exists'}
+      when: net_mode == 'run'
+    - name: 已执行批次不能混入另一套源码
+      ansible.builtin.assert:
+        that:
+          - lookup('file', net_records ~ '/state/source.json') | from_json == lookup('file', net_attempt ~ '/source.json') | from_json
+      when: net_mode == 'run' and net_state.results[0].stat.exists
+    - name: 标记只读前置检查通过
+      ansible.builtin.debug: {msg: '02.01 CLUSTER PREFLIGHT PASS；接着复验十台 VM 的主机安全与网络。'}
+
+- name: 十台 VM 主机前置检查，只读
+  hosts: k8s_nodes
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 核对 SELinux、防火墙、CRI、节点服务、DNS、MTU 和默认路由
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname)" = '{{ node_fqdn }}'
+        test "$(getenforce)" = Enforcing
+        systemctl is-active firewalld containerd kubelet chronyd
+        chronyc tracking
+        chronyc waitsync 1 0.1
+        firewall-cmd --check-config
+        crictl info | python3 -c 'import json,sys; d=json.load(sys.stdin); c={x["type"]:x["status"] for x in d["status"]["conditions"]}; assert c.get("RuntimeReady") and c.get("NetworkReady")'
+        ip -j address show '{{ node_network_connection }}'
+        ip -j route
+        ip -d link show
+        command -v tcpdump
+        command -v timeout
+        getent ahostsv4 harbor.k8s.internal.egon.top
+        curl -q --noproxy '*' --connect-timeout 3 --max-time 10 --silent --show-error -o /dev/null -w 'harbor_http=%{http_code} remote=%{remote_ip} tls=%{ssl_verify_result}\n' https://harbor.k8s.internal.egon.top/v2/
+        curl -q --noproxy '' --proxy http://192.168.9.10:7890 --connect-timeout 3 --max-time 15 --fail --silent --show-error -o /dev/null -w 'proxy_http=%{http_code} remote=%{remote_ip} tls=%{ssl_verify_result}\n' https://kubernetes.io/
+      args: {executable: /bin/bash}
+      register: net_host_check
+      changed_when: false
+      when: net_mode in ['preflight','validate','run']
+    - name: 保存每台 VM 的输出，不覆盖旧尝试
+      ansible.builtin.copy:
+        content: '{{ net_host_check.stdout ~ "\n" }}'
+        dest: '{{ hostvars.localhost.net_attempt }}/host-{{ inventory_hostname }}.txt'
+        mode: '0600'
+      delegate_to: localhost
+      when: net_mode in ['preflight','validate','run']
+
+- name: 构建和检查完整源码，不创建集群对象
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 构建无外部依赖的静态探测镜像
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', build, --records, '{{ net_records }}', --output, '{{ net_attempt }}/image.json']}
+      register: net_built
+      changed_when: false
+      when: net_mode in ['validate','run']
+    - name: 绑定实际镜像摘要
+      ansible.builtin.set_fact: {net_image: '{{ net_built.stdout | from_json }}'}
+      when: net_mode in ['validate','run']
+    - name: 生成完整 Kubernetes YAML
+      ansible.builtin.template:
+        src: '../../examples/network-baseline/{{ item }}.yaml.j2'
+        dest: '{{ net_attempt }}/{{ item }}.yaml'
+        mode: '0600'
+      loop: [fixtures, deny]
+      when: net_mode in ['validate','run']
+    - name: 在既有 restricted 空间做同规格服务端 dry-run
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', validate, --records, '{{ net_records }}', --manifest, '{{ net_attempt }}/{{ item }}.yaml', --output, '{{ net_attempt }}/admission-{{ item }}.json']}
+      loop: [fixtures, deny]
+      changed_when: false
+      when: net_mode in ['validate','run']
+    - name: 核对锁定 Cilium Chart 字节
+      ansible.builtin.stat: {path: '{{ net_chart }}', checksum_algorithm: sha256}
+      register: net_chart_stat
+      when: net_mode in ['validate','run']
+    - name: 禁止使用漂移 Chart
+      ansible.builtin.assert: {that: net_chart_stat.stat.checksum == net_lock.components.cilium.chart.sha256}
+      when: net_mode in ['validate','run']
+    - name: Helm 4 服务端渲染；隐藏 Secret，原文不入证据
+      ansible.builtin.command:
+        argv: ['{{ net_helm }}', upgrade, cilium, '{{ net_chart }}', --kubeconfig, '{{ net_config }}', -n, kube-system, --reuse-values, -f, '{{ net_root }}/ops/02-networking/networking/hubble-values.yaml', --dry-run=server, --hide-secret]
+      changed_when: false
+      no_log: true
+      when: net_mode in ['validate','run']
+    - name: 交叉核对渲染镜像、离线引用、网络模式与 Hubble 安全预算
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', chart, --records, '{{ net_records }}', --output, '{{ net_attempt }}/chart.json']}
+      changed_when: false
+      no_log: true
+      when: net_mode in ['validate','run']
+    - name: 验证受限 Relay 入口的服务端准入
+      ansible.builtin.command: {argv: '{{ net_k + ["apply", "--dry-run=server", "--validate=strict", "-f", net_root ~ "/ops/02-networking/networking/hubble-access.yaml"] }}'}
+      changed_when: false
+      when: net_mode in ['validate','run']
+    - name: 变更前绑定不可混用的源码
+      ansible.builtin.copy: {src: '{{ net_attempt }}/source.json', dest: '{{ net_records }}/state/source.json', mode: '0600', force: false}
+      when: net_mode == 'run'
+    - name: 准备预先下载并核验的 Relay OCI 包
+      ansible.builtin.command: {argv: ['{{ net_python }}', '{{ net_check }}', relay, --records, '{{ net_records }}', --output, '{{ net_attempt }}/relay.json']}
+      changed_when: false
+      register: net_relay_pack
+      when: net_mode in ['validate','run']
+    - name: 绑定 Relay 物料
+      ansible.builtin.set_fact: {net_relay_image: '{{ net_relay_pack.stdout | from_json }}'}
+      when: net_mode == 'run'
+    - name: 标记完整源码检查通过
+      ansible.builtin.debug: {msg: '02.01 SOURCE VALIDATION PASS；没有创建 Pod、开启 Hubble 或变更主机规则。'}
+      when: net_mode == 'validate'
+
+- name: 用户执行 run 后才准备缓存与 Hubble 端口
+  hosts: k8s_nodes
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 导入精确镜像，不启动容器
+      ansible.builtin.include_tasks: ../tasks/import-image.yml
+      loop: '{{ [hostvars.localhost.net_image, hostvars.localhost.net_relay_image] if net_mode == "run" else [] }}'
+      loop_control: {loop_var: net_import, label: '{{ net_import.image }}'}
+    - name: 记录并按来源启用 Hubble 4244
+      ansible.builtin.include_tasks: ../tasks/firewall.yml
+      when: net_mode in ['run','rollback']
+
+- name: Hubble 启用、实验、清理与显式回退
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 启用观测并运行完整测试集
+      ansible.builtin.include_tasks: ../tasks/run.yml
+      when: net_mode == 'run'
+    - name: 清理本批次的两个测试空间，保留后续需要的 Hubble
+      ansible.builtin.include_tasks: ../tasks/cleanup.yml
+      when: net_mode in ['cleanup','rollback']
+    - name: 显式恢复本批次启用 Hubble 前的 Helm revision
+      ansible.builtin.include_tasks: ../tasks/rollback.yml
+      when: net_mode == 'rollback'
+
+- name: Helm 成功恢复后才撤销本批新增的 Hubble 端口规则
+  hosts: k8s_nodes
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/main.yml]
+  tasks:
+    - name: 查询本主机原始规则回执
+      ansible.builtin.stat: {path: '{{ net_records }}/state/firewall-{{ inventory_hostname }}.json'}
+      delegate_to: localhost
+      register: net_restore_firewall
+      when: net_mode == 'rollback' and hostvars.localhost.net_rollback_passed | default(false)
+    - name: 按原始存在状态恢复永久规则，不删除原有规则
+      ansible.posix.firewalld:
+        zone: public
+        rich_rule: '{{ item }}'
+        state: disabled
+        permanent: true
+        immediate: false
+      loop: '{{ net_firewall_rules }}'
+      loop_control: {index_var: net_rule_index}
+      vars: {saved: '{{ lookup("file", net_records ~ "/state/firewall-" ~ inventory_hostname ~ ".json") | from_json }}'}
+      when:
+        - net_mode == 'rollback'
+        - hostvars.localhost.net_rollback_passed | default(false)
+        - hostvars.localhost.net_rollback_remove_rules | default(false)
+        - net_restore_firewall.stat.exists | default(false)
+        - saved.run == hostvars.localhost.net_run
+        - saved.permanent[net_rule_index] == 1
+    - name: 单独恢复本批新增的运行规则
+      ansible.posix.firewalld:
+        zone: public
+        rich_rule: '{{ item }}'
+        state: disabled
+        permanent: false
+        immediate: true
+      loop: '{{ net_firewall_rules }}'
+      loop_control: {index_var: net_rule_index}
+      vars: {saved: '{{ lookup("file", net_records ~ "/state/firewall-" ~ inventory_hostname ~ ".json") | from_json }}'}
+      when:
+        - net_mode == 'rollback'
+        - hostvars.localhost.net_rollback_passed | default(false)
+        - hostvars.localhost.net_rollback_remove_rules | default(false)
+        - net_restore_firewall.stat.exists | default(false)
+        - saved.run == hostvars.localhost.net_run
+        - saved.runtime[net_rule_index] == 1

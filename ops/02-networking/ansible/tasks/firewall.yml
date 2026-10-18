@@ -1,0 +1,35 @@
+---
+- name: 查询本主机原规则回执
+  ansible.builtin.stat: {path: '{{ net_records }}/state/firewall-{{ inventory_hostname }}.json'}
+  delegate_to: localhost
+  register: net_firewall_saved
+- name: 读取变更前每条规则是否存在
+  ansible.builtin.command: {argv: [firewall-cmd, --zone=public, '--query-rich-rule={{ item }}']}
+  loop: '{{ net_firewall_rules }}'
+  changed_when: false
+  failed_when: net_firewall_before.rc not in [0,1]
+  register: net_firewall_before
+  when: net_mode == 'run' and not net_firewall_saved.stat.exists
+- name: 单独读取永久配置，不能假设它与运行配置相同
+  ansible.builtin.command: {argv: [firewall-cmd, --permanent, --zone=public, '--query-rich-rule={{ item }}']}
+  loop: '{{ net_firewall_rules }}'
+  changed_when: false
+  failed_when: net_firewall_permanent.rc not in [0,1]
+  register: net_firewall_permanent
+  when: net_mode == 'run' and not net_firewall_saved.stat.exists
+- name: 先保存原始状态，再做变更
+  ansible.builtin.copy:
+    content: '{{ {"run":hostvars.localhost.net_run,"runtime":net_firewall_before.results | map(attribute="rc") | list,"permanent":net_firewall_permanent.results | map(attribute="rc") | list} | to_nice_json }}'
+    dest: '{{ net_records }}/state/firewall-{{ inventory_hostname }}.json'
+    mode: '0600'
+  delegate_to: localhost
+  when: net_mode == 'run' and not net_firewall_saved.stat.exists
+- name: 放行节点和 Pod 来源的 mTLS 端口，永久及运行配置一致
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: '{{ item }}'
+    state: enabled
+    permanent: true
+    immediate: true
+  loop: '{{ net_firewall_rules }}'
+  when: net_mode == 'run'

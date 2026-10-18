@@ -1,0 +1,90 @@
+{% for ns in net_namespaces %}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ ns }}
+  labels:
+    cnpl.io/net-run: '{{ net_run }}'
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: net-public-ca
+  namespace: {{ ns }}
+  labels: {cnpl.io/net-run: '{{ net_run }}'}
+data:
+  ca.crt: |
+{{ lookup('file', net_root ~ '/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt') | indent(4, true) }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: net-echo
+  namespace: {{ ns }}
+  labels: {cnpl.io/net-run: '{{ net_run }}'}
+spec:
+  selector:
+    matchLabels: {app: net-echo}
+  template:
+    metadata:
+      labels: {app: net-echo, cnpl.io/net-run: '{{ net_run }}'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 5
+      nodeSelector:
+{% if ns == 'lab-net' %}
+        kubernetes.io/os: linux
+{% else %}
+        kubernetes.io/hostname: worker02.k8s.internal.egon.top
+{% endif %}
+      tolerations:
+        - {key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}
+        - {key: node-role.kubernetes.io/storage, operator: Exists, effect: NoSchedule}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: net
+          image: '{{ net_image.image }}'
+          imagePullPolicy: Never
+          workingDir: /
+          command: [/net-lab, serve]
+          env:
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: udp, containerPort: 9090, protocol: UDP}
+          readinessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 20m, memory: 16Mi}
+            limits: {cpu: 500m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: ca, mountPath: /ca, readOnly: true}
+      volumes:
+        - name: ca
+          configMap: {name: net-public-ca}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: net-echo
+  namespace: {{ ns }}
+  labels: {cnpl.io/net-run: '{{ net_run }}'}
+spec:
+  selector: {app: net-echo}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+    - {name: udp, port: 9090, targetPort: udp, protocol: UDP}
+---
+{% endfor %}

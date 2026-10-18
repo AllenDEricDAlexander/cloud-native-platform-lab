@@ -1,0 +1,16 @@
+# 只允许节点上的管理员经现有 Cilium 容器查询 Relay。4244 的 Agent/Relay 链路另用 mTLS。
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cnpl-hubble-relay-access
+  namespace: kube-system
+  labels: {cnpl.io/component: phase02-hubble}
+spec:
+  endpointSelector:
+    matchLabels: {k8s-app: hubble-relay}
+  ingress:
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - {port: '4245', protocol: TCP}
+            - {port: '4222', protocol: TCP}

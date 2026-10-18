@@ -1,0 +1,254 @@
+
+PLAY [02.01 绑定原集群、执行批次和源码] ****************************************
+
+TASK [限定执行模式及证据目录] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成此次独立取证目录] ****************************************************
+ok: [localhost]
+
+TASK [绑定此次路径] ************************************************************
+ok: [localhost]
+
+TASK [创建公开证据目录] ********************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.01-20261018-source-review/attempts/20261018T141533Z-19cb0d8e-validate)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.01-20261018-source-review/state)
+
+TASK [清理与回退必须使用原有批次] **********************************************
+ok: [localhost]
+
+TASK [拒绝凭空创建清理上下文] **************************************************
+skipping: [localhost]
+
+TASK [复验交接、身份与当前健康] ************************************************
+ok: [localhost]
+
+TASK [绑定运行身份] ************************************************************
+ok: [localhost]
+
+TASK [保存实际源码摘要] ********************************************************
+ok: [localhost]
+
+TASK [读取已有变更与关闭回执] **************************************************
+ok: [localhost] => (item=source.json)
+ok: [localhost] => (item=closed.json)
+
+TASK [读取正式通过回执] ********************************************************
+ok: [localhost]
+
+TASK [已通过的批次只做清理，不重复执行或覆盖回执] ******************************
+skipping: [localhost]
+
+TASK [关闭批次不能重新打开] ****************************************************
+skipping: [localhost]
+
+TASK [已执行批次不能混入另一套源码] ********************************************
+skipping: [localhost]
+
+TASK [标记只读前置检查通过] ****************************************************
+ok: [localhost] => {
+    "msg": "02.01 CLUSTER PREFLIGHT PASS；接着复验十台 VM 的主机安全与网络。"
+}
+
+PLAY [十台 VM 主机前置检查，只读] **********************************************
+
+TASK [核对 SELinux、防火墙、CRI、节点服务、DNS、MTU 和默认路由] ****************
+ok: [worker01]
+ok: [infra01]
+ok: [worker02]
+ok: [storage01]
+ok: [storage02]
+ok: [storage03]
+ok: [cp03]
+ok: [cp02]
+ok: [infra02]
+ok: [cp01]
+
+TASK [保存每台 VM 的输出，不覆盖旧尝试] ****************************************
+changed: [storage02 -> localhost]
+changed: [infra01 -> localhost]
+changed: [cp02 -> localhost]
+changed: [storage01 -> localhost]
+changed: [cp01 -> localhost]
+changed: [cp03 -> localhost]
+changed: [infra02 -> localhost]
+changed: [worker01 -> localhost]
+changed: [storage03 -> localhost]
+changed: [worker02 -> localhost]
+
+PLAY [构建和检查完整源码，不创建集群对象] **************************************
+
+TASK [构建无外部依赖的静态探测镜像] ********************************************
+ok: [localhost]
+
+TASK [绑定实际镜像摘要] ********************************************************
+ok: [localhost]
+
+TASK [生成完整 Kubernetes YAML] ************************************************
+changed: [localhost] => (item=fixtures)
+changed: [localhost] => (item=deny)
+
+TASK [在既有 restricted 空间做同规格服务端 dry-run] ****************************
+ok: [localhost] => (item=fixtures)
+ok: [localhost] => (item=deny)
+
+TASK [核对锁定 Cilium Chart 字节] **********************************************
+ok: [localhost]
+
+TASK [禁止使用漂移 Chart] ******************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [Helm 4 服务端渲染；隐藏 Secret，原文不入证据] ****************************
+ok: [localhost]
+
+TASK [验证受限 Relay 入口的服务端准入] *****************************************
+ok: [localhost]
+
+TASK [变更前绑定不可混用的源码] ************************************************
+skipping: [localhost]
+
+TASK [准备预先下载并核验的 Relay OCI 包] ***************************************
+ok: [localhost]
+
+TASK [绑定 Relay 物料] *********************************************************
+skipping: [localhost]
+
+TASK [标记完整源码检查通过] ****************************************************
+ok: [localhost] => {
+    "msg": "02.01 SOURCE VALIDATION PASS；没有创建 Pod、开启 Hubble 或变更主机规则。"
+}
+
+PLAY [用户执行 run 后才准备缓存与 Hubble 端口] *********************************
+
+TASK [导入精确镜像，不启动容器] ************************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [记录并按来源启用 Hubble 4244] ********************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+PLAY [Hubble 启用、实验、清理与显式回退] ***************************************
+
+TASK [启用观测并运行完整测试集] ************************************************
+skipping: [localhost]
+
+TASK [清理本批次的两个测试空间，保留后续需要的 Hubble] *************************
+skipping: [localhost]
+
+TASK [显式恢复本批次启用 Hubble 前的 Helm revision] ****************************
+skipping: [localhost]
+
+PLAY [Helm 成功恢复后才撤销本批新增的 Hubble 端口规则] *************************
+
+TASK [查询本主机原始规则回执] **************************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+skipping: [infra01]
+skipping: [infra02]
+skipping: [storage01]
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [按原始存在状态恢复永久规则，不删除原有规则] ******************************
+skipping: [cp01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [cp01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [cp02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp01]
+skipping: [cp03] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [cp03] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp02]
+skipping: [infra01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [infra01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp03]
+skipping: [infra02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [infra02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [infra01]
+skipping: [storage01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [infra02]
+skipping: [storage01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [storage02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [storage02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [storage01]
+skipping: [storage03] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [storage03] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [worker01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [worker01]
+skipping: [worker02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [worker02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [worker02]
+
+TASK [单独恢复本批新增的运行规则] **********************************************
+skipping: [cp01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [cp01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [cp02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp01]
+skipping: [cp03] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [cp03] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp02]
+skipping: [infra01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [infra01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [cp03]
+skipping: [infra02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [infra02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [infra01]
+skipping: [storage01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [storage01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [infra02]
+skipping: [storage02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [storage01]
+skipping: [storage02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [storage03] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [storage03] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [storage02]
+skipping: [storage03]
+skipping: [worker01] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [worker01] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [worker01]
+skipping: [worker02] => (item=rule family="ipv4" source ipset="k8s-nodes" port port="4244" protocol="tcp" accept) 
+skipping: [worker02] => (item=rule family="ipv4" source address="10.244.0.0/16" port port="4244" protocol="tcp" accept) 
+skipping: [worker02]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+cp02                       : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+cp03                       : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+infra01                    : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+infra02                    : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+localhost                  : ok=21   changed=2    unreachable=0    failed=0    skipped=9    rescued=0    ignored=0   
+storage01                  : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage02                  : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+storage03                  : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+worker01                   : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+worker02                   : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+

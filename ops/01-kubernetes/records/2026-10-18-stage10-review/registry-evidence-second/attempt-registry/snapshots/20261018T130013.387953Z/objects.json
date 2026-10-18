@@ -1,0 +1,727 @@
+{
+  "namespace": {
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\",\"cnpl.io/core-stage\":\"10\",\"pod-security.kubernetes.io/enforce\":\"restricted\",\"pod-security.kubernetes.io/enforce-version\":\"v1.36\"},\"name\":\"cnpl-regcheck-f272e472\"}}\n"
+      },
+      "creationTimestamp": "2026-10-18T12:59:22Z",
+      "labels": {
+        "cnpl.io/core-run": "regcheck-f272e472",
+        "cnpl.io/core-stage": "10",
+        "kubernetes.io/metadata.name": "cnpl-regcheck-f272e472",
+        "pod-security.kubernetes.io/enforce": "restricted",
+        "pod-security.kubernetes.io/enforce-version": "v1.36"
+      },
+      "name": "cnpl-regcheck-f272e472",
+      "resourceVersion": "307917",
+      "uid": "cf7a915c-06a6-48ff-81fe-4d1b2affd81c"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "phase": "Active"
+    }
+  },
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-10-18T12:59:56Z",
+        "finalizers": [
+          "batch.kubernetes.io/job-tracking"
+        ],
+        "generateName": "p10-pull-bad-",
+        "generation": 1,
+        "labels": {
+          "batch.kubernetes.io/controller-uid": "b7ac8601-8188-45b5-8418-03d9bb369485",
+          "batch.kubernetes.io/job-name": "p10-pull-bad",
+          "cnpl.io/core-run": "regcheck-f272e472",
+          "cnpl.io/pull-variant": "bad",
+          "controller-uid": "b7ac8601-8188-45b5-8418-03d9bb369485",
+          "job-name": "p10-pull-bad"
+        },
+        "name": "p10-pull-bad-xqnbd",
+        "namespace": "cnpl-regcheck-f272e472",
+        "ownerReferences": [
+          {
+            "apiVersion": "batch/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Job",
+            "name": "p10-pull-bad",
+            "uid": "b7ac8601-8188-45b5-8418-03d9bb369485"
+          }
+        ],
+        "resourceVersion": "308211",
+        "uid": "b119e2f0-5c54-4332-840f-2f5a06ee8fe6"
+      },
+      "spec": {
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "command": [
+              "/bin/sh",
+              "-ec",
+              "echo PRIVATE_PULL_AUTHENTICATED"
+            ],
+            "image": "harbor.k8s.internal.egon.top/cnpl-p10-regcheck-f272e472-registry/busybox-v1@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+            "imagePullPolicy": "Always",
+            "name": "app",
+            "resources": {
+              "limits": {
+                "cpu": "200m",
+                "ephemeral-storage": "16Mi",
+                "memory": "64Mi"
+              },
+              "requests": {
+                "cpu": "10m",
+                "ephemeral-storage": "1Mi",
+                "memory": "16Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "workingDir": "/"
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "imagePullSecrets": [
+          {
+            "name": "p10-pull-bad"
+          }
+        ],
+        "nodeName": "worker01.k8s.internal.egon.top",
+        "nodeSelector": {
+          "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Never",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "runAsGroup": 1000,
+          "runAsNonRoot": true,
+          "runAsUser": 1000,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ]
+      },
+      "status": {
+        "allocatedResources": {
+          "cpu": "10m",
+          "ephemeral-storage": "1Mi",
+          "memory": "16Mi"
+        },
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T12:59:59Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T12:59:56Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T12:59:56Z",
+            "message": "containers with unready status: [app]",
+            "observedGeneration": 1,
+            "reason": "ContainersNotReady",
+            "status": "False",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T12:59:56Z",
+            "message": "containers with unready status: [app]",
+            "observedGeneration": 1,
+            "reason": "ContainersNotReady",
+            "status": "False",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-18T12:59:56Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "image": "harbor.k8s.internal.egon.top/cnpl-p10-regcheck-f272e472-registry/busybox-v1@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+            "imageID": "",
+            "lastState": {},
+            "name": "app",
+            "ready": false,
+            "restartCount": 0,
+            "started": false,
+            "state": {
+              "waiting": {
+                "message": "failed to pull and unpack image \"harbor.k8s.internal.egon.top/cnpl-p10-regcheck-f272e472-registry/busybox-v1@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f\": failed to resolve image: unexpected status from HEAD request to https://harbor.k8s.internal.egon.top/v2/cnpl-p10-regcheck-f272e472-registry/busybox-v1/manifests/sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f: 401 Unauthorized",
+                "reason": "ErrImagePull"
+              }
+            }
+          }
+        ],
+        "hostIP": "192.168.9.109",
+        "hostIPs": [
+          {
+            "ip": "192.168.9.109"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Pending",
+        "podIP": "10.244.8.246",
+        "podIPs": [
+          {
+            "ip": "10.244.8.246"
+          }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+          "limits": {
+            "cpu": "200m",
+            "ephemeral-storage": "16Mi",
+            "memory": "64Mi"
+          },
+          "requests": {
+            "cpu": "10m",
+            "ephemeral-storage": "1Mi",
+            "memory": "16Mi"
+          }
+        },
+        "startTime": "2026-10-18T12:59:56Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ResourceQuota",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"ResourceQuota\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"core-budget\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"spec\":{\"hard\":{\"limits.cpu\":\"8\",\"limits.memory\":\"4Gi\",\"pods\":\"24\",\"requests.cpu\":\"4\",\"requests.ephemeral-storage\":\"1Gi\",\"requests.memory\":\"2Gi\"}}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:27Z",
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "core-budget",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "308093",
+        "uid": "3f4e260d-36ea-42e3-8dac-fd4182e3e753"
+      },
+      "spec": {
+        "hard": {
+          "limits.cpu": "8",
+          "limits.memory": "4Gi",
+          "pods": "24",
+          "requests.cpu": "4",
+          "requests.ephemeral-storage": "1Gi",
+          "requests.memory": "2Gi"
+        }
+      },
+      "status": {
+        "hard": {
+          "limits.cpu": "8",
+          "limits.memory": "4Gi",
+          "pods": "24",
+          "requests.cpu": "4",
+          "requests.ephemeral-storage": "1Gi",
+          "requests.memory": "2Gi"
+        },
+        "used": {
+          "limits.cpu": "200m",
+          "limits.memory": "64Mi",
+          "pods": "1",
+          "requests.cpu": "10m",
+          "requests.ephemeral-storage": "1Mi",
+          "requests.memory": "16Mi"
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "LimitRange",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"LimitRange\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"core-limits\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"spec\":{\"limits\":[{\"default\":{\"cpu\":\"500m\",\"ephemeral-storage\":\"32Mi\",\"memory\":\"192Mi\"},\"defaultRequest\":{\"cpu\":\"20m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"32Mi\"},\"max\":{\"cpu\":\"1\",\"ephemeral-storage\":\"128Mi\",\"memory\":\"256Mi\"},\"type\":\"Container\"}]}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:29Z",
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "core-limits",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "307957",
+        "uid": "e1584a05-e263-408c-92c5-902d38f7f4b3"
+      },
+      "spec": {
+        "limits": [
+          {
+            "default": {
+              "cpu": "500m",
+              "ephemeral-storage": "32Mi",
+              "memory": "192Mi"
+            },
+            "defaultRequest": {
+              "cpu": "20m",
+              "ephemeral-storage": "1Mi",
+              "memory": "32Mi"
+            },
+            "max": {
+              "cpu": "1",
+              "ephemeral-storage": "128Mi",
+              "memory": "256Mi"
+            },
+            "type": "Container"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"networking.k8s.io/v1\",\"kind\":\"NetworkPolicy\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"core-isolation\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"spec\":{\"egress\":[{\"to\":[{\"podSelector\":{}}]},{\"ports\":[{\"port\":53,\"protocol\":\"UDP\"},{\"port\":53,\"protocol\":\"TCP\"}],\"to\":[{\"namespaceSelector\":{\"matchLabels\":{\"kubernetes.io/metadata.name\":\"kube-system\"}},\"podSelector\":{\"matchLabels\":{\"k8s-app\":\"kube-dns\"}}}]}],\"ingress\":[{\"from\":[{\"podSelector\":{}}]}],\"podSelector\":{},\"policyTypes\":[\"Ingress\",\"Egress\"]}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:30Z",
+        "generation": 1,
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "core-isolation",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "307966",
+        "uid": "f1b69c94-cb88-40c9-a6d2-f84fd16a7e09"
+      },
+      "spec": {
+        "egress": [
+          {
+            "to": [
+              {
+                "podSelector": {}
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 53,
+                "protocol": "UDP"
+              },
+              {
+                "port": 53,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "kubernetes.io/metadata.name": "kube-system"
+                  }
+                },
+                "podSelector": {
+                  "matchLabels": {
+                    "k8s-app": "kube-dns"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {}
+              }
+            ]
+          }
+        ],
+        "podSelector": {},
+        "policyTypes": [
+          "Ingress",
+          "Egress"
+        ]
+      }
+    },
+    {
+      "apiVersion": "cilium.io/v2",
+      "kind": "CiliumNetworkPolicy",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"cilium.io/v2\",\"kind\":\"CiliumNetworkPolicy\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"core-api-egress\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"spec\":{\"egress\":[{\"toEntities\":[\"kube-apiserver\"],\"toPorts\":[{\"ports\":[{\"port\":\"443\",\"protocol\":\"TCP\"},{\"port\":\"6443\",\"protocol\":\"TCP\"}]}]}],\"endpointSelector\":{\"matchLabels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"}}}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:32Z",
+        "generation": 1,
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "core-api-egress",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "307975",
+        "uid": "b01e58d2-bdd9-44b4-ac3a-2155680a88d9"
+      },
+      "spec": {
+        "egress": [
+          {
+            "toEntities": [
+              "kube-apiserver"
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "443",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "port": "6443",
+                    "protocol": "TCP"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "endpointSelector": {
+          "matchLabels": {
+            "cnpl.io/core-run": "regcheck-f272e472"
+          }
+        }
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-18T12:59:32Z",
+            "message": "Policy validation succeeded",
+            "status": "True",
+            "type": "Valid"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "batch/v1",
+      "kind": "Job",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"Job\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"p10-pull-bad\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"spec\":{\"activeDeadlineSeconds\":180,\"backoffLimit\":0,\"template\":{\"metadata\":{\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\",\"cnpl.io/pull-variant\":\"bad\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/bin/sh\",\"-ec\",\"echo PRIVATE_PULL_AUTHENTICATED\"],\"image\":\"harbor.k8s.internal.egon.top/cnpl-p10-regcheck-f272e472-registry/busybox-v1@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f\",\"imagePullPolicy\":\"Always\",\"name\":\"app\",\"resources\":{\"limits\":{\"cpu\":\"200m\",\"ephemeral-storage\":\"16Mi\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"16Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"workingDir\":\"/\"}],\"imagePullSecrets\":[{\"name\":\"p10-pull-bad\"}],\"nodeSelector\":{\"kubernetes.io/hostname\":\"worker01.k8s.internal.egon.top\"},\"restartPolicy\":\"Never\",\"securityContext\":{\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}}},\"ttlSecondsAfterFinished\":3600}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:56Z",
+        "generation": 1,
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "p10-pull-bad",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "308096",
+        "uid": "b7ac8601-8188-45b5-8418-03d9bb369485"
+      },
+      "spec": {
+        "activeDeadlineSeconds": 180,
+        "backoffLimit": 0,
+        "completionMode": "NonIndexed",
+        "completions": 1,
+        "manualSelector": false,
+        "parallelism": 1,
+        "podReplacementPolicy": "TerminatingOrFailed",
+        "selector": {
+          "matchLabels": {
+            "batch.kubernetes.io/controller-uid": "b7ac8601-8188-45b5-8418-03d9bb369485"
+          }
+        },
+        "suspend": false,
+        "template": {
+          "metadata": {
+            "labels": {
+              "batch.kubernetes.io/controller-uid": "b7ac8601-8188-45b5-8418-03d9bb369485",
+              "batch.kubernetes.io/job-name": "p10-pull-bad",
+              "cnpl.io/core-run": "regcheck-f272e472",
+              "cnpl.io/pull-variant": "bad",
+              "controller-uid": "b7ac8601-8188-45b5-8418-03d9bb369485",
+              "job-name": "p10-pull-bad"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "command": [
+                  "/bin/sh",
+                  "-ec",
+                  "echo PRIVATE_PULL_AUTHENTICATED"
+                ],
+                "image": "harbor.k8s.internal.egon.top/cnpl-p10-regcheck-f272e472-registry/busybox-v1@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f",
+                "imagePullPolicy": "Always",
+                "name": "app",
+                "resources": {
+                  "limits": {
+                    "cpu": "200m",
+                    "ephemeral-storage": "16Mi",
+                    "memory": "64Mi"
+                  },
+                  "requests": {
+                    "cpu": "10m",
+                    "ephemeral-storage": "1Mi",
+                    "memory": "16Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "workingDir": "/"
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "imagePullSecrets": [
+              {
+                "name": "p10-pull-bad"
+              }
+            ],
+            "nodeSelector": {
+              "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+            },
+            "restartPolicy": "Never",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "runAsGroup": 1000,
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 30
+          }
+        },
+        "ttlSecondsAfterFinished": 3600
+      },
+      "status": {
+        "active": 1,
+        "ready": 0,
+        "startTime": "2026-10-18T12:59:56Z",
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      }
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "Role",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"rbac.authorization.k8s.io/v1\",\"kind\":\"Role\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"core-operator\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"rules\":[{\"apiGroups\":[\"\"],\"resources\":[\"pods\",\"replicationcontrollers\",\"services\",\"configmaps\",\"resourcequotas\",\"limitranges\"],\"verbs\":[\"get\",\"list\",\"watch\",\"create\",\"update\",\"patch\",\"delete\"]},{\"apiGroups\":[\"\"],\"resources\":[\"pods/log\"],\"verbs\":[\"get\"]},{\"apiGroups\":[\"\"],\"resources\":[\"pods/exec\"],\"verbs\":[\"get\",\"create\"]},{\"apiGroups\":[\"apps\"],\"resources\":[\"deployments\",\"deployments/scale\",\"replicasets\",\"statefulsets\",\"statefulsets/scale\",\"daemonsets\",\"controllerrevisions\"],\"verbs\":[\"get\",\"list\",\"watch\",\"create\",\"update\",\"patch\",\"delete\"]},{\"apiGroups\":[\"batch\"],\"resources\":[\"jobs\",\"cronjobs\"],\"verbs\":[\"get\",\"list\",\"watch\",\"create\",\"update\",\"patch\",\"delete\"]},{\"apiGroups\":[\"autoscaling\"],\"resources\":[\"horizontalpodautoscalers\"],\"verbs\":[\"get\",\"list\",\"watch\",\"create\",\"update\",\"patch\",\"delete\"]},{\"apiGroups\":[\"networking.k8s.io\"],\"resources\":[\"networkpolicies\"],\"verbs\":[\"get\",\"list\",\"watch\",\"create\",\"update\",\"patch\",\"delete\"]}]}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:24Z",
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "core-operator",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "307931",
+        "uid": "21816ac4-b0bd-407a-bca2-61c4e49d5d61"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods",
+            "replicationcontrollers",
+            "services",
+            "configmaps",
+            "resourcequotas",
+            "limitranges"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods/log"
+          ],
+          "verbs": [
+            "get"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods/exec"
+          ],
+          "verbs": [
+            "get",
+            "create"
+          ]
+        },
+        {
+          "apiGroups": [
+            "apps"
+          ],
+          "resources": [
+            "deployments",
+            "deployments/scale",
+            "replicasets",
+            "statefulsets",
+            "statefulsets/scale",
+            "daemonsets",
+            "controllerrevisions"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "batch"
+          ],
+          "resources": [
+            "jobs",
+            "cronjobs"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "autoscaling"
+          ],
+          "resources": [
+            "horizontalpodautoscalers"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "networking.k8s.io"
+          ],
+          "resources": [
+            "networkpolicies"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ]
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"rbac.authorization.k8s.io/v1\",\"kind\":\"RoleBinding\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-run\":\"regcheck-f272e472\"},\"name\":\"core-operator\",\"namespace\":\"cnpl-regcheck-f272e472\"},\"roleRef\":{\"apiGroup\":\"rbac.authorization.k8s.io\",\"kind\":\"Role\",\"name\":\"core-operator\"},\"subjects\":[{\"apiGroup\":\"rbac.authorization.k8s.io\",\"kind\":\"User\",\"name\":\"cnpl-mac-operator\"}]}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:59:26Z",
+        "labels": {
+          "cnpl.io/core-run": "regcheck-f272e472"
+        },
+        "name": "core-operator",
+        "namespace": "cnpl-regcheck-f272e472",
+        "resourceVersion": "307945",
+        "uid": "5a445539-4464-4a2e-9130-3d985716184d"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "core-operator"
+      },
+      "subjects": [
+        {
+          "apiGroup": "rbac.authorization.k8s.io",
+          "kind": "User",
+          "name": "cnpl-mac-operator"
+        }
+      ]
+    }
+  ]
+}

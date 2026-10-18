@@ -41,6 +41,8 @@ Base64 只是编码。Secret 的保护依赖已有的 etcd 加密、最小 RBAC�
 
 项目/账户/镜像创建前均记录恢复意图；清理核对 run、项目 ID、精确仓库/账号范围和对象 UID。发现其他人添加的数据时保留，不把本批清理扩展成全局清理。
 
+Harbor 项目机器人清理先确认原项目 ID，再以 `Level=project,ProjectID=<原 ID>` 查询；默认机器人列表只有 system 级账户，不能靠显示名前缀证明项目账户已清理。返回账户还须逐条核对实际项目权限、run 描述和创建意图，发现其他账户时先保留项目。执行前的有限 Registry、SA/RBAC、Token 生命周期及交接实证见[10 核验记录](../../records/2026-10-18-stage10-review/README.md)。
+
 ## 失败处理命令
 
 ```bash

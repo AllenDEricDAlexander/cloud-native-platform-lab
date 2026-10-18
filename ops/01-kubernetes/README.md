@@ -441,6 +441,8 @@ bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/script
 
 配置注入/刷新、Secret 轮换和实际认证、私有 Registry 拉取及凭据轮换、SA/RBAC/audience/Bound Token，最后清理交接。
 
+执行前已完成 14 个公开变体 validate、16 项检查/证书测试，以及独立临时空间中的真实 Registry 认证与轮换、9 条 SA/RBAC 请求、Bound Token 失效和三 API/etcd 交接检查。Harbor 清理已改为按原项目 ID 查询项目机器人并明确撤销，所有验证资源已回收；详见[10 核验记录](records/2026-10-18-stage10-review/README.md)。正式 lab-p10 配置传播与全阶段验收仍由下面的 run 执行。
+
 独立源码、逐条命令解释、预期结果和恢复说明见 [01.10 完整手册](core-resources/config/README.md)。每阶段只执行自己；正式运行前检查上一阶段的真实回执。
 
 ```bash

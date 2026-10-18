@@ -7,7 +7,7 @@
 | 01.07 StatefulSet / DaemonSet | 验收与清理通过，已只读复核 | [07 实际验收归档](runs/07-20261018T102322Z/README.md)、[完成指针](completed/07.json) |
 | 01.08 删除传播 / 所有权 / Finalizer | 验收与清理通过，已只读复核 | [08 实际验收归档](runs/08-20261018T105000Z/README.md)、[完成指针](completed/08.json) |
 | 01.09 Job / CronJob / HPA | 原目录 resume 验收与清理通过，反例原因已补证 | [09 实际验收归档](runs/09-20261018T113437Z/README.md)、[完成指针](completed/09.json) |
-| 01.10 配置 / Secret / RBAC | 待逐阶段执行 | [10 完整命令与预期](../../core-resources/config/README.md) |
+| 01.10 配置 / Secret / RBAC | 执行前核验与有限真实链路通过，待正式运行 | [10 核验记录](../2026-10-18-stage10-review/README.md)、[10 完整命令与预期](../../core-resources/config/README.md) |
 
 `*-delivery-*`、`09-review-*` 是交付或执行前核验上下文，不是专题实际运行通过的凭据。原始交付范围和有限验证结果保留在[交付记录](../2026-10-18-core-stages-delivery/README.md)，不因后续实际执行改写历史结论。
 

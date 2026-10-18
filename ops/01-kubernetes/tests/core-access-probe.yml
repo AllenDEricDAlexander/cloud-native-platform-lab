@@ -1,0 +1,28 @@
+---
+- name: 从原身份 Pod 源码渲染有限客户端
+  ansible.builtin.template:
+    src: '{{ core_root }}/ops/01-kubernetes/core-resources/rbac/manifests/pod.yaml.j2'
+    dest: '{{ core_attempt }}/manifests/identity-{{ access_probe.id }}.yaml'
+    mode: '0600'
+  vars:
+    rbac_pod: 'p10-probe-{{ access_probe.id }}'
+    rbac_sa: '{{ access_probe.sa }}'
+    rbac_token: '{{ access_probe.token | default(true) }}'
+    rbac_audience: '{{ access_probe.audience | default(core_api_audience) }}'
+- name: 绑定原生身份容器与投射卷
+  ansible.builtin.set_fact:
+    access_source: '{{ lookup("file",core_attempt ~ "/manifests/identity-" ~ access_probe.id ~ ".yaml") | from_yaml }}'
+- name: 仅以有限 Job 执行一次原 API 客户端
+  ansible.builtin.include_tasks: ../ansible/tasks/core/document.yml
+  vars:
+    finite_container: '{{ access_source.spec.containers[0] | dict2items | rejectattr("key","equalto","readinessProbe") | items2dict | combine({"command":["/core-lab","api",access_probe.method,access_probe.path,access_probe.codes]}) }}'
+    core_document: '{{ {"apiVersion":"batch/v1","kind":"Job","metadata":{"name":"p10-test-" ~ access_probe.id,"namespace":core_namespace,"labels":{"cnpl.io/core-run":core_run}},"spec":{"backoffLimit":0,"activeDeadlineSeconds":45,"template":{"metadata":{"labels":access_source.metadata.labels},"spec":access_source.spec | combine({"restartPolicy":"Never","containers":[finite_container]})}}} }}'
+- name: '{{ access_probe.id }} 必须按预期状态实际完成'
+  ansible.builtin.include_tasks: ../ansible/tasks/core/wait.yml
+  vars: {core_wait_name: '{{ access_probe.id }} 实际 API 对照', core_wait_action: job, core_wait_id: 'access-{{ access_probe.id }}', core_wait_args: [--name,'p10-test-{{ access_probe.id }}',--condition,Complete], core_wait_retries: 45, core_wait_delay: 1}
+- name: 读取客户端公开结果，不导出 Token
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"logs",core_observation.pods[0].metadata.name] }}'}
+  register: access_actual
+  changed_when: false
+- name: 保存 HTTP 状态与公开声明
+  ansible.builtin.copy: {content: '{{ access_actual.stdout }}', dest: '{{ core_attempt }}/observations/rbac-{{ access_probe.id }}.json', mode: '0600'}

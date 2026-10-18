@@ -1,0 +1,181 @@
+
+PLAY [精确回收本次解析中断的隔离夹具] ******************************************
+
+TASK [ansible.builtin.include_tasks] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cleanup.yml for localhost
+
+TASK [先恢复本次节点试验标签与污点] ********************************************
+skipping: [localhost]
+
+TASK [检查空间 UID、全部对象归属与 finalizer] **********************************
+ok: [localhost]
+
+TASK [绑定清理清单] ************************************************************
+ok: [localhost]
+
+TASK [删除前保全现场] **********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/snapshot.yml for localhost
+
+TASK [保存公开对象、owner UID、状态、事件和测试日志（不导出 Secret/Token）] ****
+ok: [localhost]
+
+TASK [Finalizer 模拟外部资源先按本批归属回收] **********************************
+skipping: [localhost]
+
+TASK [删除本批 Namespace，先禁止控制器再创建内容] ******************************
+changed: [localhost]
+
+TASK [仅解除本实验 finalizer，保留 Kubernetes 自己的标记] **********************
+skipping: [localhost]
+
+TASK [等待整个空间实际消失] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/wait.yml for localhost
+
+TASK [Namespace 和本批资源完全清理] ********************************************
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (119 retries left).
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (118 retries left).
+FAILED - RETRYING: [localhost]: Namespace 和本批资源完全清理 (117 retries left).
+ok: [localhost]
+
+TASK [绑定已通过的只读结果] ****************************************************
+ok: [localhost]
+
+TASK [更新当前空间存在状态] ****************************************************
+ok: [localhost]
+
+TASK [回收仅属于本次的临时集群授权] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cluster-cleanup.yml for localhost
+
+TASK [查询本批是否存在临时集群级授权索引] **************************************
+ok: [localhost]
+
+TASK [按精确 UID 回收临时授权] *************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cluster-delete.yml for localhost => (item=cnpl-p10-config-access-5ad0967c)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cluster-delete.yml for localhost => (item=cnpl-p10-nodes-access-5ad0967c)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cluster-delete.yml for localhost => (item=cnpl-p10-nodes-access-5ad0967c)
+
+TASK [读取临时集群授权的当前 UID] **********************************************
+ok: [localhost]
+
+TASK [拒绝接管已重建或其他运行的对象] ******************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除本次临时集群授权] ****************************************************
+changed: [localhost]
+
+TASK [读取临时集群授权的当前 UID] **********************************************
+ok: [localhost]
+
+TASK [拒绝接管已重建或其他运行的对象] ******************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除本次临时集群授权] ****************************************************
+changed: [localhost]
+
+TASK [读取临时集群授权的当前 UID] **********************************************
+ok: [localhost]
+
+TASK [拒绝接管已重建或其他运行的对象] ******************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [删除本次临时集群授权] ****************************************************
+changed: [localhost]
+
+TASK [已处理的授权索引归档到此次证据] ******************************************
+changed: [localhost]
+
+TASK [清除已完成的临时授权待办] ************************************************
+changed: [localhost]
+
+TASK [回收本次 Harbor 凭据与实验项目] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/harbor-cleanup.yml for localhost
+
+TASK [查询本批外部资源恢复索引] ************************************************
+ok: [localhost]
+
+TASK [读取公开索引] ************************************************************
+skipping: [localhost]
+
+TASK [拒绝其他批次或普通项目] **************************************************
+skipping: [localhost]
+
+TASK [读取完整机器人元数据，按权限项目识别而非显示名筛选] **********************
+skipping: [localhost]
+
+TASK [恢复列表必须完整] ********************************************************
+skipping: [localhost]
+
+TASK [收集确实作用于本项目的账户] **********************************************
+skipping: [localhost]
+
+TASK [只选择精确运行描述与创建意图匹配的账户] **********************************
+skipping: [localhost]
+
+TASK [项目若混入其他账户则先保留，不撤销或删除项目] ****************************
+skipping: [localhost]
+
+TASK [撤销本次临时账户] ********************************************************
+skipping: [localhost]
+
+TASK [查询当前项目身份] ********************************************************
+skipping: [localhost]
+
+TASK [同名重建或非私有项目不接管] **********************************************
+skipping: [localhost]
+
+TASK [读取本项目仓库列表] ******************************************************
+skipping: [localhost]
+
+TASK [其他新增仓库必须保留] ****************************************************
+skipping: [localhost]
+
+TASK [只删除本次测试仓库引用，不运行全局垃圾回收] ******************************
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost] => (item=(censored due to no_log)) 
+skipping: [localhost]
+
+TASK [等仓库实际清空] **********************************************************
+skipping: [localhost]
+
+TASK [最后删除已经核对为空的原项目] ********************************************
+skipping: [localhost]
+
+TASK [项目必须实际不可再读取] **************************************************
+skipping: [localhost]
+
+TASK [保存仅含公开身份的清理结果] **********************************************
+skipping: [localhost]
+
+TASK [移除已完成的外部资源待办] ************************************************
+skipping: [localhost]
+
+TASK [只清理本次私有镜像别名] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/private-image-cleanup.yml for localhost
+
+TASK [查询本次私有镜像引用清理索引] ********************************************
+ok: [localhost]
+
+TASK [限定为本次私有项目和原 busybox 摘要] *************************************
+skipping: [localhost]
+
+TASK [只删除 worker 上两个私有别名，不按 image ID 删除共享镜像] ****************
+skipping: [localhost]
+
+TASK [归档已清理的精确引用] ****************************************************
+skipping: [localhost]
+
+TASK [清除本次已完成的镜像清理索引] ********************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=30   changed=6    unreachable=0    failed=0    skipped=25   rescued=0    ignored=0   
+

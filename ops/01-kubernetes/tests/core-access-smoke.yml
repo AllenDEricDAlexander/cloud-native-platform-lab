@@ -1,0 +1,64 @@
+---
+- name: 有限客户端验证实际 SA、RBAC、Bound Token 与只读交接
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../ansible/vars/core.yml]
+  tasks:
+    - name: 仅允许唯一临时空间和私有目录
+      ansible.builtin.assert:
+        that: core_namespace.startswith('cnpl-access-') and core_records.startswith('/private/tmp/') and core_private.startswith('/private/tmp/')
+    - name: 创建隔离证据和私有输入目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ core_records }}/state','{{ core_attempt }}/manifests','{{ core_attempt }}/observations','{{ core_attempt }}/snapshots','{{ core_private }}']
+    - name: 保存有限运行上下文
+      ansible.builtin.copy:
+        content: '{{ {"run":core_run,"stage":"10","namespace":core_namespace,"records":core_records,"cluster_uid":core_cluster_uid} | to_nice_json }}'
+        dest: '{{ core_records }}/context.json'
+        mode: '0600'
+    - name: 使用原身份授权，验证结束始终精确回收
+      block:
+        - name: 原生受限 baseline 和 API 出口
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/shared/manifests/baseline.yaml.j2, core_resource_id: baseline, core_resource_admin: true}
+        - name: 原生公开配置
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/config/manifests/config.yaml.j2, core_resource_id: config}
+        - name: 原始 SA 与精确临时授权
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/rbac/manifests/identities.yaml.j2, core_resource_id: identities, core_resource_admin: true}
+        - name: 有限 Job 逐条实际请求，无 HTTP 服务
+          ansible.builtin.include_tasks: core-access-probe.yml
+          loop:
+          - {id: reader-pods, sa: p10-reader, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/pods', codes: '200'}
+          - {id: reader-secrets-denied, sa: p10-reader, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/secrets', codes: '403'}
+          - {id: reader-delete-denied, sa: p10-reader, method: DELETE, path: '/api/v1/namespaces/{{ core_namespace }}/configmaps/p10-delete-denied', codes: '403'}
+          - {id: clusterrolebinding-nodes, sa: p10-reader, method: GET, path: /api/v1/nodes, codes: '200'}
+          - {id: rolebinding-config, sa: p10-config-reader, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/configmaps/p10-config', codes: '200'}
+          - {id: rolebinding-other-namespace-denied, sa: p10-config-reader, method: GET, path: /api/v1/namespaces/lab-core/configmaps/p10-config, codes: '403'}
+          - {id: operator-owned-delete, sa: p10-operator, method: DELETE, path: '/api/v1/namespaces/{{ core_namespace }}/configmaps/p10-delete-allowed', codes: '200,202'}
+          - {id: anonymous-denied, sa: default, token: false, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/secrets', codes: '401,403'}
+          - {id: wrong-audience-denied, sa: p10-reader, audience: core-lab-p10, method: GET, path: '/api/v1/namespaces/{{ core_namespace }}/pods', codes: '401'}
+          loop_control: {loop_var: access_probe, label: '{{ access_probe.id }}'}
+        - name: 从原身份源码渲染 Bound Token 的有限存在对象
+          ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/core-resources/rbac/manifests/pod.yaml.j2', dest: '{{ core_attempt }}/manifests/bound-pod-source.yaml', mode: '0600'}
+          vars: {rbac_pod: p10-reader, rbac_sa: p10-reader}
+        - name: 绑定原始 PodTemplate
+          ansible.builtin.set_fact: {bound_source: '{{ lookup("file",core_attempt ~ "/manifests/bound-pod-source.yaml") | from_yaml }}'}
+        - name: 仅用有限睡眠保持原 Pod UID，不启动服务
+          ansible.builtin.include_tasks: ../ansible/tasks/core/document.yml
+          vars:
+            finite_container: '{{ bound_source.spec.containers[0] | dict2items | rejectattr("key","equalto","readinessProbe") | items2dict | combine({"command":["/core-lab","sleep","180"]}) }}'
+            core_document: '{{ bound_source | combine({"spec":{"activeDeadlineSeconds":180,"containers":[finite_container]}},recursive=true) }}'
+        - name: 原始 Bound Token 创建与失效入口
+          ansible.builtin.include_tasks: ../ansible/tasks/core/stage-10-token.yml
+        - name: 原始三 API、etcd、指标与前序回执只读交接检查
+          ansible.builtin.include_tasks: ../ansible/tasks/core/stage-10-handoff.yml
+      always:
+        - name: 保存公开状态与精确归属
+          ansible.builtin.include_tasks: ../ansible/tasks/core/snapshot.yml
+        - name: 回收 Namespace 与精确 UID 的临时集群授权
+          ansible.builtin.include_tasks: ../ansible/tasks/core/cleanup.yml
+    - name: 有限身份与交接验证结果
+      ansible.builtin.debug: {msg: CORE ACCESS TOKEN AND HANDOFF PASS}

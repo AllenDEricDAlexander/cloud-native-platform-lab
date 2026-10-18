@@ -1,0 +1,34 @@
+---
+# 只运行三个有限拉取 Job，自己的私有项目、账号、Secret 和缓存别名始终精确回收。
+- name: 有限验证真实 Registry 认证、轮换与清理
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../ansible/vars/core.yml]
+  tasks:
+    - name: 仅允许隔离验证空间和私有目录
+      ansible.builtin.assert:
+        that: core_namespace.startswith('cnpl-regcheck-') and core_records.startswith('/private/tmp/') and core_private.startswith('/private/tmp/')
+    - name: 创建本次隔离证据与私有目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ core_records }}/state','{{ core_attempt }}/manifests','{{ core_attempt }}/observations','{{ core_attempt }}/snapshots','{{ core_private }}']
+    - name: 保存唯一运行上下文
+      ansible.builtin.copy:
+        content: '{{ {"run":core_run,"stage":"10","namespace":core_namespace,"records":core_records,"cluster_uid":core_cluster_uid} | to_nice_json }}'
+        dest: '{{ core_records }}/context.json'
+        mode: '0600'
+    - name: 使用原始 Registry 全链路，始终撤销自己的资源
+      block:
+        - name: 创建原生受限 baseline
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/shared/manifests/baseline.yaml.j2, core_resource_id: baseline, core_resource_admin: true}
+        - name: 原生私有项目、两代凭据和三个有限 Job
+          ansible.builtin.include_tasks: ../ansible/tasks/core/stage-10-registry.yml
+      always:
+        - name: 保存公开的 Job 和事件证据
+          ansible.builtin.include_tasks: ../ansible/tasks/core/snapshot.yml
+        - name: 真实精确清理器回收空间、机器人、项目和缓存别名
+          ansible.builtin.include_tasks: ../ansible/tasks/core/cleanup.yml
+    - name: 有限认证与清理验证通过
+      ansible.builtin.debug: {msg: CORE REGISTRY ROTATION AND CLEANUP PASS}

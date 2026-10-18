@@ -219,10 +219,36 @@ class CoreStageTests(unittest.TestCase):
                     source=variables.get(key)
                     if source and '{{' not in source:self.assertTrue((BASE/source).is_file(),source)
         forwarded=yaml.safe_load((BASE/'ansible/tasks/core/validate-resource.yml').read_text())[0]['vars']
+        for fixture in (BASE/'tests').glob('core-*.yml'):self.assertIsInstance(yaml.safe_load(fixture.read_text()),list)
         for entries in yaml.safe_load((BASE/'ansible/vars/core-catalog.yml').read_text())['core_catalog'].values():
             for item in entries:
                 self.assertTrue((BASE/item['source']).is_file(),item['source'])
                 self.assertFalse(set(item.get('params',{}))-set(forwarded),item['id'])
+
+    def test_harbor_cleanup_requires_exact_project_scope_not_name_substring(self):
+        from ansible.parsing.dataloader import DataLoader
+        from ansible.template import Templar,trust_as_template
+        tasks=yaml.safe_load((BASE/'ansible/tasks/core/harbor-cleanup.yml').read_text())
+        block=tasks[1]['block'][2]['block']
+        condition=next(t['when'] for t in block if t['name']=='只选择精确运行描述与创建意图匹配的账户')
+        conditions=condition if isinstance(condition,list) else [condition]
+        project='cnpl-p10-run-attempt';robot={'name':'robot$'+project+'+pull-v2','description':'cnpl-core-run','level':'project','permissions':[{'kind':'project','namespace':project}]}
+        def accepted(item):
+            values={'item':item,'core_run':'run','core_harbor_cleanup':{'project_name':project,'robot_intents':['pull-v1','pull-v2']}}
+            templar=Templar(loader=DataLoader(),variables=values)
+            return all(templar.template(trust_as_template('{{ '+expr+' }}')) for expr in conditions)
+        self.assertTrue(accepted(robot))
+        for change in ['copied-project','system','different-run','unknown-intent']:
+            bad=copy.deepcopy(robot)
+            if change=='copied-project':bad['name']='robot$copy-'+project+'+pull-v2';bad['permissions'][0]['namespace']='copy-'+project
+            elif change=='system':bad['level']='system';bad['permissions'][0]['namespace']='*'
+            elif change=='different-run':bad['description']='cnpl-core-other'
+            else:bad['name']='robot$'+project+'+pull-v3'
+            with self.subTest(change=change):self.assertFalse(accepted(bad))
+        query=next(t['ansible.builtin.uri']['url'] for t in block if t['name']=='按实际项目 ID 读取完整项目机器人元数据')
+        url=Templar(loader=DataLoader(),variables={'core_registry':'example.invalid','core_harbor_project_now':{'json':{'project_id':42}}}).template(trust_as_template(query))
+        from urllib.parse import urlsplit,parse_qs
+        self.assertEqual(parse_qs(urlsplit(url).query)['q'],['Level=project,ProjectID=42'])
 
 
 if __name__=='__main__':unittest.main()

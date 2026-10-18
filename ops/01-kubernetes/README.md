@@ -4,7 +4,7 @@
 
 当前按 [2026-10-17 从头重做批次](records/2026-10-17-restart/README.md)推进；已编写并执行的 [cp01 旧残留清理剧本](ansible/playbooks/cleanup-cp01.yml)复用 00 的 Ansible 配置，后续部署与核心资源实验按本轮证据逐项验收。
 
-01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03–01.06 已完成源码 YAML + Ansible 的真实重跑验收，26 个成功断点与验收、清理两个总 PASS 齐全，详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。01.07 StatefulSet/DaemonSet、01.08 删除传播/所有权/Finalizer 实验与清理均已实际通过，详见[07 验收归档](records/core-07-10/runs/07-20261018T102322Z/README.md)、[08 验收归档](records/core-07-10/runs/08-20261018T105000Z/README.md)；下一专题为 01.09。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
+01.02 十节点基础健康、普通 Pod 网络、Mac 受限身份与恢复文件备份/取回已通过；01.03–01.06 已完成源码 YAML + Ansible 的真实重跑验收，26 个成功断点与验收、清理两个总 PASS 齐全，详见[重跑完成记录](records/2026-10-18-ansible-replay/repairs/20261018-observer-and-completion/README.md)。01.07–01.09 实验与清理均已实际通过，详见[07 验收归档](records/core-07-10/runs/07-20261018T102322Z/README.md)、[08 验收归档](records/core-07-10/runs/08-20261018T105000Z/README.md)、[09 验收归档](records/core-07-10/runs/09-20261018T113437Z/README.md)；下一专题为 01.10。.15 管理机实际分发仍待交付。[身份手册](bootstrap/access/README.md)、[基础验收命令](bootstrap/acceptance/README.md)和 [引导配置](bootstrap/README.md)保留复现入口；下面的“本轮第一至第三步”仅保留教学过程，不对完整文件重复执行旧追加命令。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/01-kubernetes/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -418,7 +418,7 @@ Indexed Job 重试幂等、失败/超时、真实分钟调度、时区/并发/�
 
 执行前已补齐 CronJob 暂停创建、统一启用和同一计划时间检查，并完成有限测试、真实 validate、服务端准入及 Linux 回退夹具，详见[09 执行前核验](records/2026-10-18-stage09-review/README.md)。09 正式实验仍由下面的 run 开始；其清理回收 lab-p09，保留安全指标基础组件。
 
-当前实际执行在 Job API 请求处发现 Cilium 节点身份与 ipBlock 不匹配，已改为本 run 的 kube-apiserver 实体精确放行；两个 worker 均完成真实 Indexed Job 的 7→0 重试和幂等账本验证，原批次已登记修复来源并通过同目录 validate。详见[API 出口修复与原批次恢复](records/2026-10-18-stage09-api-egress-fix/README.md)，当前使用原目录 resume 完成后续实验。
+本轮已在原目录 resume 完成全部实验与清理，两个总 PASS 齐全。CPU 为 1→3→1，内存为 1→3、持有时 4、释放后 1；Indexed Job 重试、真实分钟调度与指标服务均有证据，详见[09 验收归档](records/core-07-10/runs/09-20261018T113437Z/README.md)。首次 API 出口失败及修复原件保留于[修复记录](records/2026-10-18-stage09-api-egress-fix/README.md)。以下命令保留为复现入口，当前继续 01.10 即可。
 
 独立源码、逐条命令解释、预期结果和恢复说明见 [01.09 完整手册](core-resources/jobs/README.md)。每阶段只执行自己；正式运行前检查上一阶段的真实回执。
 

@@ -1,0 +1,49 @@
+---
+- name: 有界补测零 CPU 请求的精确 HPA 失败原因
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../ansible/vars/core.yml]
+  tasks:
+    - name: 限定隔离空间与临时目录
+      ansible.builtin.assert:
+        that: core_namespace.startswith('cnpl-zero-') and core_records.startswith('/private/tmp/')
+    - name: 创建证据与 UID 目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ core_records }}/state','{{ core_attempt }}/manifests','{{ core_attempt }}/observations','{{ core_attempt }}/snapshots']
+    - name: 保存有限补测上下文
+      ansible.builtin.copy:
+        content: '{{ {"run":core_run,"stage":"09","namespace":core_namespace,"records":core_records,"cluster_uid":core_cluster_uid} | to_nice_json }}'
+        dest: '{{ core_records }}/context.json'
+        mode: '0600'
+    - name: 原模板预算和 HPA 下补证，结束始终回收
+      block:
+        - name: 原生受限 baseline
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/shared/manifests/baseline.yaml.j2, core_resource_id: baseline, core_resource_admin: true}
+        - name: 渲染原负载 PodTemplate，仅作为有限睡眠采样
+          ansible.builtin.template: {src: '{{ core_root }}/ops/01-kubernetes/core-resources/autoscaling/manifests/load.yaml.j2', dest: '{{ core_attempt }}/manifests/source-load.yaml', mode: '0600'}
+          vars: {load_name: p09-zero-request, load_cpu_request: '0'}
+        - name: 绑定原模板容器
+          ansible.builtin.set_fact:
+            zero_source: '{{ lookup("file",core_attempt ~ "/manifests/source-load.yaml") | from_yaml }}'
+        - name: 有限采样无需 HTTP 服务或配置卷
+          ansible.builtin.include_tasks: ../ansible/tasks/core/document.yml
+          vars:
+            core_document: '{{ zero_source | combine({"spec":{"template":{"spec":{"containers":[finite_container],"volumes":[]}}}},recursive=true) }}'
+            finite_container: '{{ zero_source.spec.template.spec.containers[0] | dict2items | rejectattr("key","in",["readinessProbe","volumeMounts"]) | items2dict | combine({"command":["/core-lab","sleep","180"]}) }}'
+            core_resource_admin: true
+        - name: 原零请求 HPA
+          ansible.builtin.include_tasks: ../ansible/tasks/core/resource.yml
+          vars: {core_source: core-resources/autoscaling/manifests/hpa.yaml.j2, core_resource_id: zero-hpa, load_name: p09-zero-request}
+        - name: 已有新鲜指标后必须确认零分母，而非临时缺指标
+          ansible.builtin.include_tasks: ../ansible/tasks/core/wait.yml
+          vars: {core_wait_name: 零请求原因补证, core_wait_action: hpa, core_wait_id: zero-exact-cause, core_wait_args: [--name,p09-zero-request,--condition,missing], core_wait_retries: 60, core_wait_delay: 2}
+      always:
+        - name: 保存原始 HPA、Pod、指标与事件
+          ansible.builtin.include_tasks: ../ansible/tasks/core/snapshot.yml
+        - name: 精确回收有限采样空间
+          ansible.builtin.include_tasks: ../ansible/tasks/core/cleanup.yml
+    - name: 有限原因补证通过
+      ansible.builtin.debug: {msg: ZERO CPU EXACT CAUSE PASS}

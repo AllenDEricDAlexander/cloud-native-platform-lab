@@ -2,7 +2,7 @@
 
 执行完整命令见 [01.09 手册](../jobs/README.md)。本目录包含 Metrics Server 及 CPU/内存 HPA 的资源 YAML；实际准备在 `ansible/playbooks/core-metrics.yml` 与 `ansible/tasks/core/metrics-*.yml`。
 
-Metrics Server 固定为 v0.9.0，官方 linux/amd64 manifest 摘要为 `sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f`。版本锁已记录实际取得的 index、平台及 config 摘要；当前交付不把未执行的部署记成兼容性实测通过。
+Metrics Server 固定为 v0.9.0，官方 linux/amd64 manifest 摘要为 `sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f`。版本锁已记录 index、平台及 config 摘要；01.09 已完成真实部署、十节点安全采集及 CPU/内存 HPA 验收，见[09 验收归档](../../records/core-07-10/runs/09-20261018T113437Z/README.md)。实验工作负载已清理，指标基础组件保留。
 
 1. 已有安全、健康的指标 API 可复用；不接管外来不健康组件。
 2. 缺失时先逐节点验证 kubelet 的 CA/IP SAN；需要引导时仅修改 serverTLSBootstrap，临时副本与原字节 SHA 明确绑定。300 秒独立 timer 和 commit/restore 同锁，Mac 中断也有回退。

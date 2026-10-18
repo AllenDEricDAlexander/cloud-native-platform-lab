@@ -1,0 +1,18 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: 'p09-zero-request'
+  namespace: 'cnpl-zero-2c338c34'
+  labels: {cnpl.io/core-run: 'zero-2c338c34'}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: 'p09-zero-request'}
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: Resource
+    resource:
+      name: 'cpu'
+      target: {type: Utilization, averageUtilization: 60}
+  behavior:
+    scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Pods, value: 2, periodSeconds: 15}]}
+    scaleDown: {stabilizationWindowSeconds: 30, policies: [{type: Pods, value: 4, periodSeconds: 15}]}

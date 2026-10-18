@@ -1,0 +1,836 @@
+{
+  "cronjobs": {
+    "Allow": {
+      "apiVersion": "batch/v1",
+      "kind": "CronJob",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"CronJob\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Allow\"},\"name\":\"p09-allow\",\"namespace\":\"lab-p09\"},\"spec\":{\"concurrencyPolicy\":\"Allow\",\"failedJobsHistoryLimit\":1,\"jobTemplate\":{\"metadata\":{\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Allow\"}},\"spec\":{\"activeDeadlineSeconds\":150,\"backoffLimit\":0,\"template\":{\"metadata\":{\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Allow\"}},\"spec\":{\"affinity\":{\"nodeAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":{\"nodeSelectorTerms\":[{\"matchExpressions\":[{\"key\":\"kubernetes.io/hostname\",\"operator\":\"In\",\"values\":[\"worker01.k8s.internal.egon.top\",\"worker02.k8s.internal.egon.top\"]}]}]}}},\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/core-lab\",\"sleep\",\"90\"],\"image\":\"cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc\",\"imagePullPolicy\":\"Never\",\"name\":\"app\",\"resources\":{\"limits\":{\"cpu\":\"200m\",\"ephemeral-storage\":\"16Mi\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"16Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"workingDir\":\"/\"}],\"restartPolicy\":\"Never\",\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":10}}}},\"schedule\":\"* * * * *\",\"startingDeadlineSeconds\":30,\"successfulJobsHistoryLimit\":2,\"suspend\":true,\"timeZone\":\"Asia/Shanghai\"}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:14:00Z",
+        "generation": 2,
+        "labels": {
+          "cnpl.io/core-case": "cron",
+          "cnpl.io/core-run": "20261018T113444Z-f130c045",
+          "cnpl.io/cron-policy": "Allow"
+        },
+        "name": "p09-allow",
+        "namespace": "lab-p09",
+        "resourceVersion": "296348",
+        "uid": "5a6ac3a0-6bca-47a6-8e61-c7264b9eaa04"
+      },
+      "spec": {
+        "concurrencyPolicy": "Allow",
+        "failedJobsHistoryLimit": 1,
+        "jobTemplate": {
+          "metadata": {
+            "labels": {
+              "cnpl.io/core-case": "cron",
+              "cnpl.io/core-run": "20261018T113444Z-f130c045",
+              "cnpl.io/cron-policy": "Allow"
+            }
+          },
+          "spec": {
+            "activeDeadlineSeconds": 150,
+            "backoffLimit": 0,
+            "template": {
+              "metadata": {
+                "labels": {
+                  "cnpl.io/core-case": "cron",
+                  "cnpl.io/core-run": "20261018T113444Z-f130c045",
+                  "cnpl.io/cron-policy": "Allow"
+                }
+              },
+              "spec": {
+                "affinity": {
+                  "nodeAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                      "nodeSelectorTerms": [
+                        {
+                          "matchExpressions": [
+                            {
+                              "key": "kubernetes.io/hostname",
+                              "operator": "In",
+                              "values": [
+                                "worker01.k8s.internal.egon.top",
+                                "worker02.k8s.internal.egon.top"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "automountServiceAccountToken": false,
+                "containers": [
+                  {
+                    "command": [
+                      "/core-lab",
+                      "sleep",
+                      "90"
+                    ],
+                    "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+                    "imagePullPolicy": "Never",
+                    "name": "app",
+                    "resources": {
+                      "limits": {
+                        "cpu": "200m",
+                        "ephemeral-storage": "16Mi",
+                        "memory": "64Mi"
+                      },
+                      "requests": {
+                        "cpu": "10m",
+                        "ephemeral-storage": "1Mi",
+                        "memory": "16Mi"
+                      }
+                    },
+                    "securityContext": {
+                      "allowPrivilegeEscalation": false,
+                      "capabilities": {
+                        "drop": [
+                          "ALL"
+                        ]
+                      },
+                      "readOnlyRootFilesystem": true
+                    },
+                    "terminationMessagePath": "/dev/termination-log",
+                    "terminationMessagePolicy": "File",
+                    "workingDir": "/"
+                  }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Never",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                  "fsGroup": 1000,
+                  "runAsGroup": 1000,
+                  "runAsNonRoot": true,
+                  "runAsUser": 1000,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                },
+                "terminationGracePeriodSeconds": 10
+              }
+            }
+          }
+        },
+        "schedule": "* * * * *",
+        "startingDeadlineSeconds": 30,
+        "successfulJobsHistoryLimit": 2,
+        "suspend": false,
+        "timeZone": "Asia/Shanghai"
+      },
+      "status": {
+        "active": [
+          {
+            "apiVersion": "batch/v1",
+            "kind": "Job",
+            "name": "p09-allow-29872095",
+            "namespace": "lab-p09",
+            "resourceVersion": "296344",
+            "uid": "4c385392-fdab-40d8-9cb0-3072f4476da7"
+          }
+        ],
+        "lastScheduleTime": "2026-10-18T12:15:00Z"
+      }
+    },
+    "Forbid": {
+      "apiVersion": "batch/v1",
+      "kind": "CronJob",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"CronJob\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Forbid\"},\"name\":\"p09-forbid\",\"namespace\":\"lab-p09\"},\"spec\":{\"concurrencyPolicy\":\"Forbid\",\"failedJobsHistoryLimit\":1,\"jobTemplate\":{\"metadata\":{\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Forbid\"}},\"spec\":{\"activeDeadlineSeconds\":150,\"backoffLimit\":0,\"template\":{\"metadata\":{\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Forbid\"}},\"spec\":{\"affinity\":{\"nodeAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":{\"nodeSelectorTerms\":[{\"matchExpressions\":[{\"key\":\"kubernetes.io/hostname\",\"operator\":\"In\",\"values\":[\"worker01.k8s.internal.egon.top\",\"worker02.k8s.internal.egon.top\"]}]}]}}},\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/core-lab\",\"sleep\",\"90\"],\"image\":\"cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc\",\"imagePullPolicy\":\"Never\",\"name\":\"app\",\"resources\":{\"limits\":{\"cpu\":\"200m\",\"ephemeral-storage\":\"16Mi\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"16Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"workingDir\":\"/\"}],\"restartPolicy\":\"Never\",\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":10}}}},\"schedule\":\"* * * * *\",\"startingDeadlineSeconds\":30,\"successfulJobsHistoryLimit\":2,\"suspend\":true,\"timeZone\":\"Asia/Shanghai\"}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:14:04Z",
+        "generation": 2,
+        "labels": {
+          "cnpl.io/core-case": "cron",
+          "cnpl.io/core-run": "20261018T113444Z-f130c045",
+          "cnpl.io/cron-policy": "Forbid"
+        },
+        "name": "p09-forbid",
+        "namespace": "lab-p09",
+        "resourceVersion": "296352",
+        "uid": "391fa69b-b2d5-486f-84cc-b2324ea4dc95"
+      },
+      "spec": {
+        "concurrencyPolicy": "Forbid",
+        "failedJobsHistoryLimit": 1,
+        "jobTemplate": {
+          "metadata": {
+            "labels": {
+              "cnpl.io/core-case": "cron",
+              "cnpl.io/core-run": "20261018T113444Z-f130c045",
+              "cnpl.io/cron-policy": "Forbid"
+            }
+          },
+          "spec": {
+            "activeDeadlineSeconds": 150,
+            "backoffLimit": 0,
+            "template": {
+              "metadata": {
+                "labels": {
+                  "cnpl.io/core-case": "cron",
+                  "cnpl.io/core-run": "20261018T113444Z-f130c045",
+                  "cnpl.io/cron-policy": "Forbid"
+                }
+              },
+              "spec": {
+                "affinity": {
+                  "nodeAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                      "nodeSelectorTerms": [
+                        {
+                          "matchExpressions": [
+                            {
+                              "key": "kubernetes.io/hostname",
+                              "operator": "In",
+                              "values": [
+                                "worker01.k8s.internal.egon.top",
+                                "worker02.k8s.internal.egon.top"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "automountServiceAccountToken": false,
+                "containers": [
+                  {
+                    "command": [
+                      "/core-lab",
+                      "sleep",
+                      "90"
+                    ],
+                    "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+                    "imagePullPolicy": "Never",
+                    "name": "app",
+                    "resources": {
+                      "limits": {
+                        "cpu": "200m",
+                        "ephemeral-storage": "16Mi",
+                        "memory": "64Mi"
+                      },
+                      "requests": {
+                        "cpu": "10m",
+                        "ephemeral-storage": "1Mi",
+                        "memory": "16Mi"
+                      }
+                    },
+                    "securityContext": {
+                      "allowPrivilegeEscalation": false,
+                      "capabilities": {
+                        "drop": [
+                          "ALL"
+                        ]
+                      },
+                      "readOnlyRootFilesystem": true
+                    },
+                    "terminationMessagePath": "/dev/termination-log",
+                    "terminationMessagePolicy": "File",
+                    "workingDir": "/"
+                  }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Never",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                  "fsGroup": 1000,
+                  "runAsGroup": 1000,
+                  "runAsNonRoot": true,
+                  "runAsUser": 1000,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                },
+                "terminationGracePeriodSeconds": 10
+              }
+            }
+          }
+        },
+        "schedule": "* * * * *",
+        "startingDeadlineSeconds": 30,
+        "successfulJobsHistoryLimit": 2,
+        "suspend": false,
+        "timeZone": "Asia/Shanghai"
+      },
+      "status": {
+        "active": [
+          {
+            "apiVersion": "batch/v1",
+            "kind": "Job",
+            "name": "p09-forbid-29872095",
+            "namespace": "lab-p09",
+            "resourceVersion": "296345",
+            "uid": "aed5a3f4-ebed-438c-82ce-819660436cf8"
+          }
+        ],
+        "lastScheduleTime": "2026-10-18T12:15:00Z"
+      }
+    },
+    "Replace": {
+      "apiVersion": "batch/v1",
+      "kind": "CronJob",
+      "metadata": {
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"CronJob\",\"metadata\":{\"annotations\":{},\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Replace\"},\"name\":\"p09-replace\",\"namespace\":\"lab-p09\"},\"spec\":{\"concurrencyPolicy\":\"Replace\",\"failedJobsHistoryLimit\":1,\"jobTemplate\":{\"metadata\":{\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Replace\"}},\"spec\":{\"activeDeadlineSeconds\":150,\"backoffLimit\":0,\"template\":{\"metadata\":{\"labels\":{\"cnpl.io/core-case\":\"cron\",\"cnpl.io/core-run\":\"20261018T113444Z-f130c045\",\"cnpl.io/cron-policy\":\"Replace\"}},\"spec\":{\"affinity\":{\"nodeAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":{\"nodeSelectorTerms\":[{\"matchExpressions\":[{\"key\":\"kubernetes.io/hostname\",\"operator\":\"In\",\"values\":[\"worker01.k8s.internal.egon.top\",\"worker02.k8s.internal.egon.top\"]}]}]}}},\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/core-lab\",\"sleep\",\"90\"],\"image\":\"cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc\",\"imagePullPolicy\":\"Never\",\"name\":\"app\",\"resources\":{\"limits\":{\"cpu\":\"200m\",\"ephemeral-storage\":\"16Mi\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"ephemeral-storage\":\"1Mi\",\"memory\":\"16Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"workingDir\":\"/\"}],\"restartPolicy\":\"Never\",\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":10}}}},\"schedule\":\"* * * * *\",\"startingDeadlineSeconds\":30,\"successfulJobsHistoryLimit\":2,\"suspend\":true,\"timeZone\":\"Asia/Shanghai\"}}\n"
+        },
+        "creationTimestamp": "2026-10-18T12:14:06Z",
+        "generation": 2,
+        "labels": {
+          "cnpl.io/core-case": "cron",
+          "cnpl.io/core-run": "20261018T113444Z-f130c045",
+          "cnpl.io/cron-policy": "Replace"
+        },
+        "name": "p09-replace",
+        "namespace": "lab-p09",
+        "resourceVersion": "296351",
+        "uid": "76509171-3293-4386-a58b-28f2e7523333"
+      },
+      "spec": {
+        "concurrencyPolicy": "Replace",
+        "failedJobsHistoryLimit": 1,
+        "jobTemplate": {
+          "metadata": {
+            "labels": {
+              "cnpl.io/core-case": "cron",
+              "cnpl.io/core-run": "20261018T113444Z-f130c045",
+              "cnpl.io/cron-policy": "Replace"
+            }
+          },
+          "spec": {
+            "activeDeadlineSeconds": 150,
+            "backoffLimit": 0,
+            "template": {
+              "metadata": {
+                "labels": {
+                  "cnpl.io/core-case": "cron",
+                  "cnpl.io/core-run": "20261018T113444Z-f130c045",
+                  "cnpl.io/cron-policy": "Replace"
+                }
+              },
+              "spec": {
+                "affinity": {
+                  "nodeAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                      "nodeSelectorTerms": [
+                        {
+                          "matchExpressions": [
+                            {
+                              "key": "kubernetes.io/hostname",
+                              "operator": "In",
+                              "values": [
+                                "worker01.k8s.internal.egon.top",
+                                "worker02.k8s.internal.egon.top"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "automountServiceAccountToken": false,
+                "containers": [
+                  {
+                    "command": [
+                      "/core-lab",
+                      "sleep",
+                      "90"
+                    ],
+                    "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+                    "imagePullPolicy": "Never",
+                    "name": "app",
+                    "resources": {
+                      "limits": {
+                        "cpu": "200m",
+                        "ephemeral-storage": "16Mi",
+                        "memory": "64Mi"
+                      },
+                      "requests": {
+                        "cpu": "10m",
+                        "ephemeral-storage": "1Mi",
+                        "memory": "16Mi"
+                      }
+                    },
+                    "securityContext": {
+                      "allowPrivilegeEscalation": false,
+                      "capabilities": {
+                        "drop": [
+                          "ALL"
+                        ]
+                      },
+                      "readOnlyRootFilesystem": true
+                    },
+                    "terminationMessagePath": "/dev/termination-log",
+                    "terminationMessagePolicy": "File",
+                    "workingDir": "/"
+                  }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Never",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                  "fsGroup": 1000,
+                  "runAsGroup": 1000,
+                  "runAsNonRoot": true,
+                  "runAsUser": 1000,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                },
+                "terminationGracePeriodSeconds": 10
+              }
+            }
+          }
+        },
+        "schedule": "* * * * *",
+        "startingDeadlineSeconds": 30,
+        "successfulJobsHistoryLimit": 2,
+        "suspend": false,
+        "timeZone": "Asia/Shanghai"
+      },
+      "status": {
+        "active": [
+          {
+            "apiVersion": "batch/v1",
+            "kind": "Job",
+            "name": "p09-replace-29872095",
+            "namespace": "lab-p09",
+            "resourceVersion": "296346",
+            "uid": "565bf658-90fa-48b8-af7e-211f18e7c84c"
+          }
+        ],
+        "lastScheduleTime": "2026-10-18T12:15:00Z"
+      }
+    }
+  },
+  "jobs": {
+    "Allow": [
+      {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "annotations": {
+            "batch.kubernetes.io/cronjob-scheduled-timestamp": "2026-10-18T20:15:00+08:00"
+          },
+          "creationTimestamp": "2026-10-18T12:15:00Z",
+          "generation": 1,
+          "labels": {
+            "cnpl.io/core-case": "cron",
+            "cnpl.io/core-run": "20261018T113444Z-f130c045",
+            "cnpl.io/cron-policy": "Allow"
+          },
+          "name": "p09-allow-29872095",
+          "namespace": "lab-p09",
+          "ownerReferences": [
+            {
+              "apiVersion": "batch/v1",
+              "blockOwnerDeletion": true,
+              "controller": true,
+              "kind": "CronJob",
+              "name": "p09-allow",
+              "uid": "5a6ac3a0-6bca-47a6-8e61-c7264b9eaa04"
+            }
+          ],
+          "resourceVersion": "296359",
+          "uid": "4c385392-fdab-40d8-9cb0-3072f4476da7"
+        },
+        "spec": {
+          "activeDeadlineSeconds": 150,
+          "backoffLimit": 0,
+          "completionMode": "NonIndexed",
+          "completions": 1,
+          "manualSelector": false,
+          "parallelism": 1,
+          "podReplacementPolicy": "TerminatingOrFailed",
+          "selector": {
+            "matchLabels": {
+              "batch.kubernetes.io/controller-uid": "4c385392-fdab-40d8-9cb0-3072f4476da7"
+            }
+          },
+          "suspend": false,
+          "template": {
+            "metadata": {
+              "labels": {
+                "batch.kubernetes.io/controller-uid": "4c385392-fdab-40d8-9cb0-3072f4476da7",
+                "batch.kubernetes.io/job-name": "p09-allow-29872095",
+                "cnpl.io/core-case": "cron",
+                "cnpl.io/core-run": "20261018T113444Z-f130c045",
+                "cnpl.io/cron-policy": "Allow",
+                "controller-uid": "4c385392-fdab-40d8-9cb0-3072f4476da7",
+                "job-name": "p09-allow-29872095"
+              }
+            },
+            "spec": {
+              "affinity": {
+                "nodeAffinity": {
+                  "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "nodeSelectorTerms": [
+                      {
+                        "matchExpressions": [
+                          {
+                            "key": "kubernetes.io/hostname",
+                            "operator": "In",
+                            "values": [
+                              "worker01.k8s.internal.egon.top",
+                              "worker02.k8s.internal.egon.top"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "automountServiceAccountToken": false,
+              "containers": [
+                {
+                  "command": [
+                    "/core-lab",
+                    "sleep",
+                    "90"
+                  ],
+                  "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+                  "imagePullPolicy": "Never",
+                  "name": "app",
+                  "resources": {
+                    "limits": {
+                      "cpu": "200m",
+                      "ephemeral-storage": "16Mi",
+                      "memory": "64Mi"
+                    },
+                    "requests": {
+                      "cpu": "10m",
+                      "ephemeral-storage": "1Mi",
+                      "memory": "16Mi"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "readOnlyRootFilesystem": true
+                  },
+                  "terminationMessagePath": "/dev/termination-log",
+                  "terminationMessagePolicy": "File",
+                  "workingDir": "/"
+                }
+              ],
+              "dnsPolicy": "ClusterFirst",
+              "restartPolicy": "Never",
+              "schedulerName": "default-scheduler",
+              "securityContext": {
+                "fsGroup": 1000,
+                "runAsGroup": 1000,
+                "runAsNonRoot": true,
+                "runAsUser": 1000,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "terminationGracePeriodSeconds": 10
+            }
+          }
+        },
+        "status": {
+          "active": 1,
+          "ready": 0,
+          "startTime": "2026-10-18T12:15:00Z",
+          "terminating": 0,
+          "uncountedTerminatedPods": {}
+        }
+      }
+    ],
+    "Forbid": [
+      {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "annotations": {
+            "batch.kubernetes.io/cronjob-scheduled-timestamp": "2026-10-18T20:15:00+08:00"
+          },
+          "creationTimestamp": "2026-10-18T12:15:00Z",
+          "generation": 1,
+          "labels": {
+            "cnpl.io/core-case": "cron",
+            "cnpl.io/core-run": "20261018T113444Z-f130c045",
+            "cnpl.io/cron-policy": "Forbid"
+          },
+          "name": "p09-forbid-29872095",
+          "namespace": "lab-p09",
+          "ownerReferences": [
+            {
+              "apiVersion": "batch/v1",
+              "blockOwnerDeletion": true,
+              "controller": true,
+              "kind": "CronJob",
+              "name": "p09-forbid",
+              "uid": "391fa69b-b2d5-486f-84cc-b2324ea4dc95"
+            }
+          ],
+          "resourceVersion": "296365",
+          "uid": "aed5a3f4-ebed-438c-82ce-819660436cf8"
+        },
+        "spec": {
+          "activeDeadlineSeconds": 150,
+          "backoffLimit": 0,
+          "completionMode": "NonIndexed",
+          "completions": 1,
+          "manualSelector": false,
+          "parallelism": 1,
+          "podReplacementPolicy": "TerminatingOrFailed",
+          "selector": {
+            "matchLabels": {
+              "batch.kubernetes.io/controller-uid": "aed5a3f4-ebed-438c-82ce-819660436cf8"
+            }
+          },
+          "suspend": false,
+          "template": {
+            "metadata": {
+              "labels": {
+                "batch.kubernetes.io/controller-uid": "aed5a3f4-ebed-438c-82ce-819660436cf8",
+                "batch.kubernetes.io/job-name": "p09-forbid-29872095",
+                "cnpl.io/core-case": "cron",
+                "cnpl.io/core-run": "20261018T113444Z-f130c045",
+                "cnpl.io/cron-policy": "Forbid",
+                "controller-uid": "aed5a3f4-ebed-438c-82ce-819660436cf8",
+                "job-name": "p09-forbid-29872095"
+              }
+            },
+            "spec": {
+              "affinity": {
+                "nodeAffinity": {
+                  "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "nodeSelectorTerms": [
+                      {
+                        "matchExpressions": [
+                          {
+                            "key": "kubernetes.io/hostname",
+                            "operator": "In",
+                            "values": [
+                              "worker01.k8s.internal.egon.top",
+                              "worker02.k8s.internal.egon.top"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "automountServiceAccountToken": false,
+              "containers": [
+                {
+                  "command": [
+                    "/core-lab",
+                    "sleep",
+                    "90"
+                  ],
+                  "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+                  "imagePullPolicy": "Never",
+                  "name": "app",
+                  "resources": {
+                    "limits": {
+                      "cpu": "200m",
+                      "ephemeral-storage": "16Mi",
+                      "memory": "64Mi"
+                    },
+                    "requests": {
+                      "cpu": "10m",
+                      "ephemeral-storage": "1Mi",
+                      "memory": "16Mi"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "readOnlyRootFilesystem": true
+                  },
+                  "terminationMessagePath": "/dev/termination-log",
+                  "terminationMessagePolicy": "File",
+                  "workingDir": "/"
+                }
+              ],
+              "dnsPolicy": "ClusterFirst",
+              "restartPolicy": "Never",
+              "schedulerName": "default-scheduler",
+              "securityContext": {
+                "fsGroup": 1000,
+                "runAsGroup": 1000,
+                "runAsNonRoot": true,
+                "runAsUser": 1000,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "terminationGracePeriodSeconds": 10
+            }
+          }
+        },
+        "status": {
+          "active": 1,
+          "ready": 0,
+          "startTime": "2026-10-18T12:15:00Z",
+          "terminating": 0,
+          "uncountedTerminatedPods": {}
+        }
+      }
+    ],
+    "Replace": [
+      {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "annotations": {
+            "batch.kubernetes.io/cronjob-scheduled-timestamp": "2026-10-18T20:15:00+08:00"
+          },
+          "creationTimestamp": "2026-10-18T12:15:00Z",
+          "generation": 1,
+          "labels": {
+            "cnpl.io/core-case": "cron",
+            "cnpl.io/core-run": "20261018T113444Z-f130c045",
+            "cnpl.io/cron-policy": "Replace"
+          },
+          "name": "p09-replace-29872095",
+          "namespace": "lab-p09",
+          "ownerReferences": [
+            {
+              "apiVersion": "batch/v1",
+              "blockOwnerDeletion": true,
+              "controller": true,
+              "kind": "CronJob",
+              "name": "p09-replace",
+              "uid": "76509171-3293-4386-a58b-28f2e7523333"
+            }
+          ],
+          "resourceVersion": "296366",
+          "uid": "565bf658-90fa-48b8-af7e-211f18e7c84c"
+        },
+        "spec": {
+          "activeDeadlineSeconds": 150,
+          "backoffLimit": 0,
+          "completionMode": "NonIndexed",
+          "completions": 1,
+          "manualSelector": false,
+          "parallelism": 1,
+          "podReplacementPolicy": "TerminatingOrFailed",
+          "selector": {
+            "matchLabels": {
+              "batch.kubernetes.io/controller-uid": "565bf658-90fa-48b8-af7e-211f18e7c84c"
+            }
+          },
+          "suspend": false,
+          "template": {
+            "metadata": {
+              "labels": {
+                "batch.kubernetes.io/controller-uid": "565bf658-90fa-48b8-af7e-211f18e7c84c",
+                "batch.kubernetes.io/job-name": "p09-replace-29872095",
+                "cnpl.io/core-case": "cron",
+                "cnpl.io/core-run": "20261018T113444Z-f130c045",
+                "cnpl.io/cron-policy": "Replace",
+                "controller-uid": "565bf658-90fa-48b8-af7e-211f18e7c84c",
+                "job-name": "p09-replace-29872095"
+              }
+            },
+            "spec": {
+              "affinity": {
+                "nodeAffinity": {
+                  "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "nodeSelectorTerms": [
+                      {
+                        "matchExpressions": [
+                          {
+                            "key": "kubernetes.io/hostname",
+                            "operator": "In",
+                            "values": [
+                              "worker01.k8s.internal.egon.top",
+                              "worker02.k8s.internal.egon.top"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "automountServiceAccountToken": false,
+              "containers": [
+                {
+                  "command": [
+                    "/core-lab",
+                    "sleep",
+                    "90"
+                  ],
+                  "image": "cnpl.local/phase01/core-lab@sha256:4984d2f8b5fbd3a0840fea611ed566f9aad7e0789544e7cf6676ac658da0f5fc",
+                  "imagePullPolicy": "Never",
+                  "name": "app",
+                  "resources": {
+                    "limits": {
+                      "cpu": "200m",
+                      "ephemeral-storage": "16Mi",
+                      "memory": "64Mi"
+                    },
+                    "requests": {
+                      "cpu": "10m",
+                      "ephemeral-storage": "1Mi",
+                      "memory": "16Mi"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "readOnlyRootFilesystem": true
+                  },
+                  "terminationMessagePath": "/dev/termination-log",
+                  "terminationMessagePolicy": "File",
+                  "workingDir": "/"
+                }
+              ],
+              "dnsPolicy": "ClusterFirst",
+              "restartPolicy": "Never",
+              "schedulerName": "default-scheduler",
+              "securityContext": {
+                "fsGroup": 1000,
+                "runAsGroup": 1000,
+                "runAsNonRoot": true,
+                "runAsUser": 1000,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "terminationGracePeriodSeconds": 10
+            }
+          }
+        },
+        "status": {
+          "active": 1,
+          "ready": 0,
+          "startTime": "2026-10-18T12:15:00Z",
+          "terminating": 0,
+          "uncountedTerminatedPods": {}
+        }
+      }
+    ]
+  },
+  "initial_uids": {
+    "Allow": "4c385392-fdab-40d8-9cb0-3072f4476da7",
+    "Forbid": "aed5a3f4-ebed-438c-82ce-819660436cf8",
+    "Replace": "565bf658-90fa-48b8-af7e-211f18e7c84c"
+  }
+}

@@ -146,7 +146,7 @@ def hpa(reader,a):
         require(fresh,'目标应用没有新鲜的实际 Pod 指标')
         if a.condition=='missing':
             require(pods and all(p['spec']['containers'][0]['resources']['requests'].get('cpu') in ['0','0m'] for p in pods),'反例不是明确的零 CPU 请求')
-            require(any(c['type']=='ScalingActive' and c['status']=='False' and c.get('reason')=='FailedGetResourceMetric' for c in obj.get('status',{}).get('conditions',[])),'尚未观察 CPU request=0 的不可计算状态')
+            require(any(c['type']=='ScalingActive' and c['status']=='False' and c.get('reason')=='FailedGetResourceMetric' and 'no metrics returned matched known pods' in c.get('message','') for c in obj.get('status',{}).get('conditions',[])),'尚未观察 CPU request=0 的零分母错误；不能以指标未就绪代替')
         else:
             require(lab.condition(obj,'ScalingActive','True'),'HPA 指标尚未可用')
             require(any(m.get('resource',{}).get('name')==obj['spec']['metrics'][0]['resource']['name'] for m in obj.get('status',{}).get('currentMetrics',[])),'HPA 尚未取得当前所选资源的真实指标')

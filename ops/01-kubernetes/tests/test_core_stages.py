@@ -137,6 +137,14 @@ class CoreStageTests(unittest.TestCase):
             else:bad[1]['spec']['replicas']=5
             with self.subTest(failure=failure),self.assertRaises(ValueError):core.hpa(Reader(bad,m),a)
 
+    def test_zero_cpu_hpa_rejects_unready_metrics_as_expected_failure(self):
+        h={'kind':'HorizontalPodAutoscaler','metadata':meta('hpa'),'spec':{'scaleTargetRef':{'name':'load'}},'status':{'conditions':[{'type':'ScalingActive','status':'False','reason':'FailedGetResourceMetric','message':'did not receive metrics for targeted pods (pods might be unready)'}]}}
+        d={'kind':'Deployment','metadata':meta('load')};p=pod('p');p['metadata']['labels']['app.kubernetes.io/name']='load';p['spec']['containers'][0]['resources']['requests']['cpu']='0'
+        metrics={'items':[{'metadata':{'name':'p'},'timestamp':datetime.now(timezone.utc).isoformat()}]};a=SimpleNamespace(name='hpa',condition='missing',output=None)
+        with self.assertRaisesRegex(ValueError,'零分母'):core.hpa(Reader([h,d,p],metrics),a)
+        h['status']['conditions'][0]['message']='failed to get cpu utilization: no metrics returned matched known pods'
+        self.assertEqual(core.hpa(Reader([h,d,p],metrics),a)['hpa']['metadata']['name'],'hpa')
+
     def make_csr(self,**overrides):
         name='worker01.k8s.internal.egon.top';key=ec.generate_private_key(ec.SECP256R1())
         subject=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,overrides.get('cn','system:node:'+name)),x509.NameAttribute(NameOID.ORGANIZATION_NAME,'system:nodes')])

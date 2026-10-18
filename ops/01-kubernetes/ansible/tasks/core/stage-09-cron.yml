@@ -1,9 +1,20 @@
 ---
-- name: 01.09.02 创建三种真正按分钟调度的 CronJob
+- name: 01.09.02 先暂停创建三种 CronJob，避免顺序创建跨分钟
   ansible.builtin.include_tasks: resource.yml
   loop: [Allow,Forbid,Replace]
   loop_control: {loop_var: cron_policy}
-  vars: {core_source: core-resources/jobs/manifests/cron.yaml.j2, core_resource_id: 'cron-{{ cron_policy | lower }}'}
+  vars: {core_source: core-resources/jobs/manifests/cron.yaml.j2, core_resource_id: 'cron-{{ cron_policy | lower }}', cron_suspend: true}
+- name: 在 30 秒错过期限之后、下一分钟之前统一启用
+  ansible.builtin.command: {argv: [date,-u,'+%S']}
+  register: cron_start_second
+  until: cron_start_second.stdout | int >= 35 and cron_start_second.stdout | int <= 40
+  retries: 70
+  delay: 1
+  changed_when: false
+- name: 启用三个已创建的调度器，等待同一下一分钟真实调度
+  ansible.builtin.command: {argv: '{{ core_k + ["-n",core_namespace,"patch","cronjob",item,"--type=merge","-p",{"spec":{"suspend":false}} | to_json] }}'}
+  loop: [p09-allow,p09-forbid,p09-replace]
+  changed_when: true
 - name: 等控制器第一次真实调度，不用手工 Job 冒充并发策略
   ansible.builtin.include_tasks: wait.yml
   vars: {core_wait_name: 三种 CronJob 第一次真实调度, core_wait_action: cron, core_wait_id: cron-initial, core_wait_retries: 60, core_wait_delay: 2}

@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: 'cnpl-metrics-schema-81dea42d'
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b', pod-security.kubernetes.io/enforce: restricted, pod-security.kubernetes.io/enforce-version: v1.36}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metrics-server
+  namespace: 'cnpl-metrics-schema-81dea42d'
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cnpl-metrics-server
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+rules:
+- apiGroups: ['']
+  resources: [nodes/metrics]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [nodes, pods]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cnpl-metrics-server
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cnpl-metrics-server}
+subjects: [{kind: ServiceAccount, name: metrics-server, namespace: 'cnpl-metrics-schema-81dea42d'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cnpl-metrics-auth-delegator
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: 'system:auth-delegator'}
+subjects: [{kind: ServiceAccount, name: metrics-server, namespace: 'cnpl-metrics-schema-81dea42d'}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnpl-metrics-auth-reader
+  namespace: kube-system
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: extension-apiserver-authentication-reader}
+subjects: [{kind: ServiceAccount, name: metrics-server, namespace: 'cnpl-metrics-schema-81dea42d'}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubelet-ca
+  namespace: 'cnpl-metrics-schema-81dea42d'
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDBTCCAe2gAwIBAgIIFp3Wyvyz1swwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+    AxMKa3ViZXJuZXRlczAeFw0yNjEwMTcxNTI5NTRaFw0zNjEwMTQxNTM0NTRaMBUx
+    EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+    AoIBAQC/G+rS2QFQ1dAXnO1YpHARhoPXk1Q8Wd2XZzdaWYpTXFFXFn5ScdtoHR7Z
+    PRrSR7r3mkC2bpjz34PMSApwMrLW1FWF8Aw5wXbJA6hBZPhUdxFzTrX+fIo443RM
+    OiouOPbQkSHcIYkirWQjvhXZJAXodq+Ig4aE4sO2GisIDEazwLbwibOlztmQhLCS
+    wDZ0aUdPaDuo8ksMWae51PdCzggXgJPrG215ea5qFHUCwWEJE+fNOt+RlLUYDCDJ
+    Ex2NTYeOmyDhjdAoRkewq+mJvo7pAfX34ZDO8ymc1CRlrU9jST0YvQCbZ5Asy7Sl
+    YldTLaADb1XEBLc9MOcHTMGFppWZAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+    BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRljSOJsRjNIi10DYjVHrVUMsdRdTAV
+    BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQCfKbZahgbr
+    stTzi8GUqrr04r2THIUxObf1id71qHGCDPnZuPdqyn0gHDFBRUyS7vl2YIWx6CRW
+    xP+HfB2LNoRDXldMMYG7v++BHPGshmj7XFCBkE+KVmK0AlyHFVvI5ka8+F2jC4ct
+    Dk+go92PI1ljlRpseestD5o1kSr57OQbuI/hfslbpjKCbJtVMAgBj16u94EB5VEk
+    KKCOdTKob8ufIHWwVctGBdK1q2Lr09AGKPruyAmEyrMBBib8ds56XZgCwOclgrVO
+    dKTbF6uIXwXlsluiPfpJ+4zgzJj2rY5cYwMG5oTkwUCkbjrUs0DSbEwLbR3syh65
+    WoZC8j1l336j
+    -----END CERTIFICATE-----
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-server
+  namespace: 'cnpl-metrics-schema-81dea42d'
+  labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/component: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+spec:
+  selector: {app.kubernetes.io/name: metrics-server, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+  ports: [{name: https, port: 443, targetPort: https}]

@@ -100,14 +100,20 @@ def cron(reader,a):
     require(set(parents)=={'Allow','Forbid','Replace'},'缺少三种 CronJob 并发策略')
     jobs=reader.owned('jobs');groups={policy:[j for j in jobs if lab.owner(j).get('uid')==obj['metadata']['uid']] for policy,obj in parents.items()}
     for obj in parents.values():require(obj['spec']['timeZone']=='Asia/Shanghai','CronJob 时区不符')
+    scheduled={}
+    for policy,values in groups.items():
+        for obj in values:require(obj['metadata'].get('annotations',{}).get('batch.kubernetes.io/cronjob-scheduled-timestamp'),'不是控制器真实调度的 CronJob Job')
+        scheduled[policy]=[obj['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp'] for obj in values]
     if a.input:
         first=json.loads(a.input.read_text())
         require(len([j for j in groups['Allow'] if j.get('status',{}).get('active',0)>0])>=2,'尚未观察到 Allow 重叠')
         require(len(groups['Forbid'])==1 and groups['Forbid'][0]['metadata']['uid']==first['initial_uids']['Forbid'],'Forbid 重复启动或原任务丢失')
         require(any(j['metadata']['uid']!=first['initial_uids']['Replace'] for j in groups['Replace']) and all(j['metadata']['uid']!=first['initial_uids']['Replace'] for j in groups['Replace']),'Replace 尚未替换原任务')
-    else:require(all(len(v)==1 and v[0].get('status',{}).get('active',0)==1 for v in groups.values()),'等待三种策略各自首次真实调度')
-    for values in groups.values():
-        for obj in values:require(obj['metadata'].get('annotations',{}).get('batch.kubernetes.io/cronjob-scheduled-timestamp'),'不是控制器真实调度的 CronJob Job')
+        first_scheduled=first['jobs']['Forbid'][0]['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']
+        require(max(scheduled['Allow'])>first_scheduled and max(scheduled['Replace'])==max(scheduled['Allow']),'Allow/Replace 尚未到同一下一次计划时间')
+    else:
+        require(all(len(v)==1 and v[0].get('status',{}).get('active',0)==1 for v in groups.values()),'等待三种策略各自首次真实调度')
+        require(len({v[0] for v in scheduled.values()})==1,'三种策略首次计划时间不是同一分钟')
     return {'cronjobs':parents,'jobs':groups,'initial_uids':{k:v[0]['metadata']['uid'] for k,v in groups.items()}}
 
 

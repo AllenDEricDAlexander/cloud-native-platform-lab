@@ -75,14 +75,22 @@ class CoreStageTests(unittest.TestCase):
             p={'kind':'CronJob','metadata':meta(policy),'spec':{'concurrencyPolicy':policy,'timeZone':'Asia/Shanghai'}};parents.append(p)
             j={'kind':'Job','metadata':dict(meta(policy+'-job'),ownerReferences=[{'uid':policy,'controller':True}],annotations={'batch.kubernetes.io/cronjob-scheduled-timestamp':'2026-10-18T09:00:00Z'}),'status':{'active':1}};jobs.append(j)
         r=Reader(parents+jobs);first=core.cron(r,SimpleNamespace(input=None));self.assertEqual(len(first['initial_uids']),3)
+        jobs[2]['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']='2026-10-18T09:01:00Z'
+        with self.assertRaisesRegex(ValueError,'同一分钟'):core.cron(Reader(parents+jobs),SimpleNamespace(input=None))
+        jobs[2]['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']='2026-10-18T09:00:00Z'
         jobs[0]['metadata']['annotations']={}
         with self.assertRaisesRegex(ValueError,'真实调度'):core.cron(Reader(parents+jobs),SimpleNamespace(input=None))
         jobs[0]['metadata']['annotations']={'batch.kubernetes.io/cronjob-scheduled-timestamp':'2026-10-18T09:00:00Z'}
         with tempfile.TemporaryDirectory() as temporary:
             path=Path(temporary)/'first.json';path.write_text(json.dumps(first))
             extra=copy.deepcopy(jobs[0]);extra['metadata']['name']='allow-2';extra['metadata']['uid']='allow-2'
+            extra['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']='2026-10-18T09:01:00Z'
             jobs[2]['metadata']['uid']='replace-new'
+            jobs[2]['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']='2026-10-18T09:01:00Z'
             self.assertEqual(len(core.cron(Reader(parents+jobs+[extra]),SimpleNamespace(input=path))['jobs']['Allow']),2)
+            jobs[2]['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']='2026-10-18T09:00:00Z'
+            with self.assertRaisesRegex(ValueError,'下一次'):core.cron(Reader(parents+jobs+[extra]),SimpleNamespace(input=path))
+            jobs[2]['metadata']['annotations']['batch.kubernetes.io/cronjob-scheduled-timestamp']='2026-10-18T09:01:00Z'
             extra['metadata']['ownerReferences'][0]['uid']='Forbid'
             with self.assertRaises(ValueError):core.cron(Reader(parents+jobs+[extra]),SimpleNamespace(input=path))
 
@@ -175,7 +183,11 @@ class CoreStageTests(unittest.TestCase):
                 for key in ['core_source','core_secret_source']:
                     source=variables.get(key)
                     if source and '{{' not in source:self.assertTrue((BASE/source).is_file(),source)
-        self.assertTrue(all((BASE/item['source']).is_file() for entries in yaml.safe_load((BASE/'ansible/vars/core-catalog.yml').read_text())['core_catalog'].values() for item in entries))
+        forwarded=yaml.safe_load((BASE/'ansible/tasks/core/validate-resource.yml').read_text())[0]['vars']
+        for entries in yaml.safe_load((BASE/'ansible/vars/core-catalog.yml').read_text())['core_catalog'].values():
+            for item in entries:
+                self.assertTrue((BASE/item['source']).is_file(),item['source'])
+                self.assertFalse(set(item.get('params',{}))-set(forwarded),item['id'])
 
 
 if __name__=='__main__':unittest.main()

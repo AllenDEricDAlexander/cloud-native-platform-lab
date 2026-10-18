@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'p10-pull-v2'
+  namespace: 'cnpl-schema-81dea42d'
+  labels: {cnpl.io/core-run: 'schema09-81dea42d'}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {cnpl.io/core-run: 'schema09-81dea42d', cnpl.io/pull-variant: 'v2'}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      imagePullSecrets: [{name: 'p10-pull'}]
+      nodeSelector: {kubernetes.io/hostname: worker01.k8s.internal.egon.top}
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: app
+        image: 'harbor.k8s.internal.egon.top/cnpl-p10-schema-only/busybox-v2@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f'
+        imagePullPolicy: Always
+        workingDir: /
+        command: [/bin/sh, -ec, 'echo PRIVATE_PULL_AUTHENTICATED']
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        resources: {requests: {cpu: 10m, memory: 16Mi, ephemeral-storage: 1Mi}, limits: {cpu: 200m, memory: 64Mi, ephemeral-storage: 16Mi}}

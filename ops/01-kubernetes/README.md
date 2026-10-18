@@ -416,6 +416,8 @@ bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/script
 
 Indexed Job 重试幂等、失败/超时、真实分钟调度、时区/并发/暂停；先建立安全资源指标，再实测 CPU/内存 HPA。
 
+执行前已补齐 CronJob 暂停创建、统一启用和同一计划时间检查，并完成有限测试、真实 validate、服务端准入及 Linux 回退夹具，详见[09 执行前核验](records/2026-10-18-stage09-review/README.md)。09 正式实验仍由下面的 run 开始；其清理回收 lab-p09，保留安全指标基础组件。
+
 独立源码、逐条命令解释、预期结果和恢复说明见 [01.09 完整手册](core-resources/jobs/README.md)。每阶段只执行自己；正式运行前检查上一阶段的真实回执。
 
 ```bash

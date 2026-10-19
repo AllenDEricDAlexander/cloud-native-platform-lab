@@ -1,0 +1,1214 @@
+{
+  "stage": "02.05",
+  "internal_passed": true,
+  "passed": false,
+  "phase_complete": false,
+  "run": "20261019T125941Z-26a78274",
+  "cluster_uid": "4d3e52d7-e203-4daf-aced-9c3a666fcf5b",
+  "steps": {
+    "02.05.01": "PASS",
+    "02.05.02": "PASS",
+    "02.05.03": "BLOCKED"
+  },
+  "public": {
+    "enabled": false,
+    "approved_domains": [],
+    "status": "BLOCKED",
+    "reason": "操作者确认暂时没有公网入站或隧道；不配置公网 DNS、NAT 或 ACME，不把 LAN 验收视作公网通过。",
+    "public_passed": false
+  },
+  "results": {
+    "compatibility": {
+      "passed": true,
+      "cert_manager": "1.21.2",
+      "crds_server_dry_run": 6,
+      "builtin_server_dry_run": 64,
+      "custom_structure": {
+        "passed": true,
+        "custom_documents": 5,
+        "scope": "OpenAPI structure; CEL and actual admission are checked after CRD installation before apply"
+      },
+      "images": [
+        "harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-cainjector@sha256:aa2bc58725d92a643f5069dde58abc93b65566ded8951348873ac9ee7efef66c",
+        "harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-controller@sha256:57bb397c639e0e94184ba67848e5dad04284f24645e521e764a0ee5f5002f286",
+        "harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-webhook@sha256:b929259301ee75270ab4651d5e6bd4ba7b6624b1ce48ba767d064295a9312101",
+        "harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-startupapicheck@sha256:ed347b0ab607058f139b83f41567109456b9776330b63da8086a120afb7f1729"
+      ],
+      "root_decryption_or_issuance_performed": false
+    },
+    "controller-ready": {
+      "passed": true,
+      "deployments": {
+        "controller": "d7835d47-9c6b-4d55-92eb-467dd11904a1",
+        "webhook": "ff2d344f-bc6e-45b4-9a96-a47967956b85",
+        "cainjector": "6d532faa-f124-418e-91fe-1da24194650c"
+      }
+    },
+    "policies-ready": {
+      "passed": true
+    },
+    "authorization": {
+      "passed": true,
+      "rbac": [
+        {
+          "verb": "patch",
+          "resource": "certificates.cert-manager.io/primary-auto",
+          "allowed": true
+        },
+        {
+          "verb": "get",
+          "resource": "secrets/cnpl-internal-issuer-ca",
+          "allowed": false
+        },
+        {
+          "verb": "create",
+          "resource": "issuers.cert-manager.io",
+          "allowed": false
+        },
+        {
+          "verb": "create",
+          "resource": "certificaterequests.cert-manager.io",
+          "allowed": false
+        },
+        {
+          "verb": "create",
+          "resource": "pods",
+          "allowed": false
+        },
+        {
+          "verb": "patch",
+          "resource": "gateways.gateway.networking.k8s.io/primary",
+          "allowed": false
+        },
+        {
+          "verb": "delete",
+          "resource": "certificates.cert-manager.io/primary-auto",
+          "allowed": false
+        }
+      ],
+      "admission_denials": [
+        {
+          "name": "public-san",
+          "denied_by_policy": true,
+          "stderr": "The certificates \"primary-auto\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-certificates' with binding 'cnpl-tls-certificates' denied request: CNPL_TLS_BOUNDARY: certificates\n"
+        },
+        {
+          "name": "CA",
+          "denied_by_policy": true,
+          "stderr": "The certificates \"primary-auto\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-certificates' with binding 'cnpl-tls-certificates' denied request: CNPL_TLS_BOUNDARY: certificates\n"
+        },
+        {
+          "name": "client-auth",
+          "denied_by_policy": true,
+          "stderr": "The certificates \"primary-auto\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-certificates' with binding 'cnpl-tls-certificates' denied request: CNPL_TLS_BOUNDARY: certificates\n"
+        },
+        {
+          "name": "direct-request",
+          "denied_by_policy": true,
+          "stderr": "The certificaterequests \"cnpl-denied-direct\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-requests' with binding 'cnpl-tls-requests' denied request: CNPL_TLS_BOUNDARY: requests\n"
+        },
+        {
+          "name": "cluster-issuer",
+          "denied_by_policy": true,
+          "stderr": "The clusterissuers \"cnpl-internal\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-issuers' with binding 'cnpl-tls-issuers' denied request: CNPL_TLS_BOUNDARY: issuers\n"
+        },
+        {
+          "name": "kube-csr-bypass",
+          "denied_by_policy": true,
+          "stderr": "The certificatesigningrequests \"cnpl-denied-kube-csr\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-kube-csr' with binding 'cnpl-tls-kube-csr' denied request: CNPL_TLS_BOUNDARY: kube-csr\n"
+        },
+        {
+          "name": "route-demo.apps.egon.top",
+          "denied_by_policy": true,
+          "stderr": "The httproutes \"cnpl-denied-public\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-public-routes' with binding 'cnpl-tls-public-routes' denied request: CNPL_TLS_BOUNDARY: public-routes\n"
+        },
+        {
+          "name": "route-harbor.k8s.internal.egon.top",
+          "denied_by_policy": true,
+          "stderr": "The httproutes \"cnpl-denied-public\" is invalid: : ValidatingAdmissionPolicy 'cnpl-tls-public-routes' with binding 'cnpl-tls-public-routes' denied request: CNPL_TLS_BOUNDARY: public-routes\n"
+        }
+      ],
+      "dry_run_only": true
+    },
+    "certificate-initial": {
+      "sha256": "4568b95319fc96320f0a60444e57525f4b8a0907a4108a46fb94463af78faf1b",
+      "spki_sha256": "cdd62f84b970f9dc924a9d4be038340931d2c50bec3e1d3d0cc009dac35ee3c8",
+      "serial": "687036560610996759896161114488956053594166773392",
+      "not_before": "2026-10-19T13:02:36+00:00",
+      "not_after": "2026-10-19T14:02:36+00:00",
+      "chain_sha256": [
+        "4568b95319fc96320f0a60444e57525f4b8a0907a4108a46fb94463af78faf1b",
+        "b818c98b26c1ce6e67f9eb7f4a874a9dc5e7da1aa34eee329273e8144ae8ba26"
+      ],
+      "sans": [
+        "demo.svc.internal.egon.top",
+        "grpc-demo.svc.internal.egon.top"
+      ],
+      "passed": true,
+      "certificate_uid": "2525917c-3fd3-4650-80ab-95bf2333ea8d",
+      "secret_uid": "a897a167-65fd-450c-b031-0c493940bd35",
+      "revision": 1,
+      "renewal_time": "2026-10-19T13:04:36Z",
+      "request": {
+        "at": "2026-10-19T13:02:39.782233+00:00",
+        "started_mono": 350052.072717708,
+        "finished_mono": 350052.149707291,
+        "elapsed_ms": 76.99,
+        "address": "192.168.9.201",
+        "host": "demo.svc.internal.egon.top",
+        "path": "/tls-probe",
+        "nonce": "ddcd7ba221eb45a8aa248f084fa0903d",
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "content-length": "533",
+          "date": "Mon, 19 Oct 2026 13:02:39 GMT",
+          "connection": "close"
+        },
+        "body": {
+          "pod": "fault-backend-94d6696fb-kz867",
+          "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+          "node": "worker02.k8s.internal.egon.top",
+          "version": "valid",
+          "protocol": "https",
+          "nonce": "ddcd7ba221eb45a8aa248f084fa0903d",
+          "path": "/tls-probe",
+          "host": "demo.svc.internal.egon.top",
+          "tls": "TLS 1.3",
+          "headers": {
+            "Accept-Encoding": [
+              "identity"
+            ],
+            "X-Cnpl-Nonce": [
+              "ddcd7ba221eb45a8aa248f084fa0903d"
+            ],
+            "X-Envoy-External-Address": [
+              "10.244.9.1"
+            ],
+            "X-Forwarded-For": [
+              "10.244.9.1"
+            ],
+            "X-Forwarded-Proto": [
+              "https"
+            ],
+            "X-Request-Id": [
+              "9f557605-e635-44c7-ae55-aab5aa8b0d73"
+            ]
+          }
+        },
+        "text": "",
+        "tls_peer_sha256": "4568b95319fc96320f0a60444e57525f4b8a0907a4108a46fb94463af78faf1b"
+      }
+    },
+    "rotation": {
+      "sha256": "43e9573efcda671b9751c91d2cc51f6898eaae7a8f9c207f147a49a370f8397d",
+      "spki_sha256": "8d4670e92210d00f014d340461752ca2d18594710817f5e25e9b2e1dff806fba",
+      "serial": "138359271962651262361731357384729004294382681065",
+      "not_before": "2026-10-19T13:04:36+00:00",
+      "not_after": "2026-10-19T14:04:36+00:00",
+      "chain_sha256": [
+        "43e9573efcda671b9751c91d2cc51f6898eaae7a8f9c207f147a49a370f8397d",
+        "b818c98b26c1ce6e67f9eb7f4a874a9dc5e7da1aa34eee329273e8144ae8ba26"
+      ],
+      "sans": [
+        "demo.svc.internal.egon.top",
+        "grpc-demo.svc.internal.egon.top"
+      ],
+      "passed": true,
+      "certificate_uid": "2525917c-3fd3-4650-80ab-95bf2333ea8d",
+      "secret_uid": "a897a167-65fd-450c-b031-0c493940bd35",
+      "revision": 2,
+      "renewal_time": "2026-10-19T13:06:36Z",
+      "request": {
+        "at": "2026-10-19T13:04:38.469795+00:00",
+        "started_mono": 350170.783020166,
+        "finished_mono": 350170.836003625,
+        "elapsed_ms": 52.984,
+        "address": "192.168.9.201",
+        "host": "demo.svc.internal.egon.top",
+        "path": "/tls-probe",
+        "nonce": "1365d9a95351493da1a476568e6214a8",
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "content-length": "533",
+          "date": "Mon, 19 Oct 2026 13:04:38 GMT",
+          "connection": "close"
+        },
+        "body": {
+          "pod": "fault-backend-94d6696fb-kz867",
+          "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+          "node": "worker02.k8s.internal.egon.top",
+          "version": "valid",
+          "protocol": "https",
+          "nonce": "1365d9a95351493da1a476568e6214a8",
+          "path": "/tls-probe",
+          "host": "demo.svc.internal.egon.top",
+          "tls": "TLS 1.3",
+          "headers": {
+            "Accept-Encoding": [
+              "identity"
+            ],
+            "X-Cnpl-Nonce": [
+              "1365d9a95351493da1a476568e6214a8"
+            ],
+            "X-Envoy-External-Address": [
+              "10.244.9.1"
+            ],
+            "X-Forwarded-For": [
+              "10.244.9.1"
+            ],
+            "X-Forwarded-Proto": [
+              "https"
+            ],
+            "X-Request-Id": [
+              "674544ac-6af3-463e-9eb2-78e67f00e772"
+            ]
+          }
+        },
+        "text": "",
+        "tls_peer_sha256": "43e9573efcda671b9751c91d2cc51f6898eaae7a8f9c207f147a49a370f8397d"
+      },
+      "automatic_timer_renewal": true
+    },
+    "steady": {
+      "sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23",
+      "spki_sha256": "98864e0344cd3ef4f530c4cc988033d602291c78d1b78a28db54e4291c4be149",
+      "serial": "428210832316819469249541818748091032969846061413",
+      "not_before": "2026-10-19T13:04:41+00:00",
+      "not_after": "2026-10-26T13:04:41+00:00",
+      "chain_sha256": [
+        "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23",
+        "b818c98b26c1ce6e67f9eb7f4a874a9dc5e7da1aa34eee329273e8144ae8ba26"
+      ],
+      "sans": [
+        "demo.svc.internal.egon.top",
+        "grpc-demo.svc.internal.egon.top"
+      ],
+      "passed": true,
+      "certificate_uid": "2525917c-3fd3-4650-80ab-95bf2333ea8d",
+      "secret_uid": "a897a167-65fd-450c-b031-0c493940bd35",
+      "revision": 3,
+      "renewal_time": "2026-10-24T13:04:41Z",
+      "request": {
+        "at": "2026-10-19T13:04:42.417021+00:00",
+        "started_mono": 350174.727300416,
+        "finished_mono": 350174.783188083,
+        "elapsed_ms": 55.888,
+        "address": "192.168.9.201",
+        "host": "demo.svc.internal.egon.top",
+        "path": "/tls-probe",
+        "nonce": "f2eee12fac5f470785b0cd73a177a427",
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "content-length": "533",
+          "date": "Mon, 19 Oct 2026 13:04:42 GMT",
+          "connection": "close"
+        },
+        "body": {
+          "pod": "fault-backend-94d6696fb-kz867",
+          "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+          "node": "worker02.k8s.internal.egon.top",
+          "version": "valid",
+          "protocol": "https",
+          "nonce": "f2eee12fac5f470785b0cd73a177a427",
+          "path": "/tls-probe",
+          "host": "demo.svc.internal.egon.top",
+          "tls": "TLS 1.3",
+          "headers": {
+            "Accept-Encoding": [
+              "identity"
+            ],
+            "X-Cnpl-Nonce": [
+              "f2eee12fac5f470785b0cd73a177a427"
+            ],
+            "X-Envoy-External-Address": [
+              "10.244.9.1"
+            ],
+            "X-Forwarded-For": [
+              "10.244.9.1"
+            ],
+            "X-Forwarded-Proto": [
+              "https"
+            ],
+            "X-Request-Id": [
+              "f7409749-0d46-4154-bcbe-8ecf19ff8c29"
+            ]
+          }
+        },
+        "text": "",
+        "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+      }
+    },
+    "fault-valid": {
+      "passed": true,
+      "profile": "valid",
+      "pod": {
+        "pod": "fault-backend-94d6696fb-kz867",
+        "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+        "version": "valid",
+        "node": "worker02.k8s.internal.egon.top"
+      },
+      "python": {
+        "tls_valid": true,
+        "request": {
+          "at": "2026-10-19T13:04:45.891297+00:00",
+          "started_mono": 350178.244367958,
+          "finished_mono": 350178.257425291,
+          "elapsed_ms": 13.058,
+          "address": "127.0.0.1",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/v1",
+          "nonce": "0d0e9e5c21034616bae63d266581606d",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "date": "Mon, 19 Oct 2026 13:04:45 GMT",
+            "content-length": "388",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-kz867",
+            "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "0d0e9e5c21034616bae63d266581606d",
+            "path": "/v1",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "Connection": [
+                "close"
+              ],
+              "X-Cnpl-Nonce": [
+                "0d0e9e5c21034616bae63d266581606d"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "02623bd898ac73af7ab53e26bb4e59b835d05ac67bf95d8872fdd9a113aec1db"
+        }
+      },
+      "go": {
+        "tls_valid": true,
+        "status": 200,
+        "tls_peer_sha256": "02623bd898ac73af7ab53e26bb4e59b835d05ac67bf95d8872fdd9a113aec1db",
+        "spki_sha256": "8da67d989b4378aac175c8335e8e4b0d652daff3682fba2a339392a0811a8fee",
+        "peer_chain_length": 2,
+        "body": {
+          "pod": "fault-backend-94d6696fb-kz867",
+          "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+          "node": "worker02.k8s.internal.egon.top",
+          "version": "valid",
+          "protocol": "https",
+          "nonce": "4eb4a9555c9b4d5caee18cd5adb52bb0",
+          "path": "/v1",
+          "host": "demo.svc.internal.egon.top",
+          "tls": "TLS 1.3",
+          "headers": {
+            "Accept-Encoding": [
+              "gzip"
+            ],
+            "Connection": [
+              "close"
+            ],
+            "User-Agent": [
+              "Go-http-client/1.1"
+            ],
+            "X-Cnpl-Nonce": [
+              "4eb4a9555c9b4d5caee18cd5adb52bb0"
+            ]
+          }
+        }
+      },
+      "actual_peer_sha256": "02623bd898ac73af7ab53e26bb4e59b835d05ac67bf95d8872fdd9a113aec1db",
+      "actual_chain_length": 2,
+      "diagnostic_unverified_handshake_only_no_application_request": true,
+      "gateway_requests": [
+        {
+          "at": "2026-10-19T13:04:46.121182+00:00",
+          "started_mono": 350178.435577333,
+          "finished_mono": 350178.487312125,
+          "elapsed_ms": 51.735,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=valid&nonce=75c7641314ff49c4bcbff7915f1ca8ab",
+          "nonce": "c501b0a9e10e4eb0a78760d6cc504e67",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "content-length": "533",
+            "date": "Mon, 19 Oct 2026 13:04:46 GMT",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-kz867",
+            "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "c501b0a9e10e4eb0a78760d6cc504e67",
+            "path": "/tls-probe",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "X-Cnpl-Nonce": [
+                "c501b0a9e10e4eb0a78760d6cc504e67"
+              ],
+              "X-Envoy-External-Address": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-For": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-Proto": [
+                "https"
+              ],
+              "X-Request-Id": [
+                "16d3bddf-043c-49e2-a6ea-377ee8d93868"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:04:46.168925+00:00",
+          "started_mono": 350178.487809833,
+          "finished_mono": 350178.535055958,
+          "elapsed_ms": 47.246,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=valid&nonce=91355e0735e44abda2c1fdfb6fbdb7fe",
+          "nonce": "88b4cd5b68764152893d037af003715f",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "content-length": "533",
+            "date": "Mon, 19 Oct 2026 13:04:46 GMT",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-kz867",
+            "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "88b4cd5b68764152893d037af003715f",
+            "path": "/tls-probe",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "X-Cnpl-Nonce": [
+                "88b4cd5b68764152893d037af003715f"
+              ],
+              "X-Envoy-External-Address": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-For": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-Proto": [
+                "https"
+              ],
+              "X-Request-Id": [
+                "df466975-8bd6-4e17-bbc7-37ca59739599"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:04:46.217810+00:00",
+          "started_mono": 350178.535650791,
+          "finished_mono": 350178.583936958,
+          "elapsed_ms": 48.286,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=valid&nonce=97736a4aaa1c492bbc0dfc38adf379c5",
+          "nonce": "93b95cc43ff6432bba10c5018983c2bf",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "content-length": "533",
+            "date": "Mon, 19 Oct 2026 13:04:46 GMT",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-kz867",
+            "uid": "ea29e2d9-4084-464d-a890-c3a710f7d4cb",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "93b95cc43ff6432bba10c5018983c2bf",
+            "path": "/tls-probe",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "X-Cnpl-Nonce": [
+                "93b95cc43ff6432bba10c5018983c2bf"
+              ],
+              "X-Envoy-External-Address": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-For": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-Proto": [
+                "https"
+              ],
+              "X-Request-Id": [
+                "fb11008b-8cb5-4736-aa2d-22f685020bb3"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        }
+      ],
+      "gateway_verify_fail_before": 0,
+      "gateway_verify_fail_after": 0
+    },
+    "fault-san": {
+      "passed": true,
+      "profile": "san",
+      "pod": {
+        "pod": "fault-backend-9977bdbfb-bpfkx",
+        "uid": "7b783c47-a562-4f97-bea9-06bc728ba962",
+        "version": "san",
+        "node": "worker02.k8s.internal.egon.top"
+      },
+      "python": {
+        "tls_valid": false,
+        "verify_code": 62,
+        "reason": "Hostname mismatch, certificate is not valid for 'demo.svc.internal.egon.top'."
+      },
+      "go": {
+        "tls_valid": false,
+        "error_class": "hostname",
+        "error": "Get \"https://demo.svc.internal.egon.top/v1\": tls: failed to verify certificate: x509: certificate is valid for grpc-demo.svc.internal.egon.top, not demo.svc.internal.egon.top",
+        "status": 0
+      },
+      "actual_peer_sha256": "f93abf6b9809fcbe0b59e5e12203001a3b8b3fec61193a8f7d6c4f2286f97ccb",
+      "actual_chain_length": 2,
+      "diagnostic_unverified_handshake_only_no_application_request": true,
+      "gateway_requests": [
+        {
+          "at": "2026-10-19T13:04:55.990043+00:00",
+          "started_mono": 350188.292435208,
+          "finished_mono": 350188.35606925,
+          "elapsed_ms": 63.635,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=san&nonce=03ec8cac0f8548ca8ff48753c5a91aea",
+          "nonce": "8e5ab814d4e04efca477f95e2f156621",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:04:55 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:04:56.061989+00:00",
+          "started_mono": 350188.356624916,
+          "finished_mono": 350188.428015041,
+          "elapsed_ms": 71.391,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=san&nonce=a89ceabd69d844c888231d8b3ae29b3a",
+          "nonce": "959a951e844e46b19f0efa7da855fb2e",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:04:55 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:04:56.121786+00:00",
+          "started_mono": 350188.4287375,
+          "finished_mono": 350188.487819083,
+          "elapsed_ms": 59.082,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=san&nonce=b25a6bd01cd8432ebe11be5c7be606ef",
+          "nonce": "b9a1eee3ca834375abf51dd53e724742",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:04:56 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        }
+      ],
+      "gateway_verify_fail_before": 0.0,
+      "gateway_verify_fail_after": 3.0
+    },
+    "fault-unknown": {
+      "passed": true,
+      "profile": "unknown",
+      "pod": {
+        "pod": "fault-backend-766654774d-wtwzq",
+        "uid": "7e8ada71-8e92-4331-80dd-5d9f6fbad0f6",
+        "version": "unknown",
+        "node": "worker02.k8s.internal.egon.top"
+      },
+      "python": {
+        "tls_valid": false,
+        "verify_code": 19,
+        "reason": "self-signed certificate in certificate chain"
+      },
+      "go": {
+        "tls_valid": false,
+        "error_class": "unknown_authority",
+        "error": "Get \"https://demo.svc.internal.egon.top/v1\": tls: failed to verify certificate: x509: certificate signed by unknown authority",
+        "status": 0
+      },
+      "actual_peer_sha256": "ea59e5ac16e8fc77c27bbad153493108e66e3eb5e0d39ef2e9db599a536ad06a",
+      "actual_chain_length": 2,
+      "diagnostic_unverified_handshake_only_no_application_request": true,
+      "gateway_requests": [
+        {
+          "at": "2026-10-19T13:05:04.311498+00:00",
+          "started_mono": 350196.612133208,
+          "finished_mono": 350196.677431708,
+          "elapsed_ms": 65.299,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=unknown&nonce=9edfe6a5074b45bcaf76092947e6bfe0",
+          "nonce": "f883977c75f84d4cbda9ef9ecea3ac2d",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:04 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:04.363776+00:00",
+          "started_mono": 350196.677817833,
+          "finished_mono": 350196.7297075,
+          "elapsed_ms": 51.89,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=unknown&nonce=6393b72aba684cfdb90dc01c673aeb5c",
+          "nonce": "db9e8ca1d001459baa80b02da6a66bc2",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:04 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:04.419639+00:00",
+          "started_mono": 350196.730233458,
+          "finished_mono": 350196.785581,
+          "elapsed_ms": 55.348,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=unknown&nonce=d0093eba70d04c4b89bf2bd1767b4497",
+          "nonce": "75546f26598d491c87c5c951253ff5e7",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:04 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        }
+      ],
+      "gateway_verify_fail_before": 0.0,
+      "gateway_verify_fail_after": 3.0
+    },
+    "fault-incomplete": {
+      "passed": true,
+      "profile": "incomplete",
+      "pod": {
+        "pod": "fault-backend-84d676df64-lqcrh",
+        "uid": "6e47b3c7-bf13-4cc0-a560-1e90bb0562f8",
+        "version": "incomplete",
+        "node": "worker02.k8s.internal.egon.top"
+      },
+      "python": {
+        "tls_valid": false,
+        "verify_code": 20,
+        "reason": "unable to get local issuer certificate"
+      },
+      "go": {
+        "tls_valid": false,
+        "error_class": "unknown_authority",
+        "error": "Get \"https://demo.svc.internal.egon.top/v1\": tls: failed to verify certificate: x509: certificate signed by unknown authority",
+        "status": 0
+      },
+      "actual_peer_sha256": "e82a43d3eb9d5df3bbdb3e9dd8d5b9ac322b84e17cc0780db92b0f5c7e1a9d07",
+      "actual_chain_length": 1,
+      "diagnostic_unverified_handshake_only_no_application_request": true,
+      "gateway_requests": [
+        {
+          "at": "2026-10-19T13:05:12.732946+00:00",
+          "started_mono": 350205.035872875,
+          "finished_mono": 350205.098789458,
+          "elapsed_ms": 62.917,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=incomplete&nonce=a7b030dd5d7748fb92a9c3b7a240fbe8",
+          "nonce": "686793099adb4a1a95f2acffe5d150c3",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:12 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:12.785320+00:00",
+          "started_mono": 350205.099173916,
+          "finished_mono": 350205.151168625,
+          "elapsed_ms": 51.995,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=incomplete&nonce=debd0061cf914dd48c1a95856265e0d4",
+          "nonce": "3944faa4f71c46aaab4a58d7c5ff8304",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:12 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:12.839265+00:00",
+          "started_mono": 350205.1519105,
+          "finished_mono": 350205.205118,
+          "elapsed_ms": 53.208,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=incomplete&nonce=a243d39a0c4b4bfa85afb36bb049652a",
+          "nonce": "6abb336bdec9425984936664cdb19d91",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:12 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        }
+      ],
+      "gateway_verify_fail_before": 0.0,
+      "gateway_verify_fail_after": 3.0
+    },
+    "fault-expired": {
+      "passed": true,
+      "profile": "expired",
+      "pod": {
+        "pod": "fault-backend-8cf68bcdc-rtnr4",
+        "uid": "3f3e36ba-dc97-4b98-887e-6edceaa84e26",
+        "version": "expired",
+        "node": "worker02.k8s.internal.egon.top"
+      },
+      "python": {
+        "tls_valid": false,
+        "verify_code": 10,
+        "reason": "certificate has expired"
+      },
+      "go": {
+        "tls_valid": false,
+        "error_class": "validity",
+        "error": "Get \"https://demo.svc.internal.egon.top/v1\": tls: failed to verify certificate: x509: certificate has expired or is not yet valid: current time 2026-10-19T21:05:23+08:00 is after 2026-10-19T11:59:58Z",
+        "status": 0
+      },
+      "actual_peer_sha256": "c91328a17b7ec17a847c5eccabb8d43c0e77de161036f3a839de93c89a0fcae0",
+      "actual_chain_length": 2,
+      "diagnostic_unverified_handshake_only_no_application_request": true,
+      "gateway_requests": [
+        {
+          "at": "2026-10-19T13:05:23.270231+00:00",
+          "started_mono": 350215.566557916,
+          "finished_mono": 350215.63596725,
+          "elapsed_ms": 69.41,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=expired&nonce=028dfe061f9e43cd911fdafcb57b19f8",
+          "nonce": "a35566dd3c564e87b17787a8234e1bb1",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:23 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:23.334297+00:00",
+          "started_mono": 350215.636582,
+          "finished_mono": 350215.700032583,
+          "elapsed_ms": 63.451,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=expired&nonce=ea255ec7ecf949379ca449550b214ffc",
+          "nonce": "f7f52d44757949d68f6ca8954516e53a",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:23 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:23.387685+00:00",
+          "started_mono": 350215.70060875,
+          "finished_mono": 350215.753432875,
+          "elapsed_ms": 52.825,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=expired&nonce=10c7894e91cb452e9c3b15464a72ecff",
+          "nonce": "0cc6b20a8e3d409aabd291512081e4b1",
+          "status": 503,
+          "headers": {
+            "content-length": "98",
+            "content-type": "text/plain",
+            "date": "Mon, 19 Oct 2026 13:05:23 GMT",
+            "connection": "close"
+          },
+          "body": null,
+          "text": "upstream connect error or disconnect/reset before headers. reset reason: remote connection failure",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        }
+      ],
+      "gateway_verify_fail_before": 0.0,
+      "gateway_verify_fail_after": 3.0
+    },
+    "fault-restored": {
+      "passed": true,
+      "profile": "valid",
+      "pod": {
+        "pod": "fault-backend-94d6696fb-6pmsw",
+        "uid": "e358db7b-b3f4-4fc6-85c1-00bdac8b43e0",
+        "version": "valid",
+        "node": "worker02.k8s.internal.egon.top"
+      },
+      "python": {
+        "tls_valid": true,
+        "request": {
+          "at": "2026-10-19T13:05:30.490252+00:00",
+          "started_mono": 350222.842385708,
+          "finished_mono": 350222.855905625,
+          "elapsed_ms": 13.52,
+          "address": "127.0.0.1",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/v1",
+          "nonce": "eb924a3469034a62a58bd0e00a69fc4f",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "date": "Mon, 19 Oct 2026 13:05:30 GMT",
+            "content-length": "388",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-6pmsw",
+            "uid": "e358db7b-b3f4-4fc6-85c1-00bdac8b43e0",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "eb924a3469034a62a58bd0e00a69fc4f",
+            "path": "/v1",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "Connection": [
+                "close"
+              ],
+              "X-Cnpl-Nonce": [
+                "eb924a3469034a62a58bd0e00a69fc4f"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "02623bd898ac73af7ab53e26bb4e59b835d05ac67bf95d8872fdd9a113aec1db"
+        }
+      },
+      "go": {
+        "tls_valid": true,
+        "status": 200,
+        "tls_peer_sha256": "02623bd898ac73af7ab53e26bb4e59b835d05ac67bf95d8872fdd9a113aec1db",
+        "spki_sha256": "8da67d989b4378aac175c8335e8e4b0d652daff3682fba2a339392a0811a8fee",
+        "peer_chain_length": 2,
+        "body": {
+          "pod": "fault-backend-94d6696fb-6pmsw",
+          "uid": "e358db7b-b3f4-4fc6-85c1-00bdac8b43e0",
+          "node": "worker02.k8s.internal.egon.top",
+          "version": "valid",
+          "protocol": "https",
+          "nonce": "d97b86b5136a4050811af6ed4c1c32ef",
+          "path": "/v1",
+          "host": "demo.svc.internal.egon.top",
+          "tls": "TLS 1.3",
+          "headers": {
+            "Accept-Encoding": [
+              "gzip"
+            ],
+            "Connection": [
+              "close"
+            ],
+            "User-Agent": [
+              "Go-http-client/1.1"
+            ],
+            "X-Cnpl-Nonce": [
+              "d97b86b5136a4050811af6ed4c1c32ef"
+            ]
+          }
+        }
+      },
+      "actual_peer_sha256": "02623bd898ac73af7ab53e26bb4e59b835d05ac67bf95d8872fdd9a113aec1db",
+      "actual_chain_length": 2,
+      "diagnostic_unverified_handshake_only_no_application_request": true,
+      "gateway_requests": [
+        {
+          "at": "2026-10-19T13:05:30.731818+00:00",
+          "started_mono": 350223.016181458,
+          "finished_mono": 350223.097470458,
+          "elapsed_ms": 81.289,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=valid&nonce=12e63fbc4d2c40e980f650d8a0246b79",
+          "nonce": "a79b508749f449e6bd538ad0ef4f904c",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "content-length": "533",
+            "date": "Mon, 19 Oct 2026 13:05:30 GMT",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-6pmsw",
+            "uid": "e358db7b-b3f4-4fc6-85c1-00bdac8b43e0",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "a79b508749f449e6bd538ad0ef4f904c",
+            "path": "/tls-probe",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "X-Cnpl-Nonce": [
+                "a79b508749f449e6bd538ad0ef4f904c"
+              ],
+              "X-Envoy-External-Address": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-For": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-Proto": [
+                "https"
+              ],
+              "X-Request-Id": [
+                "5469dafa-2dbb-46e5-9a22-d1ab34bcaa49"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:30.802068+00:00",
+          "started_mono": 350223.097904333,
+          "finished_mono": 350223.167720291,
+          "elapsed_ms": 69.816,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=valid&nonce=f6ca8eb2930f4d39ac330f7a162804d5",
+          "nonce": "e471d82acdb448c490fba893d7c7ec5e",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "content-length": "533",
+            "date": "Mon, 19 Oct 2026 13:05:30 GMT",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-6pmsw",
+            "uid": "e358db7b-b3f4-4fc6-85c1-00bdac8b43e0",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "e471d82acdb448c490fba893d7c7ec5e",
+            "path": "/tls-probe",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "X-Cnpl-Nonce": [
+                "e471d82acdb448c490fba893d7c7ec5e"
+              ],
+              "X-Envoy-External-Address": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-For": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-Proto": [
+                "https"
+              ],
+              "X-Request-Id": [
+                "973994ea-654b-4290-bc75-fbfcca3dd7a3"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        },
+        {
+          "at": "2026-10-19T13:05:30.853957+00:00",
+          "started_mono": 350223.168477333,
+          "finished_mono": 350223.219625875,
+          "elapsed_ms": 51.149,
+          "address": "192.168.9.201",
+          "host": "demo.svc.internal.egon.top",
+          "path": "/tls-probe?case=valid&nonce=7c49c920ccea4f6593371fcc6e498ff8",
+          "nonce": "e756b1a78f124a219636406b9d0704b2",
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "content-length": "533",
+            "date": "Mon, 19 Oct 2026 13:05:30 GMT",
+            "connection": "close"
+          },
+          "body": {
+            "pod": "fault-backend-94d6696fb-6pmsw",
+            "uid": "e358db7b-b3f4-4fc6-85c1-00bdac8b43e0",
+            "node": "worker02.k8s.internal.egon.top",
+            "version": "valid",
+            "protocol": "https",
+            "nonce": "e756b1a78f124a219636406b9d0704b2",
+            "path": "/tls-probe",
+            "host": "demo.svc.internal.egon.top",
+            "tls": "TLS 1.3",
+            "headers": {
+              "Accept-Encoding": [
+                "identity"
+              ],
+              "X-Cnpl-Nonce": [
+                "e756b1a78f124a219636406b9d0704b2"
+              ],
+              "X-Envoy-External-Address": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-For": [
+                "10.244.9.1"
+              ],
+              "X-Forwarded-Proto": [
+                "https"
+              ],
+              "X-Request-Id": [
+                "54fbfab8-8fc2-4259-a19f-c60d40e8770a"
+              ]
+            }
+          },
+          "text": "",
+          "tls_peer_sha256": "a8370c4cb59f1a59f3b15222834173d80da46f760fced7a1b0a417574dc33d23"
+        }
+      ],
+      "gateway_verify_fail_before": 0,
+      "gateway_verify_fail_after": 0
+    }
+  },
+  "main": {
+    "passed": true,
+    "gateway_uid": "780c5418-9655-403f-bb34-012a99b17cb5",
+    "service_uid": "00e2dee5-7511-471b-abe3-66b53f92b297",
+    "deployment_uid": "0aab3915-66cf-49ef-8e61-2957482228f6",
+    "vip": "192.168.9.201",
+    "data_pods": [
+      {
+        "name": "cnpl-primary-7bf57dc749-xmfcw",
+        "uid": "6c520d2d-71da-4c51-8937-7202c72bcf4a",
+        "node": "worker01.k8s.internal.egon.top"
+      },
+      {
+        "name": "cnpl-primary-7bf57dc749-z8vv9",
+        "uid": "9bbf8beb-eb27-4452-8893-f248d13d8881",
+        "node": "worker02.k8s.internal.egon.top"
+      }
+    ]
+  },
+  "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.05-20261019T125941Z/attempts/20261019T125959Z-40757a49-all"
+}

@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: primary-auto
+  namespace: cnpl-gateway
+  labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+spec:
+  secretName: primary-managed-tls
+  dnsNames: [demo.svc.internal.egon.top, grpc-demo.svc.internal.egon.top]
+  duration: '{{ "168h" if tls_stable | default(false) else "1h" }}'
+  renewBefore: '{{ "48h" if tls_stable | default(false) else "58m" }}'
+  privateKey: {algorithm: ECDSA, size: 256, encoding: PKCS8, rotationPolicy: Always}
+  usages: [digital signature, server auth]
+  issuerRef: {group: cert-manager.io, kind: Issuer, name: cnpl-internal}
+  secretTemplate:
+    labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}

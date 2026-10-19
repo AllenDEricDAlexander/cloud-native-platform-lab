@@ -1,0 +1,10 @@
+---
+- name: 核对已存在的本组件 Certificate，不在恢复时补装
+  ansible.builtin.command:
+    argv: ['{{ tls_python }}', '{{ tls_check }}', stabilize-plan, --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/stabilize-plan.json']
+  register: tls_stabilize_plan
+  changed_when: false
+- name: 退出两分钟续期实验模式，保留七天有效期和提前四十八小时续期
+  ansible.builtin.include_tasks: certificates-apply.yml
+  vars: {tls_manifest: '{{ tls_attempt }}/certificate-stable.yaml'}
+  when: (tls_stabilize_plan.stdout | from_json).exists

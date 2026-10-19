@@ -1,0 +1,1303 @@
+
+PLAY [完整 02.05 的身份、来源、物料和所有清单一次核验] *************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt] ************************************************************
+ok: [localhost]
+
+TASK [创建本机取证目录] ********************************************************
+changed: [localhost] => (item=/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/records/attempts/20261019T121558Z-d14c7716-all)
+ok: [localhost] => (item=/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/records/state)
+
+TASK [检查批次原始状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [恢复需要原上下文，运行不覆盖已经关闭的批次] ******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [复核十节点、02.04 原始交接、主入口及根 CA 身份] **************************
+ok: [localhost]
+
+TASK [绑定原集群和批次] ********************************************************
+ok: [localhost]
+
+TASK [记录全部源码与输入摘要] **************************************************
+ok: [localhost]
+
+TASK [未关闭运行只能使用相同受检源码] ******************************************
+skipping: [localhost]
+
+TASK [核对五个 cert-manager 镜像和既有后端镜像摘要] ****************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-controller@sha256:57bb397c639e0e94184ba67848e5dad04284f24645e521e764a0ee5f5002f286)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-webhook@sha256:b929259301ee75270ab4651d5e6bd4ba7b6624b1ce48ba767d064295a9312101)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-cainjector@sha256:aa2bc58725d92a643f5069dde58abc93b65566ded8951348873ac9ee7efef66c)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-startupapicheck@sha256:ed347b0ab607058f139b83f41567109456b9776330b63da8086a120afb7f1729)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-acmesolver@sha256:dc5c5b8456d1a50af47a240987e85afce352b5c1155a8a4698b7c91eac19f407)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5)
+
+TASK [确定性重建无额外依赖的 Go TLS 客户端] ************************************
+ok: [localhost]
+
+TASK [核对已准备客户端的文件摘要] **********************************************
+ok: [localhost]
+
+TASK [客户端必须匹配版本锁] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [一次渲染全部公开控制器、签发器、授权和路由清单] **************************
+changed: [localhost] => (item=controller-values)
+changed: [localhost] => (item=namespaces)
+changed: [localhost] => (item=policies)
+changed: [localhost] => (item=issuer)
+changed: [localhost] => (item=certificate)
+changed: [localhost] => (item=route-editor)
+changed: [localhost] => (item=routes)
+
+TASK [同时渲染五类故障后端，全部提前校验] **************************************
+changed: [localhost] => (item=valid)
+changed: [localhost] => (item=san)
+changed: [localhost] => (item=unknown)
+changed: [localhost] => (item=incomplete)
+changed: [localhost] => (item=expired)
+
+TASK [正式与恢复模式均准备稳定证书清单] ****************************************
+changed: [localhost]
+
+TASK [恢复核验需要锁定控制器配置] **********************************************
+skipping: [localhost]
+
+TASK [严格服务端预览 CRD、策略及所有内置资源，按锁定 schema 校验自定义实例] ****
+ok: [localhost]
+
+TASK [保存原有工作负载与配置基线] **********************************************
+ok: [localhost]
+
+TASK [首次绑定原始输入与资源基线，不覆盖旧证据] ********************************
+changed: [localhost] => (item=source)
+changed: [localhost] => (item=protected)
+
+TASK [读取入口已准备的公开材料索引] ********************************************
+ok: [localhost]
+
+TASK [私有 Secret 只写管理端秘密目录] ******************************************
+ok: [localhost]
+
+PLAY [安装 cert-manager、受限签发身份和隔离后端] *******************************
+
+TASK [创建专用控制器与实验空间] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Namespace/cert-manager)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Namespace/lab-tls)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [单独 SSA 安装六个锁定 CRD] ***********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=CustomResourceDefinition/challenges.acme.cert-manager.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=CustomResourceDefinition/orders.acme.cert-manager.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=CustomResourceDefinition/certificaterequests.cert-manager.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=CustomResourceDefinition/certificates.cert-manager.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=CustomResourceDefinition/clusterissuers.cert-manager.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=CustomResourceDefinition/issuers.cert-manager.io)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待 CRD Established] ****************************************************
+ok: [localhost]
+
+TASK [核对 Chart release 与已有对象归属] ***************************************
+ok: [localhost]
+
+TASK [安装锁定 cert-manager 与 webhook，禁用 CRD 重复安装] *********************
+changed: [localhost]
+
+TASK [核对三个实际控制器与锁定镜像] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 controller-ready 的身份与实际行为收敛] ******************************
+ok: [localhost]
+
+TASK [建立签发、CSR 和内部路由准入边界] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicy/cnpl-tls-certificates)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicyBinding/cnpl-tls-certificates)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicy/cnpl-tls-requests)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicyBinding/cnpl-tls-requests)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicy/cnpl-tls-issuers)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicyBinding/cnpl-tls-issuers)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicy/cnpl-tls-public-routes)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicyBinding/cnpl-tls-public-routes)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicy/cnpl-tls-kube-csr)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ValidatingAdmissionPolicyBinding/cnpl-tls-kube-csr)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待本代策略类型检查无告警] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 policies-ready 的身份与实际行为收敛] ********************************
+ok: [localhost]
+
+TASK [只上传新专用中间签发密钥与测试叶密钥] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-secret.yml for localhost => (item=issuer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-secret.yml for localhost => (item=valid)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-secret.yml for localhost => (item=san)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-secret.yml for localhost => (item=unknown)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-secret.yml for localhost => (item=incomplete)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-secret.yml for localhost => (item=expired)
+
+TASK [私有目录渲染专用签发器或测试叶证书 Secret，不进入证据目录和日志] *********
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览私有 Secret] ***********************************************
+ok: [localhost]
+
+TASK [仅上传新专用签发器或测试叶证书，避免 last-applied 与 Secret 输出] ********
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染专用签发器或测试叶证书 Secret，不进入证据目录和日志] *********
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览私有 Secret] ***********************************************
+ok: [localhost]
+
+TASK [仅上传新专用签发器或测试叶证书，避免 last-applied 与 Secret 输出] ********
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染专用签发器或测试叶证书 Secret，不进入证据目录和日志] *********
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览私有 Secret] ***********************************************
+ok: [localhost]
+
+TASK [仅上传新专用签发器或测试叶证书，避免 last-applied 与 Secret 输出] ********
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染专用签发器或测试叶证书 Secret，不进入证据目录和日志] *********
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览私有 Secret] ***********************************************
+ok: [localhost]
+
+TASK [仅上传新专用签发器或测试叶证书，避免 last-applied 与 Secret 输出] ********
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染专用签发器或测试叶证书 Secret，不进入证据目录和日志] *********
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览私有 Secret] ***********************************************
+ok: [localhost]
+
+TASK [仅上传新专用签发器或测试叶证书，避免 last-applied 与 Secret 输出] ********
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染专用签发器或测试叶证书 Secret，不进入证据目录和日志] *********
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览私有 Secret] ***********************************************
+ok: [localhost]
+
+TASK [仅上传新专用签发器或测试叶证书，避免 last-applied 与 Secret 输出] ********
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [建立仅引用专用 CA Secret 的 namespaced Issuer] ***************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Issuer/cnpl-internal)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [建立证书编辑者最小权限] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ServiceAccount/certificate-editor)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Role/certificate-editor)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=RoleBinding/certificate-editor)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [建立有效证书的单副本隔离后端] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [建立 Service、根信任及后端 TLS 路由] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Service/fault-backend)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=ConfigMap/backend-root)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=BackendTLSPolicy/fault-backend)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=HTTPRoute/tls-faults)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待隔离后端实际就绪] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 backend 的身份与实际行为收敛] ***************************************
+ok: [localhost]
+
+PLAY [接管主入口证书并真实观察定时续期与热加载] ********************************
+
+TASK [初始标记尚未完成自动化切换] **********************************************
+ok: [localhost]
+
+TASK [创建一小时证书，提前五十八分钟续期] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Certificate/primary-auto)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待本代证书 Ready、专用签发链及 Secret owner UID] ***********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 certificate 的身份与实际行为收敛] ***********************************
+ok: [localhost]
+
+TASK [只将主 HTTPS 引用切换为自动管理 Secret] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-switch.yml for localhost
+
+TASK [按原 UID 和字段值生成证书引用补丁] ***************************************
+ok: [localhost]
+
+TASK [只更新 HTTPS 证书引用，不修改入口其他字段] *******************************
+changed: [localhost]
+
+TASK [验证实际 HTTPS 和当前自动证书一致，记录首轮续期时间] *********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 main-tls 的身份与实际行为收敛] **************************************
+ok: [localhost]
+
+TASK [不调用手工 renew，等待定时器更新证书和密钥并在网关生效] ******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 rotation 的身份与实际行为收敛] **************************************
+ok: [localhost]
+
+TASK [恢复正常七天有效期与提前四十八小时续期] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Certificate/primary-auto)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证稳定周期和实际 TLS，防止遗留短周期循环] ******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 steady 的身份与实际行为收敛] ****************************************
+ok: [localhost]
+
+TASK [标记自动化已经稳定] ******************************************************
+ok: [localhost]
+
+TASK [报告内部签发及定时轮换通过] **********************************************
+ok: [localhost] => {
+    "msg": "02.05.01 PASS；定时续期、Secret UID 保持、SPKI/指纹变化和网关实际热加载已验证。"
+}
+
+TASK [将已有 Certificate 收敛为稳定周期] ***************************************
+skipping: [localhost]
+
+TASK [恢复本批切换前的主证书引用] **********************************************
+skipping: [localhost]
+
+PLAY [对隔离后端执行四类 TLS 故障与有效恢复] ***********************************
+
+TASK [依次实测有效、错误 SAN、未知 CA、不完整链和过期叶证书] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-fault.yml for localhost => (item=valid)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-fault.yml for localhost => (item=san)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-fault.yml for localhost => (item=unknown)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-fault.yml for localhost => (item=incomplete)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-fault.yml for localhost => (item=expired)
+
+TASK [装入 valid 的独立测试叶证书，替换单个实验后端] ***************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+ok: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+ok: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证 Python、Go 与网关对 valid 的实际结果] *******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-wait.yml for localhost
+
+TASK [等待 fault 的身份与实际行为收敛] *****************************************
+ok: [localhost]
+
+TASK [装入 san 的独立测试叶证书，替换单个实验后端] *****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证 Python、Go 与网关对 san 的实际结果] *********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-wait.yml for localhost
+
+TASK [等待 fault 的身份与实际行为收敛] *****************************************
+ok: [localhost]
+
+TASK [装入 unknown 的独立测试叶证书，替换单个实验后端] *************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证 Python、Go 与网关对 unknown 的实际结果] *****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-wait.yml for localhost
+
+TASK [等待 fault 的身份与实际行为收敛] *****************************************
+ok: [localhost]
+
+TASK [装入 incomplete 的独立测试叶证书，替换单个实验后端] **********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证 Python、Go 与网关对 incomplete 的实际结果] **************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-wait.yml for localhost
+
+TASK [等待 fault 的身份与实际行为收敛] *****************************************
+ok: [localhost]
+
+TASK [装入 expired 的独立测试叶证书，替换单个实验后端] *************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证 Python、Go 与网关对 expired 的实际结果] *****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-wait.yml for localhost
+
+TASK [等待 fault 的身份与实际行为收敛] *****************************************
+ok: [localhost]
+
+TASK [按原 Deployment UID 恢复有效后端 Secret] *********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Deployment/fault-backend)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [验证恢复后的 Python、Go 和网关请求] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 fault 的身份与实际行为收敛] *****************************************
+ok: [localhost]
+
+TASK [验证 RBAC、受限签发与公网/管理域路由的拒绝] ******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 authorization 的身份与实际行为收敛] *********************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml:2:3
+
+1 ---
+2 - name: 等待 {{ tls_wait_mode }} 的身份与实际行为收敛
+    ^ column 3
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/check.py", "authorization", "--records", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/records", "--attempt", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/records/attempts/20261019T121558Z-d14c7716-all", "--output", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/records/attempts/20261019T121558Z-d14c7716-all/authorization.json"], "delta": "0:00:01.203075", "end": "2026-10-19 20:18:16.760445", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-19 20:18:15.557370", "stderr": "Traceback (most recent call last):\n  File \"/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/check.py\", line 49, in <module>\n    c.main()\n    ~~~~~~^^\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/check.py\", line 593, in main\n    value = authorization(records, context, attempt)\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/check.py\", line 453, in authorization\n    require(reply.returncode != 0 and 'CNPL_TLS_BOUNDARY' in reply.stderr, '未按指定准入策略拒绝：' + name + ': ' + reply.stderr[-900:])\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/network-baseline/check.py\", line 36, in require\n    raise ValueError(reason)\nValueError: 未按指定准入策略拒绝：kube-csr-bypass: ", "stderr_lines": ["Traceback (most recent call last):", "  File \"/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-success-5e3bw3io/check.py\", line 49, in <module>", "    c.main()", "    ~~~~~~^^", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/check.py\", line 593, in main", "    value = authorization(records, context, attempt)", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/check.py\", line 453, in authorization", "    require(reply.returncode != 0 and 'CNPL_TLS_BOUNDARY' in reply.stderr, '未按指定准入策略拒绝：' + name + ': ' + reply.stderr[-900:])", "    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^", "  File \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/network-baseline/check.py\", line 36, in require", "    raise ValueError(reason)", "ValueError: 未按指定准入策略拒绝：kube-csr-bypass: "], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=398  changed=122  unreachable=0    failed=1    skipped=4    rescued=0    ignored=0   
+

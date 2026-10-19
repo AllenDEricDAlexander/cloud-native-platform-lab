@@ -1,0 +1,11 @@
+---
+- name: 按原 UID 和字段值生成证书引用补丁
+  ansible.builtin.command:
+    argv: ['{{ tls_python }}', '{{ tls_check }}', '{{ "gateway-restore-plan" if tls_restore | default(false) else "gateway-plan" }}', --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/gateway-switch.json']
+  register: tls_switch
+  changed_when: false
+- name: 只更新 HTTPS 证书引用，不修改入口其他字段
+  ansible.builtin.command:
+    argv: '{{ tls_k + ["patch","Gateway","primary","-n","cnpl-gateway","--type=json","-p",(tls_switch.stdout | from_json).patch | to_json] }}'
+  changed_when: true
+  when: (tls_switch.stdout | from_json).patch | length > 0

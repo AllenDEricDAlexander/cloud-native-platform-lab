@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: certificate-editor
+  namespace: cnpl-gateway
+  labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: certificate-editor
+  namespace: cnpl-gateway
+  labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+rules:
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    resourceNames: [primary-auto]
+    verbs: [get, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: certificate-editor
+  namespace: cnpl-gateway
+  labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+subjects: [{kind: ServiceAccount, name: certificate-editor, namespace: cnpl-gateway}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: certificate-editor}

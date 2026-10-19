@@ -1,0 +1,81 @@
+test_ca_public_projection_does_not_require_leaf_san (test_check.Authority.test_ca_public_projection_does_not_require_leaf_san) ... ok
+test_new_ca_scope_key_permissions_and_cached_reuse (test_check.Authority.test_new_ca_scope_key_permissions_and_cached_reuse) ... ok
+test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) ... 
+  test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) (profile='valid') ... ERROR
+  test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) (profile='san') ... FAIL
+  test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) (profile='expired') ... FAIL
+test_wrong_root_password_does_not_create_materials (test_check.Authority.test_wrong_root_password_does_not_create_materials) ... ok
+test_gateway_patch_has_uid_test_and_refuses_third_party_ref (test_check.Guards.test_gateway_patch_has_uid_test_and_refuses_third_party_ref) ... ok
+test_incomplete_recovery_does_not_claim_acceptance (test_check.Guards.test_incomplete_recovery_does_not_claim_acceptance) ... ok
+test_public_blocked_never_becomes_full_phase_pass (test_check.Guards.test_public_blocked_never_becomes_full_phase_pass) ... ok
+test_record_never_accepts_secret_payload (test_check.Guards.test_record_never_accepts_secret_payload) ... ok
+test_renewal_requires_new_key_same_uid_and_timer (test_check.Guards.test_renewal_requires_new_key_same_uid_and_timer) ... ok
+test_scope_and_uid_guards (test_check.Guards.test_scope_and_uid_guards) ... ok
+
+======================================================================
+ERROR: test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) (profile='valid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/test_check.py", line 98, in test_python_and_go_really_reject_each_bad_certificate
+    row = c.gw.probe.http('127.0.0.1', '/v1', port=server.server_port, ca=self.public)
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/gateway/probe.py", line 51, in http
+    connection.request('GET', path, headers=request_headers)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1367, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1413, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1362, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1122, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1066, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/gateway/probe.py", line 38, in connect
+    self.sock = self._context.wrap_socket(raw, server_hostname=self.host)
+                ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sock=sock,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        session=session
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ssl.py", line 1076, in _create
+    self.do_handshake()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ssl.py", line 1372, in do_handshake
+    self._sslobj.do_handshake()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier (_ssl.c:1082)
+
+======================================================================
+FAIL: test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) (profile='san')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/test_check.py", line 104, in test_python_and_go_really_reject_each_bad_certificate
+    self.assertIn(error.exception.verify_code, codes[profile])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 85 not found in [62]
+
+======================================================================
+FAIL: test_python_and_go_really_reject_each_bad_certificate (test_check.Authority.test_python_and_go_really_reject_each_bad_certificate) (profile='expired')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/certificates/test_check.py", line 104, in test_python_and_go_really_reject_each_bad_certificate
+    self.assertIn(error.exception.verify_code, codes[profile])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 85 not found in [10]
+
+----------------------------------------------------------------------
+Ran 10 tests in 3.818s
+
+FAILED (failures=2, errors=1)

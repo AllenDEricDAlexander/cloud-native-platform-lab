@@ -1,0 +1,49 @@
+---
+- name: 汇总内部验收并清理故障实验，保留自动化入口
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 内部所有结果必须通过，公网始终单独记为阻塞
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', accept, --records, '{{ tls_records }}', --attempt, '{{ tls_attempt }}', --output, '{{ tls_records }}/passed.json']
+      changed_when: false
+      when: tls_execute
+    - name: 清理本批实验并恢复稳定周期
+      when: tls_mode in ['all','cleanup','recover']
+      block:
+        - name: 退出短周期实验
+          ansible.builtin.include_tasks: ../tasks/certificates-stabilize.yml
+        - name: 读取内部验收状态
+          ansible.builtin.stat: {path: '{{ tls_records }}/passed.json'}
+          register: tls_accepted
+        - name: 未通过内部验收时回到切换前证书引用
+          ansible.builtin.include_tasks: ../tasks/certificates-switch.yml
+          vars: {tls_restore: true}
+          when: not tls_accepted.stat.exists
+        - name: 删除前核对实验 Namespace 原 UID 与空间内全部归属
+          ansible.builtin.command:
+            argv: ['{{ tls_python }}', '{{ tls_check }}', cleanup-plan, --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/cleanup-plan.json']
+          register: tls_cleanup
+          changed_when: false
+        - name: 仅删除本批 lab-tls 实验空间
+          ansible.builtin.command:
+            argv: '{{ tls_k + ["delete","namespace","lab-tls","--wait=true","--timeout=120s"] }}'
+          changed_when: true
+          when: (tls_cleanup.stdout | from_json).exists
+        - name: 检查主入口、原 Pod/spec、真实证书及原有工作负载
+          ansible.builtin.command:
+            argv: ['{{ tls_python }}', '{{ tls_check }}', final, --records, '{{ tls_records }}', --attempt, '{{ tls_attempt }}', --output, '{{ tls_records }}/state/closed.json']
+          register: tls_final
+          changed_when: false
+          retries: 45
+          delay: 2
+          until: tls_final.rc == 0
+        - name: 报告实验清理结果
+          ansible.builtin.debug: {msg: '02.05 CLEANUP PASS；主入口状态 {{ (tls_final.stdout | from_json).main_state }}；原 CA 私钥始终留在 Mac。'}
+    - name: 报告批准范围的完整内部验收结果
+      ansible.builtin.debug:
+        msg: '02.05 INTERNAL PASS：02.05.01/02 通过；02.05.03 BLOCKED；未把公网步骤标为通过。自动签发器与 .201 的稳定证书保留。'
+      when: tls_mode == 'all'

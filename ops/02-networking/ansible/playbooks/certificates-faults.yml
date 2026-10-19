@@ -1,0 +1,33 @@
+---
+- name: 对隔离后端执行四类 TLS 故障与有效恢复
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 所有故障都发生在隔离后端，始终恢复有效材料
+      when: tls_execute
+      block:
+        - name: 依次实测有效、错误 SAN、未知 CA、不完整链和过期叶证书
+          ansible.builtin.include_tasks: ../tasks/certificates-fault.yml
+          loop: [valid, san, unknown, incomplete, expired]
+          loop_control: {loop_var: tls_case}
+      always:
+        - name: 恢复有效后端并验证实际流量
+          when: tls_execute
+          block:
+            - name: 按原 Deployment UID 恢复有效后端 Secret
+              ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+              vars: {tls_manifest: '{{ tls_attempt }}/backend-valid.yaml'}
+            - name: 验证恢复后的 Python、Go 和网关请求
+              ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+              vars: {tls_wait_mode: fault, tls_wait_output: fault-restored, tls_wait_args: [--profile, valid], tls_wait_retries: 45}
+    - name: 验证 RBAC、受限签发与公网/管理域路由的拒绝
+      ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+      vars: {tls_wait_mode: authorization, tls_wait_output: authorization, tls_wait_retries: 5}
+      when: tls_execute
+    - name: 报告四类故障定位与恢复通过
+      ansible.builtin.debug:
+        msg: '02.05.02 PASS；Python/Go 验证错误、实际链和网关上游验证失败计数一致；主入口始终使用有效证书。'
+      when: tls_execute

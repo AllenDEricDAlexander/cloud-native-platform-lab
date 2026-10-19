@@ -1,0 +1,9 @@
+---
+- name: 等待 {{ tls_wait_mode }} 的身份与实际行为收敛
+  ansible.builtin.command:
+    argv: '{{ [tls_python,tls_check,tls_wait_mode,"--records",tls_records,"--attempt",tls_attempt,"--output",tls_attempt ~ "/" ~ tls_wait_output ~ ".json"] + (tls_wait_args | default([])) }}'
+  register: tls_wait_result
+  changed_when: false
+  retries: '{{ tls_wait_retries | default(40) }}'
+  delay: 2
+  until: tls_wait_result.rc == 0

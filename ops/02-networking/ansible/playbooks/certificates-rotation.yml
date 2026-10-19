@@ -1,0 +1,46 @@
+---
+- name: 接管主入口证书并真实观察定时续期与热加载
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 自动签发与续期，失败时退出短周期并恢复原引用
+      when: tls_execute
+      block:
+        - name: 初始标记尚未完成自动化切换
+          ansible.builtin.set_fact: {tls_automation_stable: false}
+        - name: 创建一小时证书，提前五十八分钟续期
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/certificate.yaml'}
+        - name: 等待本代证书 Ready、专用签发链及 Secret owner UID
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: certificate, tls_wait_output: certificate-issued, tls_wait_retries: 90}
+        - name: 只将主 HTTPS 引用切换为自动管理 Secret
+          ansible.builtin.include_tasks: ../tasks/certificates-switch.yml
+        - name: 验证实际 HTTPS 和当前自动证书一致，记录首轮续期时间
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: main-tls, tls_wait_output: certificate-initial, tls_wait_retries: 60}
+        - name: 不调用手工 renew，等待定时器更新证书和密钥并在网关生效
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: rotation, tls_wait_output: rotation, tls_wait_retries: 130}
+        - name: 恢复正常七天有效期与提前四十八小时续期
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/certificate-stable.yaml'}
+        - name: 验证稳定周期和实际 TLS，防止遗留短周期循环
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: steady, tls_wait_output: steady, tls_wait_retries: 90}
+        - name: 标记自动化已经稳定
+          ansible.builtin.set_fact: {tls_automation_stable: true}
+        - name: 报告内部签发及定时轮换通过
+          ansible.builtin.debug: {msg: '02.05.01 PASS；定时续期、Secret UID 保持、SPKI/指纹变化和网关实际热加载已验证。'}
+      always:
+        - name: 失败后不遗留短周期续期或不可用主引用
+          when: tls_execute and not (tls_automation_stable | default(false))
+          block:
+            - name: 将已有 Certificate 收敛为稳定周期
+              ansible.builtin.include_tasks: ../tasks/certificates-stabilize.yml
+            - name: 恢复本批切换前的主证书引用
+              ansible.builtin.include_tasks: ../tasks/certificates-switch.yml
+              vars: {tls_restore: true}

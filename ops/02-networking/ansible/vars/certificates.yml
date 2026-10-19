@@ -1,0 +1,19 @@
+---
+tls_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+tls_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+tls_check: '{{ tls_root }}/ops/02-networking/tests/integration/certificates/check.py'
+tls_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+tls_helm: '{{ lookup("env", "HOME") }}/.cnpl/bin/helm'
+tls_kubeconfig: '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+tls_k: ['{{ tls_kubectl }}', --kubeconfig, '{{ tls_kubeconfig }}', --request-timeout=20s]
+tls_lock: '{{ lookup("file", tls_root ~ "/ops/versions.lock.yaml") | from_yaml }}'
+tls_images: '{{ dict(tls_lock.components.cert_manager.artifacts | map(attribute="name") | zip(tls_lock.components.cert_manager.artifacts | map(attribute="internal_source"))) }}'
+tls_backend_image: '{{ tls_lock.components.gateway_fixture.internal_source }}'
+tls_execute: '{{ tls_mode in ["all","run"] }}'
+tls_secret_specs:
+  - {name: cnpl-internal-issuer-ca, namespace: cnpl-gateway, profile: issuer}
+  - {name: tls-test-valid, namespace: lab-tls, profile: valid}
+  - {name: tls-test-san, namespace: lab-tls, profile: san}
+  - {name: tls-test-unknown, namespace: lab-tls, profile: unknown}
+  - {name: tls-test-incomplete, namespace: lab-tls, profile: incomplete}
+  - {name: tls-test-expired, namespace: lab-tls, profile: expired}

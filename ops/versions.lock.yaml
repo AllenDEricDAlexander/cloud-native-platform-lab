@@ -719,13 +719,57 @@ components:
     execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
     status: actual_protocols_verified_test_workloads_removed
   cert_manager:
-    phase: "02"
-    candidate: null
-    version: null
-    artifacts: []
-    compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    phase: '02'
+    version: 1.21.2
+    supported_kubernetes:
+    - '1.33'
+    - '1.34'
+    - '1.35'
+    - '1.36'
+    chart:
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/certificates/cert-manager-v1.21.2.tgz
+      source: oci://quay.io/jetstack/charts/cert-manager
+      version: v1.21.2
+      sha256: 73a56e1728edd6c99f1f31082618c3259d279a76b7ebd3d4bdc5475c2442d34a
+    oci_manifest_digest: sha256:634dce9c13b56677a2c05e2ab76c312d0be2664022d5dd05815da67e1fd5f610
+    artifacts:
+    - name: controller
+      source: quay.io/jetstack/cert-manager-controller:v1.21.2
+      manifest_digest: sha256:57bb397c639e0e94184ba67848e5dad04284f24645e521e764a0ee5f5002f286
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-controller@sha256:57bb397c639e0e94184ba67848e5dad04284f24645e521e764a0ee5f5002f286
+    - name: webhook
+      source: quay.io/jetstack/cert-manager-webhook:v1.21.2
+      manifest_digest: sha256:b929259301ee75270ab4651d5e6bd4ba7b6624b1ce48ba767d064295a9312101
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-webhook@sha256:b929259301ee75270ab4651d5e6bd4ba7b6624b1ce48ba767d064295a9312101
+    - name: cainjector
+      source: quay.io/jetstack/cert-manager-cainjector:v1.21.2
+      manifest_digest: sha256:aa2bc58725d92a643f5069dde58abc93b65566ded8951348873ac9ee7efef66c
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-cainjector@sha256:aa2bc58725d92a643f5069dde58abc93b65566ded8951348873ac9ee7efef66c
+    - name: startupapicheck
+      source: quay.io/jetstack/cert-manager-startupapicheck:v1.21.2
+      manifest_digest: sha256:ed347b0ab607058f139b83f41567109456b9776330b63da8086a120afb7f1729
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-startupapicheck@sha256:ed347b0ab607058f139b83f41567109456b9776330b63da8086a120afb7f1729
+    - name: acmesolver
+      source: quay.io/jetstack/cert-manager-acmesolver:v1.21.2
+      manifest_digest: sha256:dc5c5b8456d1a50af47a240987e85afce352b5c1155a8a4698b7c91eac19f407
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-acmesolver@sha256:dc5c5b8456d1a50af47a240987e85afce352b5c1155a8a4698b7c91eac19f407
+    client:
+      path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/certificates/tls-probe-darwin-arm64
+      sha256: 8d4b0c6f3576a5c20a9658231bd23b6e0ead4ee9473b4397bddda27bf16ffce1
+      source_sha256: 31eada68c9b219558ede598fb7a8d9bfc167f929e98663f9631b7f52afda5aa7
+      go: 1.27.2
+    public_publishing: BLOCKED_operator_has_no_public_ingress
+    compatibility_evidence:
+    - https://cert-manager.io/docs/releases/
+    - https://cert-manager.io/docs/installation/helm/
+    execution_evidence:
+    - ops/02-networking/records/02.05-20261019T125941Z/README.md
+    status: internal_deployed_verified_public_blocked
   ceph:
     phase: "03"
     candidate: "Tentacle"

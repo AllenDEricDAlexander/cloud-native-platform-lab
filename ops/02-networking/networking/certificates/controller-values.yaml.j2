@@ -1,0 +1,31 @@
+fullnameOverride: cnpl-cert-manager
+crds: {enabled: false, keep: true}
+global:
+  commonLabels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+  leaderElection: {namespace: cert-manager}
+  rbac: {aggregateClusterRoles: false}
+clusterResourceNamespace: cert-manager
+approveSignerNames: [issuers.cert-manager.io/cnpl-gateway.cnpl-internal]
+replicaCount: 1
+nodeSelector: {kubernetes.io/hostname: infra01.k8s.internal.egon.top}
+image: {repository: '{{ tls_images.controller.split("@")[0] }}', digest: '{{ tls_images.controller.split("@")[1] }}'}
+resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: '1', memory: 512Mi}}
+config:
+  enableGatewayAPI: false
+enableCertificateOwnerRef: true
+webhook:
+  replicaCount: 1
+  nodeSelector: {kubernetes.io/hostname: infra02.k8s.internal.egon.top}
+  image: {repository: '{{ tls_images.webhook.split("@")[0] }}', digest: '{{ tls_images.webhook.split("@")[1] }}'}
+  resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: 500m, memory: 256Mi}}
+cainjector:
+  nodeSelector: {kubernetes.io/hostname: infra01.k8s.internal.egon.top}
+  image: {repository: '{{ tls_images.cainjector.split("@")[0] }}', digest: '{{ tls_images.cainjector.split("@")[1] }}'}
+  resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: 500m, memory: 256Mi}}
+startupapicheck:
+  nodeSelector: {kubernetes.io/hostname: infra02.k8s.internal.egon.top}
+  image: {repository: '{{ tls_images.startupapicheck.split("@")[0] }}', digest: '{{ tls_images.startupapicheck.split("@")[1] }}'}
+  resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {cpu: 500m, memory: 128Mi}}
+acmesolver:
+  image: {repository: '{{ tls_images.acmesolver.split("@")[0] }}', digest: '{{ tls_images.acmesolver.split("@")[1] }}'}
+prometheus: {enabled: false}

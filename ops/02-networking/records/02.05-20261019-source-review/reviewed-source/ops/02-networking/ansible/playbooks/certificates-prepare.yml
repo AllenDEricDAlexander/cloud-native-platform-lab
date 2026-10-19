@@ -1,0 +1,158 @@
+---
+- name: 完整 02.05 的身份、来源、物料和所有清单一次核验
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 限定批次模式和记录路径
+      ansible.builtin.assert:
+        that:
+          - tls_mode in ['all','run','validate','cleanup','recover']
+          - tls_records.startswith(tls_root ~ '/ops/02-networking/records/02.05-')
+          - tls_records | realpath == tls_records
+    - name: 生成独立 attempt 标识
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']
+      register: tls_clock
+      changed_when: false
+    - name: 绑定 attempt
+      ansible.builtin.set_fact: {tls_attempt: '{{ tls_records }}/attempts/{{ tls_clock.stdout }}-{{ tls_mode }}'}
+    - name: 创建本机取证目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ tls_attempt }}', '{{ tls_records }}/state']
+    - name: 检查批次原始状态
+      ansible.builtin.stat: {path: '{{ tls_records }}/{{ item }}'}
+      loop: [context.json, passed.json, state/closed.json, state/source.json]
+      register: tls_prior
+    - name: 恢复需要原上下文，运行不覆盖已经关闭的批次
+      ansible.builtin.assert:
+        that:
+          - tls_mode not in ['cleanup','recover'] or tls_prior.results[0].stat.exists
+          - not tls_execute or (not tls_prior.results[1].stat.exists and not tls_prior.results[2].stat.exists)
+    - name: 复核十节点、02.04 原始交接、主入口及根 CA 身份
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', '{{ "identity" if tls_mode in ["cleanup","recover"] else "preflight" }}', --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/preflight.json']
+      register: tls_preflight
+      changed_when: false
+    - name: 绑定原集群和批次
+      ansible.builtin.set_fact:
+        tls_context: '{{ tls_preflight.stdout | from_json }}'
+        tls_run: '{{ (tls_preflight.stdout | from_json).run }}'
+    - name: 记录全部源码与输入摘要
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', source, --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/source.json']
+      changed_when: false
+    - name: 未关闭运行只能使用相同受检源码
+      ansible.builtin.assert:
+        that: lookup('file', tls_attempt ~ '/source.json') | from_json == lookup('file', tls_records ~ '/state/source.json') | from_json
+      when: tls_execute and tls_prior.results[3].stat.exists
+    - name: 核对五个 cert-manager 镜像和既有后端镜像摘要
+      ansible.builtin.command:
+        argv: [/opt/homebrew/bin/crane, digest, --platform, linux/amd64, '{{ item }}']
+      loop: '{{ (tls_images.values() | list) + [tls_backend_image] }}'
+      register: tls_registry_check
+      changed_when: false
+      failed_when: tls_registry_check.rc != 0 or tls_registry_check.stdout | trim != item.split('@')[1]
+      when: tls_mode in ['all','run','validate']
+    - name: 确定性重建无额外依赖的 Go TLS 客户端
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', build, --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/client-build.json']
+      changed_when: false
+      when: tls_mode in ['all','run','validate']
+    - name: 核对已准备客户端的文件摘要
+      ansible.builtin.stat:
+        path: '{{ tls_lock.components.cert_manager.client.path }}'
+        checksum_algorithm: sha256
+      register: tls_client
+      when: tls_mode in ['all','run','validate']
+    - name: 客户端必须匹配版本锁
+      ansible.builtin.assert:
+        that: tls_client.stat.checksum == tls_lock.components.cert_manager.client.sha256
+      when: tls_mode in ['all','run','validate']
+    - name: 一次渲染全部公开控制器、签发器、授权和路由清单
+      ansible.builtin.template:
+        src: '../../networking/certificates/{{ item }}.yaml.j2'
+        dest: '{{ tls_attempt }}/{{ item }}.yaml'
+        mode: '0600'
+      loop: [controller-values, namespaces, policies, issuer, certificate, route-editor, routes]
+      when: tls_mode in ['all','run','validate']
+    - name: 同时渲染五类故障后端，全部提前校验
+      ansible.builtin.template:
+        src: ../../networking/certificates/backend.yaml.j2
+        dest: '{{ tls_attempt }}/backend-{{ item }}.yaml'
+        mode: '0600'
+      vars: {tls_profile: '{{ item }}'}
+      loop: [valid, san, unknown, incomplete, expired]
+      when: tls_mode in ['all','run','validate']
+    - name: 正式与恢复模式均准备稳定证书清单
+      ansible.builtin.template:
+        src: ../../networking/certificates/certificate.yaml.j2
+        dest: '{{ tls_attempt }}/certificate-stable.yaml'
+        mode: '0600'
+      vars: {tls_stable: true}
+    - name: 恢复核验需要锁定控制器配置
+      ansible.builtin.template:
+        src: ../../networking/certificates/controller-values.yaml.j2
+        dest: '{{ tls_attempt }}/controller-values.yaml'
+        mode: '0600'
+      when: tls_mode in ['cleanup','recover']
+    - name: 严格服务端预览 CRD、策略及所有内置资源，按锁定 schema 校验自定义实例
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', validate, --records, '{{ tls_records }}', --attempt, '{{ tls_attempt }}', --output, '{{ tls_attempt }}/compatibility.json']
+      changed_when: false
+      when: tls_mode in ['all','run','validate']
+    - name: 保存原有工作负载与配置基线
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', protected, --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/protected.json']
+      changed_when: false
+      when: tls_mode in ['all','run','validate']
+    - name: 首次绑定原始输入与资源基线，不覆盖旧证据
+      ansible.builtin.copy: {src: '{{ tls_attempt }}/{{ item }}.json', dest: '{{ tls_records }}/state/{{ item }}.json', mode: '0600', force: false}
+      loop: [source, protected]
+      when: tls_execute
+    - name: 读取入口已准备的公开材料索引
+      ansible.builtin.set_fact: {tls_materials: '{{ lookup("file", tls_records ~ "/state/materials.json") | from_json }}'}
+      when: tls_execute
+    - name: 私有 Secret 只写管理端秘密目录
+      ansible.builtin.set_fact: {tls_private: '{{ tls_materials.private_dir }}'}
+      when: tls_execute
+
+- name: 只读复核四台承载 VM 的安全状态与时间同步
+  hosts: worker01:worker02:infra01:infra02
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 检查原 VM、Enforcing、firewalld 和基础服务
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname)" = '{{ node_fqdn }}'
+        test "$(getenforce)" = Enforcing
+        test "$(firewall-cmd --get-zone-of-interface=ens33)" = public
+        systemctl is-active firewalld containerd kubelet chronyd
+        test "$(timedatectl show -p NTPSynchronized --value)" = yes
+        chronyc tracking
+      args: {executable: /bin/bash}
+      register: tls_vm
+      changed_when: false
+      when: tls_mode in ['all','run','validate']
+    - name: 保存 VM 公开状态
+      ansible.builtin.copy:
+        content: '{{ tls_vm.stdout ~ "\n" }}'
+        dest: '{{ hostvars.localhost.tls_attempt }}/host-{{ inventory_hostname }}.txt'
+        mode: '0600'
+      delegate_to: localhost
+      when: tls_mode in ['all','run','validate']
+
+- name: 整组前置核验完成
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 报告统一前检结果及公网边界
+      ansible.builtin.debug:
+        msg: '02.05 SOURCE VALIDATION PASS；所有配置/物料/VM 已核验；自定义实例 CEL/Webhook 在安装后逐项严格预览；公网按批准范围 BLOCKED。'
+      when: tls_mode in ['all','run','validate']

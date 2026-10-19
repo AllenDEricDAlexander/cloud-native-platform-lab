@@ -1,0 +1,57 @@
+---
+- name: 安装 cert-manager、受限签发身份和隔离后端
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 正式安装与平台配置
+      when: tls_execute
+      block:
+        - name: 创建专用控制器与实验空间
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/namespaces.yaml'}
+        - name: 单独 SSA 安装六个锁定 CRD
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/crds.yaml'}
+        - name: 等待 CRD Established
+          ansible.builtin.command:
+            argv: '{{ tls_k + ["wait","--for=condition=Established","--timeout=120s","-f",tls_attempt ~ "/crds.yaml"] }}'
+          changed_when: false
+        - name: 核对 Chart release 与已有对象归属
+          ansible.builtin.command:
+            argv: ['{{ tls_python }}', '{{ tls_check }}', helm-guard, --records, '{{ tls_records }}', --values, '{{ tls_attempt }}/controller-values.yaml', --output, '{{ tls_attempt }}/helm-guard.json']
+          changed_when: false
+        - name: 安装锁定 cert-manager 与 webhook，禁用 CRD 重复安装
+          ansible.builtin.command:
+            argv: ['{{ tls_helm }}', --kubeconfig, '{{ tls_kubeconfig }}', upgrade, --install, cnpl-cert-manager, '{{ tls_lock.components.cert_manager.chart.local_source }}', --namespace, cert-manager, --skip-crds, --values, '{{ tls_attempt }}/controller-values.yaml', --wait, --timeout, 10m, --rollback-on-failure]
+          changed_when: true
+        - name: 核对三个实际控制器与锁定镜像
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: controller-ready, tls_wait_output: controller-ready}
+        - name: 建立签发、CSR 和内部路由准入边界
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/policies.yaml'}
+        - name: 等待本代策略类型检查无告警
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: policies-ready, tls_wait_output: policies-ready}
+        - name: 只上传新专用中间签发密钥与测试叶密钥
+          ansible.builtin.include_tasks: ../tasks/certificates-secret.yml
+          loop: '{{ tls_secret_specs }}'
+          loop_control: {loop_var: tls_secret, label: '{{ tls_secret.profile }}'}
+        - name: 建立仅引用专用 CA Secret 的 namespaced Issuer
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/issuer.yaml'}
+        - name: 建立证书编辑者最小权限
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/route-editor.yaml'}
+        - name: 建立有效证书的单副本隔离后端
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/backend-valid.yaml'}
+        - name: 建立 Service、根信任及后端 TLS 路由
+          ansible.builtin.include_tasks: ../tasks/certificates-apply.yml
+          vars: {tls_manifest: '{{ tls_attempt }}/routes.yaml'}
+        - name: 等待隔离后端实际就绪
+          ansible.builtin.include_tasks: ../tasks/certificates-wait.yml
+          vars: {tls_wait_mode: backend, tls_wait_output: backend-initial}

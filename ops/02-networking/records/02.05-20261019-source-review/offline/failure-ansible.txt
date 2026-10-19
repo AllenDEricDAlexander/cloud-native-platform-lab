@@ -1,0 +1,118 @@
+
+PLAY [接管主入口证书并真实观察定时续期与热加载] ********************************
+
+TASK [初始标记尚未完成自动化切换] **********************************************
+ok: [localhost]
+
+TASK [创建一小时证书，提前五十八分钟续期] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Certificate/primary-auto)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+ok: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+ok: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待本代证书 Ready、专用签发链及 Secret owner UID] ***********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 certificate 的身份与实际行为收敛] ***********************************
+ok: [localhost]
+
+TASK [只将主 HTTPS 引用切换为自动管理 Secret] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-switch.yml for localhost
+
+TASK [按原 UID 和字段值生成证书引用补丁] ***************************************
+ok: [localhost]
+
+TASK [只更新 HTTPS 证书引用，不修改入口其他字段] *******************************
+skipping: [localhost]
+
+TASK [验证实际 HTTPS 和当前自动证书一致，记录首轮续期时间] *********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 main-tls 的身份与实际行为收敛] **************************************
+ok: [localhost]
+
+TASK [不调用手工 renew，等待定时器更新证书和密钥并在网关生效] ******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml for localhost
+
+TASK [等待 rotation 的身份与实际行为收敛] **************************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-wait.yml:2:3
+
+1 ---
+2 - name: 等待 {{ tls_wait_mode }} 的身份与实际行为收敛
+    ^ column 3
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-failure-recover-d0kj845y/check.py", "rotation", "--records", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-failure-recover-d0kj845y/records", "--attempt", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-failure-recover-d0kj845y/records/attempts/20261019T122035Z-ee7f5130-all", "--output", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-tls-failure-recover-d0kj845y/records/attempts/20261019T122035Z-ee7f5130-all/rotation.json"], "delta": "0:00:00.483755", "end": "2026-10-19 20:23:37.653701", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-19 20:23:37.169946", "stderr": "deliberate offline failure after managed certificate switch", "stderr_lines": ["deliberate offline failure after managed certificate switch"], "stdout": "", "stdout_lines": []}
+
+TASK [将已有 Certificate 收敛为稳定周期] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-stabilize.yml for localhost
+
+TASK [核对已存在的本组件 Certificate，不在恢复时补装] **************************
+ok: [localhost]
+
+TASK [退出两分钟续期实验模式，保留七天有效期和提前四十八小时续期] **************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Certificate/primary-auto)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [恢复本批切换前的主证书引用] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-switch.yml for localhost
+
+TASK [按原 UID 和字段值生成证书引用补丁] ***************************************
+ok: [localhost]
+
+TASK [只更新 HTTPS 证书引用，不修改入口其他字段] *******************************
+changed: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=31   changed=5    unreachable=0    failed=1    skipped=1    rescued=0    ignored=0   
+

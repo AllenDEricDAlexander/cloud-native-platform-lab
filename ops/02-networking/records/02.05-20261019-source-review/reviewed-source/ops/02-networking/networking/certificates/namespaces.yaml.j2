@@ -1,0 +1,16 @@
+{% for name, temporary in [('cert-manager',false),('lab-tls',true)] %}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: '{{ name }}'
+  labels:
+    cnpl.io/component: phase02-certificates
+    cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'
+{% if temporary %}
+    cnpl.io/tls-run: '{{ tls_run }}'
+    cnpl.io/gateway-access: primary
+{% endif %}
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+{% endfor %}

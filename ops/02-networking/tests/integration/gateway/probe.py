@@ -109,8 +109,8 @@ def grpc(client, address, backends, port=443, ca=CA):
 
 
 @contextmanager
-def forwarded(k, pod, ports, evidence):
-    process = subprocess.Popen(k[:-1] + ['--request-timeout=0', '-n', 'envoy-gateway-system', 'port-forward', '--address=127.0.0.1', 'pod/' + pod, *['0:' + str(p) for p in ports]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+def forwarded(k, pod, ports, evidence, namespace='envoy-gateway-system'):
+    process = subprocess.Popen(k[:-1] + ['--request-timeout=0', '-n', namespace, 'port-forward', '--address=127.0.0.1', 'pod/' + pod, *['0:' + str(p) for p in ports]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     output, mapped = '', {}
     try:
         deadline = time.monotonic() + 20

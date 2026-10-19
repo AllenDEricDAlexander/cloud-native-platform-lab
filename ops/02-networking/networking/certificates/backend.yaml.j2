@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fault-backend
+  namespace: lab-tls
+  labels: {cnpl.io/tls-run: '{{ tls_run }}'}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: fault-backend, cnpl.io/tls-run: '{{ tls_run }}'}
+  template:
+    metadata:
+      labels: {app: fault-backend, cnpl.io/tls-run: '{{ tls_run }}', version: '{{ tls_profile | default("valid") }}'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 5
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: backend
+          image: '{{ tls_backend_image }}'
+          env:
+            - {name: VERSION, value: '{{ tls_profile | default("valid") }}'}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+            - {name: TLS_CERT, value: /tls/tls.crt}
+            - {name: TLS_KEY, value: /tls/tls.key}
+          ports: [{name: http, containerPort: 8080}, {name: https, containerPort: 8443}]
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {cpu: 500m, memory: 128Mi}}
+          volumeMounts: [{name: tls, mountPath: /tls, readOnly: true}]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      volumes: [{name: tls, secret: {secretName: 'tls-test-{{ tls_profile | default("valid") }}', defaultMode: 288}}]

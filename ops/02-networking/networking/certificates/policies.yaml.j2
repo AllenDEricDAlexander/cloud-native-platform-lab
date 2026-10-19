@@ -1,0 +1,37 @@
+{% set rules = [
+('certificates','cert-manager.io',['certificates'],["object.metadata.namespace != 'cnpl-gateway' || ((!has(object.spec.isCA) || !object.spec.isCA) && object.metadata.name == 'primary-auto' && object.spec.secretName == 'primary-managed-tls' && object.spec.issuerRef.name == 'cnpl-internal' && object.spec.issuerRef.kind == 'Issuer' && object.spec.issuerRef.group == 'cert-manager.io')", "object.metadata.namespace != 'cnpl-gateway' || (has(object.spec.dnsNames) && size(object.spec.dnsNames) == 2 && object.spec.dnsNames.all(n, n in ['demo.svc.internal.egon.top','grpc-demo.svc.internal.egon.top']) && object.spec.dnsNames.exists(n, n == 'demo.svc.internal.egon.top') && object.spec.dnsNames.exists(n, n == 'grpc-demo.svc.internal.egon.top') && (!has(object.spec.commonName) || object.spec.commonName == '') && (!has(object.spec.ipAddresses) || size(object.spec.ipAddresses) == 0) && (!has(object.spec.uris) || size(object.spec.uris) == 0) && (!has(object.spec.emailAddresses) || size(object.spec.emailAddresses) == 0) && (!has(object.spec.otherNames) || size(object.spec.otherNames) == 0))", "object.metadata.namespace != 'cnpl-gateway' || (has(object.spec.duration) && duration(object.spec.duration) >= duration('1h') && duration(object.spec.duration) <= duration('168h') && size(object.spec.usages) == 2 && object.spec.usages.all(u, u in ['digital signature','server auth']))"]),
+('requests','cert-manager.io',['certificaterequests'],["object.metadata.namespace != 'cnpl-gateway' || request.userInfo.username == 'system:serviceaccount:cert-manager:cnpl-cert-manager'", "object.metadata.namespace != 'cnpl-gateway' || ((!has(object.spec.isCA) || !object.spec.isCA) && object.spec.issuerRef.name == 'cnpl-internal' && object.spec.issuerRef.kind == 'Issuer' && object.spec.issuerRef.group == 'cert-manager.io')"]),
+('issuers','cert-manager.io',['issuers','clusterissuers'],["request.resource.resource != 'clusterissuers' || object.metadata.name != 'cnpl-internal'", "request.resource.resource != 'issuers' || object.metadata.namespace != 'cnpl-gateway' || (object.metadata.name == 'cnpl-internal' && has(object.spec.ca) && object.spec.ca.secretName == 'cnpl-internal-issuer-ca' && !has(object.spec.acme) && !has(object.spec.selfSigned) && !has(object.spec.vault) && !has(object.spec.venafi))"]),
+('public-routes','gateway.networking.k8s.io',['httproutes','grpcroutes'],["!has(object.spec.parentRefs) || !object.spec.parentRefs.exists(p, p.name == 'primary' && ((has(p.namespace) && p.namespace == 'cnpl-gateway') || (!has(p.namespace) && object.metadata.namespace == 'cnpl-gateway'))) || (has(object.spec.hostnames) && size(object.spec.hostnames) > 0 && object.spec.hostnames.all(h, h in ['demo.svc.internal.egon.top','grpc-demo.svc.internal.egon.top']))"]),
+('kube-csr','certificates.k8s.io',['certificatesigningrequests'],["!object.spec.signerName.startsWith('issuers.cert-manager.io/cnpl-gateway.cnpl-internal') && object.spec.signerName != 'clusterissuers.cert-manager.io/cnpl-internal'"])
+] %}
+{% for name, group, resources, expressions in rules %}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cnpl-tls-{{ name }}
+  labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ['{{ group }}']
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: {{ resources | to_json }}
+  validations:
+{% for expression in expressions %}
+    - expression: {{ expression | to_json }}
+      message: 'CNPL_TLS_BOUNDARY: {{ name }}'
+{% endfor %}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cnpl-tls-{{ name }}
+  labels: {cnpl.io/component: phase02-certificates, cnpl.io/cluster-uid: '{{ tls_context.cluster_uid }}'}
+spec:
+  policyName: cnpl-tls-{{ name }}
+  validationActions: [Deny]
+---
+{% endfor %}

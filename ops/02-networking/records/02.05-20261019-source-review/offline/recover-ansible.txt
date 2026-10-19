@@ -1,0 +1,74 @@
+
+PLAY [汇总内部验收并清理故障实验，保留自动化入口] ******************************
+
+TASK [内部所有结果必须通过，公网始终单独记为阻塞] ******************************
+skipping: [localhost]
+
+TASK [退出短周期实验] **********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-stabilize.yml for localhost
+
+TASK [核对已存在的本组件 Certificate，不在恢复时补装] **************************
+ok: [localhost]
+
+TASK [退出两分钟续期实验模式，保留七天有效期和提前四十八小时续期] **************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/certificates-document.yml for localhost => (item=Certificate/primary-auto)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [读取内部验收状态] ********************************************************
+ok: [localhost]
+
+TASK [未通过内部验收时回到切换前证书引用] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/certificates-switch.yml for localhost
+
+TASK [按原 UID 和字段值生成证书引用补丁] ***************************************
+ok: [localhost]
+
+TASK [只更新 HTTPS 证书引用，不修改入口其他字段] *******************************
+changed: [localhost]
+
+TASK [删除前核对实验 Namespace 原 UID 与空间内全部归属] ************************
+ok: [localhost]
+
+TASK [仅删除本批 lab-tls 实验空间] *********************************************
+changed: [localhost]
+
+TASK [检查主入口、原 Pod/spec、真实证书及原有工作负载] *************************
+ok: [localhost]
+
+TASK [报告实验清理结果] ********************************************************
+ok: [localhost] => {
+    "msg": "02.05 CLEANUP PASS；主入口状态 original_restored；原 CA 私钥始终留在 Mac。"
+}
+
+TASK [报告批准范围的完整内部验收结果] ******************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=19   changed=5    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+

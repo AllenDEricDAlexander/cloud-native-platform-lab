@@ -117,51 +117,21 @@ bash ops/02-networking/scripts/gateway.sh all "$LAB_GATEWAY_RECORDS"
 
 ## 02.05 TLS、cert-manager 与公网边界
 
-输入：内部 CA 签发方式及明确的公开白名单。
+状态：[完整 02.05 内部验收及清理通过](records/02.05-20261019T125941Z/README.md)，49 份执行输入匹配，13 项内部结果通过；主入口保留稳定周期自动证书。按操作者确认，02.05.03 公网项 BLOCKED，阶段不宣称完整通过；已生成 02.06 内部实验交接。
 
-1. 部署 cert-manager，声明受限 Issuer/Certificate，根 CA 私钥保持离线；把证书 Secret 引用接到 Gateway，校验实际返回的 SAN/链/有效期。
-2. 缩短实验叶证书周期或执行可控续期测试，观察更新后的 TLS；测试错误 SAN、未受信 CA、过期证书的拒绝行为。
-3. 公网入口只对已列白名单配置 DNS/入站和 ACME；内部 GitLab/Harbor/API 不因统一网关而公开。
-
-### 操作命令与目的
+[全部 Ansible、YAML、每条命令与预期结果](examples/certificates/README.md)；[执行前核验](records/02.05-20261019-source-review/README.md)。管理 Mac 一次执行：
 
 ```bash
-helm upgrade --install cert-manager "$LAB_CERT_MANAGER_CHART" -n cert-manager \
-  --create-namespace --version "$LAB_CERT_MANAGER_VERSION" -f cert-manager-values.yaml --wait
-kubectl -n lab-net apply -f issuer-demo.yaml -f certificate-demo.yaml
-kubectl -n lab-net get certificate,certificaterequest
-kubectl -n lab-net wait --for=condition=Ready certificate/demo-tls --timeout=120s
-openssl s_client -connect "$LAB_GATEWAY_VIP:443" -servername "$LAB_HOST" \
-  -CAfile "$LAB_CA_FILE" -verify_return_error </dev/null
-curl --cacert "$LAB_CA_FILE" --resolve "$LAB_HOST:443:$LAB_GATEWAY_VIP" "https://$LAB_HOST/"
-cmctl renew demo-tls -n lab-net                   # 对实验叶证书测试续期
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+export LAB_TLS_RECORDS="$PWD/ops/02-networking/records/02.05-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/certificates.sh all "$LAB_TLS_RECORDS"
 ```
 
-cert-manager CRD 的安装开关按锁定 Chart 确认；Issuer 仅引用受限签发身份。根 CA 私钥不放到集群中。
+依次进入仓库、绑定全新证据目录、统一前检及执行全部内部实验和清理。首次安全输入一次根 CA 口令，在 Mac 签发独立受限中间 CA；根和原中间 CA 私钥不上传，新签发器只允许既有两个网关域名。cert-manager 1.21.2、五个镜像和 Go 标准库 TLS 客户端均已锁定并准备。
 
-### 配置示例
+定时器实际更新证书和密钥、Secret UID 保持、网关 TLS 热加载后恢复七天证书/提前四十八小时续期。四类错误材料仅放在 lab-tls 后端，主入口保持有效证书；Python/Go 检查真实拒绝类型，网关上游验证失败计数必须增加。成功保留自动化组件和 .201，回收实验空间，原入口非证书字段及原 Pod UID/spec 不变。
 
-`lab-issuer` 已经配置为受限内部签发端，Certificate 生成的 Secret 由 Gateway HTTPS listener 引用：
-
-```yaml
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata: {name: demo-tls, namespace: lab-net}
-spec:
-  secretName: demo-tls
-  dnsNames: [demo.svc.internal.egon.top]
-  issuerRef:
-    kind: Issuer
-    name: lab-issuer
-```
-
-### 预期结果
-
-Certificate Ready，TLS SAN/链/有效期正确，客户端不跳过校验即可访问。续期后 Secret 和实际返回证书更新；错误 SAN、未知 CA 和过期叶证书应被客户端拒绝。公网 ACME 单独使用白名单域名和受限 DNS 身份。
-
-交付：`ops/02-networking/networking/certificates/`；TLS 正反用例与续期结果。
-
-检查与失败处理：客户端无需跳过校验，续期后服务可用；失败恢复原可用叶证书和 Route，不公开根密钥。
+预期 02.05 INTERNAL PASS、02.05.03 BLOCKED、CLEANUP PASS 和 failed/unreachable=0；不打印完整 ALL PASS，不把公网标成通过。恢复命令、权限边界及 CA 有效期维护见完整说明。
 
 <a id="02-06"></a>
 

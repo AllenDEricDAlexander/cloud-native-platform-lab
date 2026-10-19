@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fault-backend
+  namespace: lab-tls
+  labels: {cnpl.io/tls-run: '{{ tls_run }}'}
+spec:
+  selector: {app: fault-backend, cnpl.io/tls-run: '{{ tls_run }}'}
+  ports: [{name: https, port: 8443, targetPort: https}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-root
+  namespace: lab-tls
+  labels: {cnpl.io/tls-run: '{{ tls_run }}'}
+data:
+  ca.crt: |
+{{ lookup('file', tls_root ~ '/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt') | indent(4,true) }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: fault-backend
+  namespace: lab-tls
+  labels: {cnpl.io/tls-run: '{{ tls_run }}'}
+spec:
+  targetRefs: [{group: '', kind: Service, name: fault-backend, sectionName: https}]
+  validation:
+    hostname: demo.svc.internal.egon.top
+    caCertificateRefs: [{group: '', kind: ConfigMap, name: backend-root}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tls-faults
+  namespace: lab-tls
+  labels: {cnpl.io/tls-run: '{{ tls_run }}'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /tls-probe}}]
+      backendRefs: [{name: fault-backend, port: 8443}]

@@ -1,0 +1,11 @@
+---
+- name: 装入 {{ tls_case }} 的独立测试叶证书，替换单个实验后端
+  ansible.builtin.include_tasks: certificates-apply.yml
+  vars: {tls_manifest: '{{ tls_attempt }}/backend-{{ tls_case }}.yaml'}
+- name: 验证 Python、Go 与网关对 {{ tls_case }} 的实际结果
+  ansible.builtin.include_tasks: certificates-wait.yml
+  vars:
+    tls_wait_mode: fault
+    tls_wait_output: 'fault-{{ tls_case }}'
+    tls_wait_args: [--profile, '{{ tls_case }}']
+    tls_wait_retries: 30

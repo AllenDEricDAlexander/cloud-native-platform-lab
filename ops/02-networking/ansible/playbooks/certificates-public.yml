@@ -1,0 +1,16 @@
+---
+- name: 如实登记 02.05.03 公网能力阻塞
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/certificates.yml]
+  tasks:
+    - name: 保留批准范围与阻塞原因，不创建公网资源
+      ansible.builtin.command:
+        argv: ['{{ tls_python }}', '{{ tls_check }}', public, --records, '{{ tls_records }}', --output, '{{ tls_attempt }}/public.json']
+      changed_when: false
+      when: tls_execute
+    - name: 报告公网发布尚未验收
+      ansible.builtin.debug: {msg: '02.05.03 BLOCKED：操作者确认没有公网入站或隧道；未配置公网 DNS/NAT/ACME，LAN 成功不计为公网通过。'}
+      when: tls_execute

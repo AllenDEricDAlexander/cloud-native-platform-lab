@@ -1,0 +1,292 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 'web-v1'
+  namespace: 'lab-gateway-app'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: 'web-v1', cnpl.io/gateway-run: 'offline-source-review'}
+  template:
+    metadata:
+      labels: {app: 'web-v1', version: 'v1', cnpl.io/gateway-run: 'offline-source-review'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector: {matchLabels: {app: 'web-v1', cnpl.io/gateway-run: 'offline-source-review'}}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: backend
+          image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5'
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: VERSION, value: 'v1'}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: https, containerPort: 8443}
+            - {name: grpc, containerPort: 50051}
+            - {name: tcp, containerPort: 9000}
+            - {name: udp, containerPort: 9001, protocol: UDP}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 'web-v1'
+  namespace: 'lab-gateway-app'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  selector: {app: 'web-v1', cnpl.io/gateway-run: 'offline-source-review'}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+    - {name: grpc, port: 50051, targetPort: grpc, appProtocol: kubernetes.io/h2c}
+    - {name: tcp, port: 9000, targetPort: tcp}
+    - {name: udp, port: 9001, targetPort: udp, protocol: UDP}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 'web-v2'
+  namespace: 'lab-gateway-app'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: 'web-v2', cnpl.io/gateway-run: 'offline-source-review'}
+  template:
+    metadata:
+      labels: {app: 'web-v2', version: 'v2', cnpl.io/gateway-run: 'offline-source-review'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector: {matchLabels: {app: 'web-v2', cnpl.io/gateway-run: 'offline-source-review'}}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: backend
+          image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5'
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: VERSION, value: 'v2'}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: https, containerPort: 8443}
+            - {name: grpc, containerPort: 50051}
+            - {name: tcp, containerPort: 9000}
+            - {name: udp, containerPort: 9001, protocol: UDP}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 'web-v2'
+  namespace: 'lab-gateway-app'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  selector: {app: 'web-v2', cnpl.io/gateway-run: 'offline-source-review'}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 'shared'
+  namespace: 'lab-gateway-backends'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: 'shared', cnpl.io/gateway-run: 'offline-source-review'}
+  template:
+    metadata:
+      labels: {app: 'shared', version: 'shared', cnpl.io/gateway-run: 'offline-source-review'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector: {matchLabels: {app: 'shared', cnpl.io/gateway-run: 'offline-source-review'}}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: backend
+          image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5'
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: VERSION, value: 'shared'}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: https, containerPort: 8443}
+            - {name: grpc, containerPort: 50051}
+            - {name: tcp, containerPort: 9000}
+            - {name: udp, containerPort: 9001, protocol: UDP}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 'shared'
+  namespace: 'lab-gateway-backends'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  selector: {app: 'shared', cnpl.io/gateway-run: 'offline-source-review'}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 'secure'
+  namespace: 'lab-gateway-backends'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: 'secure', cnpl.io/gateway-run: 'offline-source-review'}
+  template:
+    metadata:
+      labels: {app: 'secure', version: 'secure', cnpl.io/gateway-run: 'offline-source-review'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector: {matchLabels: {app: 'secure', cnpl.io/gateway-run: 'offline-source-review'}}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: backend
+          image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5'
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: VERSION, value: 'secure'}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+            - {name: TLS_CERT, value: /tls/tls.crt}
+            - {name: TLS_KEY, value: /tls/tls.key}
+          volumeMounts: [{name: tls, mountPath: /tls, readOnly: true}]
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: https, containerPort: 8443}
+            - {name: grpc, containerPort: 50051}
+            - {name: tcp, containerPort: 9000}
+            - {name: udp, containerPort: 9001, protocol: UDP}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+      volumes: [{name: tls, secret: {secretName: backend-tls, defaultMode: 288}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 'secure'
+  namespace: 'lab-gateway-backends'
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  selector: {app: 'secure', cnpl.io/gateway-run: 'offline-source-review'}
+  ports:
+    - {name: https, port: 8443, targetPort: https}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-ca
+  namespace: lab-gateway-backends
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIICDDCCAZKgAwIBAgIUFoklZMNDWUNOooYwXFUDxf/CFFswCgYIKoZIzj0EAwMw
+    RDEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEeMBwGA1UEAwwV
+    Q05QTCBMYWIgUm9vdCBDQSAyMDI2MB4XDTI2MTAxNzAxNDQzNFoXDTM2MTAxNDAx
+    NDQzNFowRDEiMCAGA1UECgwZY2xvdWQtbmF0aXZlLXBsYXRmb3JtLWxhYjEeMBwG
+    A1UEAwwVQ05QTCBMYWIgUm9vdCBDQSAyMDI2MHYwEAYHKoZIzj0CAQYFK4EEACID
+    YgAE+BmJEs9PUIFVXTYg/p9EGvEiLwiBJGtvmisCmyzbatcDblwWLLRczoYpASFv
+    E/8fmgnInZBfP6UKK+xkWOuFs+8/QboXb5KN5QqVu5gsghuuJLk0XczYUkjhXQ19
+    hvEXo0UwQzASBgNVHRMBAf8ECDAGAQH/AgEBMA4GA1UdDwEB/wQEAwIBBjAdBgNV
+    HQ4EFgQUXRdXvAUf+e8wLoKwnkkagI0ASVYwCgYIKoZIzj0EAwMDaAAwZQIweSh0
+    vELVuZCerrty5GQFZfaR/okM1Hx355Mi7fRA8ytI5q8cMZlOO/Cr9EtiqDvAAjEA
+    8OifnpgjYrramB1u5v3Eirf9vwRl0OQ3qEu8E5lQsCKvItbSdtfdf7PHW74OaTvv
+    -----END CERTIFICATE-----
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: secure
+  namespace: lab-gateway-backends
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  targetRefs: [{group: '', kind: Service, name: secure, sectionName: https}]
+  validation:
+    hostname: backend.svc.internal.egon.top
+    caCertificateRefs: [{group: '', kind: ConfigMap, name: backend-ca}]

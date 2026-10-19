@@ -1,0 +1,7 @@
+---
+- name: 对整份公开清单逐个执行身份检查、服务端准入和 UID 取证
+  ansible.builtin.include_tasks: gateway-document.yml
+  loop: '{{ lookup("file", gateway_manifest) | from_yaml_all | select | list }}'
+  loop_control:
+    loop_var: gateway_document
+    label: '{{ gateway_document.kind }}/{{ gateway_document.metadata.name }}'

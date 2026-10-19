@@ -1,0 +1,671 @@
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: false
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envoy-gateway-config
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+data:
+  envoy-gateway.yaml: "apiVersion: gateway.envoyproxy.io/v1alpha1\nkind: EnvoyGateway\n\
+    envoyProxy:\n  provider:\n    kubernetes:\n      envoyDeployment:\n        container:\n\
+    \          image: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28\n\
+    \          imagePullPolicy: IfNotPresent\n    type: Kubernetes\nextensionApis:\
+    \ {}\ngateway:\n  controllerName: gateway.envoyproxy.io/cnpl-primary-controller\n\
+    logging:\n  level:\n    default: info\nprovider:\n  kubernetes:\n    rateLimitDeployment:\n\
+    \      container:\n        image: docker.io/envoyproxy/ratelimit:0482748e\n  \
+    \    patch:\n        type: StrategicMerge\n        value:\n          spec:\n \
+    \           template:\n              spec:\n                containers:\n    \
+    \            - imagePullPolicy: IfNotPresent\n                  name: envoy-ratelimit\n\
+    \    shutdownManager:\n      image: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8\n\
+    \  type: Kubernetes\nproxyTopologyInjector:\n  disabled: true\n"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: cnpl-eg-gateway-helm-envoy-gateway-role
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  verbs:
+  - update
+- apiGroups:
+  - multicluster.x-k8s.io
+  resources:
+  - serviceimports
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.envoyproxy.io
+  resources:
+  - envoyproxies
+  - envoypatchpolicies
+  - clienttrafficpolicies
+  - backendtrafficpolicies
+  - securitypolicies
+  - envoyextensionpolicies
+  - backends
+  - httproutefilters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.envoyproxy.io
+  resources:
+  - envoyproxies/status
+  - envoypatchpolicies/status
+  - clienttrafficpolicies/status
+  - backendtrafficpolicies/status
+  - securitypolicies/status
+  - envoyextensionpolicies/status
+  - backends/status
+  verbs:
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  - listenersets
+  - grpcroutes
+  - httproutes
+  - referencegrants
+  - tcproutes
+  - tlsroutes
+  - udproutes
+  - backendtlspolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways/status
+  - listenersets/status
+  - grpcroutes/status
+  - httproutes/status
+  - tcproutes/status
+  - tlsroutes/status
+  - udproutes/status
+  - backendtlspolicies/status
+  verbs:
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cnpl-eg-gateway-helm-envoy-gateway-rolebinding
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cnpl-eg-gateway-helm-envoy-gateway-role
+subjects:
+- kind: ServiceAccount
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cnpl-eg-gateway-helm-infra-manager
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  - services
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - delete
+  - deletecollection
+  - patch
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  verbs:
+  - create
+  - get
+  - list
+  - delete
+  - deletecollection
+  - patch
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - get
+  - list
+  - delete
+  - deletecollection
+  - patch
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - get
+  - list
+  - delete
+  - deletecollection
+  - patch
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - clustertrustbundles
+  verbs:
+  - list
+  - get
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cnpl-eg-gateway-helm-leader-election-role
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnpl-eg-gateway-helm-infra-manager
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cnpl-eg-gateway-helm-infra-manager
+subjects:
+- kind: ServiceAccount
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnpl-eg-gateway-helm-leader-election-rolebinding
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cnpl-eg-gateway-helm-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+  labels:
+    control-plane: envoy-gateway
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+spec:
+  type: ClusterIP
+  selector:
+    control-plane: envoy-gateway
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+  ports:
+  - name: grpc
+    port: 18000
+    targetPort: 18000
+  - name: ratelimit
+    port: 18001
+    targetPort: 18001
+  - name: wasm
+    port: 18002
+    targetPort: 18002
+  - name: metrics
+    port: 19001
+    targetPort: 19001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+  labels:
+    control-plane: envoy-gateway
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: envoy-gateway
+      app.kubernetes.io/name: gateway-helm
+      app.kubernetes.io/instance: cnpl-eg
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: '19001'
+        prometheus.io/scrape: 'true'
+      labels:
+        control-plane: envoy-gateway
+        app.kubernetes.io/name: gateway-helm
+        app.kubernetes.io/instance: cnpl-eg
+    spec:
+      automountServiceAccountToken: true
+      nodeSelector:
+        kubernetes.io/hostname: infra01.k8s.internal.egon.top
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - args:
+        - server
+        - --config-path=/config/envoy-gateway.yaml
+        env:
+        - name: ENVOY_GATEWAY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: ENVOY_GATEWAY_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: ENVOY_GATEWAY_FULLNAME
+          value: cnpl-eg-gateway-helm
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: cluster.local
+        image: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8
+        imagePullPolicy: IfNotPresent
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz
+            port: 8081
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: envoy-gateway
+        ports:
+        - containerPort: 18000
+          name: grpc
+        - containerPort: 18001
+          name: ratelimit
+        - containerPort: 18002
+          name: wasm
+        - containerPort: 19001
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: '1'
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-gateway-config
+          readOnly: true
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /var/lib/eg/wasm
+          name: wasm-cache
+      imagePullSecrets: []
+      serviceAccountName: envoy-gateway
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: envoy-gateway-config
+        name: envoy-gateway-config
+      - name: certs
+        secret:
+          secretName: envoy-gateway
+      - name: wasm-cache
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: false
+metadata:
+  name: cnpl-eg-gateway-helm-certgen
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+  annotations:
+    helm.sh/hook: pre-install, pre-upgrade
+    helm.sh/hook-weight: '-1'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cnpl-eg-gateway-helm-certgen
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+  annotations:
+    helm.sh/hook: pre-install, pre-upgrade
+    helm.sh/hook-weight: '-1'
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  verbs:
+  - get
+  - create
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnpl-eg-gateway-helm-certgen
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+  annotations:
+    helm.sh/hook: pre-install, pre-upgrade
+    helm.sh/hook-weight: '-1'
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cnpl-eg-gateway-helm-certgen
+subjects:
+- kind: ServiceAccount
+  name: cnpl-eg-gateway-helm-certgen
+  namespace: envoy-gateway-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cnpl-eg-gateway-helm-certgen
+  namespace: envoy-gateway-system
+  labels:
+    helm.sh/chart: gateway-helm-v1.9.2
+    app.kubernetes.io/name: gateway-helm
+    app.kubernetes.io/instance: cnpl-eg
+    app.kubernetes.io/version: v1.9.2
+    app.kubernetes.io/managed-by: Helm
+    cnpl.io/cluster-uid: 4d3e52d7-e203-4daf-aced-9c3a666fcf5b
+    cnpl.io/component: phase02-gateway
+  annotations:
+    helm.sh/hook: pre-install, pre-upgrade
+spec:
+  backoffLimit: 1
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        app: certgen
+    spec:
+      automountServiceAccountToken: true
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - args:
+        - --disable-topology-injector
+        command:
+        - envoy-gateway
+        - certgen
+        env:
+        - name: ENVOY_GATEWAY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: cluster.local
+        image: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8
+        imagePullPolicy: IfNotPresent
+        name: envoy-gateway-certgen
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+      imagePullSecrets: []
+      nodeSelector:
+        kubernetes.io/hostname: infra01.k8s.internal.egon.top
+      restartPolicy: Never
+      serviceAccountName: cnpl-eg-gateway-helm-certgen
+  ttlSecondsAfterFinished: 30

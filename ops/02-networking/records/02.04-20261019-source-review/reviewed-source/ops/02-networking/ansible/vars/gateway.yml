@@ -1,0 +1,25 @@
+---
+gateway_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+gateway_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+gateway_check: '{{ gateway_root }}/ops/02-networking/tests/integration/gateway/check.py'
+gateway_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+gateway_helm: '{{ lookup("env", "HOME") }}/.cnpl/bin/helm'
+gateway_config: '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+gateway_crane: /opt/homebrew/bin/crane
+gateway_k: ['{{ gateway_kubectl }}', --kubeconfig, '{{ gateway_config }}', --request-timeout=20s]
+gateway_lock: '{{ lookup("file", gateway_root ~ "/ops/versions.lock.yaml") | from_yaml }}'
+gateway_images:
+  controller: '{{ gateway_lock.components.envoy_gateway.artifacts[0].internal_source }}'
+  proxy: '{{ gateway_lock.components.envoy_gateway.artifacts[1].internal_source }}'
+  traefik: '{{ gateway_lock.components.ingress_compare.artifacts[0].internal_source }}'
+  backend: '{{ gateway_lock.components.gateway_fixture.internal_source }}'
+gateway_client: '{{ gateway_lock.components.gateway_fixture.client.path }}'
+gateway_execute: '{{ gateway_mode in ["all","run"] }}'
+gateway_controller_ns: envoy-gateway-system
+gateway_primary_ns: cnpl-gateway
+gateway_temporary_ns: [lab-gateway-app, lab-gateway-backends, lab-gateway-denied, ingress-compare]
+gateway_secret_specs:
+  - {name: primary-tls, namespace: cnpl-gateway, profile: primary}
+  - {name: foreign-frontend, namespace: lab-gateway-backends, profile: foreign}
+  - {name: backend-tls, namespace: lab-gateway-backends, profile: backend}
+  - {name: compare-tls, namespace: lab-gateway-app, profile: compare}

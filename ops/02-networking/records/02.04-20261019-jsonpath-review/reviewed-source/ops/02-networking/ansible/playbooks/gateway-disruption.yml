@@ -1,0 +1,78 @@
+---
+- name: 在真实 HTTPS 观测下替换一个数据面 Pod 并验证冷启动配置
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 执行单个数据面 Pod 故障实验
+      when: gateway_execute
+      block:
+        - name: 保存待替换 Pod 和主 Gateway、Service、Deployment 原 UID
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', disrupt-plan, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/disrupt-plan.json']
+          register: gateway_disrupt
+          changed_when: false
+        - name: 开始有界实际 HTTPS 新连接观测
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', observe, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/observer-result.json']
+          async: 660
+          poll: 0
+          register: gateway_observer
+          changed_when: false
+        - name: 故障期间始终停止并收齐观测进程
+          block:
+            - name: 等待五个预热请求实际成功
+              ansible.builtin.command:
+                argv: ['{{ gateway_python }}', '{{ gateway_check }}', observe-ready, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/observer-ready.json']
+              register: gateway_warm
+              changed_when: false
+              retries: 30
+              delay: 1
+              until: gateway_warm.rc == 0
+            - name: 删除前再次核对目标 Pod UID
+              ansible.builtin.command:
+                argv: ['{{ gateway_python }}', '{{ gateway_check }}', disrupt-delete-plan, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/disrupt-delete-plan.json']
+              changed_when: false
+            - name: 仅删除一个已登记的数据面 Pod，让 Deployment 自动替换
+              ansible.builtin.command:
+                argv: '{{ gateway_k + ["delete","pod",(gateway_disrupt.stdout | from_json).pod.name,"-n","envoy-gateway-system","--wait=true","--timeout=90s"] }}'
+              changed_when: true
+            - name: 等待原 Pod UID 消失和两个 VM 上的双副本恢复
+              ansible.builtin.command:
+                argv: ['{{ gateway_python }}', '{{ gateway_check }}', disrupt-state, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/replacement.json']
+              register: gateway_replacement
+              changed_when: false
+              retries: 90
+              delay: 2
+              until: gateway_replacement.rc == 0
+            - name: 直连新 Pod 验证 HTTPS、gRPC、LDS/CDS 成功与零拒绝
+              ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+              vars: {gateway_case: cold-proxy}
+            - name: 收集替换完成后至少十个实际入口成功请求
+              ansible.builtin.command:
+                argv: ['{{ gateway_python }}', '{{ gateway_check }}', post-disruption-samples, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/post-disruption.json']
+              register: gateway_after
+              changed_when: false
+              retries: 30
+              delay: 1
+              until: gateway_after.rc == 0
+          always:
+            - name: 标记停止所有本批观测并等待进程退出
+              ansible.builtin.command:
+                argv: ['{{ gateway_python }}', '{{ gateway_check }}', stop-observers, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/observers-stopped.json']
+              changed_when: false
+            - name: 收齐异步观测的退出状态
+              ansible.builtin.async_status: {jid: '{{ gateway_observer.ansible_job_id }}'}
+              register: gateway_observer_done
+              changed_when: false
+              retries: 15
+              delay: 1
+              until: gateway_observer_done.finished
+        - name: 验证连续观测完整性、替换后真实流量与冷启动结果
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', disrupt-analyse, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/disruption.json']
+          changed_when: false
+        - name: 报告主入口故障恢复完整验收通过
+          ansible.builtin.debug: {msg: '02.04.02 PASS；主 Gateway/Service/Deployment UID 保持，新 Pod 实际 HTTP/gRPC 和 xDS 均通过，故障窗口错误样本如实保留。'}

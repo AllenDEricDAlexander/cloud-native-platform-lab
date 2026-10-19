@@ -1,0 +1,75 @@
+---
+- name: 安装锁定 CRD、控制器和受控双副本主入口
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 执行正式安装
+      when: gateway_execute
+      block:
+        - name: 建立平台与实验命名空间
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/namespaces.yaml'}
+        - name: 单独安装锁定 Standard CRD 与升级保护策略
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/crds.yaml'}
+        - name: 等待所有锁定 CRD 建立
+          ansible.builtin.command:
+            argv: '{{ gateway_k + ["wait","--for=condition=Established","--timeout=120s","-f",gateway_attempt ~ "/crds-only.yaml"] }}'
+          changed_when: false
+        - name: 刷新 API 发现
+          ansible.builtin.command: {argv: '{{ gateway_k + ["api-resources","--cached=false"] }}'}
+          changed_when: false
+        - name: 拒绝接管已有其他控制器或 Chart 对象
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', helm-guard, --which, eg, --records, '{{ gateway_records }}', --values, '{{ gateway_attempt }}/controller-values.yaml', --output, '{{ gateway_attempt }}/helm-eg.json']
+          changed_when: false
+        - name: 安装控制面，仅使用已有锁定 Chart 和 Harbor 镜像
+          ansible.builtin.command:
+            argv: ['{{ gateway_helm }}', --kubeconfig, '{{ gateway_config }}', upgrade, --install, cnpl-eg, '{{ gateway_lock.components.envoy_gateway.chart.local_source }}', --namespace, envoy-gateway-system, --skip-crds, --values, '{{ gateway_attempt }}/controller-values.yaml', --wait, --timeout, 10m, --rollback-on-failure]
+          changed_when: true
+        - name: 核对控制面实际镜像和就绪副本
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', controller-ready, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/controller-ready.json']
+          register: gateway_controller
+          changed_when: false
+          retries: 30
+          delay: 2
+          until: gateway_controller.rc == 0
+        - name: 创建四份仅含叶证书的私有 Secret
+          ansible.builtin.include_tasks: ../tasks/gateway-secret.yml
+          loop: '{{ gateway_secret_specs }}'
+          loop_control: {loop_var: gateway_secret, label: '{{ gateway_secret.profile }}'}
+        - name: 建立 HTTP、后端 TLS、gRPC、TCP 和 UDP 专用诊断实例
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/fixtures.yaml'}
+        - name: 建立业务路由编辑者的最小权限
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/route-editor.yaml'}
+        - name: 配置两台 worker VM 的数据面和独立负载均衡服务
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/envoy-proxy.yaml'}
+        - name: 建立 GatewayClass、Gateway 和 HTTP 到 HTTPS 重定向
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/gateway.yaml'}
+        - name: 等待六个诊断后端实际 Ready
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', fixtures, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/fixtures-ready.json']
+          register: gateway_fixtures
+          changed_when: false
+          retries: 90
+          delay: 2
+          until: gateway_fixtures.rc == 0
+        - name: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', main-ready, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/main-ready.json']
+          register: gateway_main
+          changed_when: false
+          retries: 90
+          delay: 2
+          until: gateway_main.rc == 0
+        - name: 报告兼容性和主入口基础安装通过
+          ansible.builtin.debug:
+            msg: '02.04.01 PASS；02.04.02 主入口已 Ready，仍需后续真实流量和单 Pod 替换实验。'

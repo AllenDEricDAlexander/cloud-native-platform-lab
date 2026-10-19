@@ -1,6 +1,6 @@
 # Phase 02｜云原生网络、调度与服务治理
 
-文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](../ops/02-networking/records/02.03-20261019T000211Z/README.md)正式验收及清理通过；完整02.04正在准备，其他步骤未执行。步骤数：45。
+文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](../ops/02-networking/records/02.03-20261019T000211Z/README.md)正式验收及清理通过；[完整02.04](../ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；完整02.05准备中，其他步骤未执行。步骤数：45。
 
 从可观测的基础通信开始，建立 Service、网关、证书、网络隔离和调度规则，再逐项比较 eBPF、负载均衡、出站治理与服务网格。
 

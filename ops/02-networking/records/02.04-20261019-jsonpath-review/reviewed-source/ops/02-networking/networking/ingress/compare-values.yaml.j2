@@ -1,0 +1,42 @@
+fullnameOverride: cnpl-ingress-compare
+image:
+  registry: harbor.k8s.internal.egon.top
+  repository: bootstrap/phase02-traefik
+  tag: v3.7.14
+  digest: '{{ gateway_images.traefik.split("@")[1] }}'
+  pullPolicy: IfNotPresent
+deployment:
+  replicas: 1
+  terminationGracePeriodSeconds: 10
+  labels: {cnpl.io/component: phase02-ingress-compare, cnpl.io/cluster-uid: '{{ gateway_context.cluster_uid }}'}
+  podLabels: {cnpl.io/component: phase02-ingress-compare, cnpl.io/cluster-uid: '{{ gateway_context.cluster_uid }}'}
+nodeSelector: {kubernetes.io/hostname: infra02.k8s.internal.egon.top}
+ingressClass: {enabled: true, isDefaultClass: false, name: cnpl-compare}
+gateway: {enabled: false}
+providers:
+  kubernetesCRD: {enabled: false}
+  kubernetesGateway: {enabled: false}
+  kubernetesIngress:
+    enabled: true
+    ingressClass: cnpl-compare
+    namespaces: [lab-gateway-app]
+ingressRoute:
+  dashboard: {enabled: false}
+service:
+  labels: {cnpl.io/vip-policy: primary, cnpl.io/component: phase02-ingress-compare, cnpl.io/cluster-uid: '{{ gateway_context.cluster_uid }}'}
+  annotations:
+    metallb.io/address-pool: cnpl-primary
+    metallb.io/loadBalancerIPs: 192.168.9.203
+  spec:
+    type: LoadBalancer
+    allocateLoadBalancerNodePorts: false
+    externalTrafficPolicy: Cluster
+    loadBalancerSourceRanges: ['{{ gateway_context.mac_ip }}/32']
+additionalArguments:
+  - --entryPoints.web.http.redirections.entryPoint.to=:443
+  - --entryPoints.web.http.redirections.entryPoint.scheme=https
+  - --entryPoints.web.http.redirections.entryPoint.permanent=true
+metrics: {prometheus: null}
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 256Mi}

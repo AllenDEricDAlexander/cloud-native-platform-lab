@@ -1,0 +1,63 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: primary
+  namespace: cnpl-gateway
+  labels: {cnpl.io/component: phase02-gateway, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+spec:
+  concurrency: 2
+  shutdown: {drainTimeout: 10s, minDrainDuration: 2s}
+  telemetry:
+    metrics:
+      prometheus: {disable: false}
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        name: cnpl-primary
+        replicas: 2
+        strategy:
+          type: RollingUpdate
+          rollingUpdate: {maxSurge: 0, maxUnavailable: 1}
+        pod:
+          nodeSelector: {node-role.kubernetes.io/worker: ''}
+          labels: {cnpl.io/component: phase02-gateway-data, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels: {cnpl.io/component: phase02-gateway-data, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+        container:
+          image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28'
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              labels: {cnpl.io/component: phase02-gateway-data, cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'}
+            spec:
+              template:
+                spec:
+                  terminationGracePeriodSeconds: 45
+                  containers:
+                    - name: shutdown-manager
+                      image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8'
+                      resources:
+                        requests: {cpu: 10m, memory: 32Mi}
+                        limits: {cpu: 200m, memory: 128Mi}
+      envoyService:
+        name: cnpl-primary
+        type: LoadBalancer
+        allocateLoadBalancerNodePorts: false
+        externalTrafficPolicy: Cluster
+        loadBalancerSourceRanges: ['192.168.9.200/32']
+        labels:
+          cnpl.io/component: phase02-gateway-data
+          cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'
+          cnpl.io/vip-policy: primary
+        annotations:
+          metallb.io/address-pool: cnpl-primary
+          metallb.io/loadBalancerIPs: 192.168.9.201

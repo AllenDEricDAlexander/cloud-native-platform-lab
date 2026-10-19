@@ -1,0 +1,11 @@
+---
+- name: 检查 {{ gateway_cleanup_namespace }} 的原始 UID 及资源范围
+  ansible.builtin.command:
+    argv: ['{{ gateway_python }}', '{{ gateway_check }}', cleanup-plan, --records, '{{ gateway_records }}', --namespace, '{{ gateway_cleanup_namespace }}', --output, '{{ gateway_attempt }}/cleanup-{{ gateway_cleanup_namespace }}.json']
+  register: gateway_namespace_cleanup
+  changed_when: false
+- name: 仅删除本批隔离空间
+  ansible.builtin.command:
+    argv: '{{ gateway_k + ["delete","namespace",gateway_cleanup_namespace,"--wait=true","--timeout=180s"] }}'
+  changed_when: true
+  when: (gateway_namespace_cleanup.stdout | from_json).exists

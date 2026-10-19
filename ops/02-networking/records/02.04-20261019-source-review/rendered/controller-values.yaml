@@ -1,0 +1,32 @@
+crds: {enabled: false}
+commonLabels:
+  cnpl.io/component: phase02-gateway
+  cnpl.io/cluster-uid: '4d3e52d7-e203-4daf-aced-9c3a666fcf5b'
+global:
+  images:
+    envoyGateway: {image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8', pullPolicy: IfNotPresent}
+    envoyProxy: {image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28', pullPolicy: IfNotPresent}
+deployment:
+  replicas: 1
+  pod:
+    nodeSelector: {kubernetes.io/hostname: infra01.k8s.internal.egon.top}
+  envoyGateway:
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: '1', memory: 1Gi}
+certgen:
+  job:
+    nodeSelector: {kubernetes.io/hostname: infra01.k8s.internal.egon.top}
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+topologyInjector: {enabled: false}
+kubernetesClusterDomain: cluster.local
+config:
+  envoyGateway:
+    gateway: {controllerName: gateway.envoyproxy.io/cnpl-primary-controller}
+    provider:
+      type: Kubernetes
+      kubernetes:
+        shutdownManager: {image: 'harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8'}
+    logging: {level: {default: info}}

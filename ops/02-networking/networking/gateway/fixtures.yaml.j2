@@ -1,0 +1,103 @@
+{% for name, namespace, version, replicas, tls in [('web-v1','lab-gateway-app','v1',2,false),('web-v2','lab-gateway-app','v2',2,false),('shared','lab-gateway-backends','shared',1,false),('secure','lab-gateway-backends','secure',1,true)] %}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: '{{ name }}'
+  namespace: '{{ namespace }}'
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  replicas: {{ replicas }}
+  selector:
+    matchLabels: {app: '{{ name }}', cnpl.io/gateway-run: '{{ gateway_run }}'}
+  template:
+    metadata:
+      labels: {app: '{{ name }}', version: '{{ version }}', cnpl.io/gateway-run: '{{ gateway_run }}'}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      nodeSelector: {node-role.kubernetes.io/worker: ''}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector: {matchLabels: {app: '{{ name }}', cnpl.io/gateway-run: '{{ gateway_run }}'}}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: backend
+          image: '{{ gateway_images.backend }}'
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: VERSION, value: '{{ version }}'}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+{% if tls %}
+            - {name: TLS_CERT, value: /tls/tls.crt}
+            - {name: TLS_KEY, value: /tls/tls.key}
+          volumeMounts: [{name: tls, mountPath: /tls, readOnly: true}]
+{% endif %}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: https, containerPort: 8443}
+            - {name: grpc, containerPort: 50051}
+            - {name: tcp, containerPort: 9000}
+            - {name: udp, containerPort: 9001, protocol: UDP}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 2, timeoutSeconds: 2}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+{% if tls %}
+      volumes: [{name: tls, secret: {secretName: backend-tls, defaultMode: 288}}]
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: '{{ name }}'
+  namespace: '{{ namespace }}'
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  selector: {app: '{{ name }}', cnpl.io/gateway-run: '{{ gateway_run }}'}
+  ports:
+{% if tls %}
+    - {name: https, port: 8443, targetPort: https}
+{% else %}
+    - {name: http, port: 8080, targetPort: http}
+{% if name == 'web-v1' %}
+    - {name: grpc, port: 50051, targetPort: grpc, appProtocol: kubernetes.io/h2c}
+    - {name: tcp, port: 9000, targetPort: tcp}
+    - {name: udp, port: 9001, targetPort: udp, protocol: UDP}
+{% endif %}
+{% endif %}
+---
+{% endfor %}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-ca
+  namespace: lab-gateway-backends
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+data:
+  ca.crt: |
+{{ lookup('file', gateway_root ~ '/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt') | indent(4,true) }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: secure
+  namespace: lab-gateway-backends
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  targetRefs: [{group: '', kind: Service, name: secure, sectionName: https}]
+  validation:
+    hostname: backend.svc.internal.egon.top
+    caCertificateRefs: [{group: '', kind: ConfigMap, name: backend-ca}]

@@ -1,0 +1,99 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /v1}}]
+      backendRefs: [{name: web-v1, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /v2}}]
+      backendRefs: [{name: web-v2, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /headers}}]
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier: {set: [{name: X-Cnpl-Gateway, value: envoy}]}
+        - type: ResponseHeaderModifier
+          responseHeaderModifier: {set: [{name: X-Cnpl-Controller, value: envoy-gateway}]}
+      backendRefs: [{name: web-v1, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /rewrite}}]
+      filters:
+        - type: URLRewrite
+          urlRewrite: {path: {type: ReplacePrefixMatch, replacePrefixMatch: /v1}}
+      backendRefs: [{name: web-v1, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /slow}}]
+      timeouts: {request: 2s, backendRequest: 1s}
+      backendRefs: [{name: web-v1, port: 8080}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: 'shared'
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: '/shared'}}]
+      backendRefs: [{name: 'shared', namespace: lab-gateway-backends, port: 8080 }]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: 'secure'
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: '/secure'}}]
+      backendRefs: [{name: 'secure', namespace: lab-gateway-backends, port: 8443 }]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: health
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [grpc-demo.svc.internal.egon.top]
+  rules:
+    - matches: [{method: {type: Exact, service: grpc.health.v1.Health, method: Check}}]
+      backendRefs: [{name: web-v1, port: 50051}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: 'TCPRoute'
+metadata:
+  name: 'tcp'
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: 'tcp'}]
+  rules: [{backendRefs: [{name: web-v1, port: 9000 }]}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: 'UDPRoute'
+metadata:
+  name: 'udp'
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: 'udp'}]
+  rules: [{backendRefs: [{name: web-v1, port: 9001 }]}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: untrusted
+  namespace: lab-gateway-denied
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: http}]
+  hostnames: [forbidden.svc.internal.egon.top]
+  rules: [{backendRefs: [{name: absent, port: 8080}]}]

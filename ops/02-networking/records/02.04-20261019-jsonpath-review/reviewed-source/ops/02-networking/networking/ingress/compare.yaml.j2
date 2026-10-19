@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: compare
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  ingressClassName: cnpl-compare
+  tls: [{hosts: [demo.svc.internal.egon.top], secretName: compare-tls}]
+  rules:
+    - host: demo.svc.internal.egon.top
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend: {service: {name: web-v1, port: {number: 8080}}}
+          - path: /v2
+            pathType: Prefix
+            backend: {service: {name: web-v2, port: {number: 8080}}}

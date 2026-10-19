@@ -1,0 +1,38 @@
+{
+  "checked_at_utc": "2026-10-19T02:27:30.550324+00:00",
+  "read_only": true,
+  "cluster_mutations_performed": false,
+  "checks": [
+    {
+      "argv": [
+        "/Users/mario/.cnpl/bin/kubectl",
+        "--kubeconfig",
+        "/Users/mario/.cnpl-secrets/kubeconfig-lab-primary",
+        "--request-timeout=6s",
+        "get",
+        "--raw=/readyz"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": "Unable to connect to the server: context deadline exceeded (Client.Timeout exceeded while awaiting headers)\n"
+    },
+    {
+      "argv": [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=5",
+        "-i",
+        "/Users/mario/.ssh/cnpl_lab_ed25519",
+        "root@192.168.9.101",
+        "hostname"
+      ],
+      "rc": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 192.168.9.101 port 22: Operation timed out\n"
+    }
+  ],
+  "dns_error": "[Errno 8] nodename nor servname provided, or not known",
+  "live_remote_preflight_passed": false
+}

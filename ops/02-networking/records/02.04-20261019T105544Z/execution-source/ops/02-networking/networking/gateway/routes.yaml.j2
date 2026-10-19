@@ -1,0 +1,80 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /v1}}]
+      backendRefs: [{name: web-v1, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /v2}}]
+      backendRefs: [{name: web-v2, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /headers}}]
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier: {set: [{name: X-Cnpl-Gateway, value: envoy}]}
+        - type: ResponseHeaderModifier
+          responseHeaderModifier: {set: [{name: X-Cnpl-Controller, value: envoy-gateway}]}
+      backendRefs: [{name: web-v1, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /rewrite}}]
+      filters:
+        - type: URLRewrite
+          urlRewrite: {path: {type: ReplacePrefixMatch, replacePrefixMatch: /v1}}
+      backendRefs: [{name: web-v1, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /slow}}]
+      timeouts: {request: 2s, backendRequest: 1s}
+      backendRefs: [{name: web-v1, port: 8080}]
+---
+{% for name, backend, path in [('shared','shared','/shared'),('secure','secure','/secure')] %}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ name }}'
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: '{{ path }}'}}]
+      backendRefs: [{name: '{{ backend }}', namespace: lab-gateway-backends, port: {{ 8443 if name == 'secure' else 8080 }} }]
+---
+{% endfor %}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: health
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [grpc-demo.svc.internal.egon.top]
+  rules:
+    - matches: [{method: {type: Exact, service: grpc.health.v1.Health, method: Check}}]
+      backendRefs: [{name: web-v1, port: 50051}]
+---
+{% for kind, name, port in [('TCPRoute','tcp',9000),('UDPRoute','udp',9001)] %}
+apiVersion: gateway.networking.k8s.io/v1
+kind: '{{ kind }}'
+metadata:
+  name: '{{ name }}'
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: '{{ name }}'}]
+  rules: [{backendRefs: [{name: web-v1, port: {{ port }} }]}]
+---
+{% endfor %}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: untrusted
+  namespace: lab-gateway-denied
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: http}]
+  hostnames: [forbidden.svc.internal.egon.top]
+  rules: [{backendRefs: [{name: absent, port: 8080}]}]

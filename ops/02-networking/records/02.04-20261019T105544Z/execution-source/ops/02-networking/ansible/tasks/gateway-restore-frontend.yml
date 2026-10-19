@@ -1,0 +1,17 @@
+---
+- name: 检查是否保存过主证书引用原值
+  ansible.builtin.stat: {path: '{{ gateway_records }}/state/frontend-original.json'}
+  register: gateway_frontend_saved
+- name: 按原 UID 和当前字段值恢复主证书引用
+  when: gateway_frontend_saved.stat.exists
+  block:
+    - name: 生成只恢复 certificateRefs 的精确补丁
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', frontend-restore-plan, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/frontend-restore-plan.json']
+      register: gateway_frontend_restore
+      changed_when: false
+    - name: 恢复主入口的本地叶证书引用
+      ansible.builtin.command:
+        argv: '{{ gateway_k + ["patch","Gateway","primary","-n","cnpl-gateway","--type=json","-p",(gateway_frontend_restore.stdout | from_json).patch | to_json] }}'
+      changed_when: true
+      when: (gateway_frontend_restore.stdout | from_json).patch | length > 0

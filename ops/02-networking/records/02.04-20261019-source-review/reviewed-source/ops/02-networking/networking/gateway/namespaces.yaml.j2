@@ -1,0 +1,18 @@
+{% for name, permanent, allowed in [('envoy-gateway-system',true,false),('cnpl-gateway',true,true),('lab-gateway-app',false,true),('lab-gateway-backends',false,false),('lab-gateway-denied',false,false),('ingress-compare',false,false)] %}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: '{{ name }}'
+  labels:
+    cnpl.io/component: phase02-gateway
+    cnpl.io/cluster-uid: '{{ gateway_context.cluster_uid }}'
+{% if not permanent %}
+    cnpl.io/gateway-run: '{{ gateway_run }}'
+{% endif %}
+{% if allowed %}
+    cnpl.io/gateway-access: primary
+{% endif %}
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+{% endfor %}

@@ -611,21 +611,113 @@ components:
     failover_execution_evidence: ["ops/02-networking/records/02.03-20261019T000211Z/README.md"]
     status: deployed_l2_pool_failover_and_lifecycle_verified
   gateway_api:
-    phase: "02"
-    candidate: null
-    version: null
-    artifacts: []
-    compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    phase: '02'
+    version: 1.6.1
+    channel: standard
+    served_route_versions:
+      HTTPRoute: v1
+      GRPCRoute: v1
+      TCPRoute: v1
+      UDPRoute: v1
+      ReferenceGrant: v1
+      BackendTLSPolicy: v1
+    chart:
+      version: v1.9.2
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-crds-helm-v1.9.2.tgz
+      source: oci://docker.io/envoyproxy/gateway-crds-helm
+      sha256: 8e22afc647f10b0c792ac2ee0180a66c65d9d11d3f2ac36eba8cb3c70197820f
+    oci_manifest_digest: sha256:940b88fe361cb22fb651e3075f649e9be885f35b1c8a990658c1a2acc2d2a678
+    compatibility_evidence:
+    - https://gateway.envoyproxy.io/news/releases/matrix/
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: deployed_and_full_02_04_verified
   envoy_gateway:
-    phase: "02"
-    candidate: null
-    version: null
-    artifacts: []
-    compatibility_evidence: []
-    execution_evidence: []
-    status: pending
+    phase: '02'
+    version: 1.9.2
+    supported_kubernetes:
+    - '1.33'
+    - '1.34'
+    - '1.35'
+    - '1.36'
+    compiled_gateway_api: 1.6.1
+    envoy_proxy_version: 1.39.1
+    chart:
+      version: v1.9.2
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-helm-v1.9.2.tgz
+      source: oci://docker.io/envoyproxy/gateway-helm
+      sha256: 1079cad009e0885f6e10e5f712257d8e5fdaf911d2ceb3fa1b78632c8f29bbf9
+    oci_manifest_digest: sha256:be034275b55deeddd6b7bc1f4da6eeb02b8efc418a4a29e2b1977851b24b1e63
+    artifacts:
+    - name: controller
+      source: docker.io/envoyproxy/gateway:v1.9.2
+      platform: linux/amd64
+      manifest_digest: sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8
+    - name: proxy
+      source: docker.io/envoyproxy/envoy:distroless-v1.39.1@sha256:eb2c01c13125d1629637cb4e4cce7207009fb7cc2c8027f9742758549d15b6f4
+      platform: linux/amd64
+      manifest_digest: sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28
+    compatibility_evidence:
+    - https://gateway.envoyproxy.io/news/releases/matrix/
+    - https://github.com/envoyproxy/gateway/releases/tag/v1.9.2
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: deployed_and_full_02_04_verified
+  ingress_compare:
+    phase: '02'
+    implementation: traefik
+    version: 3.7.14
+    minimum_kubernetes: 1.30.0
+    chart:
+      version: 42.0.0
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/traefik-42.0.0.tgz
+      source: oci://ghcr.io/traefik/helm/traefik
+      sha256: be43ad4ff4198efa255c566f1feb9589ed89319710cfe5a568295b0cdfa1ad42
+    oci_manifest_digest: sha256:779f04f7aa930daddba2aacf0f4a75c8d83cac477c00996372680b61fdf423aa
+    artifacts:
+    - name: traefik
+      source: docker.io/library/traefik:v3.7.14
+      platform: linux/amd64
+      manifest_digest: sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-traefik@sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508
+    compatibility_evidence:
+    - https://github.com/traefik/traefik-helm-chart/releases/tag/v42.0.0
+    - https://doc.traefik.io/traefik/includes/kubernetes-requirements/
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: comparison_verified_then_uninstalled
+  gateway_validation:
+    phase: '02'
+    jsonschema_version: 4.26.0
+    requirements: ops/02-networking/tests/integration/gateway/requirements.txt
+    wheelhouse: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/python-wheels
+    artifacts:
+    - file: attrs-26.1.0-py3-none-any.whl
+      sha256: c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309
+    - file: jsonschema-4.26.0-py3-none-any.whl
+      sha256: d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
+    - file: jsonschema_specifications-2025.9.1-py3-none-any.whl
+      sha256: 98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
+    - file: referencing-0.37.0-py3-none-any.whl
+      sha256: 381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
+    - file: rpds_py-2026.9.1-cp314-cp314-macosx_11_0_arm64.whl
+      sha256: 3f0e9ac28fc067d4d34b88ae43c48e9489455c97fee9633d851f7eeed5a05d35
+    purpose: validate custom resources offline before CRDs are installed; actual server admission follows CRD installation
+    status: installed_and_source_verified
+  gateway_fixture:
+    phase: '02'
+    source_dir: ops/02-networking/examples/gateway
+    source_sha256: fe85e6a53e53b3b86a8faf34bc8afd86135e4c64c75eb3992e2dfb3b2b82749c
+    go_version: go1.27.2
+    grpc_version: 1.83.2
+    internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5
+    manifest_digest: sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5
+    client:
+      path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-darwin-arm64
+      sha256: 94b0600670fe03c01645e06888b43db93c5b3fa6ee03d758c3158e9e6c1ff4f6
+    linux_binary_sha256: 087820d77196d029e6f993da2908e537338e5f6fe7da0c8555ceb91b2c1b0abe
+    purpose: isolated HTTP/HTTPS/gRPC/TCP/UDP fixture and real gRPC health client
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: actual_protocols_verified_test_workloads_removed
   cert_manager:
     phase: "02"
     candidate: null

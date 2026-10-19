@@ -1,0 +1,208 @@
+---
+- name: 完整 02.04 身份、物料和全部配置统一核验
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 限定模式和规范化证据路径
+      ansible.builtin.assert:
+        that:
+          - gateway_mode in ['all','validate','run','cleanup','recover']
+          - gateway_records.startswith(gateway_root ~ '/ops/02-networking/records/02.04-')
+          - gateway_records | realpath == gateway_records
+    - name: 创建独立 attempt 身份
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']
+      register: gateway_clock
+      changed_when: false
+    - name: 绑定本次路径
+      ansible.builtin.set_fact:
+        gateway_attempt: '{{ gateway_records }}/attempts/{{ gateway_clock.stdout }}-{{ gateway_mode }}'
+    - name: 创建管理端取证目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ gateway_attempt }}', '{{ gateway_records }}/state']
+    - name: 读取原始批次状态
+      ansible.builtin.stat: {path: '{{ gateway_records }}/{{ item }}'}
+      loop: [context.json, passed.json, state/closed.json, state/source.json]
+      register: gateway_prior
+    - name: 防止覆盖已通过批次，恢复必须使用原上下文
+      ansible.builtin.assert:
+        that:
+          - gateway_mode not in ['cleanup','recover'] or gateway_prior.results[0].stat.exists
+          - not gateway_execute or (not gateway_prior.results[1].stat.exists and not gateway_prior.results[2].stat.exists)
+    - name: 核对原集群、02.03 原始交接、主池和组件边界
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', '{{ "identity" if gateway_mode in ["cleanup","recover"] else "preflight" }}', --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/preflight.json']
+      register: gateway_preflight
+      changed_when: false
+    - name: 绑定运行和集群身份
+      ansible.builtin.set_fact:
+        gateway_context: '{{ gateway_preflight.stdout | from_json }}'
+        gateway_run: '{{ (gateway_preflight.stdout | from_json).run }}'
+    - name: 冻结全部剧本、YAML、测试程序和前序交接输入摘要
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', source, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/source.json']
+      changed_when: false
+    - name: 未关闭批次继续执行必须匹配原始源码
+      ansible.builtin.assert:
+        that: lookup('file', gateway_attempt ~ '/source.json') | from_json == lookup('file', gateway_records ~ '/state/source.json') | from_json
+      when: gateway_execute and gateway_prior.results[3].stat.exists
+    - name: 核对四个 Harbor 镜像的 Linux amd64 摘要
+      ansible.builtin.command:
+        argv: ['{{ gateway_crane }}', digest, --platform, linux/amd64, '{{ item }}']
+      loop: '{{ gateway_images.values() | list }}'
+      register: gateway_registry
+      changed_when: false
+      failed_when: gateway_registry.rc != 0 or gateway_registry.stdout | trim != item.split('@')[1]
+      when: gateway_mode in ['all','run','validate']
+    - name: 确定性重建诊断镜像及真实 gRPC 客户端，核对锁定摘要
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', build, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/image.json']
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+    - name: 核验本机已准备的 gRPC 客户端摘要
+      ansible.builtin.stat: {path: '{{ gateway_client }}', checksum_algorithm: sha256}
+      register: gateway_client_file
+      when: gateway_mode in ['all','run','validate']
+    - name: 客户端必须来自受检诊断源码
+      ansible.builtin.assert:
+        that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+      when: gateway_mode in ['all','run','validate']
+    - name: 一次渲染全部 Gateway API、授权、后端和路由公开配置
+      ansible.builtin.template:
+        src: '../../networking/gateway/{{ item }}.yaml.j2'
+        dest: '{{ gateway_attempt }}/{{ item }}.yaml'
+        mode: '0600'
+      loop: [controller-values, namespaces, envoy-proxy, gateway, fixtures, routes, grant-shared, grant-backend-tls, grant-frontend, weights, route-editor]
+      when: gateway_mode in ['all','run','validate']
+    - name: 渲染临时 Ingress 对照的两份公开配置
+      ansible.builtin.template:
+        src: '../../networking/ingress/{{ item }}.yaml.j2'
+        dest: '{{ gateway_attempt }}/{{ item }}.yaml'
+        mode: '0600'
+      loop: [compare-values, compare]
+      when: gateway_mode in ['all','run','validate']
+    - name: 同时准备仅保留 HTTP 和 HTTPS 的最终主入口配置
+      ansible.builtin.template:
+        src: ../../networking/gateway/gateway.yaml.j2
+        dest: '{{ gateway_attempt }}/gateway-base.yaml'
+        mode: '0600'
+      vars: {gateway_lab_listeners: false}
+    - name: 恢复模式也需要同一对照 Chart 配置来核对卸载范围
+      ansible.builtin.template:
+        src: ../../networking/ingress/compare-values.yaml.j2
+        dest: '{{ gateway_attempt }}/compare-values.yaml'
+        mode: '0600'
+      when: gateway_mode in ['cleanup','recover']
+    - name: 严格校验全部内置对象、锁定 CRD 包、两套 Chart 和自定义对象结构
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', validate, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/compatibility.json']
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+    - name: 保存原有工作负载及关键配置 UID 和 spec 保护基线
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', protected, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/protected.json']
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+    - name: 正式变更前首次绑定基线，不覆盖原始状态
+      ansible.builtin.copy:
+        src: '{{ gateway_attempt }}/{{ item }}.json'
+        dest: '{{ gateway_records }}/state/{{ item }}.json'
+        mode: '0600'
+        force: false
+      loop: [source, protected]
+      when: gateway_execute
+    - name: 读取入口已签发的公开证书回执
+      ansible.builtin.set_fact:
+        gateway_tls: '{{ lookup("file", gateway_records ~ "/state/tls.json") | from_json }}'
+      when: gateway_execute
+    - name: 绑定 Secret 清单私有存储目录
+      ansible.builtin.set_fact:
+        gateway_private: '{{ gateway_tls.primary.private_key | dirname | dirname }}'
+      when: gateway_execute
+
+- name: 只读核验承载 VM 安全状态与两处 VIP 冲突
+  hosts: worker01:worker02:infra01:infra02
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 核对 VM 身份、Enforcing、firewalld、基础服务和内网 TLS
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname)" = '{{ node_fqdn }}'
+        test "$(getenforce)" = Enforcing
+        test "$(firewall-cmd --get-zone-of-interface=ens33)" = public
+        systemctl is-active firewalld containerd kubelet
+        curl -q --noproxy '*' --connect-timeout 3 --max-time 10 --silent --show-error -o /dev/null -w 'harbor_http=%{http_code} tls=%{ssl_verify_result}\n' https://harbor.k8s.internal.egon.top/v2/
+        {% if inventory_hostname == 'infra01' %}
+        {% for address in ['192.168.9.201','192.168.9.203'] %}
+        {% if address not in hostvars.localhost.gateway_context.active_ips %}
+        arping -D -I ens33 -c 2 -w 3 '{{ address }}'
+        echo 'vip_no_arp_reply={{ address }}'
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+      args: {executable: /bin/bash}
+      register: gateway_vm
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+    - name: 保存 VM 只读检查原始输出
+      ansible.builtin.copy:
+        content: '{{ gateway_vm.stdout ~ "\n" }}'
+        dest: '{{ hostvars.localhost.gateway_attempt }}/host-{{ inventory_hostname }}.txt'
+        mode: '0600'
+      delegate_to: localhost
+      when: gateway_mode in ['all','run','validate']
+
+- name: 提前核验权威 DNS 的精确增量
+  hosts: dns
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 确认 named 与 Enforcing
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(getenforce)" = Enforcing
+        systemctl is-active named
+      args: {executable: /bin/bash}
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+    - name: 精确读取公开区域原始字节，保留末尾空行
+      ansible.builtin.slurp: {src: /var/named/internal.egon.top.zone}
+      register: gateway_zone
+      when: gateway_mode in ['all','run','validate']
+    - name: 保存权威区域公开原值
+      ansible.builtin.copy:
+        content: '{{ gateway_zone.content | b64decode }}'
+        dest: '{{ hostvars.localhost.gateway_attempt }}/authority-before.zone'
+        mode: '0600'
+      delegate_to: localhost
+      when: gateway_mode in ['all','run','validate']
+    - name: 基于原始区域生成只增加两个 A 记录的候选
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', dns-plan, --records, '{{ gateway_records }}', --attempt, '{{ hostvars.localhost.gateway_attempt }}', --manifest, '{{ hostvars.localhost.gateway_attempt }}/authority-before.zone', --output, '{{ hostvars.localhost.gateway_attempt }}/dns-plan.json']
+      delegate_to: localhost
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+    - name: 在权威 VM 上从标准输入验证候选区域，无远程写入
+      ansible.builtin.command:
+        argv: [named-checkzone, internal.egon.top, /dev/stdin]
+        stdin: '{{ lookup("file", hostvars.localhost.gateway_attempt ~ "/gateway-forward.zone", rstrip=False) }}'
+        stdin_add_newline: false
+      changed_when: false
+      when: gateway_mode in ['all','run','validate']
+
+- name: 所有前置核验通过后才进入部署
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 报告整组源码前检结果及准入边界
+      ansible.builtin.debug:
+        msg: '02.04 SOURCE VALIDATION PASS；整组 YAML/Chart、CRD 服务端预览、自定义对象结构、镜像、VM、DNS 候选已核验；自定义对象 CEL/Webhook 在 CRD 安装后逐项严格预览。'
+      when: gateway_mode in ['all','run','validate']

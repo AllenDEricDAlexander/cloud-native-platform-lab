@@ -1,0 +1,335 @@
+
+PLAY [完整 02.04 身份、物料和全部配置统一核验] *********************************
+
+TASK [创建独立 attempt 身份] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次路径] ************************************************************
+ok: [localhost]
+
+TASK [创建管理端取证目录] ******************************************************
+changed: [localhost] => (item=/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/records/attempts/20261019T014608Z-f1575136-all)
+changed: [localhost] => (item=/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/records/state)
+
+TASK [读取原始批次状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [防止覆盖已通过批次，恢复必须使用原上下文] ********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对原集群、02.03 原始交接、主池和组件边界] ******************************
+ok: [localhost]
+
+TASK [绑定运行和集群身份] ******************************************************
+ok: [localhost]
+
+TASK [冻结全部剧本、YAML、测试程序和前序交接输入摘要] **************************
+ok: [localhost]
+
+TASK [未关闭批次继续执行必须匹配原始源码] **************************************
+skipping: [localhost]
+
+TASK [核对四个 Harbor 镜像的 Linux amd64 摘要] *********************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-traefik@sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5)
+
+TASK [确定性重建诊断镜像及真实 gRPC 客户端，核对锁定摘要] **********************
+ok: [localhost]
+
+TASK [核验本机已准备的 gRPC 客户端摘要] ****************************************
+ok: [localhost]
+
+TASK [客户端必须来自受检诊断源码] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [一次渲染全部 Gateway API、授权、后端和路由公开配置] **********************
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/controller-values.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/controller-values.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/controller-values.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/controller-values.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/controller-values.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/controller-values.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/controller-values.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/controller-values.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/controller-values.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/controller-values.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=controller-values) => {"ansible_loop_var": "item", "changed": false, "item": "controller-values", "msg": "Could not find or access '../../networking/gateway/controller-values.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/controller-values.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/controller-values.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/controller-values.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/controller-values.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/namespaces.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/namespaces.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/namespaces.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/namespaces.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/namespaces.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/namespaces.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/namespaces.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/namespaces.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/namespaces.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/namespaces.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=namespaces) => {"ansible_loop_var": "item", "changed": false, "item": "namespaces", "msg": "Could not find or access '../../networking/gateway/namespaces.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/namespaces.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/namespaces.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/namespaces.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/namespaces.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/envoy-proxy.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/envoy-proxy.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/envoy-proxy.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/envoy-proxy.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/envoy-proxy.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/envoy-proxy.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/envoy-proxy.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/envoy-proxy.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/envoy-proxy.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/envoy-proxy.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=envoy-proxy) => {"ansible_loop_var": "item", "changed": false, "item": "envoy-proxy", "msg": "Could not find or access '../../networking/gateway/envoy-proxy.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/envoy-proxy.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/envoy-proxy.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/envoy-proxy.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/envoy-proxy.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/gateway.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/gateway.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/gateway.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/gateway.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/gateway.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/gateway.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/gateway.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/gateway.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/gateway.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/gateway.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=gateway) => {"ansible_loop_var": "item", "changed": false, "item": "gateway", "msg": "Could not find or access '../../networking/gateway/gateway.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/gateway.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/gateway.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/gateway.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/gateway.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/fixtures.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/fixtures.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/fixtures.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/fixtures.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/fixtures.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/fixtures.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/fixtures.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/fixtures.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/fixtures.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/fixtures.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=fixtures) => {"ansible_loop_var": "item", "changed": false, "item": "fixtures", "msg": "Could not find or access '../../networking/gateway/fixtures.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/fixtures.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/fixtures.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/fixtures.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/fixtures.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/routes.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/routes.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/routes.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/routes.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/routes.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/routes.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/routes.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/routes.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/routes.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/routes.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=routes) => {"ansible_loop_var": "item", "changed": false, "item": "routes", "msg": "Could not find or access '../../networking/gateway/routes.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/routes.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/routes.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/routes.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/routes.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/grant-shared.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-shared.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-shared.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-shared.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-shared.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/grant-shared.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-shared.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-shared.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-shared.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-shared.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=grant-shared) => {"ansible_loop_var": "item", "changed": false, "item": "grant-shared", "msg": "Could not find or access '../../networking/gateway/grant-shared.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-shared.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-shared.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-shared.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-shared.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/grant-backend-tls.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-backend-tls.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-backend-tls.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-backend-tls.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-backend-tls.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/grant-backend-tls.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-backend-tls.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-backend-tls.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-backend-tls.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-backend-tls.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=grant-backend-tls) => {"ansible_loop_var": "item", "changed": false, "item": "grant-backend-tls", "msg": "Could not find or access '../../networking/gateway/grant-backend-tls.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-backend-tls.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-backend-tls.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-backend-tls.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-backend-tls.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/grant-frontend.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-frontend.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-frontend.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-frontend.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-frontend.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/grant-frontend.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-frontend.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-frontend.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-frontend.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-frontend.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=grant-frontend) => {"ansible_loop_var": "item", "changed": false, "item": "grant-frontend", "msg": "Could not find or access '../../networking/gateway/grant-frontend.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-frontend.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-frontend.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/grant-frontend.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/grant-frontend.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/weights.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/weights.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/weights.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/weights.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/weights.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/weights.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/weights.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/weights.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/weights.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/weights.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=weights) => {"ansible_loop_var": "item", "changed": false, "item": "weights", "msg": "Could not find or access '../../networking/gateway/weights.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/weights.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/weights.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/weights.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/weights.yaml.j2 on the Ansible Controller."}
+[ERROR]: Task failed: Could not find or access '../../networking/gateway/route-editor.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/route-editor.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/route-editor.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/route-editor.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/route-editor.yaml.j2 on the Ansible Controller.
+
+Task failed.
+Origin: /private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/driver.yml:118:5
+
+116       that: gateway_client_file.stat.checksum == gateway_lock.components.gateway_fixture.client.sha256
+117     when: gateway_mode in ['all','run','validate']
+118   - name: "\u4E00\u6B21\u6E32\u67D3\u5168\u90E8 Gateway API\u3001\u6388\u6743\u3001\
+        ^ column 5
+
+<<< caused by >>>
+
+Could not find or access '../../networking/gateway/route-editor.yaml.j2'
+Searched in:
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/route-editor.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/route-editor.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/route-editor.yaml.j2
+	/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/route-editor.yaml.j2 on the Ansible Controller.
+
+failed: [localhost] (item=route-editor) => {"ansible_loop_var": "item", "changed": false, "item": "route-editor", "msg": "Could not find or access '../../networking/gateway/route-editor.yaml.j2'\nSearched in:\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/route-editor.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/route-editor.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/templates/../../networking/gateway/route-editor.yaml.j2\n\t/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-tk6xinzk/../../networking/gateway/route-editor.yaml.j2 on the Ansible Controller."}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=12   changed=1    unreachable=0    failed=1    skipped=1    rescued=0    ignored=0   
+

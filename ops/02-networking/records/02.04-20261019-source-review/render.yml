@@ -1,0 +1,43 @@
+- name: OFFLINE templates only; no Kubernetes or VM mutations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+  - /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/vars/gateway.yml
+  tasks:
+  - name: render all public Gateway manifests
+    ansible.builtin.template:
+      src: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/networking/gateway/{{
+        item }}.yaml.j2
+      dest: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.04-20261019-source-review/rendered/{{
+        item }}.yaml
+      mode: '0600'
+    loop:
+    - controller-values
+    - namespaces
+    - envoy-proxy
+    - gateway
+    - fixtures
+    - routes
+    - grant-shared
+    - grant-backend-tls
+    - grant-frontend
+    - weights
+    - route-editor
+  - name: render Ingress compare
+    ansible.builtin.template:
+      src: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/networking/ingress/{{
+        item }}.yaml.j2
+      dest: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.04-20261019-source-review/rendered/{{
+        item }}.yaml
+      mode: '0600'
+    loop:
+    - compare-values
+    - compare
+  - name: render final Gateway listeners
+    ansible.builtin.template:
+      src: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/networking/gateway/gateway.yaml.j2
+      dest: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.04-20261019-source-review/rendered/gateway-base.yaml
+      mode: '0600'
+    vars:
+      gateway_lab_listeners: false

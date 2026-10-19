@@ -1,0 +1,15 @@
+---
+- name: 验证真实 gRPC、TCP 和 UDP 协议流量
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 真实调用 Health Check RPC 及两个传输协议，各三次
+      ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+      vars: {gateway_case: protocols}
+      when: gateway_execute
+    - name: 报告三种协议实际请求通过
+      ansible.builtin.debug: {msg: '02.04.05 PASS；gRPC SERVING 与 TCP/UDP nonce、Pod UID 均匹配；不推断 Kafka/数据库集群发现能力。'}
+      when: gateway_execute

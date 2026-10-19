@@ -1,0 +1,64 @@
+---
+- name: 完整验证路由绑定、RBAC 和跨空间后端及证书授权
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 执行授权边界实验
+      when: gateway_execute
+      block:
+        - name: 校验业务身份不能修改平台入口、读取别处证书或发放授权
+          ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+          vars: {gateway_case: rbac}
+        - name: 校验未授权共享后端拒绝引用且实际请求失败
+          ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+          vars: {gateway_case: shared-denied}
+        - name: 仅对指定共享 Service 发放授权
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/grant-shared.yaml'}
+        - name: 校验授权后实际响应来自目标 Pod UID
+          ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+          vars: {gateway_case: shared-allowed}
+        - name: 撤销共享后端授权
+          ansible.builtin.include_tasks: ../tasks/gateway-delete.yml
+          vars: {gateway_delete: {kind: ReferenceGrant, name: allow-shared, namespace: lab-gateway-backends}}
+        - name: 校验撤销授权后再次拒绝引用与流量
+          ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+          vars: {gateway_case: shared-revoked}
+        - name: 测试外空间证书引用，任何失败均恢复主证书
+          block:
+            - name: 保存原引用并生成含 UID 检查的外空间引用补丁
+              ansible.builtin.command:
+                argv: ['{{ gateway_python }}', '{{ gateway_check }}', frontend-plan, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/frontend-plan.json']
+              register: gateway_frontend_plan
+              changed_when: false
+            - name: 将 HTTPS 临时改为外空间叶证书引用
+              ansible.builtin.command:
+                argv: '{{ gateway_k + ["patch","Gateway","primary","-n","cnpl-gateway","--type=json","-p",(gateway_frontend_plan.stdout | from_json).patch | to_json] }}'
+              changed_when: true
+              when: (gateway_frontend_plan.stdout | from_json).patch | length > 0
+            - name: 核验未授权证书不会被用于实际 TLS
+              ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+              vars: {gateway_case: frontend-denied}
+            - name: 发放仅针对 foreign-frontend 的引用授权
+              ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+              vars: {gateway_manifest: '{{ gateway_attempt }}/grant-frontend.yaml'}
+            - name: 核验授权后真实 TLS 使用外空间证书指纹
+              ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+              vars: {gateway_case: frontend-allowed}
+          always:
+            - name: 无条件恢复原证书引用并撤销临时证书授权
+              block:
+                - name: 恢复主证书引用
+                  ansible.builtin.include_tasks: ../tasks/gateway-restore-frontend.yml
+                - name: 核验真实 TLS 恢复主证书
+                  ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+                  vars: {gateway_case: frontend-restored}
+              always:
+                - name: 清除临时外空间证书授权
+                  ansible.builtin.include_tasks: ../tasks/gateway-delete.yml
+                  vars: {gateway_delete: {kind: ReferenceGrant, name: allow-frontend-secret, namespace: lab-gateway-backends}}
+        - name: 报告授权边界通过
+          ansible.builtin.debug: {msg: '02.04.04 PASS；RBAC、allowedRoutes、后端授权/撤销和证书授权/恢复均完成。'}

@@ -1,0 +1,11 @@
+---
+- name: 删除前再次核对 {{ gateway_delete.kind }}/{{ gateway_delete.name }} 归属和 UID
+  ansible.builtin.command:
+    argv: ['{{ gateway_python }}', '{{ gateway_check }}', delete-plan, --records, '{{ gateway_records }}', --kind, '{{ gateway_delete.kind }}', --name, '{{ gateway_delete.name }}', --namespace, '{{ gateway_delete.namespace }}', --output, '{{ gateway_attempt }}/delete-{{ gateway_delete.name }}.json']
+  register: gateway_delete_plan
+  changed_when: false
+- name: 只删除已登记的临时对象
+  ansible.builtin.command:
+    argv: '{{ gateway_k + ["delete",gateway_delete.kind,gateway_delete.name,"-n",gateway_delete.namespace,"--wait=true","--timeout=60s"] }}'
+  changed_when: true
+  when: (gateway_delete_plan.stdout | from_json).exists

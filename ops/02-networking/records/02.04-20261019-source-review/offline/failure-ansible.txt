@@ -1,0 +1,151 @@
+
+PLAY [完整验证路由绑定、RBAC 和跨空间后端及证书授权] ***************************
+
+TASK [校验业务身份不能修改平台入口、读取别处证书或发放授权] ********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 rbac 的本代条件和实际网络行为同时收敛] ******************************
+ok: [localhost]
+
+TASK [校验未授权共享后端拒绝引用且实际请求失败] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 shared-denied 的本代条件和实际网络行为同时收敛] *********************
+ok: [localhost]
+
+TASK [仅对指定共享 Service 发放授权] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ReferenceGrant/allow-shared)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [校验授权后实际响应来自目标 Pod UID] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 shared-allowed 的本代条件和实际网络行为同时收敛] ********************
+ok: [localhost]
+
+TASK [撤销共享后端授权] ********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost
+
+TASK [删除前再次核对 ReferenceGrant/allow-shared 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [校验撤销授权后再次拒绝引用与流量] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 shared-revoked 的本代条件和实际网络行为同时收敛] ********************
+ok: [localhost]
+
+TASK [保存原引用并生成含 UID 检查的外空间引用补丁] *****************************
+ok: [localhost]
+
+TASK [将 HTTPS 临时改为外空间叶证书引用] ***************************************
+changed: [localhost]
+
+TASK [核验未授权证书不会被用于实际 TLS] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 frontend-denied 的本代条件和实际网络行为同时收敛] *******************
+ok: [localhost]
+
+TASK [发放仅针对 foreign-frontend 的引用授权] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ReferenceGrant/allow-frontend-secret)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [核验授权后真实 TLS 使用外空间证书指纹] ***********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 frontend-allowed 的本代条件和实际网络行为同时收敛] ******************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml:2:3
+
+1 ---
+2 - name: 等待 {{ gateway_case }} 的本代条件和实际网络行为同时收敛
+    ^ column 3
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-failure-recover-1suhnynt/check.py", "case", "--case", "frontend-allowed", "--records", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-failure-recover-1suhnynt/records", "--attempt", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-failure-recover-1suhnynt/records/attempts/20261019T020745Z-2ce20da3-all", "--output", "/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-failure-recover-1suhnynt/records/attempts/20261019T020745Z-2ce20da3-all/frontend-allowed.json"], "delta": "0:00:00.138105", "end": "2026-10-19 10:22:21.222511", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-19 10:22:21.084406", "stderr": "deliberate failure during foreign certificate experiment", "stderr_lines": ["deliberate failure during foreign certificate experiment"], "stdout": "", "stdout_lines": []}
+
+TASK [恢复主证书引用] **********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-restore-frontend.yml for localhost
+
+TASK [检查是否保存过主证书引用原值] ********************************************
+ok: [localhost]
+
+TASK [生成只恢复 certificateRefs 的精确补丁] ***********************************
+ok: [localhost]
+
+TASK [恢复主入口的本地叶证书引用] **********************************************
+changed: [localhost]
+
+TASK [核验真实 TLS 恢复主证书] *************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 frontend-restored 的本代条件和实际网络行为同时收敛] *****************
+ok: [localhost]
+
+TASK [清除临时外空间证书授权] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost
+
+TASK [删除前再次核对 ReferenceGrant/allow-frontend-secret 归属和 UID] **********
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=43   changed=10   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

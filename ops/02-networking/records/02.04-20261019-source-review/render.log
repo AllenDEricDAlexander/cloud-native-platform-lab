@@ -1,0 +1,26 @@
+
+PLAY [OFFLINE templates only; no Kubernetes or VM mutations] *******************
+
+TASK [render all public Gateway manifests] *************************************
+ok: [localhost] => (item=controller-values)
+ok: [localhost] => (item=namespaces)
+changed: [localhost] => (item=envoy-proxy)
+ok: [localhost] => (item=gateway)
+ok: [localhost] => (item=fixtures)
+ok: [localhost] => (item=routes)
+ok: [localhost] => (item=grant-shared)
+ok: [localhost] => (item=grant-backend-tls)
+ok: [localhost] => (item=grant-frontend)
+ok: [localhost] => (item=weights)
+ok: [localhost] => (item=route-editor)
+
+TASK [render Ingress compare] **************************************************
+ok: [localhost] => (item=compare-values)
+ok: [localhost] => (item=compare)
+
+TASK [render final Gateway listeners] ******************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=3    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

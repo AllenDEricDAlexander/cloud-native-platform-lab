@@ -1,0 +1,9 @@
+---
+- name: 等待 {{ gateway_case }} 的本代条件和实际网络行为同时收敛
+  ansible.builtin.command:
+    argv: ['{{ gateway_python }}', '{{ gateway_check }}', case, --case, '{{ gateway_case }}', --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/{{ gateway_case }}.json']
+  register: gateway_case_result
+  changed_when: false
+  retries: '{{ gateway_case_retries | default(25) }}'
+  delay: 2
+  until: gateway_case_result.rc == 0

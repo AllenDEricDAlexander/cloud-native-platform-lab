@@ -1,0 +1,63 @@
+---
+- name: 应用经过前检的两个内部域名记录
+  hosts: dns
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 正式应用 DNS 精确增量
+      when: gateway_execute
+      block:
+        - name: 修改前再次读取权威区域摘要
+          ansible.builtin.stat:
+            path: /var/named/internal.egon.top.zone
+            checksum_algorithm: sha256
+          register: gateway_dns_current
+        - name: 拒绝覆盖前检后他人修改的区域
+          ansible.builtin.assert:
+            that: gateway_dns_current.stat.checksum == (lookup('file', hostvars.localhost.gateway_attempt ~ '/dns-plan.json') | from_json).before_sha256
+        - name: 更新两个 A 记录和递增 serial，保留全部原区域内容
+          ansible.builtin.copy:
+            src: '{{ hostvars.localhost.gateway_attempt }}/gateway-forward.zone'
+            dest: /var/named/internal.egon.top.zone
+            owner: root
+            group: named
+            mode: '0640'
+            validate: named-checkzone internal.egon.top %s
+          register: gateway_dns_applied
+        - name: 让 named 重新加载已验证区域
+          ansible.builtin.command: {argv: [rndc, reload, internal.egon.top]}
+          changed_when: true
+          when: gateway_dns_applied.changed
+
+- name: 验证内部 DNS、Host 和路径路由及前后端 TLS
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 执行真实 HTTP 和 HTTPS 路由实验
+      when: gateway_execute
+      block:
+        - name: 等待权威与 Mac 系统解析器均返回主入口
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', dns-check, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_attempt }}/dns.json']
+          changed_when: false
+        - name: 撤销原批次可能遗留的共享后端和外空间证书授权
+          ansible.builtin.include_tasks: ../tasks/gateway-delete.yml
+          loop:
+            - {kind: ReferenceGrant, name: allow-shared, namespace: lab-gateway-backends}
+            - {kind: ReferenceGrant, name: allow-frontend-secret, namespace: lab-gateway-backends}
+          loop_control: {loop_var: gateway_delete}
+        - name: 创建全部协议路由及一个明确禁止的空间绑定
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/routes.yaml'}
+        - name: 仅授权重新加密后端引用
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/grant-backend-tls.yaml'}
+        - name: 校验 Host、路径、Header、重写、超时、重定向及后端 TLS
+          ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+          vars: {gateway_case: http}
+        - name: 报告真实 HTTP 和 HTTPS 行为通过
+          ansible.builtin.debug: {msg: '02.04.03 PASS；前端证书链/SAN、后端重加密、有效和无效路径行为均有实际请求证据。'}

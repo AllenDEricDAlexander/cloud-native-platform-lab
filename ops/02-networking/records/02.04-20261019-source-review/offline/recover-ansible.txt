@@ -1,0 +1,184 @@
+
+PLAY [整组验收、临时资源回收与持久主入口交接] **********************************
+
+TASK [汇总七节全部必需实际回执，缺项不能通过] **********************************
+skipping: [localhost]
+
+TASK [无条件核对并恢复原主证书引用] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-restore-frontend.yml for localhost
+
+TASK [检查是否保存过主证书引用原值] ********************************************
+ok: [localhost]
+
+TASK [生成只恢复 certificateRefs 的精确补丁] ***********************************
+ok: [localhost]
+
+TASK [恢复主入口的本地叶证书引用] **********************************************
+changed: [localhost]
+
+TASK [停止本批所有有界观测进程] ************************************************
+ok: [localhost]
+
+TASK [先撤销临时 Ingress 和跨空间授权] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'Ingress', 'name': 'compare', 'namespace': 'lab-gateway-app'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-shared', 'namespace': 'lab-gateway-backends'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-frontend-secret', 'namespace': 'lab-gateway-backends'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-secure', 'namespace': 'lab-gateway-backends'})
+
+TASK [删除前再次核对 Ingress/compare 归属和 UID] *******************************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+skipping: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-shared 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+skipping: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-frontend-secret 归属和 UID] **********
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-secure 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [核对临时对照 release 的归属，只允许卸载已有 release] *********************
+ok: [localhost]
+
+TASK [卸载临时对照控制器、.203 服务及集群权限] *********************************
+skipping: [localhost]
+
+TASK [检查主入口是否已经创建，恢复模式不会补装主入口] **************************
+ok: [localhost]
+
+TASK [将已创建的主入口收敛到 80/443，撤销实验 TCP/UDP 监听] ********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=GatewayClass/cnpl-envoy)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Gateway/primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=HTTPRoute/primary-redirect)
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [Secret 必须使用私有目录及 no_log 专用任务] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [回收四个实验空间，每个先检查 UID 与全部资源归属] *************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=lab-gateway-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=lab-gateway-backends)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=lab-gateway-denied)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=ingress-compare)
+
+TASK [检查 lab-gateway-app 的原始 UID 及资源范围] ******************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [检查 lab-gateway-backends 的原始 UID 及资源范围] *************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [检查 lab-gateway-denied 的原始 UID 及资源范围] ***************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [检查 ingress-compare 的原始 UID 及资源范围] ******************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [核对持久入口、原集群健康、原工作负载和清理结果] **************************
+ok: [localhost]
+
+TASK [报告实验资源清理和主入口状态] ********************************************
+ok: [localhost] => {
+    "msg": "02.04 CLEANUP PASS；临时空间/.203/授权/协议监听/观测已回收；主入口状态：ready。"
+}
+
+TASK [报告完整 02.04 一次验收通过] *********************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=56   changed=16   unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+

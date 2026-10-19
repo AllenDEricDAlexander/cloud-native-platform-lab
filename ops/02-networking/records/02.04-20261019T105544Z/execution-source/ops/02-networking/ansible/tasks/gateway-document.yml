@@ -1,0 +1,31 @@
+---
+- name: Secret 必须使用私有目录及 no_log 专用任务
+  ansible.builtin.assert:
+    that: gateway_document.kind != 'Secret'
+- name: 将公开对象写入文件，避免大 CRD 超过进程参数限制
+  ansible.builtin.copy:
+    content: '{{ gateway_document | to_nice_json }}'
+    dest: '{{ gateway_attempt }}/input-{{ gateway_document.kind }}-{{ gateway_document.metadata.name }}.json'
+    mode: '0600'
+- name: 核对对象边界及原始 UID
+  ansible.builtin.command:
+    argv: ['{{ gateway_python }}', '{{ gateway_check }}', object-plan, --records, '{{ gateway_records }}', --manifest, '{{ gateway_attempt }}/input-{{ gateway_document.kind }}-{{ gateway_document.metadata.name }}.json', --output, '{{ gateway_attempt }}/plan-{{ gateway_document.kind }}-{{ gateway_document.metadata.name }}.json']
+  changed_when: false
+- name: 安装后执行真实 CRD CEL 与 Webhook 严格准入预览
+  ansible.builtin.command:
+    argv: '{{ gateway_k + ["apply","--server-side","--field-manager=cnpl-gateway","--dry-run=server","--validate=strict","-f",gateway_attempt ~ "/input-" ~ gateway_document.kind ~ "-" ~ gateway_document.metadata.name ~ ".json"] }}'
+  changed_when: false
+- name: 应用本批对象
+  ansible.builtin.command:
+    argv: '{{ gateway_k + ["apply","--server-side","--field-manager=cnpl-gateway","--validate=strict","-f",gateway_attempt ~ "/input-" ~ gateway_document.kind ~ "-" ~ gateway_document.metadata.name ~ ".json","-o","json"] }}'
+  register: gateway_applied
+  changed_when: true
+- name: 保存公开应用结果
+  ansible.builtin.copy:
+    content: '{{ gateway_applied.stdout }}'
+    dest: '{{ gateway_attempt }}/applied-{{ gateway_document.kind }}-{{ gateway_document.metadata.name }}.json'
+    mode: '0600'
+- name: 绑定原始 UID，持久组件单独登记
+  ansible.builtin.command:
+    argv: ['{{ gateway_python }}', '{{ gateway_check }}', record, --records, '{{ gateway_records }}', --manifest, '{{ gateway_attempt }}/applied-{{ gateway_document.kind }}-{{ gateway_document.metadata.name }}.json', --output, '{{ gateway_attempt }}/receipt-{{ gateway_document.kind }}-{{ gateway_document.metadata.name }}.json']
+  changed_when: false

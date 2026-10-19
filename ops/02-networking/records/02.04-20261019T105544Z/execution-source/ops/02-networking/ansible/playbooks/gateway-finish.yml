@@ -1,0 +1,68 @@
+---
+- name: 整组验收、临时资源回收与持久主入口交接
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 汇总七节全部必需实际回执，缺项不能通过
+      ansible.builtin.command:
+        argv: ['{{ gateway_python }}', '{{ gateway_check }}', accept, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_records }}/passed.json']
+      changed_when: false
+      when: gateway_execute
+    - name: 撤销临时实验，保留统一主入口
+      when: gateway_mode in ['all','cleanup','recover']
+      block:
+        - name: 无条件核对并恢复原主证书引用
+          ansible.builtin.include_tasks: ../tasks/gateway-restore-frontend.yml
+        - name: 停止本批所有有界观测进程
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', stop-observers, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/observers-stopped.json']
+          changed_when: false
+        - name: 先撤销临时 Ingress 和跨空间授权
+          ansible.builtin.include_tasks: ../tasks/gateway-delete.yml
+          loop:
+            - {kind: Ingress, name: compare, namespace: lab-gateway-app}
+            - {kind: ReferenceGrant, name: allow-shared, namespace: lab-gateway-backends}
+            - {kind: ReferenceGrant, name: allow-frontend-secret, namespace: lab-gateway-backends}
+            - {kind: ReferenceGrant, name: allow-secure, namespace: lab-gateway-backends}
+          loop_control: {loop_var: gateway_delete}
+        - name: 核对临时对照 release 的归属，只允许卸载已有 release
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', helm-guard, --which, compare, --records, '{{ gateway_records }}', --values, '{{ gateway_attempt }}/compare-values.yaml', --output, '{{ gateway_attempt }}/helm-compare-cleanup.json']
+          register: gateway_compare_cleanup
+          changed_when: false
+        - name: 卸载临时对照控制器、.203 服务及集群权限
+          ansible.builtin.command:
+            argv: ['{{ gateway_helm }}', --kubeconfig, '{{ gateway_config }}', uninstall, cnpl-compare, --namespace, ingress-compare, --wait, --timeout, 180s]
+          changed_when: true
+          when: (gateway_compare_cleanup.stdout | from_json).exists
+        - name: 检查主入口是否已经创建，恢复模式不会补装主入口
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', main-exists, --records, '{{ gateway_records }}', --output, '{{ gateway_attempt }}/main-exists.json']
+          register: gateway_main_exists
+          changed_when: false
+        - name: 将已创建的主入口收敛到 80/443，撤销实验 TCP/UDP 监听
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/gateway-base.yaml'}
+          when: (gateway_main_exists.stdout | from_json).exists
+        - name: 回收四个实验空间，每个先检查 UID 与全部资源归属
+          ansible.builtin.include_tasks: ../tasks/gateway-clean-namespace.yml
+          loop: '{{ gateway_temporary_ns }}'
+          loop_control: {loop_var: gateway_cleanup_namespace}
+        - name: 核对持久入口、原集群健康、原工作负载和清理结果
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', final, --records, '{{ gateway_records }}', --attempt, '{{ gateway_attempt }}', --output, '{{ gateway_records }}/state/closed.json']
+          register: gateway_final
+          changed_when: false
+          retries: 90
+          delay: 2
+          until: gateway_final.rc == 0
+        - name: 报告实验资源清理和主入口状态
+          ansible.builtin.debug:
+            msg: '02.04 CLEANUP PASS；临时空间/.203/授权/协议监听/观测已回收；主入口状态：{{ (gateway_final.stdout | from_json).main_status }}。'
+    - name: 报告完整 02.04 一次验收通过
+      ansible.builtin.debug:
+        msg: '02.04 ALL PASS；02.04.01–07 全部完成；passed.json 与 state/closed.json 已保存；保留 .201 的 80/443、主证书、内部 DNS 和 Envoy 控制器。'
+      when: gateway_mode == 'all'

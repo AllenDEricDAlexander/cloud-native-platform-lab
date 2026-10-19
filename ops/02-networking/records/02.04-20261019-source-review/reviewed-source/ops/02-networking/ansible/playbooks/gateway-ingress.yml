@@ -1,0 +1,27 @@
+---
+- name: 在独立临时入口完成传统 Ingress 对照
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/gateway.yml]
+  tasks:
+    - name: 执行 Ingress 对照
+      when: gateway_execute
+      block:
+        - name: 核对隔离 release 和原对象归属
+          ansible.builtin.command:
+            argv: ['{{ gateway_python }}', '{{ gateway_check }}', helm-guard, --which, compare, --records, '{{ gateway_records }}', --values, '{{ gateway_attempt }}/compare-values.yaml', --output, '{{ gateway_attempt }}/helm-compare.json']
+          changed_when: false
+        - name: 安装临时 Traefik，只启用指定 IngressClass 和实验空间
+          ansible.builtin.command:
+            argv: ['{{ gateway_helm }}', --kubeconfig, '{{ gateway_config }}', upgrade, --install, cnpl-compare, '{{ gateway_lock.components.ingress_compare.chart.local_source }}', --namespace, ingress-compare, --skip-crds, --values, '{{ gateway_attempt }}/compare-values.yaml', --wait, --timeout, 5m, --rollback-on-failure]
+          changed_when: true
+        - name: 使用同一后端创建标准 Ingress
+          ansible.builtin.include_tasks: ../tasks/gateway-apply.yml
+          vars: {gateway_manifest: '{{ gateway_attempt }}/compare.yaml'}
+        - name: 对 .203 发起真实 Host、路径、TLS 和重定向请求
+          ansible.builtin.include_tasks: ../tasks/gateway-case.yml
+          vars: {gateway_case: ingress}
+        - name: 报告标准 Ingress 对照通过
+          ansible.builtin.debug: {msg: '02.04.06 PASS；相同应用的 Ingress 对照已完成，临时入口将在整组结束后撤销。'}

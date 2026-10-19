@@ -1,0 +1,27 @@
+# 地址用途台账；实时 Service UID、分配和撤销记录由每批 vip-ledger.json 保存。
+schema_version: 1
+cluster: lab-primary
+controller: metallb
+primary:
+  pool: cnpl-primary
+  namespace: metallb-system
+  addresses: [192.168.9.201-192.168.9.210]
+  auto_assign: false
+  interfaces: [ens33]
+  candidate_vms: [worker01.k8s.internal.egon.top, worker02.k8s.internal.egon.top]
+  required_service_label: {cnpl.io/vip-policy: primary}
+  owner: lab-platform
+reservations:
+  - {ip: 192.168.9.201, purpose: primary_gateway, owner: lab-platform, state: reserved, dns_records: []}
+  - {ip: 192.168.9.202, purpose: bounded_network_experiments, owner: lab-platform, state: reserved_for_tests, dns_records: []}
+  - {range: 192.168.9.203-192.168.9.210, purpose: future_explicit_services, owner: lab-platform, state: unallocated, dns_records: []}
+excluded:
+  - {ip: 192.168.9.100, owner: kube-vip, purpose: kubernetes_api}
+  - {range: 192.168.9.211-192.168.9.220, purpose: comparison_only, enabled: false}
+lifecycle:
+  allocation: explicit_pool_and_ip_with_owner_label
+  withdrawal: remove_dns_references_then_delete_service_and_verify_no_advertisement
+  reassignment: require_previous_service_uid_absent_and_no_active_dns_reference
+gateway_dns_records:
+  - {fqdn: demo.svc.internal.egon.top, ip: 192.168.9.201, owner: lab-platform}
+  - {fqdn: grpc-demo.svc.internal.egon.top, ip: 192.168.9.201, owner: lab-platform}

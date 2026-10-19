@@ -97,56 +97,21 @@ Service 选择器匹配实际 Pod，扩容/Readiness 变化带来 EndpointSlice 
 
 ## 02.04 Gateway API 与 Ingress 对照
 
-输入：MetalLB、HTTP/gRPC 后端与所需域名。
+状态：[完整 02.04 实际验收及清理通过](records/02.04-20261019T105544Z/README.md)，63 份源码输入匹配；保留 .201 的 80/443 与双副本数据面，供 02.05 接管证书自动化。
 
-1. 锁定 Gateway API CRD channel、Envoy Gateway 版本和 Route 支持；依次安装 CRD、控制器、GatewayClass、Gateway、HTTPRoute/GRPCRoute。
-2. 检查 Accepted/Programmed/ResolvedRefs 等条件；用 Host/SNI、path/header、权重请求验证路由，不把 CRD 创建成功当作流量通过。
-3. 在独立 IngressClass/入口部署 Ingress 对照，测相同应用；测试无效引用、后端失效和跨 Namespace 引用边界。
-
-### 操作命令与目的
+完整交付：[逐项作用、预期结果、全部剧本和 YAML](examples/gateway/README.md)；[JSONPath 修复与真实前检记录](records/02.04-20261019-jsonpath-review/README.md)。在管理 Mac 的交互终端一次运行：
 
 ```bash
-kubectl apply --server-side -f "$LAB_GATEWAY_API_CRDS"  # 使用锁定版本本地清单
-helm upgrade --install envoy-gateway "$LAB_ENVOY_CHART" -n envoy-gateway-system \
-  --create-namespace --version "$LAB_ENVOY_VERSION" -f envoy-values.yaml --wait
-kubectl -n lab-net apply -f gateway-demo.yaml -f route-demo.yaml
-kubectl -n lab-net get gateway,httproute -o yaml       # 检查 Accepted/Programmed/ResolvedRefs
-curl -H 'Host: demo.svc.internal.egon.top' "http://$LAB_GATEWAY_VIP/"
-# 单独部署 Ingress 对照；使用不同 IngressClass/入口，参数按选定控制器填写
-helm upgrade --install ingress-compare "$LAB_INGRESS_CHART" -n ingress-compare \
-  --create-namespace --version "$LAB_INGRESS_VERSION" -f ingress-values.yaml --wait
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+export LAB_GATEWAY_RECORDS="$PWD/ops/02-networking/records/02.04-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/gateway.sh all "$LAB_GATEWAY_RECORDS"
 ```
 
-gRPC 场景补充 GRPCRoute，并用 `grpcurl` 的 `-authority` 和实际 proto/方法发请求；`list` 依赖服务启用反射，反射关闭不等于 gRPC 不通。
+第一行进入仓库，第二行绑定全新证据目录，第三行统一核对前置、部署、验证七项与清理。启动时安全输入一次既有中间 CA 口令，不回显、不保存；不在聊天或命令行写口令。预期 02.04 ALL PASS，PLAY RECAP failed/unreachable/rescued/ignored 为 0，passed.json 和 state/closed.json 均通过。
 
-### 配置示例
+锁定 Gateway API 1.6.1 Standard、Envoy Gateway 1.9.2、Envoy 1.39.1，以及临时 Traefik 3.7.14 / Chart 42.0.0。主入口 .201 的 80/443 保留，数据面只跨 worker01/02 两台 VM；临时对照 .203、9000/TCP、9001/UDP、实验路由/授权/空间统一回收。实际验证 DNS、前后端 TLS、Host/Path/Header/重写/超时、RBAC/跨空间授权、真实 gRPC/TCP/UDP、同应用 Ingress 对照、200 个独立连接权重与新 Pod 的 HTTP/gRPC/xDS 配置。
 
-HTTPRoute 关联已建立的 `lab-gateway` 和 echo 后端：
-
-```yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata: {name: echo, namespace: lab-net}
-spec:
-  parentRefs: [{name: lab-gateway}]
-  hostnames: [demo.svc.internal.egon.top]
-  rules:
-    - matches:
-        - path: {type: PathPrefix, value: /}
-      backendRefs:
-        - name: echo
-          port: 8080
-```
-
-Gateway 另行声明 `gatewayClassName` 和 HTTP/HTTPS listener；跨 Namespace 的后端引用按实际关系配置 ReferenceGrant，不能默认允许所有引用。
-
-### 预期结果
-
-Route 条件为接受且引用已解析，访问指定 Host 命中对应后端；错误 Host/路径、失效后端和未授权跨域引用产生可解释的失败。最终用实际 HTTP/gRPC 请求验证，不只检查资源存在。
-
-交付：`ops/02-networking/networking/gateway/`、`ingress/`；Route 与请求记录。
-
-检查与失败处理：HTTPS/gRPC 和路由策略有数据面证据；适配缺失标注阻塞，不伪造控制器能力。
+原有 MetalLB 主池及 speaker、Headlamp/Hubble/metrics、CNI/CoreDNS、SELinux Enforcing 和 firewalld 保持。任一实际协议或分项结果缺失均不能通过。失败后仅使用原目录 recover，具体边界及命令见完整说明。
 
 <a id="02-05"></a>
 

@@ -1,0 +1,9 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: ReferenceGrant
+metadata:
+  name: allow-shared
+  namespace: lab-gateway-backends
+  labels: {cnpl.io/gateway-run: '{{ gateway_run }}'}
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: lab-gateway-app}]
+  to: [{group: '', kind: Service, name: shared}]

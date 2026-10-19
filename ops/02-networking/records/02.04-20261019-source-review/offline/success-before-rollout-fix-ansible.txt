@@ -1,0 +1,1716 @@
+
+PLAY [完整 02.04 身份、物料和全部配置统一核验] *********************************
+
+TASK [创建独立 attempt 身份] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次路径] ************************************************************
+ok: [localhost]
+
+TASK [创建管理端取证目录] ******************************************************
+changed: [localhost] => (item=/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-gf15r_lw/records/attempts/20261019T014656Z-c2a82b8e-all)
+changed: [localhost] => (item=/private/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-gateway-success-gf15r_lw/records/state)
+
+TASK [读取原始批次状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [防止覆盖已通过批次，恢复必须使用原上下文] ********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对原集群、02.03 原始交接、主池和组件边界] ******************************
+ok: [localhost]
+
+TASK [绑定运行和集群身份] ******************************************************
+ok: [localhost]
+
+TASK [冻结全部剧本、YAML、测试程序和前序交接输入摘要] **************************
+ok: [localhost]
+
+TASK [未关闭批次继续执行必须匹配原始源码] **************************************
+skipping: [localhost]
+
+TASK [核对四个 Harbor 镜像的 Linux amd64 摘要] *********************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-traefik@sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5)
+
+TASK [确定性重建诊断镜像及真实 gRPC 客户端，核对锁定摘要] **********************
+ok: [localhost]
+
+TASK [核验本机已准备的 gRPC 客户端摘要] ****************************************
+ok: [localhost]
+
+TASK [客户端必须来自受检诊断源码] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [一次渲染全部 Gateway API、授权、后端和路由公开配置] **********************
+changed: [localhost] => (item=controller-values)
+changed: [localhost] => (item=namespaces)
+changed: [localhost] => (item=envoy-proxy)
+changed: [localhost] => (item=gateway)
+changed: [localhost] => (item=fixtures)
+changed: [localhost] => (item=routes)
+changed: [localhost] => (item=grant-shared)
+changed: [localhost] => (item=grant-backend-tls)
+changed: [localhost] => (item=grant-frontend)
+changed: [localhost] => (item=weights)
+changed: [localhost] => (item=route-editor)
+
+TASK [渲染临时 Ingress 对照的两份公开配置] *************************************
+changed: [localhost] => (item=compare-values)
+changed: [localhost] => (item=compare)
+
+TASK [同时准备仅保留 HTTP 和 HTTPS 的最终主入口配置] ***************************
+changed: [localhost]
+
+TASK [恢复模式也需要同一对照 Chart 配置来核对卸载范围] *************************
+skipping: [localhost]
+
+TASK [严格校验全部内置对象、锁定 CRD 包、两套 Chart 和自定义对象结构] **********
+ok: [localhost]
+
+TASK [保存原有工作负载及关键配置 UID 和 spec 保护基线] *************************
+ok: [localhost]
+
+TASK [正式变更前首次绑定基线，不覆盖原始状态] **********************************
+changed: [localhost] => (item=source)
+changed: [localhost] => (item=protected)
+
+TASK [读取入口已签发的公开证书回执] ********************************************
+ok: [localhost]
+
+TASK [绑定 Secret 清单私有存储目录] ********************************************
+ok: [localhost]
+
+PLAY [localhost] ***************************************************************
+
+TASK [OFFLINE DNS plan only] ***************************************************
+ok: [localhost]
+
+PLAY [安装锁定 CRD、控制器和受控双副本主入口] **********************************
+
+TASK [建立平台与实验命名空间] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Namespace/envoy-gateway-system)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Namespace/cnpl-gateway)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Namespace/lab-gateway-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Namespace/lab-gateway-backends)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Namespace/lab-gateway-denied)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Namespace/ingress-compare)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [单独安装锁定 Standard CRD 与升级保护策略] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/backends.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/backendtrafficpolicies.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/clienttrafficpolicies.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/envoyextensionpolicies.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/envoypatchpolicies.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/envoyproxies.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/httproutefilters.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/securitypolicies.gateway.envoyproxy.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/backendtlspolicies.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/gatewayclasses.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/gateways.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/grpcroutes.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/httproutes.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/listenersets.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/referencegrants.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/tcproutes.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/tlsroutes.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=CustomResourceDefinition/udproutes.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ValidatingAdmissionPolicy/safe-upgrades.gateway.networking.k8s.io)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ValidatingAdmissionPolicyBinding/safe-upgrades.gateway.networking.k8s.io)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待所有锁定 CRD 建立] ***************************************************
+ok: [localhost]
+
+TASK [刷新 API 发现] ***********************************************************
+ok: [localhost]
+
+TASK [拒绝接管已有其他控制器或 Chart 对象] *************************************
+ok: [localhost]
+
+TASK [安装控制面，仅使用已有锁定 Chart 和 Harbor 镜像] *************************
+changed: [localhost]
+
+TASK [核对控制面实际镜像和就绪副本] ********************************************
+ok: [localhost]
+
+TASK [创建四份仅含叶证书的私有 Secret] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-secret.yml for localhost => (item=primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-secret.yml for localhost => (item=foreign)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-secret.yml for localhost => (item=backend)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-secret.yml for localhost => (item=compare)
+
+TASK [私有目录渲染叶证书 Secret，不进入证据目录和日志] *************************
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览叶证书 Secret] *********************************************
+ok: [localhost]
+
+TASK [仅上传叶证书，避免 last-applied 注解与 Secret 输出] **********************
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染叶证书 Secret，不进入证据目录和日志] *************************
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览叶证书 Secret] *********************************************
+ok: [localhost]
+
+TASK [仅上传叶证书，避免 last-applied 注解与 Secret 输出] **********************
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染叶证书 Secret，不进入证据目录和日志] *************************
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览叶证书 Secret] *********************************************
+ok: [localhost]
+
+TASK [仅上传叶证书，避免 last-applied 注解与 Secret 输出] **********************
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [私有目录渲染叶证书 Secret，不进入证据目录和日志] *************************
+changed: [localhost]
+
+TASK [私有目录转换为受检 JSON] *************************************************
+ok: [localhost]
+
+TASK [检查 Secret 范围、原始 UID 和公开证书指纹] *******************************
+ok: [localhost]
+
+TASK [服务端严格预览叶证书 Secret] *********************************************
+ok: [localhost]
+
+TASK [仅上传叶证书，避免 last-applied 注解与 Secret 输出] **********************
+changed: [localhost]
+
+TASK [只记录 Secret UID、标签和公开证书指纹] ***********************************
+ok: [localhost]
+
+TASK [建立 HTTP、后端 TLS、gRPC、TCP 和 UDP 专用诊断实例] **********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Deployment/web-v1)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Service/web-v1)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Deployment/web-v2)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Service/web-v2)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Deployment/shared)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Service/shared)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Deployment/secure)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Service/secure)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ConfigMap/backend-ca)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=BackendTLSPolicy/secure)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [建立业务路由编辑者的最小权限] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ServiceAccount/route-editor)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Role/route-editor)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=RoleBinding/route-editor)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [配置两台 worker VM 的数据面和独立负载均衡服务] ***************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=EnvoyProxy/primary)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [建立 GatewayClass、Gateway 和 HTTP 到 HTTPS 重定向] **********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=GatewayClass/cnpl-envoy)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Gateway/primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=HTTPRoute/primary-redirect)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [等待六个诊断后端实际 Ready] **********************************************
+ok: [localhost]
+
+TASK [等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID] ******************
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (89 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (88 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (87 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (86 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (85 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (84 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (83 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (82 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (81 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (80 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (79 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (78 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (77 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (76 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (75 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (74 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (73 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (72 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (71 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (70 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (69 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (68 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (67 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (66 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (65 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (64 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (63 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (62 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (61 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (60 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (59 retries left).
+FAILED - RETRYING: [localhost]: 等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID (58 retries left).
+ok: [localhost]
+
+TASK [报告兼容性和主入口基础安装通过] ******************************************
+ok: [localhost] => {
+    "msg": "02.04.01 PASS；02.04.02 主入口已 Ready，仍需后续真实流量和单 Pod 替换实验。"
+}
+
+PLAY [验证内部 DNS、Host 和路径路由及前后端 TLS] *******************************
+
+TASK [等待权威与 Mac 系统解析器均返回主入口] ***********************************
+ok: [localhost]
+
+TASK [撤销原批次可能遗留的共享后端和外空间证书授权] ****************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-shared', 'namespace': 'lab-gateway-backends'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-frontend-secret', 'namespace': 'lab-gateway-backends'})
+
+TASK [删除前再次核对 ReferenceGrant/allow-shared 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+skipping: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-frontend-secret 归属和 UID] **********
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+skipping: [localhost]
+
+TASK [创建全部协议路由及一个明确禁止的空间绑定] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=HTTPRoute/web)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=HTTPRoute/shared)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=HTTPRoute/secure)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=GRPCRoute/health)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=TCPRoute/tcp)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=UDPRoute/udp)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=HTTPRoute/untrusted)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [仅授权重新加密后端引用] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-document.yml for localhost => (item=ReferenceGrant/allow-secure)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [校验 Host、路径、Header、重写、超时、重定向及后端 TLS] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 http 的本代条件和实际网络行为同时收敛] ******************************
+ok: [localhost]
+
+TASK [报告真实 HTTP 和 HTTPS 行为通过] *****************************************
+ok: [localhost] => {
+    "msg": "02.04.03 PASS；前端证书链/SAN、后端重加密、有效和无效路径行为均有实际请求证据。"
+}
+
+PLAY [完整验证路由绑定、RBAC 和跨空间后端及证书授权] ***************************
+
+TASK [校验业务身份不能修改平台入口、读取别处证书或发放授权] ********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 rbac 的本代条件和实际网络行为同时收敛] ******************************
+ok: [localhost]
+
+TASK [校验未授权共享后端拒绝引用且实际请求失败] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 shared-denied 的本代条件和实际网络行为同时收敛] *********************
+ok: [localhost]
+
+TASK [仅对指定共享 Service 发放授权] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ReferenceGrant/allow-shared)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [校验授权后实际响应来自目标 Pod UID] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 shared-allowed 的本代条件和实际网络行为同时收敛] ********************
+ok: [localhost]
+
+TASK [撤销共享后端授权] ********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost
+
+TASK [删除前再次核对 ReferenceGrant/allow-shared 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [校验撤销授权后再次拒绝引用与流量] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 shared-revoked 的本代条件和实际网络行为同时收敛] ********************
+ok: [localhost]
+
+TASK [保存原引用并生成含 UID 检查的外空间引用补丁] *****************************
+ok: [localhost]
+
+TASK [将 HTTPS 临时改为外空间叶证书引用] ***************************************
+changed: [localhost]
+
+TASK [核验未授权证书不会被用于实际 TLS] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 frontend-denied 的本代条件和实际网络行为同时收敛] *******************
+ok: [localhost]
+
+TASK [发放仅针对 foreign-frontend 的引用授权] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=ReferenceGrant/allow-frontend-secret)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [核验授权后真实 TLS 使用外空间证书指纹] ***********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 frontend-allowed 的本代条件和实际网络行为同时收敛] ******************
+ok: [localhost]
+
+TASK [恢复主证书引用] **********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-restore-frontend.yml for localhost
+
+TASK [检查是否保存过主证书引用原值] ********************************************
+ok: [localhost]
+
+TASK [生成只恢复 certificateRefs 的精确补丁] ***********************************
+ok: [localhost]
+
+TASK [恢复主入口的本地叶证书引用] **********************************************
+changed: [localhost]
+
+TASK [核验真实 TLS 恢复主证书] *************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 frontend-restored 的本代条件和实际网络行为同时收敛] *****************
+ok: [localhost]
+
+TASK [清除临时外空间证书授权] **************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost
+
+TASK [删除前再次核对 ReferenceGrant/allow-frontend-secret 归属和 UID] **********
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [报告授权边界通过] ********************************************************
+ok: [localhost] => {
+    "msg": "02.04.04 PASS；RBAC、allowedRoutes、后端授权/撤销和证书授权/恢复均完成。"
+}
+
+PLAY [验证真实 gRPC、TCP 和 UDP 协议流量] **************************************
+
+TASK [真实调用 Health Check RPC 及两个传输协议，各三次] ************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 protocols 的本代条件和实际网络行为同时收敛] *************************
+ok: [localhost]
+
+TASK [报告三种协议实际请求通过] ************************************************
+ok: [localhost] => {
+    "msg": "02.04.05 PASS；gRPC SERVING 与 TCP/UDP nonce、Pod UID 均匹配；不推断 Kafka/数据库集群发现能力。"
+}
+
+PLAY [在独立临时入口完成传统 Ingress 对照] *************************************
+
+TASK [核对隔离 release 和原对象归属] *******************************************
+ok: [localhost]
+
+TASK [安装临时 Traefik，只启用指定 IngressClass 和实验空间] ********************
+changed: [localhost]
+
+TASK [使用同一后端创建标准 Ingress] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Ingress/compare)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [对 .203 发起真实 Host、路径、TLS 和重定向请求] ***************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 ingress 的本代条件和实际网络行为同时收敛] ***************************
+ok: [localhost]
+
+TASK [报告标准 Ingress 对照通过] ***********************************************
+ok: [localhost] => {
+    "msg": "02.04.06 PASS；相同应用的 Ingress 对照已完成，临时入口将在整组结束后撤销。"
+}
+
+PLAY [验证两版本权重及 Header 分流] ********************************************
+
+TASK [创建 80/20 权重与 Header 优先路由] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=HTTPRoute/weighted)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [校验 200 个独立 TLS 连接分布和十个定向请求] ******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 weights 的本代条件和实际网络行为同时收敛] ***************************
+ok: [localhost]
+
+TASK [报告手工灰度接口通过] ****************************************************
+ok: [localhost] => {
+    "msg": "02.04.07 PASS；保存逐条请求与实际分布；未安装或假定 Argo Rollouts 适配器。"
+}
+
+PLAY [在真实 HTTPS 观测下替换一个数据面 Pod 并验证冷启动配置] ******************
+
+TASK [保存待替换 Pod 和主 Gateway、Service、Deployment 原 UID] *****************
+ok: [localhost]
+
+TASK [开始有界实际 HTTPS 新连接观测] *******************************************
+ok: [localhost]
+
+TASK [等待五个预热请求实际成功] ************************************************
+FAILED - RETRYING: [localhost]: 等待五个预热请求实际成功 (29 retries left).
+ok: [localhost]
+
+TASK [删除前再次核对目标 Pod UID] **********************************************
+ok: [localhost]
+
+TASK [仅删除一个已登记的数据面 Pod，让 Deployment 自动替换] ********************
+changed: [localhost]
+
+TASK [等待原 Pod UID 消失和两个 VM 上的双副本恢复] *****************************
+ok: [localhost]
+
+TASK [直连新 Pod 验证 HTTPS、gRPC、LDS/CDS 成功与零拒绝] ***********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-case.yml for localhost
+
+TASK [等待 cold-proxy 的本代条件和实际网络行为同时收敛] ************************
+ok: [localhost]
+
+TASK [收集替换完成后至少十个实际入口成功请求] **********************************
+FAILED - RETRYING: [localhost]: 收集替换完成后至少十个实际入口成功请求 (29 retries left).
+ok: [localhost]
+
+TASK [标记停止所有本批观测并等待进程退出] **************************************
+ok: [localhost]
+
+TASK [收齐异步观测的退出状态] **************************************************
+ok: [localhost]
+
+TASK [验证连续观测完整性、替换后真实流量与冷启动结果] **************************
+ok: [localhost]
+
+TASK [报告主入口故障恢复完整验收通过] ******************************************
+ok: [localhost] => {
+    "msg": "02.04.02 PASS；主 Gateway/Service/Deployment UID 保持，新 Pod 实际 HTTP/gRPC 和 xDS 均通过，故障窗口错误样本如实保留。"
+}
+
+PLAY [整组验收、临时资源回收与持久主入口交接] **********************************
+
+TASK [汇总七节全部必需实际回执，缺项不能通过] **********************************
+ok: [localhost]
+
+TASK [无条件核对并恢复原主证书引用] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-restore-frontend.yml for localhost
+
+TASK [检查是否保存过主证书引用原值] ********************************************
+ok: [localhost]
+
+TASK [生成只恢复 certificateRefs 的精确补丁] ***********************************
+ok: [localhost]
+
+TASK [恢复主入口的本地叶证书引用] **********************************************
+skipping: [localhost]
+
+TASK [停止本批所有有界观测进程] ************************************************
+ok: [localhost]
+
+TASK [先撤销临时 Ingress 和跨空间授权] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'Ingress', 'name': 'compare', 'namespace': 'lab-gateway-app'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-shared', 'namespace': 'lab-gateway-backends'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-frontend-secret', 'namespace': 'lab-gateway-backends'})
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-delete.yml for localhost => (item={'kind': 'ReferenceGrant', 'name': 'allow-secure', 'namespace': 'lab-gateway-backends'})
+
+TASK [删除前再次核对 Ingress/compare 归属和 UID] *******************************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-shared 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+skipping: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-frontend-secret 归属和 UID] **********
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+skipping: [localhost]
+
+TASK [删除前再次核对 ReferenceGrant/allow-secure 归属和 UID] *******************
+ok: [localhost]
+
+TASK [只删除已登记的临时对象] **************************************************
+changed: [localhost]
+
+TASK [核对临时对照 release 的归属，只允许卸载已有 release] *********************
+ok: [localhost]
+
+TASK [卸载临时对照控制器、.203 服务及集群权限] *********************************
+changed: [localhost]
+
+TASK [检查主入口是否已经创建，恢复模式不会补装主入口] **************************
+ok: [localhost]
+
+TASK [将已创建的主入口收敛到 80/443，撤销实验 TCP/UDP 监听] ********************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-apply.yml for localhost
+
+TASK [对整份公开清单逐个执行身份检查、服务端准入和 UID 取证] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=GatewayClass/cnpl-envoy)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=Gateway/primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/gateway-document.yml for localhost => (item=HTTPRoute/primary-redirect)
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+ok: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+changed: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [将公开对象写入文件，避免大 CRD 超过进程参数限制] *************************
+ok: [localhost]
+
+TASK [核对对象边界及原始 UID] **************************************************
+ok: [localhost]
+
+TASK [安装后执行真实 CRD CEL 与 Webhook 严格准入预览] **************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存公开应用结果] ********************************************************
+changed: [localhost]
+
+TASK [绑定原始 UID，持久组件单独登记] ******************************************
+ok: [localhost]
+
+TASK [回收四个实验空间，每个先检查 UID 与全部资源归属] *************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=lab-gateway-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=lab-gateway-backends)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=lab-gateway-denied)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/gateway-clean-namespace.yml for localhost => (item=ingress-compare)
+
+TASK [检查 lab-gateway-app 的原始 UID 及资源范围] ******************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [检查 lab-gateway-backends 的原始 UID 及资源范围] *************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [检查 lab-gateway-denied 的原始 UID 及资源范围] ***************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [检查 ingress-compare 的原始 UID 及资源范围] ******************************
+ok: [localhost]
+
+TASK [仅删除本批隔离空间] ******************************************************
+changed: [localhost]
+
+TASK [核对持久入口、原集群健康、原工作负载和清理结果] **************************
+ok: [localhost]
+
+TASK [报告实验资源清理和主入口状态] ********************************************
+ok: [localhost] => {
+    "msg": "02.04 CLEANUP PASS；临时空间/.203/授权/协议监听/观测已回收；主入口状态：ready。"
+}
+
+TASK [报告完整 02.04 一次验收通过] *********************************************
+ok: [localhost] => {
+    "msg": "02.04 ALL PASS；02.04.01–07 全部完成；passed.json 与 state/closed.json 已保存；保留 .201 的 80/443、主证书、内部 DNS 和 Envoy 控制器。"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=568  changed=199  unreachable=0    failed=0    skipped=7    rescued=0    ignored=0   
+

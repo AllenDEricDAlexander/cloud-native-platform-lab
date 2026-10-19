@@ -1,0 +1,401 @@
+
+PLAY [完整 02.04 身份、物料和全部配置统一核验] *********************************
+
+TASK [限定模式和规范化证据路径] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建独立 attempt 身份] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次路径] ************************************************************
+ok: [localhost]
+
+TASK [创建管理端取证目录] ******************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.04-20261019-jsonpath-review/attempts/20261019T110220Z-59be62b2-validate)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.04-20261019-jsonpath-review/state)
+
+TASK [读取原始批次状态] ********************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+ok: [localhost] => (item=state/closed.json)
+ok: [localhost] => (item=state/source.json)
+
+TASK [防止覆盖已通过批次，恢复必须使用原上下文] ********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [核对原集群、02.03 原始交接、主池和组件边界] ******************************
+ok: [localhost]
+
+TASK [绑定运行和集群身份] ******************************************************
+ok: [localhost]
+
+TASK [冻结全部剧本、YAML、测试程序和前序交接输入摘要] **************************
+ok: [localhost]
+
+TASK [未关闭批次继续执行必须匹配原始源码] **************************************
+skipping: [localhost]
+
+TASK [核对四个 Harbor 镜像的 Linux amd64 摘要] *********************************
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-traefik@sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508)
+ok: [localhost] => (item=harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5)
+
+TASK [确定性重建诊断镜像及真实 gRPC 客户端，核对锁定摘要] **********************
+ok: [localhost]
+
+TASK [核验本机已准备的 gRPC 客户端摘要] ****************************************
+ok: [localhost]
+
+TASK [客户端必须来自受检诊断源码] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [一次渲染全部 Gateway API、授权、后端和路由公开配置] **********************
+changed: [localhost] => (item=controller-values)
+changed: [localhost] => (item=namespaces)
+changed: [localhost] => (item=envoy-proxy)
+changed: [localhost] => (item=gateway)
+changed: [localhost] => (item=fixtures)
+changed: [localhost] => (item=routes)
+changed: [localhost] => (item=grant-shared)
+changed: [localhost] => (item=grant-backend-tls)
+changed: [localhost] => (item=grant-frontend)
+changed: [localhost] => (item=weights)
+changed: [localhost] => (item=route-editor)
+
+TASK [渲染临时 Ingress 对照的两份公开配置] *************************************
+changed: [localhost] => (item=compare-values)
+changed: [localhost] => (item=compare)
+
+TASK [同时准备仅保留 HTTP 和 HTTPS 的最终主入口配置] ***************************
+changed: [localhost]
+
+TASK [恢复模式也需要同一对照 Chart 配置来核对卸载范围] *************************
+skipping: [localhost]
+
+TASK [严格校验全部内置对象、锁定 CRD 包、两套 Chart 和自定义对象结构] **********
+ok: [localhost]
+
+TASK [保存原有工作负载及关键配置 UID 和 spec 保护基线] *************************
+ok: [localhost]
+
+TASK [正式变更前首次绑定基线，不覆盖原始状态] **********************************
+skipping: [localhost] => (item=source) 
+skipping: [localhost] => (item=protected) 
+skipping: [localhost]
+
+TASK [读取入口已签发的公开证书回执] ********************************************
+skipping: [localhost]
+
+TASK [绑定 Secret 清单私有存储目录] ********************************************
+skipping: [localhost]
+
+PLAY [只读核验承载 VM 安全状态与两处 VIP 冲突] *********************************
+
+TASK [核对 VM 身份、Enforcing、firewalld、基础服务和内网 TLS] ******************
+ok: [worker02]
+ok: [worker01]
+ok: [infra02]
+ok: [infra01]
+
+TASK [保存 VM 只读检查原始输出] ************************************************
+changed: [worker01 -> localhost]
+changed: [worker02 -> localhost]
+changed: [infra01 -> localhost]
+changed: [infra02 -> localhost]
+
+PLAY [提前核验权威 DNS 的精确增量] *********************************************
+
+TASK [确认 named 与 Enforcing] *************************************************
+ok: [dns]
+
+TASK [精确读取公开区域原始字节，保留末尾空行] **********************************
+ok: [dns]
+
+TASK [保存权威区域公开原值] ****************************************************
+changed: [dns -> localhost]
+
+TASK [基于原始区域生成只增加两个 A 记录的候选] *********************************
+ok: [dns -> localhost]
+
+TASK [在权威 VM 上从标准输入验证候选区域，无远程写入] **************************
+ok: [dns]
+
+PLAY [所有前置核验通过后才进入部署] ********************************************
+
+TASK [报告整组源码前检结果及准入边界] ******************************************
+ok: [localhost] => {
+    "msg": "02.04 SOURCE VALIDATION PASS；整组 YAML/Chart、CRD 服务端预览、自定义对象结构、镜像、VM、DNS 候选已核验；自定义对象 CEL/Webhook 在 CRD 安装后逐项严格预览。"
+}
+
+PLAY [安装锁定 CRD、控制器和受控双副本主入口] **********************************
+
+TASK [建立平台与实验命名空间] **************************************************
+skipping: [localhost]
+
+TASK [单独安装锁定 Standard CRD 与升级保护策略] ********************************
+skipping: [localhost]
+
+TASK [等待所有锁定 CRD 建立] ***************************************************
+skipping: [localhost]
+
+TASK [刷新 API 发现] ***********************************************************
+skipping: [localhost]
+
+TASK [拒绝接管已有其他控制器或 Chart 对象] *************************************
+skipping: [localhost]
+
+TASK [安装控制面，仅使用已有锁定 Chart 和 Harbor 镜像] *************************
+skipping: [localhost]
+
+TASK [核对控制面实际镜像和就绪副本] ********************************************
+skipping: [localhost]
+
+TASK [创建四份仅含叶证书的私有 Secret] *****************************************
+skipping: [localhost] => (item=primary) 
+skipping: [localhost] => (item=foreign) 
+skipping: [localhost] => (item=backend) 
+skipping: [localhost] => (item=compare) 
+skipping: [localhost]
+
+TASK [建立 HTTP、后端 TLS、gRPC、TCP 和 UDP 专用诊断实例] **********************
+skipping: [localhost]
+
+TASK [建立业务路由编辑者的最小权限] ********************************************
+skipping: [localhost]
+
+TASK [配置两台 worker VM 的数据面和独立负载均衡服务] ***************************
+skipping: [localhost]
+
+TASK [建立 GatewayClass、Gateway 和 HTTP 到 HTTPS 重定向] **********************
+skipping: [localhost]
+
+TASK [等待六个诊断后端实际 Ready] **********************************************
+skipping: [localhost]
+
+TASK [等待主入口 .201 和跨两个 VM 的双副本，保存派生资源 UID] ******************
+skipping: [localhost]
+
+TASK [报告兼容性和主入口基础安装通过] ******************************************
+skipping: [localhost]
+
+PLAY [应用经过前检的两个内部域名记录] ******************************************
+
+TASK [修改前再次读取权威区域摘要] **********************************************
+skipping: [dns]
+
+TASK [拒绝覆盖前检后他人修改的区域] ********************************************
+skipping: [dns]
+
+TASK [更新两个 A 记录和递增 serial，保留全部原区域内容] ************************
+skipping: [dns]
+
+TASK [让 named 重新加载已验证区域] *********************************************
+skipping: [dns]
+
+PLAY [验证内部 DNS、Host 和路径路由及前后端 TLS] *******************************
+
+TASK [等待权威与 Mac 系统解析器均返回主入口] ***********************************
+skipping: [localhost]
+
+TASK [撤销原批次可能遗留的共享后端和外空间证书授权] ****************************
+skipping: [localhost] => (item={'kind': 'ReferenceGrant', 'name': 'allow-shared', 'namespace': 'lab-gateway-backends'}) 
+skipping: [localhost] => (item={'kind': 'ReferenceGrant', 'name': 'allow-frontend-secret', 'namespace': 'lab-gateway-backends'}) 
+skipping: [localhost]
+
+TASK [创建全部协议路由及一个明确禁止的空间绑定] ********************************
+skipping: [localhost]
+
+TASK [仅授权重新加密后端引用] **************************************************
+skipping: [localhost]
+
+TASK [校验 Host、路径、Header、重写、超时、重定向及后端 TLS] *******************
+skipping: [localhost]
+
+TASK [报告真实 HTTP 和 HTTPS 行为通过] *****************************************
+skipping: [localhost]
+
+PLAY [完整验证路由绑定、RBAC 和跨空间后端及证书授权] ***************************
+
+TASK [校验业务身份不能修改平台入口、读取别处证书或发放授权] ********************
+skipping: [localhost]
+
+TASK [校验未授权共享后端拒绝引用且实际请求失败] ********************************
+skipping: [localhost]
+
+TASK [仅对指定共享 Service 发放授权] *******************************************
+skipping: [localhost]
+
+TASK [校验授权后实际响应来自目标 Pod UID] **************************************
+skipping: [localhost]
+
+TASK [撤销共享后端授权] ********************************************************
+skipping: [localhost]
+
+TASK [校验撤销授权后再次拒绝引用与流量] ****************************************
+skipping: [localhost]
+
+TASK [保存原引用并生成含 UID 检查的外空间引用补丁] *****************************
+skipping: [localhost]
+
+TASK [将 HTTPS 临时改为外空间叶证书引用] ***************************************
+skipping: [localhost]
+
+TASK [核验未授权证书不会被用于实际 TLS] ****************************************
+skipping: [localhost]
+
+TASK [发放仅针对 foreign-frontend 的引用授权] **********************************
+skipping: [localhost]
+
+TASK [核验授权后真实 TLS 使用外空间证书指纹] ***********************************
+skipping: [localhost]
+
+TASK [恢复主证书引用] **********************************************************
+skipping: [localhost]
+
+TASK [核验真实 TLS 恢复主证书] *************************************************
+skipping: [localhost]
+
+TASK [清除临时外空间证书授权] **************************************************
+skipping: [localhost]
+
+TASK [报告授权边界通过] ********************************************************
+skipping: [localhost]
+
+PLAY [验证真实 gRPC、TCP 和 UDP 协议流量] **************************************
+
+TASK [真实调用 Health Check RPC 及两个传输协议，各三次] ************************
+skipping: [localhost]
+
+TASK [报告三种协议实际请求通过] ************************************************
+skipping: [localhost]
+
+PLAY [在独立临时入口完成传统 Ingress 对照] *************************************
+
+TASK [核对隔离 release 和原对象归属] *******************************************
+skipping: [localhost]
+
+TASK [安装临时 Traefik，只启用指定 IngressClass 和实验空间] ********************
+skipping: [localhost]
+
+TASK [使用同一后端创建标准 Ingress] ********************************************
+skipping: [localhost]
+
+TASK [对 .203 发起真实 Host、路径、TLS 和重定向请求] ***************************
+skipping: [localhost]
+
+TASK [报告标准 Ingress 对照通过] ***********************************************
+skipping: [localhost]
+
+PLAY [验证两版本权重及 Header 分流] ********************************************
+
+TASK [创建 80/20 权重与 Header 优先路由] ***************************************
+skipping: [localhost]
+
+TASK [校验 200 个独立 TLS 连接分布和十个定向请求] ******************************
+skipping: [localhost]
+
+TASK [报告手工灰度接口通过] ****************************************************
+skipping: [localhost]
+
+PLAY [在真实 HTTPS 观测下替换一个数据面 Pod 并验证冷启动配置] ******************
+
+TASK [保存待替换 Pod 和主 Gateway、Service、Deployment 原 UID] *****************
+skipping: [localhost]
+
+TASK [开始有界实际 HTTPS 新连接观测] *******************************************
+skipping: [localhost]
+
+TASK [等待五个预热请求实际成功] ************************************************
+skipping: [localhost]
+
+TASK [删除前再次核对目标 Pod UID] **********************************************
+skipping: [localhost]
+
+TASK [仅删除一个已登记的数据面 Pod，让 Deployment 自动替换] ********************
+skipping: [localhost]
+
+TASK [等待原 Pod UID 消失和两个 VM 上的双副本恢复] *****************************
+skipping: [localhost]
+
+TASK [直连新 Pod 验证 HTTPS、gRPC、LDS/CDS 成功与零拒绝] ***********************
+skipping: [localhost]
+
+TASK [收集替换完成后至少十个实际入口成功请求] **********************************
+skipping: [localhost]
+
+TASK [标记停止所有本批观测并等待进程退出] **************************************
+skipping: [localhost]
+
+TASK [收齐异步观测的退出状态] **************************************************
+skipping: [localhost]
+
+TASK [验证连续观测完整性、替换后真实流量与冷启动结果] **************************
+skipping: [localhost]
+
+TASK [报告主入口故障恢复完整验收通过] ******************************************
+skipping: [localhost]
+
+PLAY [整组验收、临时资源回收与持久主入口交接] **********************************
+
+TASK [汇总七节全部必需实际回执，缺项不能通过] **********************************
+skipping: [localhost]
+
+TASK [无条件核对并恢复原主证书引用] ********************************************
+skipping: [localhost]
+
+TASK [停止本批所有有界观测进程] ************************************************
+skipping: [localhost]
+
+TASK [先撤销临时 Ingress 和跨空间授权] *****************************************
+skipping: [localhost] => (item={'kind': 'Ingress', 'name': 'compare', 'namespace': 'lab-gateway-app'}) 
+skipping: [localhost] => (item={'kind': 'ReferenceGrant', 'name': 'allow-shared', 'namespace': 'lab-gateway-backends'}) 
+skipping: [localhost] => (item={'kind': 'ReferenceGrant', 'name': 'allow-frontend-secret', 'namespace': 'lab-gateway-backends'}) 
+skipping: [localhost] => (item={'kind': 'ReferenceGrant', 'name': 'allow-secure', 'namespace': 'lab-gateway-backends'}) 
+skipping: [localhost]
+
+TASK [核对临时对照 release 的归属，只允许卸载已有 release] *********************
+skipping: [localhost]
+
+TASK [卸载临时对照控制器、.203 服务及集群权限] *********************************
+skipping: [localhost]
+
+TASK [检查主入口是否已经创建，恢复模式不会补装主入口] **************************
+skipping: [localhost]
+
+TASK [将已创建的主入口收敛到 80/443，撤销实验 TCP/UDP 监听] ********************
+skipping: [localhost]
+
+TASK [回收四个实验空间，每个先检查 UID 与全部资源归属] *************************
+skipping: [localhost] => (item=lab-gateway-app) 
+skipping: [localhost] => (item=lab-gateway-backends) 
+skipping: [localhost] => (item=lab-gateway-denied) 
+skipping: [localhost] => (item=ingress-compare) 
+skipping: [localhost]
+
+TASK [核对持久入口、原集群健康、原工作负载和清理结果] **************************
+skipping: [localhost]
+
+TASK [报告实验资源清理和主入口状态] ********************************************
+skipping: [localhost]
+
+TASK [报告完整 02.04 一次验收通过] *********************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+dns                        : ok=5    changed=1    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+infra01                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+infra02                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+localhost                  : ok=19   changed=4    unreachable=0    failed=0    skipped=75   rescued=0    ignored=0   
+worker01                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+worker02                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,0 +1,9 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: ReferenceGrant
+metadata:
+  name: allow-frontend-secret
+  namespace: lab-gateway-backends
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: Gateway, namespace: cnpl-gateway}]
+  to: [{group: '', kind: Secret, name: foreign-frontend}]

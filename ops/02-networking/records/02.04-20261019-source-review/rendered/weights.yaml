@@ -1,0 +1,14 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: weighted
+  namespace: lab-gateway-app
+  labels: {cnpl.io/gateway-run: 'offline-source-review'}
+spec:
+  parentRefs: [{name: primary, namespace: cnpl-gateway, sectionName: https}]
+  hostnames: [demo.svc.internal.egon.top]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /weight}, headers: [{name: X-Cnpl-Canary, value: always}]}]
+      backendRefs: [{name: web-v2, port: 8080}]
+    - matches: [{path: {type: PathPrefix, value: /weight}}]
+      backendRefs: [{name: web-v1, port: 8080, weight: 80}, {name: web-v2, port: 8080, weight: 20}]

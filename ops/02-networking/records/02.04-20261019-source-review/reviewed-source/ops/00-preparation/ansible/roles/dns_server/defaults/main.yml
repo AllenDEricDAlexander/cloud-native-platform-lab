@@ -1,0 +1,25 @@
+# 内部权威 DNS 与递归（00.07.01、00.03.04）。记录由台账生成，不手写。
+dns_zone: internal.egon.top
+dns_reverse_zone: 9.168.192.in-addr.arpa
+# 修改台账中的主机或地址后递增（YYYYMMDDnn）；当前没有从服务器，但仍按惯例保持单调递增。
+dns_zone_serial: 2026101901
+dns_server_fqdn: dns.mgmt.internal.egon.top
+dns_listen_address: "{{ ansible_host }}"
+dns_allowed_clients: ["{{ dns_networks.lan.cidr }}"]
+# 上游：路由器 DHCP 下发、节点已验证可用的公共解析（第 46 节）。CoreDNS 只负责 cluster.local，不转回本服务器。
+dns_forwarders: [223.5.5.5, 8.8.8.8]
+
+dns_ledger: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../../../../inventory/hosts.yaml') | from_yaml }}"
+dns_networks: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../../../../inventory/networks.yaml') | from_yaml }}"
+dns_vip_ledger: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../../../../inventory/vips.yaml') | from_yaml }}"
+dns_gateway_records: "{{ dns_vip_ledger.gateway_dns_records | default([]) }}"
+# [FQDN, IPv4] 列表：Kubernetes 节点、基础服务、ESXi、iDRAC（由 esxiNN 推得 idracNN）、vCenter 目标名称、API VIP。
+dns_records: >-
+  {{ (dns_ledger.kubernetes_nodes | map(attribute='fqdn') | zip(dns_ledger.kubernetes_nodes | map(attribute='ip')) | list)
+     + (dns_ledger.bootstrap_services | map(attribute='fqdn') | zip(dns_ledger.bootstrap_services | map(attribute='ip')) | list)
+     + (dns_ledger.lab_clients | default([]) | map(attribute='fqdn') | zip(dns_ledger.lab_clients | default([]) | map(attribute='ip')) | list)
+     + (dns_ledger.hypervisors | map(attribute='fqdn') | zip(dns_ledger.hypervisors | map(attribute='management_ip')) | list)
+     + (dns_ledger.hypervisors | map(attribute='fqdn') | map('regex_replace', '^esxi', 'idrac')
+        | zip(dns_ledger.hypervisors | map(attribute='bmc_ip')) | list)
+     + [[dns_ledger.vcenter.fqdn, dns_ledger.vcenter.ip]]
+     + [[dns_networks.primary_cluster.api_fqdn, dns_networks.primary_cluster.api_vip]] }}

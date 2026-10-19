@@ -20,6 +20,9 @@ if a.action=='prepare':
 elif a.action=='plan':
  command=[sys.executable,'-c','import sys;print("{}");sys.exit(1)' if a.case=='model-rejection' else 'print("{}")']
  value={'commands':[{'argv':command,'allowed_rc':[1] if a.case=='model-rejection' else [0],'key':None}]}
+ if a.case==settings.get('command_fail'):
+  value={'commands':[{'argv':[sys.executable,'-c','import sys;sys.exit(2)'],'allowed_rc':[0],'key':None},
+    {'argv':[sys.executable,'-c','from pathlib import Path;Path('+repr(str(Path(a.records)/'must-not-run'))+').touch()'],'allowed_rc':[0],'key':None}]}
 elif a.action=='record':
  data=json.loads(Path(a.input).read_text())
  assert all('phase_command' in v for v in data.get('results',[]))
@@ -47,12 +50,13 @@ def main():
     base=records/'offline'/uuid.uuid4().hex[:8]
     base.mkdir(parents=True)
     results={}
-    for mode_name,mode,failed in [('normal','all',False),('failure','all',True),('recover','recover',False)]:
+    for mode_name,mode,failed in [('normal','all',False),('failure','all',True),('command-failure','all',True),('recover','recover',False)]:
         folder=base/mode_name
         folder.mkdir()
         model=folder/'model.py';model.write_text(MODEL)
-        fail=next(v['name'] for v in reversed(cases[:-1]) if v.get('check',True)) if failed else None
-        (folder/'settings.json').write_text(json.dumps({'steps':cases,'stage':args.topic,'fail':fail}))
+        fail=next(v['name'] for v in reversed(cases[:-1]) if v.get('check',True)) if mode_name=='failure' else None
+        command_fail=cases[1]['name'] if mode_name=='command-failure' else None
+        (folder/'settings.json').write_text(json.dumps({'steps':cases,'stage':args.topic,'fail':fail,'command_fail':command_fail}))
         varfile=folder/'vars.json';varfile.write_text(json.dumps({'phase_mode':mode,'phase_records':str(folder),'phase_check':str(model)}))
         log=folder/'ansible.txt'
         env=dict(os.environ,ANSIBLE_CONFIG=str(r.ROOT/'ops/00-preparation/ansible/ansible.cfg'))
@@ -62,6 +66,7 @@ def main():
         require(outcome.returncode==(2 if failed else 0),mode_name+' Ansible 返回值异常：'+str(log))
         require(json.loads((folder/'state/closed.json').read_text())['cleanup_passed'],'always 未清理')
         require(not failed or not (folder/'passed.json').exists(),'失败被隐藏成通过')
+        require(not (folder/'must-not-run').exists(),'单个命令失败后仍执行了后续命令')
         results[mode_name]={'passed':True,'exit':outcome.returncode,'cleanup':True,'recap':log.read_text().split('PLAY RECAP')[-1].strip(),'log':str(log)}
     value={'scope':'Ansible orchestration only','passed':True,'results':results}
     r.save(records/'offline-results.json',value)

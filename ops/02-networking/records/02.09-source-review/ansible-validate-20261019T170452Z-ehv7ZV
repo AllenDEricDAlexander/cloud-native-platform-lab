@@ -1,0 +1,26 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:21:7
+
+19       register: phase_prepare
+20       changed_when: false
+21     - name: 全部执行清单严格服务端预览或锁定 schema 校验
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/dataplane/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-source-review", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-source-review/attempts/20261019T170453Z-517d57ca-validate", "--mode", "validate", "validate", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-source-review/attempts/20261019T170453Z-517d57ca-validate/validation.json"], "delta": "0:00:00.509485", "end": "2026-10-20 01:04:58.341040", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-20 01:04:57.831555", "stderr": "Chart 出现未准备镜像：{'cnpl.local/operator-generic:e614f51426eb2c56-arm64'}", "stderr_lines": ["Chart 出现未准备镜像：{'cnpl.local/operator-generic:e614f51426eb2c56-arm64'}"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

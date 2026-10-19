@@ -181,67 +181,16 @@ bash ops/02-networking/scripts/resource-governance.sh all "$LAB_RESOURCE_RECORDS
 
 <a id="02-09"></a>
 
-## 02.09 Cilium 数据面、L2 与 BGP 对照
+## 02.09 隔离数据面、L2 与 BGP 对照
 
-输入：独立实验窗口/范围、已验证主线配置和回退通道。
-
-1. 保存主线 values，在隔离环境切换 kube-proxy replacement，逐项跑 Service/NodePort/Gateway/API 回归；先确认特性要求再实验 L2。
-2. 使用 .211–.220 的独立选择器与池测试 LB IPAM/L2，不宣告 MetalLB 或 API 地址；测试节点失效与地址撤回。
-3. Native Routing 先具备 Pod CIDR 回程路由；BGP 先准备可控邻居、ASN、过滤与允许前缀，再测试建邻、宣告、撤回和故障，不把家庭默认路由纳入宣告。
-
-### 操作命令与目的
-
-本节在独立实验环境或有回退入口的维护窗口执行，每次只变一种数据面能力：
+[完整 Ansible/YAML、21步作用/预期与恢复](examples/dataplane/README.md)。管理 Mac 上临时kind，固定Kubernetes1.36.4/Cilium1.20.2，实际比较kube-proxy/eBPF与VXLAN/Native，独立Envoy Gateway、L2/ARP/暂停容器故障与FRR BGP前缀宣告/撤回，最后恢复基准并删除本批环境。
 
 ```bash
-helm get values cilium -n kube-system -o yaml > cilium-before.yaml
-helm history cilium -n kube-system
-helm upgrade cilium "$LAB_CILIUM_CHART" -n kube-system \
-  --version "$LAB_CILIUM_VERSION" -f cilium-comparison-values.yaml --wait
-cilium status --wait
-cilium connectivity test --test-namespace lab-connectivity
-kubectl apply -f cilium-lb-pool.yaml -f cilium-l2-policy.yaml
-cilium bgp peers                         # BGP 场景检查邻居
-cilium bgp routes advertised ipv4 unicast # 检查实际宣告的 IPv4 单播路由
-# 对照结束后按实际迁移流程恢复；Helm 回退不是 kube-proxy 重建的完整替代
-helm rollback cilium "$LAB_GOOD_HELM_REVISION" -n kube-system --wait
+export LAB_DATAPLANE_RECORDS="$PWD/ops/02-networking/records/02.09-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 ```
 
-### 配置示例
-
-Cilium Helm values 的特性片段；L2/BGP 分开启用，具体 Kubernetes API 地址和设备按实验填写：
-
-```yaml
-kubeProxyReplacement: true
-k8sServiceHost: 192.168.9.100
-k8sServicePort: 6443
-l2announcements:
-  enabled: true
-```
-
-隔离的 LB IPAM 地址池示例，CRD API 版本在实验时核对：
-
-```yaml
-apiVersion: cilium.io/v2
-kind: CiliumLoadBalancerIPPool
-metadata: {name: comparison-pool}
-spec:
-  blocks:
-    - start: 192.168.9.211
-      stop: 192.168.9.220
-  serviceSelector:
-    matchLabels: {lab.egon.top/lb: cilium-comparison}
-```
-
-对照 Service 还需设置该 Cilium 模式支持的 `loadBalancerClass`，并让 MetalLB 只处理其自己的 class 或互斥服务分配范围。地址池不重叠本身不能阻止两个控制器同时处理同一个 Service。
-
-### 预期结果
-
-切换前后同一通信集可对比，实验 VIP 与 MetalLB/API 不重叠；BGP 邻居 Established、前缀受过滤且故障后撤回。Native Routing 必须有 Pod CIDR 回程路由。恢复主线时再次验证 API、Service、DNS 和网关，不能只看 Helm 状态。
-
-交付：`ops/02-networking/examples/` 模式 values、网络测试和回退配置。
-
-检查与失败处理：同一测试集给出前后对照；缺少路由/BGP 条件单独阻塞；回退后原入口和 DNS 仍通过。
+先由操作者启动本机Docker Desktop（linux/arm64、cgroup v2、至少4CPU/6Gi，建议8Gi）；脚本不自动启动它。前置为02.08已实际完成与清理。全部物料已锁定并导出离线归档；主十VM、Cilium和.201保持。BGP仅使用专属Docker网络软件邻居，不接家庭路由器。
 
 <a id="02-10"></a>
 

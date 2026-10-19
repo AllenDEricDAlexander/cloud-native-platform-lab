@@ -1,0 +1,26 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:21:7
+
+19       register: phase_prepare
+20       changed_when: false
+21     - name: 全部执行清单严格服务端预览或锁定 schema 校验
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/mesh/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T172537Z-e52bfa64-validate", "--mode", "validate", "validate", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T172537Z-e52bfa64-validate/validation.json"], "delta": "0:00:01.208658", "end": "2026-10-20 01:25:44.834629", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-20 01:25:43.625971", "stderr": "kubectl: Error from server (Forbidden): error when creating \"STDIN\": pods \"cnpl-preview-server\" is forbidden: error looking up service account kube-system/server: serviceaccount \"server\" not found", "stderr_lines": ["kubectl: Error from server (Forbidden): error when creating \"STDIN\": pods \"cnpl-preview-server\" is forbidden: error looking up service account kube-system/server: serviceaccount \"server\" not found"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

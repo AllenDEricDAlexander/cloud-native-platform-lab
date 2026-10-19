@@ -45,6 +45,8 @@ def main(driver):
         if hasattr(driver, 'final'):
             driver.final(s)
         value = s.final()
+        if hasattr(driver,'post_final'):
+            driver.post_final(s,value)
     else:
         raise ValueError('未知动作')
     r.save(args.output, value)

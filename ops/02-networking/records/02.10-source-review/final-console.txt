@@ -1,0 +1,25 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:16:7
+
+14     - name: 绑定 attempt 和专题
+15       ansible.builtin.set_fact: {phase_attempt: '{{ phase_records }}/attempts/{{ phase_clock.stdout }}-{{ phase_mo...
+16     - name: 准备原身份、VM、输入摘要、所有模板与安全边界
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/mesh/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate", "--mode", "validate", "prepare", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/prepare.json"], "delta": "0:00:51.071198", "end": "2026-10-20 01:36:01.349543", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-20 01:35:10.278345", "stderr": "Command '['/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/istio-1.31.2/bin/istioctl', 'kube-inject', '--kubeconfig', '/dev/null', '-f', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/inject-example.yaml', '--injectConfigFile', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/inject-config.yaml', '--meshConfigFile', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/mesh-config.yaml', '--valuesFile', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/inject-values.json']' timed out after 45 seconds", "stderr_lines": ["Command '['/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/istio-1.31.2/bin/istioctl', 'kube-inject', '--kubeconfig', '/dev/null', '-f', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/inject-example.yaml', '--injectConfigFile', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/inject-config.yaml', '--meshConfigFile', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/mesh-config.yaml', '--valuesFile', '/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review/attempts/20261019T173509Z-d11eeedb-validate/inject-values.json']' timed out after 45 seconds"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=2    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+
+
+未完成；原始证据保留。如已开始变更，原批恢复：bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/mesh.sh recover /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-source-review

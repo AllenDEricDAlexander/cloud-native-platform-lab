@@ -1,8 +1,10 @@
 import importlib.util
 import json
 from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 import unittest
+import yaml
 from unittest.mock import patch
 
 spec=importlib.util.spec_from_file_location('dataplane_tests',Path(__file__).with_name('check.py'))
@@ -40,6 +42,21 @@ class Isolation(unittest.TestCase):
         obj={'apiVersion':'v1','kind':'Service','metadata':{'uid':'u','name':'l2','namespace':'lab-dataplane','labels':{}}}
         with patch.object(c,'guard'),patch.object(c,'get',return_value=obj),self.assertRaises(ValueError):
             c.delete('Service','l2','lab-dataplane')
+
+    def test_namespace_and_sa_are_applied_before_dependent_pod_dryrun(self):
+        with tempfile.TemporaryDirectory() as d:
+            state=self.state();state.attempt=Path(d)
+            state.command=lambda argv:{'argv':[str(v) for v in argv]}
+            c=m.iso.Cluster(state)
+            objects=[{'apiVersion':'v1','kind':kind,'metadata':{'name':name,**({'namespace':'lab'} if kind!='Namespace' else {})}}
+                for kind,name in [('Namespace','lab'),('ServiceAccount','app'),('Pod','app')]]
+            file=Path(d)/'objects.yaml';file.write_text(yaml.safe_dump_all(objects))
+            with patch.object(c,'guard'):commands=c.apply([file])
+            self.assertEqual(len(commands),6)
+            self.assertIn('--dry-run=server',commands[0]['argv'])
+            self.assertNotIn('--dry-run=server',commands[1]['argv'])
+            self.assertIn('--dry-run=server',commands[2]['argv'])
+            self.assertIn('ServiceAccount',commands[3]['argv'][-1])
 
 
 if __name__=='__main__':unittest.main()

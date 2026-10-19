@@ -1,0 +1,28 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: strict
+  namespace: lab-mesh-ambient
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: server-l4
+  namespace: lab-mesh-ambient
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - internal.egon.top/ns/lab-mesh-ambient/sa/allowed
+  selector:
+    matchLabels:
+      app: server

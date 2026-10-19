@@ -1,0 +1,76 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: strict
+  namespace: lab-mesh-sidecar
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: server
+  namespace: lab-mesh-sidecar
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - internal.egon.top/ns/lab-mesh-sidecar/sa/allowed
+    to:
+    - operation:
+        methods:
+        - GET
+        paths:
+        - /allowed
+        - /counts
+        - /fail
+        - /slow
+  selector:
+    matchLabels:
+      app: server
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: bounded
+  namespace: lab-mesh-sidecar
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  hosts:
+  - server
+  http:
+  - match:
+    - uri:
+        exact: /fail
+    timeout: 1s
+    retries:
+      attempts: 2
+      perTryTimeout: 200ms
+      retryOn: 5xx
+    route:
+    - destination:
+        host: server
+        port:
+          number: 8080
+  - match:
+    - uri:
+        exact: /slow
+    timeout: 300ms
+    route:
+    - destination:
+        host: server
+        port:
+          number: 8080
+  - route:
+    - destination:
+        host: server
+        port:
+          number: 8080

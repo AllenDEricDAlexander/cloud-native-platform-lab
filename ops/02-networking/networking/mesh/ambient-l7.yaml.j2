@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  namespace: lab-mesh-ambient
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    istio.io/use-waypoint: waypoint
+spec:
+  selector:
+    app: server
+    cnpl.io/phase-run: '{{ run }}'
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    appProtocol: http
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: server-l4
+  namespace: lab-mesh-ambient
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    istio.io/use-waypoint: waypoint
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - internal.egon.top/ns/lab-mesh-ambient/sa/waypoint
+  selector:
+    matchLabels:
+      app: server
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: server-l7
+  namespace: lab-mesh-ambient
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    istio.io/use-waypoint: waypoint
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - internal.egon.top/ns/lab-mesh-ambient/sa/allowed
+    to:
+    - operation:
+        methods:
+        - GET
+        paths:
+        - /allowed
+  targetRefs:
+  - group: ''
+    kind: Service
+    name: server

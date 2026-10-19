@@ -196,52 +196,21 @@ bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 
 ## 02.10 Istio、SPIFFE/SPIRE 与交接
 
-输入：隔离 Namespace、兼容矩阵和已验证应用基准。
-
-1. 分别在不同工作负载上启用 Sidecar 与 Ambient；Ambient 按所需 L7 功能配置 waypoint，比较注入/ztunnel/waypoint 的实际责任。
-2. 实施 mTLS、授权、超时和有界重试，测试未授权服务与故障后端；记录资源和延迟变化，不给同一工作负载重复启用冲突模式。
-3. 部署隔离 SPIRE 注册/证明流程，验证 SVID 签发、续期和不满足身份条件时拒绝；internal.egon.top 信任域不替代 DNS 或 RBAC。
-4. 撤除闲置网格/Ingress/实验 VIP，保留主线并跑基准回归；需要 05/06 的观测与联合信任扩展写入回访。
-
-### 操作命令与目的
+[全部 Ansible/YAML、21步作用/预期与恢复](examples/mesh/README.md)。另一套临时kind内演练Sidecar、Ambient/waypoint，mTLS精确身份授权、超时/有界重试、SPIRE PSAT注册/真实SVID与轮换、注册撤销和旧证书TTL。独立CA/bundle不自动联合信任。清理后才写正式handoff。
 
 ```bash
-istioctl install -f istio-sidecar.yaml --skip-confirmation
-kubectl label namespace mesh-sidecar istio-injection=enabled --overwrite
-kubectl -n mesh-sidecar rollout restart deployment/mesh-demo
-istioctl proxy-status
-# Ambient 工作负载放到另一个 Namespace，控制面先安装匹配 Ambient profile
-kubectl label namespace mesh-ambient istio.io/dataplane-mode=ambient --overwrite
-istioctl waypoint apply -n mesh-ambient --enroll-namespace
-kubectl -n mesh-sidecar apply -f mesh-auth.yaml
-kubectl -n mesh-sidecar exec "$LAB_ALLOWED_CLIENT" -- curl -fsS http://mesh-demo:8080/
+export LAB_MESH_RECORDS="$PWD/ops/02-networking/records/02.10-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/mesh.sh all "$LAB_MESH_RECORDS"
 ```
 
-SPIRE 部署后，在 server 管理环境使用 `spire-server agent list`、`spire-server entry show`，再以 `spire-server entry create` 声明实际 parent ID、SPIFFE ID 和 `k8s:ns`/`k8s:sa` selectors；通过实验工作负载检查 SVID 获取、续期及不匹配身份拒绝。
+第一行绑定新目录，第二行一次完成身份/网格实验并删除本批环境。前置为02.09实际通过与清理，本机Docker保持运行。主集群Cilium/证书/入口保持；全部私钥仅在隔离环境/进程内，私有kubeconfig不入Git。
 
-### 配置示例
+## 02.06–10 分步与整批执行
 
-在单一实验 Namespace 强制 mTLS，随后配套最小 AuthorizationPolicy；Sidecar 与 Ambient 使用各自独立对象：
+五个专题各有独立all/validate/recover入口，按顺序执行。每个脚本自动查找前一步真实通过及清理回执。[总操作指南](examples/06-10/README.md)提供五条独立命令、作用、预期、失败恢复和可选顺序入口。
 
-```yaml
-apiVersion: security.istio.io/v1
-kind: PeerAuthentication
-metadata: {name: default, namespace: mesh-sidecar}
-spec:
-  mtls:
-    mode: STRICT
+```bash
+bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/run-06-10.sh all
 ```
 
-超时/重试示例字段放进实际 VirtualService 或该实现支持的 Route；不要在网关、网格和 SDK 同时设置无界重试。
-
-### 预期结果
-
-选定工作负载接入对应网格，允许身份可调用，未授权身份被拒绝；Ambient 的 L4 与 waypoint 的 L7 行为分别验证。SPIRE 的短期身份能续期，不合 selectors 的工作负载不能取得目标身份。退出实验后主线网络回归通过。
-
-交付：`ops/02-networking/networking/mesh/` 与身份实验；完整网络交接表。
-
-检查与失败处理：跨节点、HTTPS/gRPC、策略、调度和网格基础能力有证据；未满足高级条件不计为已完成。
-
-## 命令参考
-
-[Gateway API HTTP 路由](https://gateway-api.sigs.k8s.io/guides/user-guides/http-routing/) · [Cilium L2 前置](https://docs.cilium.io/en/stable/network/l2-announcements/) · [原官方资料入口](../../arch/references.md)
+可选整批入口调用相同五个独立脚本；意外失败即停止，保留失败专题原目录并打印recover入口。BLOCKED保持单列，不声称完整Phase02已验收。准备阶段未启动Docker/kind或部署本批工作负载；实际数据面由操作者启动all。

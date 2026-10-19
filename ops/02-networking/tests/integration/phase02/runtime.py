@@ -116,6 +116,11 @@ class Session:
                   PHASE / 'ansible/vars/phase02.yml', ROOT / 'ops/versions.lock.yaml', Path(pol.__file__),
                   Path(pol.base.__file__), Path(pol.gw.__file__), Path(pol.gw.l2.__file__),
                   Path(pol.gw.l2.common.__file__)]
+        if self.topic=='mesh':
+            files += list((PHASE/'examples/mesh-identity').glob('*'))
+            files += [PHASE/'tests/integration/dataplane/materials.py',
+                      PHASE/'tests/integration/resource-governance/materials.py']
+            files=[p for p in files if p.is_file()]
         return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(files))}
 
     def bind_sources(self, mode):

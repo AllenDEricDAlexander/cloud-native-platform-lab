@@ -17,25 +17,26 @@ SEED=Path('/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-resou
 GO=Path.home()/'.cnpl/toolchains/go1.27.2/go/bin/go'
 
 
-def build(arch, output):
+def build(arch, output, folder=None, entrypoint='phase-lab'):
     if arch not in ['amd64','arm64']:raise ValueError('平台不支持')
     output.mkdir(parents=True,exist_ok=True)
-    folder=PHASE/'examples/resource-governance'
-    source=hashlib.sha256(b''.join((folder/p).read_bytes() for p in ['main.go','go.mod'])).hexdigest()
+    folder=Path(folder) if folder else PHASE/'examples/resource-governance'
+    inputs=['main.go','go.mod']+(['go.sum'] if (folder/'go.sum').exists() else [])
+    source=hashlib.sha256(b''.join((folder/p).read_bytes() for p in inputs)).hexdigest()
     ca=Path('/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/policies/public-ca-bundle.crt').read_bytes()
     if b'PRIVATE KEY' in ca:raise ValueError('CA 文件包含私钥')
     env=dict(os.environ,GOOS='linux',GOARCH=arch,CGO_ENABLED='0',GOTOOLCHAIN='local',GOPROXY='off',GOSUMDB='off')
-    binary=output/'phase-lab'
+    binary=output/entrypoint
     subprocess.run([str(GO),'build','-trimpath','-buildvcs=false','-ldflags=-s -w','-o',str(binary),'.'],cwd=folder,env=env,check=True,timeout=120)
     stream=io.BytesIO()
     with tarfile.open(fileobj=stream,mode='w',format=tarfile.USTAR_FORMAT) as tar:
-        for name,data,mode in [('phase-lab',binary.read_bytes(),0o555),('etc/ssl/certs/ca-certificates.crt',ca,0o444)]:
+        for name,data,mode in [(entrypoint,binary.read_bytes(),0o555),('etc/ssl/certs/ca-certificates.crt',ca,0o444)]:
             item=tarfile.TarInfo(name);item.size,item.mode=len(data),mode;tar.addfile(item,io.BytesIO(data))
     raw=stream.getvalue();layer=gzip.compress(raw,mtime=0)
     sha=lambda b:'sha256:'+hashlib.sha256(b).hexdigest()
     encode=lambda v:json.dumps(v,sort_keys=True,separators=(',',':')).encode()
     desc=lambda k,b:{'mediaType':'application/vnd.oci.'+k,'digest':sha(b),'size':len(b)}
-    config=encode({'architecture':arch,'os':'linux','config':{'User':'1000:1000','Entrypoint':['/phase-lab'],'Env':['SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt'],'Labels':{'cnpl.io/source-sha256':source}},'rootfs':{'type':'layers','diff_ids':[sha(raw)]}})
+    config=encode({'architecture':arch,'os':'linux','config':{'User':'1000:1000','Entrypoint':['/'+entrypoint],'Env':['SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt'],'Labels':{'cnpl.io/source-sha256':source}},'rootfs':{'type':'layers','diff_ids':[sha(raw)]}})
     manifest=encode({'schemaVersion':2,'mediaType':'application/vnd.oci.image.manifest.v1+json','config':desc('image.config.v1+json',config),'layers':[desc('image.layer.v1.tar+gzip',layer)]})
     layout=output/'oci';blobs=layout/'blobs/sha256';blobs.mkdir(parents=True,exist_ok=True)
     for b in [config,layer,manifest]:(blobs/sha(b)[7:]).write_bytes(b)

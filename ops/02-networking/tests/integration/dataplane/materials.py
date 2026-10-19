@@ -79,6 +79,9 @@ def verify(lock):
             raise ValueError('离线镜像缺失或损坏：'+name+'；需要先重新准备物料')
     for name,value in lock['tools'].items():
         if hashlib.sha256(Path(value['path']).read_bytes()).hexdigest()!=value['sha256']:raise ValueError('工具摘要不同：'+name)
+    for name in ['cilium_chart','gateway_chart']:
+        value=lock.get(name)
+        if value and file_sha(value['local_source'])!=value['sha256']:raise ValueError('Chart 摘要不同：'+name)
     return {'passed':True,'images':len(lock['images']),'tools':len(lock['tools'])}
 
 

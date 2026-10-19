@@ -145,8 +145,15 @@ class Cluster:
     def apply(self,files):
         self.guard();commands=[]
         for file in files:
-            commands += [self.s.command(self.k+['apply','--dry-run=server','--validate=strict','-f',file]),
-                         self.s.command(self.k+['apply','--validate=strict','-f',file])]
+            documents=[d for d in yaml.safe_load_all(Path(file).read_text()) if d]
+            objects=[item for doc in documents for item in (doc['items'] if doc['kind']=='List' else [doc])]
+            for obj in objects:
+                m=obj['metadata']
+                path=self.s.attempt/('isolated-'+obj['kind']+'-'+m.get('namespace','cluster')+'-'+m['name']+'.json')
+                r.save(path,obj)
+                # Namespace/SA/CRD 的创建必须先落地，之后的依赖对象才能做真实准入。
+                commands += [self.s.command(self.k+['apply','--dry-run=server','--validate=strict','-f',path]),
+                             self.s.command(self.k+['apply','--validate=strict','-f',path])]
         return commands
 
     def delete(self,kind,name,ns=None):

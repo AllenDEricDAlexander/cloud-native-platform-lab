@@ -1,0 +1,70 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: cnpl
+  namespace: istio-system
+spec:
+  profile: ambient
+  revision: cnpl
+  hub: cnpl.local
+  tag: 1.31.2-arm64
+  meshConfig:
+    trustDomain: internal.egon.top
+    accessLogFile: /dev/stdout
+    accessLogEncoding: JSON
+    accessLogFormat: '{"start": "%START_TIME%", "source_principal": "%DOWNSTREAM_PEER_URI_SAN%",
+      "method": "%REQ(:METHOD)%", "path": "%REQ(:PATH)%", "code": "%RESPONSE_CODE%",
+      "details": "%RESPONSE_CODE_DETAILS%"}
+
+      '
+    defaultConfig:
+      holdApplicationUntilProxyStarts: true
+  components:
+    cni:
+      enabled: true
+    ztunnel:
+      enabled: true
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+  values:
+    global:
+      imagePullPolicy: Never
+      proxy:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        image: cnpl.local/proxyv2:1.31.2-arm64
+      variant: ''
+    pilot:
+      autoscaleEnabled: false
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: '1'
+          memory: 1Gi
+      image: cnpl.local/pilot:1.31.2-arm64
+    cni:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+      image: cnpl.local/install-cni:1.31.2-arm64
+    ztunnel:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+      image: cnpl.local/ztunnel:1.31.2-arm64

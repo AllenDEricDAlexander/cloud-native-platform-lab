@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: held
+  namespace: lab-spire
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    istio.io/use-waypoint: waypoint
+    app: held
+spec:
+  serviceAccountName: allowed
+  automountServiceAccountToken: false
+  nodeSelector:
+    cnpl.io/kind-role: worker
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ identity_image }}'
+    imagePullPolicy: Never
+    args:
+    - hold
+    - https://server.lab-spire.svc.cluster.local:8443/
+    - spiffe://internal.egon.top/ns/lab-spire/sa/server
+    env:
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+    volumeMounts:
+    - name: socket
+      mountPath: /run/spire/sockets
+      readOnly: true
+  volumes:
+  - name: socket
+    hostPath:
+      path: /run/spire/sockets
+      type: Directory
+  restartPolicy: Never

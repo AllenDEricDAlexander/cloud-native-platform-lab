@@ -1,0 +1,383 @@
+
+=== 02.06 policies ===
+
+PLAY [完整 02.06 一次前检所有物料、VM、YAML 和前序边界] ************************
+
+TASK [限定模式与证据目录] ******************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建记录目录] ************************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019T174117Z-f92edd9a/attempts/20261019T174119Z-d5a158cb-validate)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019T174117Z-f92edd9a/state)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019T174117Z-f92edd9a/attempts/20261019T174119Z-d5a158cb-validate/observations)
+
+TASK [校验原集群、02.05 内部原始交接和模式边界] ********************************
+ok: [localhost]
+
+TASK [绑定上下文与运行标签] ****************************************************
+ok: [localhost]
+
+TASK [一次核验五台 VM 的安全状态、内网路由及既有代理] **************************
+ok: [localhost]
+
+TASK [确定性重建 Go 镜像并核对 Harbor 摘要] ************************************
+ok: [localhost]
+
+TASK [一次渲染全部实际执行 YAML] ***********************************************
+changed: [localhost] => (item=namespaces)
+changed: [localhost] => (item=default-deny)
+changed: [localhost] => (item=workloads)
+changed: [localhost] => (item=standard)
+changed: [localhost] => (item=cilium)
+changed: [localhost] => (item=egress)
+changed: [localhost] => (item=proxy-unreachable)
+
+TASK [全部清单执行严格服务端预览，包括出口参考但不落地] ************************
+ok: [localhost]
+
+TASK [记录执行源码与输入摘要] **************************************************
+ok: [localhost]
+
+TASK [保存既有网络、策略、工作负载和主入口基线] ********************************
+ok: [localhost]
+
+TASK [正式执行绑定不可覆盖的原始基线] ******************************************
+skipping: [localhost] => (item=source) 
+skipping: [localhost] => (item=protected) 
+skipping: [localhost]
+
+TASK [报告前检通过，运行实验由统一入口继续] ************************************
+ok: [localhost] => {
+    "msg": "02.06 SOURCE VALIDATION PASS；仅 VM；公网入站仍 BLOCKED，Ceph 与 Egress Gateway 前提不足单独记录。"
+}
+
+PLAY [整组 02.06 网络策略与出站验证，异常时自动回收本批实验] *******************
+
+TASK [创建专用空间] ************************************************************
+skipping: [localhost]
+
+TASK [先建立双向默认拒绝] ******************************************************
+skipping: [localhost]
+
+TASK [再创建八个无凭据诊断 Pod] ************************************************
+skipping: [localhost]
+
+TASK [等待默认拒绝收敛] ********************************************************
+skipping: [localhost]
+
+TASK [记录初始阻断] ************************************************************
+skipping: [localhost]
+
+TASK [放行标准 L3/L4、DNS、入口和监控依赖] *************************************
+skipping: [localhost]
+
+TASK [等待标准策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [完成全部标准策略正反向用例] **********************************************
+skipping: [localhost]
+
+TASK [移除标准放行，保留默认拒绝，避免与 Cilium 策略叠加掩盖限制] **************
+skipping: [localhost]
+
+TASK [应用 Cilium 身份、FQDN 和 HTTP 策略] *************************************
+skipping: [localhost]
+
+TASK [等待 Cilium 策略收敛] ****************************************************
+skipping: [localhost]
+
+TASK [完成相同流量对照及 FQDN/HTTP 拒绝用例] ***********************************
+skipping: [localhost]
+
+TASK [为专用出站 Pod 放行仓库、节点 TCP 和显式代理] ****************************
+skipping: [localhost]
+
+TASK [等待出站策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [一次验证实际 SNAT、存储 VM 回程、内网直连及代理外网] *********************
+skipping: [localhost]
+
+TASK [只对实验 Pod 模拟代理入口不可达] *****************************************
+skipping: [localhost]
+
+TASK [等待故障策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [验证代理停止、直连后路被拒绝、LAN 继续] **********************************
+skipping: [localhost]
+
+TASK [移除本批代理故障策略] ****************************************************
+skipping: [localhost]
+
+TASK [等待恢复策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [复核代理恢复、LAN 仍可达、直连仍被拒绝] **********************************
+skipping: [localhost]
+
+TASK [记录 02.06.04 的真实模式缺口和未执行项] **********************************
+skipping: [localhost]
+
+TASK [汇总本组完整证据，保留 Ceph/出口能力阻塞] ********************************
+skipping: [localhost]
+
+TASK [成功或失败均回收本批空间] ************************************************
+skipping: [localhost]
+
+TASK [显式恢复或清理] **********************************************************
+skipping: [localhost]
+
+TASK [报告实际验证边界] ********************************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=2    unreachable=0    failed=0    skipped=27   rescued=0    ignored=0   
+
+
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019T174117Z-f92edd9a/ansible-validate-20261019T174117Z-JpealD
+
+=== 02.07 scheduling ===
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+ok: [localhost]
+
+TASK [顺序执行专题计划，避免全局状态并发] **************************************
+skipping: [localhost] => (item=namespaces) 
+skipping: [localhost] => (item=vm-labels) 
+skipping: [localhost] => (item=selector) 
+skipping: [localhost] => (item=label-red) 
+skipping: [localhost] => (item=ignored-new) 
+skipping: [localhost] => (item=label-blue) 
+skipping: [localhost] => (item=taint-base) 
+skipping: [localhost] => (item=no-schedule) 
+skipping: [localhost] => (item=taint-pending) 
+skipping: [localhost] => (item=taint-tolerated) 
+skipping: [localhost] => (item=prefer) 
+skipping: [localhost] => (item=prefer-run) 
+skipping: [localhost] => (item=noexecute-base) 
+skipping: [localhost] => (item=no-execute) 
+skipping: [localhost] => (item=untaint) 
+skipping: [localhost] => (item=affinity) 
+skipping: [localhost] => (item=spread) 
+skipping: [localhost]
+
+TASK [汇总全部必需证据与已知前置缺口] ******************************************
+skipping: [localhost]
+
+TASK [成功或失败都恢复原状态并清理本批资源] ************************************
+skipping: [localhost]
+
+TASK [原批显式恢复] ************************************************************
+skipping: [localhost]
+
+TASK [报告专题结果] ************************************************************
+ok: [localhost] => {
+    "msg": "scheduling SOURCE VALIDATION PASS"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=5    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+
+
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.07-20261019T174117Z-f92edd9a/ansible-validate-20261019T174156Z-I35dgG
+
+=== 02.08 resource-governance ===
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+ok: [localhost]
+
+TASK [顺序执行专题计划，避免全局状态并发] **************************************
+skipping: [localhost] => (item=namespaces) 
+skipping: [localhost] => (item=budgets) 
+skipping: [localhost] => (item=defaulted) 
+skipping: [localhost] => (item=quota-reject) 
+skipping: [localhost] => (item=limitrange-reject) 
+skipping: [localhost] => (item=qos) 
+skipping: [localhost] => (item=cpu) 
+skipping: [localhost] => (item=memory) 
+skipping: [localhost] => (item=disk) 
+skipping: [localhost] => (item=priority-classes) 
+skipping: [localhost] => (item=reserve) 
+skipping: [localhost] => (item=preemptor) 
+skipping: [localhost] => (item=pdb) 
+skipping: [localhost] => (item=drain-blocked) 
+skipping: [localhost] => (item=pdb-one) 
+skipping: [localhost] => (item=drain-allowed) 
+skipping: [localhost] => (item=uncordon) 
+skipping: [localhost] => (item=pdb-two) 
+skipping: [localhost] => (item=direct-delete) 
+skipping: [localhost]
+
+TASK [汇总全部必需证据与已知前置缺口] ******************************************
+skipping: [localhost]
+
+TASK [成功或失败都恢复原状态并清理本批资源] ************************************
+skipping: [localhost]
+
+TASK [原批显式恢复] ************************************************************
+skipping: [localhost]
+
+TASK [报告专题结果] ************************************************************
+ok: [localhost] => {
+    "msg": "resource-governance SOURCE VALIDATION PASS"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=5    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+
+
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261019T174117Z-f92edd9a/ansible-validate-20261019T174202Z-kN49t0
+
+=== 02.09 dataplane ===
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+ok: [localhost]
+
+TASK [顺序执行专题计划，避免全局状态并发] **************************************
+skipping: [localhost] => (item=create) 
+skipping: [localhost] => (item=load) 
+skipping: [localhost] => (item=baseline-install) 
+skipping: [localhost] => (item=applications) 
+skipping: [localhost] => (item=gateway-install) 
+skipping: [localhost] => (item=gateway) 
+skipping: [localhost] => (item=stream) 
+skipping: [localhost] => (item=remove-kube-proxy) 
+skipping: [localhost] => (item=ebpf) 
+skipping: [localhost] => (item=native) 
+skipping: [localhost] => (item=l2-install) 
+skipping: [localhost] => (item=l2) 
+skipping: [localhost] => (item=l2-failure) 
+skipping: [localhost] => (item=l2-resume) 
+skipping: [localhost] => (item=l2-withdraw) 
+skipping: [localhost] => (item=frr) 
+skipping: [localhost] => (item=bgp-install) 
+skipping: [localhost] => (item=bgp) 
+skipping: [localhost] => (item=bgp-withdraw) 
+skipping: [localhost] => (item=restore-baseline) 
+skipping: [localhost] => (item=stream-stop) 
+skipping: [localhost]
+
+TASK [汇总全部必需证据与已知前置缺口] ******************************************
+skipping: [localhost]
+
+TASK [成功或失败都恢复原状态并清理本批资源] ************************************
+skipping: [localhost]
+
+TASK [原批显式恢复] ************************************************************
+skipping: [localhost]
+
+TASK [报告专题结果] ************************************************************
+ok: [localhost] => {
+    "msg": "dataplane SOURCE VALIDATION PASS"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=5    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+
+
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261019T174117Z-f92edd9a/ansible-validate-20261019T174215Z-gfcGk9
+
+=== 02.10 mesh ===
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+ok: [localhost]
+
+TASK [顺序执行专题计划，避免全局状态并发] **************************************
+skipping: [localhost] => (item=create) 
+skipping: [localhost] => (item=load) 
+skipping: [localhost] => (item=cilium) 
+skipping: [localhost] => (item=gateway-crds) 
+skipping: [localhost] => (item=istio) 
+skipping: [localhost] => (item=applications) 
+skipping: [localhost] => (item=baseline) 
+skipping: [localhost] => (item=sidecar-policy) 
+skipping: [localhost] => (item=traffic) 
+skipping: [localhost] => (item=ambient-l4) 
+skipping: [localhost] => (item=waypoint) 
+skipping: [localhost] => (item=ambient-l7) 
+skipping: [localhost] => (item=spire-server) 
+skipping: [localhost] => (item=spire-bundle) 
+skipping: [localhost] => (item=spire-agent) 
+skipping: [localhost] => (item=register) 
+skipping: [localhost] => (item=spire-workloads) 
+skipping: [localhost] => (item=rotation) 
+skipping: [localhost] => (item=held) 
+skipping: [localhost] => (item=revoke) 
+skipping: [localhost] => (item=handoff) 
+skipping: [localhost]
+
+TASK [汇总全部必需证据与已知前置缺口] ******************************************
+skipping: [localhost]
+
+TASK [成功或失败都恢复原状态并清理本批资源] ************************************
+skipping: [localhost]
+
+TASK [原批显式恢复] ************************************************************
+skipping: [localhost]
+
+TASK [报告专题结果] ************************************************************
+ok: [localhost] => {
+    "msg": "mesh SOURCE VALIDATION PASS"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=5    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+
+
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261019T174117Z-f92edd9a/ansible-validate-20261019T174225Z-wvm2Qt
+
+五个专题已按顺序完成 validate；完整回执：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/batch-02.06-10-delivery-review/result.json

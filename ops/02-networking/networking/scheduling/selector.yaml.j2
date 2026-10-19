@@ -1,0 +1,206 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: required
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: required
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  nodeSelector:
+    kubernetes.io/hostname: worker01.k8s.internal.egon.top
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: cnpl.io/sched-color
+            operator: In
+            values:
+            - blue
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: preferred
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: preferred
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: cnpl.io/sched-color
+            operator: In
+            values:
+            - not-present
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: selector-pending
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: selector-pending
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+  nodeSelector:
+    cnpl.io/sched-color: not-present
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-pending
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: cpu-pending
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: '{{ oversized_cpu }}'
+        memory: 8Mi
+      limits:
+        cpu: '{{ oversized_cpu }}'
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  nodeSelector:
+    kubernetes.io/hostname: worker01.k8s.internal.egon.top

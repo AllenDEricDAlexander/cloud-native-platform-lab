@@ -155,55 +155,16 @@ bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 
 <a id="02-07"></a>
 
-## 02.07 节点约束与物理故障域
+## 02.07 VM 调度与分布
 
-输入：hosts.yaml 的实际放置与容量。
-
-1. 写入角色与 `lab.egon.top/esxi-host` 标签；核对真实宿主机后配置 nodeSelector/NodeAffinity 的硬、软约束。
-2. 对单个实验节点施加 NoSchedule/PreferNoSchedule/NoExecute，验证容忍期限；检查系统 DaemonSet 不被 storage 污点误伤。
-3. 测试 PodAffinity/AntiAffinity、TopologySpread 的 maxSkew 与不可调度行为；改变容量或标签，记录 Pending 的具体原因和修复。
-
-### 操作命令与目的
+[完整 Ansible/YAML、逐项作用、预期与恢复](examples/scheduling/README.md)。只使用 VM hostname；包含 Required/Preferred、标签变化、NoSchedule/PreferNoSchedule/NoExecute、Pod 亲和/反亲和和 TopologySpread。每次先核对现有 Pod 的 NoExecute 容忍，结束精确恢复原标签/污点。
 
 ```bash
-kubectl label node "$LAB_NODE" lab.egon.top/esxi-host=esxi01 --overwrite
-kubectl get nodes -L lab.egon.top/esxi-host
-kubectl -n lab-net apply -f placement-demo.yaml
-kubectl -n lab-net get pods -o wide
-kubectl taint node "$LAB_TEST_NODE" lab-purpose=isolated:NoSchedule
-kubectl -n lab-net describe pod "$LAB_PENDING_POD"   # 解释无法调度原因
-kubectl taint node "$LAB_TEST_NODE" lab-purpose:NoSchedule-  # 结束后撤销本次污点
+export LAB_SCHEDULING_RECORDS="$PWD/ops/02-networking/records/02.07-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/scheduling.sh all "$LAB_SCHEDULING_RECORDS"
 ```
 
-### 配置示例
-
-Deployment 的 PodSpec 片段，展示真实物理故障域分散和存储污点容忍；是否允许业务进入 storage 节点按场景决定：
-
-```yaml
-topologySpreadConstraints:
-  - maxSkew: 1
-    topologyKey: lab.egon.top/esxi-host
-    whenUnsatisfiable: DoNotSchedule
-    labelSelector:
-      matchLabels: {app: placement-demo}
-affinity:
-  nodeAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 50
-        preference:
-          matchExpressions:
-            - key: lab.egon.top/role
-              operator: In
-              values: [worker]
-```
-
-### 预期结果
-
-副本按真实 ESXi 标签分散；硬约束不可满足时 Pending，事件说明具体约束。Preferred 是偏好，Toleration 只是解除排斥，不会自动选择节点。NoExecute 与容忍时间另存变体观察逐出和恢复。
-
-交付：`ops/02-networking/networking/scheduling/`；节点位置和调度结果矩阵。
-
-检查与失败处理：关键副本分散到真实故障域；条件不足时 Pending 可解释，不偷偷放宽全部硬约束。
+第一行绑定新批次，第二行一次完成全部用例、证据与恢复；要求 02.06 已实际运行并清理。预期 passed=true、cleanup_passed=true、failed/unreachable/rescued/ignored=0。
 
 <a id="02-08"></a>
 

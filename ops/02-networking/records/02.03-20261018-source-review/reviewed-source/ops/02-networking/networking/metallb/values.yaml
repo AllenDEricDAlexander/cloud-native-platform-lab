@@ -1,0 +1,29 @@
+# 0.16.1；仅 L2。先安装控制器/CRD/Webhook，再单独应用测试池，适配 Helm 4 顺序。
+fullnameOverride: cnpl-metallb
+frrk8s: {enabled: false, external: false}
+speaker:
+  frr: {enabled: false}
+  tolerateMaster: false
+  nodeSelector: {node-role.kubernetes.io/worker: ''}
+  image:
+    repository: harbor.k8s.internal.egon.top/bootstrap/metallb-speaker
+    tag: v0.16.1@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e
+    pullPolicy: IfNotPresent
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  labels: {cnpl.io/component: metallb}
+controller:
+  nodeSelector: {kubernetes.io/hostname: worker01.k8s.internal.egon.top}
+  image:
+    repository: harbor.k8s.internal.egon.top/bootstrap/metallb-controller
+    tag: v0.16.1@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c
+    pullPolicy: IfNotPresent
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  labels: {cnpl.io/component: metallb}
+prometheus:
+  rbacPrometheus: false
+  podMonitor: {enabled: false}
+  serviceMonitor: {enabled: false}

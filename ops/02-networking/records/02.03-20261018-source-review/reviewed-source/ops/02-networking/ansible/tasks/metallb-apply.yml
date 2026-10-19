@@ -1,0 +1,5 @@
+---
+- name: 逐对象核对身份、准入和应用
+  ansible.builtin.include_tasks: metallb-document.yml
+  loop: '{{ lookup("file",metallb_manifest) | from_yaml_all | select | list }}'
+  loop_control: {loop_var: metallb_document, label: '{{ metallb_document.kind }}/{{ metallb_document.metadata.name }}'}

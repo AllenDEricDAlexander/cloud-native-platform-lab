@@ -1,0 +1,9 @@
+---
+- name: 删除前核对本批 Service 原始 UID
+  ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', delete-plan, --records, '{{ metallb_records }}', --name, '{{ metallb_delete_name }}', --output, '{{ metallb_attempt }}/delete-{{ metallb_delete_name }}.json']}
+  register: metallb_delete_plan
+  changed_when: false
+- name: 撤销本批 Service，不先删除仍在使用的地址池
+  ansible.builtin.command: {argv: '{{ metallb_k + ["delete","service",metallb_delete_name,"-n",metallb_namespace,"--wait=true","--timeout=60s"] }}'}
+  when: (metallb_delete_plan.stdout | from_json).exists
+  changed_when: true

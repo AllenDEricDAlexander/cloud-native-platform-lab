@@ -1,0 +1,211 @@
+{
+    "spec": {
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "app.kubernetes.io/component": "speaker",
+                "app.kubernetes.io/instance": "cnpl-metallb",
+                "app.kubernetes.io/name": "metallb"
+            }
+        },
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app.kubernetes.io/component": "speaker",
+                    "app.kubernetes.io/instance": "cnpl-metallb",
+                    "app.kubernetes.io/name": "metallb",
+                    "cnpl.io/component": "metallb"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "args": [
+                            "--port=9120",
+                            "--log-level=info"
+                        ],
+                        "env": [
+                            {
+                                "name": "METALLB_NODE_NAME",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "spec.nodeName"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "METALLB_HOST",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "status.hostIP"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "METALLB_ML_BIND_ADDR",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "status.podIP"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "METALLB_ML_LABELS",
+                                "value": "app.kubernetes.io/name=metallb,app.kubernetes.io/component=speaker"
+                            },
+                            {
+                                "name": "METALLB_ML_BIND_PORT",
+                                "value": "7946"
+                            },
+                            {
+                                "name": "METALLB_ML_SECRET_KEY_PATH",
+                                "value": "/etc/ml_secret_key"
+                            },
+                            {
+                                "name": "METALLB_POD_NAME",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "metadata.name"
+                                    }
+                                }
+                            }
+                        ],
+                        "image": "harbor.k8s.internal.egon.top/bootstrap/metallb-speaker:v0.16.1@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e",
+                        "imagePullPolicy": "IfNotPresent",
+                        "livenessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "host": "127.0.0.1",
+                                "path": "/healthz",
+                                "port": 17472,
+                                "scheme": "HTTP"
+                            },
+                            "initialDelaySeconds": 10,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "name": "speaker",
+                        "ports": [
+                            {
+                                "containerPort": 9120,
+                                "name": "metricshttps",
+                                "protocol": "TCP"
+                            },
+                            {
+                                "containerPort": 7946,
+                                "name": "memberlist-tcp",
+                                "protocol": "TCP"
+                            },
+                            {
+                                "containerPort": 7946,
+                                "name": "memberlist-udp",
+                                "protocol": "UDP"
+                            }
+                        ],
+                        "readinessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "host": "127.0.0.1",
+                                "path": "/readyz",
+                                "port": 17472,
+                                "scheme": "HTTP"
+                            },
+                            "initialDelaySeconds": 10,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "256Mi"
+                            },
+                            "requests": {
+                                "cpu": "50m",
+                                "memory": "64Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "add": [
+                                    "NET_RAW"
+                                ],
+                                "drop": [
+                                    "ALL"
+                                ]
+                            },
+                            "readOnlyRootFilesystem": true
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/etc/metallb/memberlist",
+                                "name": "memberlist-config",
+                                "readOnly": true
+                            },
+                            {
+                                "mountPath": "/etc/ml_secret_key",
+                                "name": "memberlist"
+                            },
+                            {
+                                "mountPath": "/etc/metallb",
+                                "name": "metallb-excludel2"
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "hostNetwork": true,
+                "nodeSelector": {
+                    "kubernetes.io/os": "linux",
+                    "node-role.kubernetes.io/worker": ""
+                },
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "serviceAccount": "cnpl-metallb-speaker",
+                "serviceAccountName": "cnpl-metallb-speaker",
+                "terminationGracePeriodSeconds": 0,
+                "volumes": [
+                    {
+                        "name": "memberlist",
+                        "secret": {
+                            "defaultMode": 420,
+                            "secretName": "cnpl-metallb-memberlist"
+                        }
+                    },
+                    {
+                        "configMap": {
+                            "defaultMode": 256,
+                            "name": "metallb-excludel2"
+                        },
+                        "name": "metallb-excludel2"
+                    },
+                    {
+                        "configMap": {
+                            "defaultMode": 420,
+                            "name": "metallb-memberlist-config",
+                            "optional": true
+                        },
+                        "name": "memberlist-config"
+                    }
+                ]
+            }
+        },
+        "updateStrategy": {
+            "rollingUpdate": {
+                "maxSurge": 0,
+                "maxUnavailable": 1
+            },
+            "type": "RollingUpdate"
+        }
+    },
+    "uid": "0de1088c-7cd0-4705-b0e5-c3711ad8b909"
+}

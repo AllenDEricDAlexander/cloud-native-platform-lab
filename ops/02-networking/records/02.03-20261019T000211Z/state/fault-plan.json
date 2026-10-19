@@ -1,0 +1,55 @@
+{
+  "patch": [
+    {
+      "op": "test",
+      "path": "/metadata/uid",
+      "value": "0de1088c-7cd0-4705-b0e5-c3711ad8b909"
+    },
+    {
+      "op": "test",
+      "path": "/spec/updateStrategy",
+      "value": {
+        "rollingUpdate": {
+          "maxSurge": 0,
+          "maxUnavailable": 1
+        },
+        "type": "RollingUpdate"
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/spec/updateStrategy",
+      "value": {
+        "type": "OnDelete"
+      }
+    },
+    {
+      "op": "test",
+      "path": "/spec/template/spec/nodeSelector",
+      "value": {
+        "kubernetes.io/os": "linux",
+        "node-role.kubernetes.io/worker": ""
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/spec/template/spec/nodeSelector",
+      "value": {
+        "kubernetes.io/os": "linux",
+        "node-role.kubernetes.io/worker": "",
+        "kubernetes.io/hostname": "worker02.k8s.internal.egon.top"
+      }
+    }
+  ],
+  "excluded_vm": "worker01.k8s.internal.egon.top",
+  "remaining_vm": "worker02.k8s.internal.egon.top",
+  "selector": {
+    "kubernetes.io/os": "linux",
+    "node-role.kubernetes.io/worker": "",
+    "kubernetes.io/hostname": "worker02.k8s.internal.egon.top"
+  },
+  "pod_uids": {
+    "worker02.k8s.internal.egon.top": "e0efaff8-2b98-4488-86c6-23c9319ceabb",
+    "worker01.k8s.internal.egon.top": "3b9f93d4-6c09-49e5-9ce2-35be92e89904"
+  }
+}

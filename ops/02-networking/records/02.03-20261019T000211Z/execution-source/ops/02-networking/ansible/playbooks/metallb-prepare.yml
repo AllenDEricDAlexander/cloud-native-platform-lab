@@ -1,0 +1,155 @@
+---
+- name: 完整 02.03 身份、物料和全部配置统一核验
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 限定批次模式及证据目录
+      ansible.builtin.assert:
+        that:
+          - metallb_mode in ['all','validate','run','cleanup','recover']
+          - metallb_records.startswith(metallb_root ~ '/ops/02-networking/records/02.03-')
+          - metallb_records | realpath == metallb_records
+    - name: 创建独立 attempt 身份
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']}
+      register: metallb_clock
+      changed_when: false
+    - name: 绑定 attempt 路径
+      ansible.builtin.set_fact: {metallb_attempt: '{{ metallb_records }}/attempts/{{ metallb_clock.stdout }}-{{ metallb_mode }}'}
+    - name: 创建本机取证目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ metallb_attempt }}', '{{ metallb_records }}/state']
+    - name: 读取原始批次状态
+      ansible.builtin.stat: {path: '{{ metallb_records }}/{{ item }}'}
+      loop: [context.json, passed.json, state/closed.json, state/source.json]
+      register: metallb_prior
+    - name: 清理需原上下文，正式运行不覆盖已通过或关闭的批次
+      ansible.builtin.assert:
+        that:
+          - metallb_mode not in ['cleanup','recover'] or metallb_prior.results[0].stat.exists
+          - not metallb_execute or (not metallb_prior.results[1].stat.exists and not metallb_prior.results[2].stat.exists)
+    - name: 核对原集群、02.02 回执、MetalLB UID、地址台账与控制器冲突
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', '{{ "identity" if metallb_mode in ["cleanup","recover"] else "preflight" }}', --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/preflight.json']}
+      register: metallb_preflight
+      changed_when: false
+    - name: 绑定原运行和组件身份
+      ansible.builtin.set_fact:
+        metallb_context: '{{ metallb_preflight.stdout | from_json }}'
+        metallb_run: '{{ (metallb_preflight.stdout | from_json).run }}'
+    - name: 记录本次全部源码及输入摘要
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', source, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/source.json']}
+      changed_when: false
+    - name: 未清理批次只允许相同源码继续正式执行
+      ansible.builtin.assert:
+        that: lookup('file', metallb_attempt ~ '/source.json') | from_json == lookup('file', metallb_records ~ '/state/source.json') | from_json
+      when: metallb_execute and metallb_prior.results[3].stat.exists
+    - name: 核验内网三个 Linux 镜像的完整摘要
+      ansible.builtin.command: {argv: ['{{ metallb_crane }}', digest, --platform, linux/amd64, '{{ item }}']}
+      loop: '{{ [metallb_image] + (metallb_lock.components.metallb.artifacts | map(attribute="internal_source") | list) }}'
+      register: metallb_registry
+      changed_when: false
+      failed_when: metallb_registry.rc != 0 or metallb_registry.stdout | trim != item.split('@')[1]
+      when: metallb_mode in ['all','run','validate']
+    - name: 核验已有诊断镜像的确定性构建
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', build, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/image.json']}
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 一次渲染主池、宣告、后端及两类 Service
+      ansible.builtin.template: {src: '../../networking/metallb/{{ item }}.yaml.j2', dest: '{{ metallb_attempt }}/{{ item }}.yaml', mode: '0600'}
+      loop: [primary-pool, l2-fixtures, l2-service, l2-unallocated]
+      when: metallb_mode in ['all','run','validate']
+    - name: 一次严格核验全部 YAML，包含已建立的 MetalLB CRD/Webhook
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', validate, --records, '{{ metallb_records }}', --manifest, '{{ metallb_attempt }}/{{ item }}.yaml', --output, '{{ metallb_attempt }}/admission-{{ item }}.json']}
+      loop: [primary-pool, l2-fixtures, l2-service, l2-unallocated]
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 核验锁定 Chart、CRD、L2-only 双工作负载和镜像
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', controller, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/controller.json']}
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 对两个可能的维护方向分别生成精确补丁预览
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', maintenance-preview, --records, '{{ metallb_records }}', --name, '{{ item }}', --output, '{{ metallb_attempt }}/maintenance-preview-{{ item }}.json']}
+      loop: [worker01.k8s.internal.egon.top, worker02.k8s.internal.egon.top]
+      register: metallb_previews
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 在现有 speaker 上只 dry-run 两个维护补丁，验证 API 兼容性
+      ansible.builtin.command:
+        argv: '{{ metallb_k + ["patch","daemonset","cnpl-metallb-speaker","-n","metallb-system","--type=json","--dry-run=server","-p",(item.stdout | from_json).patch | to_json] }}'
+      loop: '{{ metallb_previews.results }}'
+      loop_control: {label: '{{ item.item }}'}
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 保存所有原有应用、组件及关键配置的 UID/spec 保护基线
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', protected, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/protected.json']}
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 正式变更前首次绑定源码及资源基线，不覆盖原始状态
+      ansible.builtin.copy: {src: '{{ metallb_attempt }}/{{ item }}.json', dest: '{{ metallb_records }}/state/{{ item }}.json', mode: '0600', force: false}
+      loop: [source, protected]
+      when: metallb_execute
+    - name: 首次保存 speaker 原始 UID 与完整 spec 供无条件恢复
+      ansible.builtin.copy: {content: '{{ metallb_context.speaker_original | to_nice_json }}', dest: '{{ metallb_records }}/state/speaker-original.json', mode: '0600', force: false}
+      when: metallb_execute
+
+- name: 只读核验三个 VM 的安全状态、speaker 通信和主池 ARP 冲突
+  hosts: worker01:worker02:infra01
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 核对 VM 身份、Enforcing、ens33/public、基础服务和内网 TLS
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname)" = '{{ node_fqdn }}'
+        test "$(getenforce)" = Enforcing
+        test "$(firewall-cmd --get-zone-of-interface=ens33)" = public
+        systemctl is-active firewalld containerd kubelet
+        ip -j address show ens33
+        command -v arping
+        curl -q --noproxy '*' --connect-timeout 3 --max-time 10 --silent --show-error -o /dev/null -w 'harbor_http=%{http_code} tls=%{ssl_verify_result}\n' https://harbor.k8s.internal.egon.top/v2/
+        {% if inventory_hostname in ['worker01','worker02'] %}
+        {% for permanence in ['', '--permanent'] %}
+        {% for protocol in ['tcp','udp'] %}
+        firewall-cmd {{ permanence }} --zone=public --query-rich-rule='rule family="ipv4" source ipset="k8s-nodes" port port="7946" protocol="{{ protocol }}" accept'
+        {% endfor %}
+        {% endfor %}
+        {% endif %}
+        {% if inventory_hostname == 'infra01' %}
+        {% for last in range(201,211) %}
+        {% set address = '192.168.9.' ~ last %}
+        {% if address not in hostvars.localhost.metallb_context.active_ips %}
+        arping -D -I ens33 -c 2 -w 3 '{{ address }}'
+        echo 'vip_no_arp_reply={{ address }}'
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+      args: {executable: /bin/bash}
+      register: metallb_host
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 保存 VM 原始只读输出
+      ansible.builtin.copy: {content: '{{ metallb_host.stdout ~ "\n" }}', dest: '{{ hostvars.localhost.metallb_attempt }}/host-{{ inventory_hostname }}.txt', mode: '0600'}
+      delegate_to: localhost
+      when: metallb_mode in ['all','run','validate']
+
+- name: 绑定实际 VM 接口，统一前检通过后才执行后续变更
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 从只读取证绑定两个候选 VM 的 IP/MAC
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', hosts, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/vm-interfaces.json']}
+      register: metallb_interfaces
+      changed_when: false
+      when: metallb_mode in ['all','run','validate']
+    - name: 更新已核验的接口上下文
+      ansible.builtin.set_fact: {metallb_context: '{{ metallb_interfaces.stdout | from_json }}'}
+      when: metallb_mode in ['all','run','validate']
+    - name: 报告完整源码统一核验通过
+      ansible.builtin.debug: {msg: '02.03 SOURCE VALIDATION PASS；全部 YAML、主池冲突、镜像、CRD/Webhook 及两个维护补丁已核验。'}
+      when: metallb_mode in ['all','run','validate']

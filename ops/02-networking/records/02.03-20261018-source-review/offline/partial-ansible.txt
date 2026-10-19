@@ -1,0 +1,70 @@
+
+PLAY [完整 02.03 验收、实验清理和持久组件交接] *********************************
+
+TASK [汇总全部必需回执和实际地址台账，缺项不能通过] ****************************
+skipping: [localhost]
+
+TASK [无条件核对并恢复 speaker 原始配置] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-restore-speaker.yml for localhost
+
+TASK [根据原 UID 和维护字段生成精确恢复计划] ***********************************
+ok: [localhost]
+
+TASK [仅恢复本批修改的调度字段，JSON Patch 自带 UID/原值测试] ******************
+skipping: [localhost]
+
+TASK [等待原 speaker 配置及两个就绪实例恢复] ***********************************
+ok: [localhost]
+
+TASK [停止本批所有有界观测进程] ************************************************
+ok: [localhost]
+
+TASK [撤销本批剩余 Service，先释放地址再清理空间] ******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost => (item=no-explicit-allocation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost => (item=vip-primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost => (item=vip-reuse)
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+skipping: [localhost]
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+skipping: [localhost]
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+skipping: [localhost]
+
+TASK [核对空间内全部对象 UID 和运行归属] ***************************************
+ok: [localhost]
+
+TASK [仅删除本批隔离 Namespace] ************************************************
+skipping: [localhost]
+
+TASK [登记完整主池，或回滚本批首次创建但不完整的主池对象] **********************
+ok: [localhost]
+
+TASK [仅撤回本批不完整且无地址使用的主池对象] **********************************
+changed: [localhost] => (item={'kind': 'ipaddresspool', 'name': 'cnpl-primary', 'uid': 'fdf0ce1a-b2fc-4483-985a-9c0ca589ef5f'})
+
+TASK [最终核对主池、两个 speaker、原集群健康及控制台配置] **********************
+ok: [localhost]
+
+TASK [报告完整清理结果] ********************************************************
+ok: [localhost] => {
+    "msg": "02.03 CLEANUP PASS；测试空间/VIP/观测已回收，两个 speaker 和原配置恢复，持久主池保留。"
+}
+
+TASK [报告完整 02.03 一次验收通过] *********************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=15   changed=1    unreachable=0    failed=0    skipped=7    rescued=0    ignored=0   
+

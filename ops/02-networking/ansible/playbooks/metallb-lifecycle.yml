@@ -1,0 +1,41 @@
+---
+- name: 02.03.03 地址撤销、再分配和用途台账
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 执行完整地址生命周期实验
+      when: metallb_execute
+      block:
+        - name: 撤销首个测试 Service
+          ansible.builtin.include_tasks: ../tasks/metallb-delete-service.yml
+          vars: {metallb_delete_name: vip-primary}
+        - name: 确认旧 Service、分配、HTTP 入口和 ARP 宣告均已撤销
+          ansible.builtin.include_tasks: ../tasks/metallb-withdraw.yml
+          vars: {metallb_withdraw_name: vip-primary, metallb_withdraw_case: primary}
+        - name: 为不同 Service 名称生成明确的同 VIP 申请
+          ansible.builtin.template: {src: ../../networking/metallb/l2-service.yaml.j2, dest: '{{ metallb_attempt }}/l2-reuse.yaml', mode: '0600'}
+          vars: {metallb_service_name: vip-reuse}
+        - name: 在旧身份和 DNS 引用清空后创建新 Service
+          ansible.builtin.include_tasks: ../tasks/metallb-apply.yml
+          vars: {metallb_manifest: '{{ metallb_attempt }}/l2-reuse.yaml'}
+        - name: 实测新 Service UID 对应的 VIP 业务路径
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', route, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --name, vip-reuse, --output, '{{ metallb_attempt }}/reuse.json']}
+          register: metallb_reuse
+          changed_when: false
+          retries: 25
+          delay: 2
+          until: metallb_reuse.rc == 0
+        - name: 确认新身份的实际宣告仍唯一
+          ansible.builtin.include_tasks: ../tasks/metallb-arp.yml
+          vars: {metallb_arp_case: reuse}
+        - name: 撤销新测试 Service
+          ansible.builtin.include_tasks: ../tasks/metallb-delete-service.yml
+          vars: {metallb_delete_name: vip-reuse}
+        - name: 核对地址再次完全释放
+          ansible.builtin.include_tasks: ../tasks/metallb-withdraw.yml
+          vars: {metallb_withdraw_name: vip-reuse, metallb_withdraw_case: reuse}
+        - name: 报告生命周期通过
+          ansible.builtin.debug: {msg: '02.03.03 PASS；不同 Service UID 的申请、撤销、ARP 消失和再分配均通过；.201 网关预留未使用。'}

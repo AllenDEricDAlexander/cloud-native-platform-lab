@@ -1,0 +1,22 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: '{{ services_pool }}'
+  namespace: '{{ services_metallb_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  addresses: ['{{ services_vip }}/32']
+  autoAssign: false
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: '{{ services_pool }}'
+  namespace: '{{ services_metallb_namespace }}'
+  labels: {cnpl.io/services-run: '{{ services_run }}'}
+spec:
+  ipAddressPools: ['{{ services_pool }}']
+  interfaces: [ens33]
+  nodeSelectors:
+    - matchLabels: {kubernetes.io/hostname: worker01.k8s.internal.egon.top}
+    - matchLabels: {kubernetes.io/hostname: worker02.k8s.internal.egon.top}

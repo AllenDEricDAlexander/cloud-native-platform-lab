@@ -81,52 +81,17 @@ Service 选择器匹配实际 Pod，扩容/Readiness 变化带来 EndpointSlice 
 
 ## 02.03 MetalLB 与地址宣告
 
-输入：00 已验证 L2/VIP，.201–.210 已排除 DHCP。
+状态：[完整02.03实际验收及清理通过](records/02.03-20261019T000211Z/README.md)，已生成02.04交接；主池与两个speaker保留。
 
-1. 安装锁定 MetalLB，声明 IPAddressPool 和 L2Advertisement，限制作用域；API .100 和对照池不纳入该池。
-2. 为测试 LoadBalancer Service 申请地址，从不同客户端检查 ARP、访问和实际宣告节点；记录节点失效后的迁移时间。
-3. 恢复节点后再次检测重复宣告，清理临时 Service 并核对 IP 释放。
+使用[完整 Ansible、YAML、命令与预期结果](examples/metallb/README.md)，统一入口 `scripts/metallb.sh all <记录目录>` 一次完成全部三项；[02.02 交接](records/02.02-20261018T225144Z/README.md)中的 MetalLB 0.16.1 controller1/1、worker speaker2/2 直接复用。
 
-### 操作命令与目的
+1. **02.03.01**：持久主池 `.201–.210` 禁止自动分配，声明 Service 分配标签、ens33 和两个候选 VM；从 Mac、infra01 与 ServiceL2Status 核对 `.202` 的实际 HTTP/唯一 ARP 宣告。
+2. **02.03.02**：从实际 ARP 判断入口 VM，先预热原有 TCP 连接，再精确停止该 VM 的 speaker；记录 VIP 接管、新连接恢复和原连接断开/重连；任何结果都恢复原始 speaker spec 和两个 Ready 实例。
+3. **02.03.03**：旧 Service UID/宣告撤销、HTTP/ARP 不再响应后，以新 Service UID 重新申请同 VIP，实测后再次撤销，生成地址分配/撤销台账。
 
-```bash
-helm upgrade --install metallb "$LAB_METALLB_CHART" -n metallb-system \
-  --create-namespace --version "$LAB_METALLB_VERSION" -f metallb-values.yaml --wait
-kubectl apply -f metallb-pool.yaml
-kubectl -n lab-net apply -f loadbalancer-demo.yaml
-kubectl -n lab-net get service echo-lb -w          # 等待外部 IP 分配
-curl -fsS "http://$LAB_SERVICE_VIP:8080/"          # 从 LAN 请求真实 VIP
-ip neigh show "$LAB_SERVICE_VIP"                 # Linux 客户端观察邻居项
-kubectl -n metallb-system get pods -o wide
-```
+只感知 VM，不操作 ESXi 或物理宿主机。SELinux Enforcing、firewalld、API `.100`、CNI/CoreDNS/控制台均保持原配置。`.201` 预留网关，`.211–.220` 对比池不启用。完整主池及宣告保留供02.04；实验 Namespace、VIP Service 和观测进程清理。
 
-故障实验时再对当前宣告节点执行约定的单节点停机/隔离动作；持续请求并观察邻居项改变，恢复后再清理测试 Service。
-
-### 配置示例
-
-```yaml
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata: {name: lab-business, namespace: metallb-system}
-spec:
-  addresses: [192.168.9.201-192.168.9.210]
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata: {name: lab-business, namespace: metallb-system}
-spec:
-  ipAddressPools: [lab-business]
-```
-
-LoadBalancer Service 使用 `type: LoadBalancer`，按需用 `metallb.io/address-pool: lab-business` 注解指定池；selector 和端口复用 echo 服务。
-
-### 预期结果
-
-EXTERNAL-IP 从规划池产生；LAN 可访问；停一个宣告节点后其他节点接管并记录实际切换时间。不得占用 API `.100` 或对照池 `.211–.220`，长期 Pending 应检查池、选择器和控制器事件。
-
-交付：`ops/02-networking/networking/metallb/` 配置与 VIP 故障用例。
-
-检查与失败处理：无冲突且客户端可达；失败先检查 L2/端口组/池选择，撤回本次宣告而非改全部网络。
+执行前严格 dry-run 全部 YAML、已有 CRD/Webhook 及两种维护补丁；实际故障和业务验收由用户执行。观察结果和清理回执分别保存，不能把只读检查或离线替身演练当作正式漂移通过。
 
 <a id="02-04"></a>
 

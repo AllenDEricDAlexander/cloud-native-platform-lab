@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: no-explicit-allocation
+  namespace: lab-metallb
+  labels: {cnpl.io/metallb-run: '{{ metallb_run }}', cnpl.io/vip-policy: primary}
+spec:
+  type: LoadBalancer
+  allocateLoadBalancerNodePorts: false
+  externalTrafficPolicy: Cluster
+  loadBalancerSourceRanges: ['{{ metallb_context.mac_ip }}/32']
+  selector: {app: metallb-echo, cnpl.io/metallb-run: '{{ metallb_run }}'}
+  ports: [{name: http, port: 8080, targetPort: http}]

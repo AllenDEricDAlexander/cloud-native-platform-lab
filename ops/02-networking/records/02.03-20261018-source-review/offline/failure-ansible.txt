@@ -1,0 +1,254 @@
+
+PLAY [OFFLINE ONLY - templates and isolated API] *******************************
+
+TASK [render all YAML] *********************************************************
+changed: [localhost] => (item=primary-pool)
+changed: [localhost] => (item=l2-fixtures)
+changed: [localhost] => (item=l2-service)
+changed: [localhost] => (item=l2-unallocated)
+
+PLAY [02.03.01 持久主池及真实业务入口] *****************************************
+
+TASK [清理本批早前中断遗留的有界观测进程] **************************************
+ok: [localhost]
+
+TASK [创建或复用受控持久主池和宣告] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-apply.yml for localhost
+
+TASK [逐对象核对身份、准入和应用] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/metallb-document.yml for localhost => (item=IPAddressPool/cnpl-primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/metallb-document.yml for localhost => (item=L2Advertisement/cnpl-primary)
+
+TASK [限定创建范围并核对原始 UID，禁止接管外来对象] ****************************
+ok: [localhost]
+
+TASK [在真实目标 Namespace 严格准入] *******************************************
+ok: [localhost]
+
+TASK [应用本对象并获取实际 UID] ************************************************
+changed: [localhost]
+
+TASK [立即保存创建 UID 与 spec 摘要] *******************************************
+ok: [localhost]
+
+TASK [限定创建范围并核对原始 UID，禁止接管外来对象] ****************************
+ok: [localhost]
+
+TASK [在真实目标 Namespace 严格准入] *******************************************
+ok: [localhost]
+
+TASK [应用本对象并获取实际 UID] ************************************************
+changed: [localhost]
+
+TASK [立即保存创建 UID 与 spec 摘要] *******************************************
+ok: [localhost]
+
+TASK [登记主池及宣告 UID，供后续批次精确复用] **********************************
+ok: [localhost]
+
+TASK [保存本次主池策略验收] ****************************************************
+changed: [localhost]
+
+TASK [创建隔离空间及两个 VM 后端] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-apply.yml for localhost
+
+TASK [逐对象核对身份、准入和应用] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/metallb-document.yml for localhost => (item=Namespace/lab-metallb)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/metallb-document.yml for localhost => (item=DaemonSet/echo)
+
+TASK [限定创建范围并核对原始 UID，禁止接管外来对象] ****************************
+ok: [localhost]
+
+TASK [在真实目标 Namespace 严格准入] *******************************************
+ok: [localhost]
+
+TASK [应用本对象并获取实际 UID] ************************************************
+changed: [localhost]
+
+TASK [立即保存创建 UID 与 spec 摘要] *******************************************
+ok: [localhost]
+
+TASK [限定创建范围并核对原始 UID，禁止接管外来对象] ****************************
+ok: [localhost]
+
+TASK [在真实目标 Namespace 严格准入] *******************************************
+ok: [localhost]
+
+TASK [应用本对象并获取实际 UID] ************************************************
+changed: [localhost]
+
+TASK [立即保存创建 UID 与 spec 摘要] *******************************************
+ok: [localhost]
+
+TASK [等待两个 VM 后端 Ready] **************************************************
+ok: [localhost]
+
+TASK [重试前撤销本批旧测试 Service] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost => (item=no-explicit-allocation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost => (item=vip-primary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost => (item=vip-reuse)
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+skipping: [localhost]
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+skipping: [localhost]
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+skipping: [localhost]
+
+TASK [创建无显式申请的负向用例] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-apply.yml for localhost
+
+TASK [逐对象核对身份、准入和应用] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/metallb-document.yml for localhost => (item=Service/no-explicit-allocation)
+
+TASK [限定创建范围并核对原始 UID，禁止接管外来对象] ****************************
+ok: [localhost]
+
+TASK [在真实目标 Namespace 严格准入] *******************************************
+ok: [localhost]
+
+TASK [应用本对象并获取实际 UID] ************************************************
+changed: [localhost]
+
+TASK [立即保存创建 UID 与 spec 摘要] *******************************************
+ok: [localhost]
+
+TASK [验证主池不会自动分配 VIP 或 NodePort] ************************************
+ok: [localhost]
+
+TASK [撤销负向用例] ************************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-delete-service.yml for localhost
+
+TASK [删除前核对本批 Service 原始 UID] *****************************************
+ok: [localhost]
+
+TASK [撤销本批 Service，不先删除仍在使用的地址池] ******************************
+changed: [localhost]
+
+TASK [显式申请 .202，不使用预留网关 .201] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-apply.yml for localhost
+
+TASK [逐对象核对身份、准入和应用] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/metallb-document.yml for localhost => (item=Service/vip-primary)
+
+TASK [限定创建范围并核对原始 UID，禁止接管外来对象] ****************************
+ok: [localhost]
+
+TASK [在真实目标 Namespace 严格准入] *******************************************
+ok: [localhost]
+
+TASK [应用本对象并获取实际 UID] ************************************************
+changed: [localhost]
+
+TASK [立即保存创建 UID 与 spec 摘要] *******************************************
+ok: [localhost]
+
+TASK [实测 Mac HTTP、后端 UID、ARP 与 ServiceL2Status] *************************
+ok: [localhost]
+
+TASK [从独立 LAN VM 排查重复宣告] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-arp.yml for localhost
+
+TASK [从独立 LAN VM 广播探测，核对唯一应答 MAC] ********************************
+ok: [localhost -> infra01]
+
+TASK [对比广播 ARP、管理 Mac ARP 和控制器宣告 VM] ******************************
+ok: [localhost]
+
+TASK [报告主池通过] ************************************************************
+ok: [localhost] => {
+    "msg": "02.03.01 PASS；持久主池 .201–.210、显式分配策略、唯一 ARP 宣告与实际 HTTP 均通过。"
+}
+
+PLAY [02.03.02 宣告 speaker 故障、连接观测与无条件恢复] ************************
+
+TASK [生成实际宣告 VM 对应的精确维护计划] **************************************
+ok: [localhost]
+
+TASK [维护前保存最新恢复意图] **************************************************
+changed: [localhost]
+
+TASK [启动有界新连接、原有长连接及 ARP 采样] ***********************************
+ok: [localhost]
+
+TASK [确认原有 TCP 连接已连续复用，未就绪不注入故障] ***************************
+FAILED - RETRYING: [localhost]: 确认原有 TCP 连接已连续复用，未就绪不注入故障 (14 retries left).
+ok: [localhost]
+
+TASK [标记维护请求时间，供恢复耗时计算] ****************************************
+ok: [localhost]
+
+TASK [OnDelete 保留幸存实例，仅移除当前宣告 VM 上的 speaker] *******************
+changed: [localhost]
+
+TASK [等待旧 speaker 消失、幸存 UID 不变和 VIP 进入另一 VM] ********************
+ok: [localhost]
+
+TASK [对迁移后的宣告做广播 ARP 唯一性核对] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-arp.yml for localhost
+
+TASK [从独立 LAN VM 广播探测，核对唯一应答 MAC] ********************************
+ok: [localhost -> infra01]
+
+TASK [对比广播 ARP、管理 Mac ARP 和控制器宣告 VM] ******************************
+ok: [localhost]
+
+TASK [等待至少三个迁移后实际成功的新连接样本] **********************************
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (9 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (8 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (7 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (6 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (5 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (4 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (3 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (2 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (1 retries left).
+FAILED - RETRYING: [localhost]: 等待至少三个迁移后实际成功的新连接样本 (0 retries left).
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/metallb-failover.yml:48:11
+
+46           ansible.builtin.include_tasks: ../tasks/metallb-arp.yml
+47           vars: {metallb_arp_case: during}
+48         - name: 等待至少三个迁移后实际成功的新连接样本
+             ^ column 11
+
+fatal: [localhost]: FAILED! => {"attempts": 10, "changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-metallb-failure-q8w2fd1i/check.py", "fault-samples", "--records", "/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-metallb-failure-q8w2fd1i/records", "--attempt", "/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-metallb-failure-q8w2fd1i/records/attempts/contract", "--output", "/var/folders/gb/vwfj36c909xgtbr0jl267d880000gp/T/cnpl-metallb-failure-q8w2fd1i/records/attempts/contract/fault-samples.json"], "delta": "0:00:00.067950", "end": "2026-10-18 19:51:37.014790", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-18 19:51:36.946840", "stderr": "deliberate offline failure after real plan and simulated speaker removal", "stderr_lines": ["deliberate offline failure after real plan and simulated speaker removal"], "stdout": "", "stdout_lines": []}
+
+TASK [恢复原始调度字段与两个 speaker] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/metallb-restore-speaker.yml for localhost
+
+TASK [根据原 UID 和维护字段生成精确恢复计划] ***********************************
+ok: [localhost]
+
+TASK [仅恢复本批修改的调度字段，JSON Patch 自带 UID/原值测试] ******************
+changed: [localhost]
+
+TASK [等待原 speaker 配置及两个就绪实例恢复] ***********************************
+ok: [localhost]
+
+TASK [给本次有界观测发送停止标记] **********************************************
+changed: [localhost]
+
+TASK [收集观测进程最终退出状态] ************************************************
+changed: [localhost]
+
+TASK [保存原始观测任务回执] ****************************************************
+changed: [localhost]
+
+TASK [清除已收集的本机异步任务缓存] ********************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=72   changed=15   unreachable=0    failed=1    skipped=3    rescued=0    ignored=0   
+

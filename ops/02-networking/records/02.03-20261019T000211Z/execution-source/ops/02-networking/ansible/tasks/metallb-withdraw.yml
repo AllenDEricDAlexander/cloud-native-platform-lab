@@ -1,0 +1,19 @@
+---
+- name: 等待原 Service/宣告消失，并实测新连接不再到达旧服务
+  ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', withdrawn, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --name, '{{ metallb_withdraw_name }}', --output, '{{ metallb_attempt }}/withdraw-{{ metallb_withdraw_case }}.json']}
+  register: metallb_withdrawn
+  changed_when: false
+  retries: 12
+  delay: 2
+  until: metallb_withdrawn.rc == 0
+- name: 从 LAN VM 核验旧 VIP 已停止响应 ARP
+  ansible.builtin.command: {argv: [arping, -D, -I, ens33, -c, '2', -w, '3', 192.168.9.202]}
+  delegate_to: infra01
+  register: metallb_withdraw_arp
+  changed_when: false
+  retries: 10
+  delay: 2
+  until: metallb_withdraw_arp.rc == 0
+- name: 保存无 ARP 宣告的原始证据
+  ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', withdraw-arp, --records, '{{ metallb_records }}', --document, '{{ {"rc":metallb_withdraw_arp.rc,"stdout":metallb_withdraw_arp.stdout,"stderr":metallb_withdraw_arp.stderr} | to_json }}', --output, '{{ metallb_attempt }}/withdraw-arp-{{ metallb_withdraw_case }}.json']}
+  changed_when: false

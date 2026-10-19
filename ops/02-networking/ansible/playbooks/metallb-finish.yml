@@ -1,0 +1,53 @@
+---
+- name: 完整 02.03 验收、实验清理和持久组件交接
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 汇总全部必需回执和实际地址台账，缺项不能通过
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', accept, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_records }}/passed.json']}
+      changed_when: false
+      when: metallb_execute
+    - name: 清理实验但保留已登记主池
+      when: metallb_mode in ['all','cleanup','recover']
+      block:
+        - name: 无条件核对并恢复 speaker 原始配置
+          ansible.builtin.include_tasks: ../tasks/metallb-restore-speaker.yml
+        - name: 停止本批所有有界观测进程
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', stop-all, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/observers-stopped.json']}
+          changed_when: false
+        - name: 撤销本批剩余 Service，先释放地址再清理空间
+          ansible.builtin.include_tasks: ../tasks/metallb-delete-service.yml
+          vars: {metallb_delete_name: '{{ metallb_remaining_service }}'}
+          loop: [no-explicit-allocation, vip-primary, vip-reuse]
+          loop_control: {loop_var: metallb_remaining_service}
+        - name: 核对空间内全部对象 UID 和运行归属
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', cleanup-plan, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/cleanup-plan.json']}
+          register: metallb_cleanup
+          changed_when: false
+        - name: 仅删除本批隔离 Namespace
+          ansible.builtin.command: {argv: '{{ metallb_k + ["delete","namespace",metallb_namespace,"--wait=true","--timeout=180s"] }}'}
+          changed_when: true
+          when: (metallb_cleanup.stdout | from_json).exists
+        - name: 登记完整主池，或回滚本批首次创建但不完整的主池对象
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', partial-plan, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/partial-primary-plan.json']}
+          register: metallb_partial
+          changed_when: false
+        - name: 仅撤回本批不完整且无地址使用的主池对象
+          ansible.builtin.command: {argv: '{{ metallb_k + ["delete",item.kind,item.name,"-n","metallb-system","--wait=true","--timeout=60s"] }}'}
+          loop: '{{ (metallb_partial.stdout | from_json).delete }}'
+          changed_when: true
+        - name: 最终核对主池、两个 speaker、原集群健康及控制台配置
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', final, --records, '{{ metallb_records }}', --output, '{{ metallb_records }}/state/closed.json']}
+          register: metallb_final
+          changed_when: false
+          retries: 15
+          delay: 2
+          until: metallb_final.rc == 0
+        - name: 报告完整清理结果
+          ansible.builtin.debug: {msg: '02.03 CLEANUP PASS；测试空间/VIP/观测已回收，两个 speaker 和原配置恢复；{{ "完整主池保留" if (metallb_final.stdout | from_json).primary_pool_retained else "没有保留主池" }}。'}
+    - name: 报告完整 02.03 一次验收通过
+      ansible.builtin.debug: {msg: '02.03 ALL PASS；02.03.01–03 全部完成，vip-ledger.json、passed.json 与 state/closed.json 已保存。'}
+      when: metallb_mode == 'all'

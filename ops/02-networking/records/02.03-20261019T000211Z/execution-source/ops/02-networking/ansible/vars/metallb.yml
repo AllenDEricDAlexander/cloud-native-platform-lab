@@ -1,0 +1,13 @@
+---
+metallb_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+metallb_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+metallb_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+metallb_crane: /opt/homebrew/bin/crane
+metallb_config: '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+metallb_k: ['{{ metallb_kubectl }}', --kubeconfig, '{{ metallb_config }}', --request-timeout=20s]
+metallb_check: '{{ metallb_root }}/ops/02-networking/tests/integration/metallb/check.py'
+metallb_lock: '{{ lookup("file", metallb_root ~ "/ops/versions.lock.yaml") | from_yaml }}'
+metallb_image: '{{ metallb_lock.components.services_diagnostics.internal_source }}'
+metallb_execute: '{{ metallb_mode in ["all","run"] }}'
+metallb_component_record: '{{ metallb_root }}/ops/02-networking/records/components/metallb-primary.json'
+metallb_namespace: lab-metallb

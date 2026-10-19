@@ -10,6 +10,8 @@
 | [networks.yaml](networks.yaml) | 网段、网关、DHCP、DNS、地址分配、域名层级、集群 CIDR 与 VIP |
 | [resources.yaml](resources.yaml) | 宿主机硬件与预算、节点规格、基础服务内存、安全策略、存储与容量门槛 |
 
+[vips.yaml](vips.yaml)补充网络台账内 `.201–.210` 主池的具体用途、负责人和撤销流程；不扩大 `networks.yaml` 的地址范围。每批实际 Service UID、分配与撤销另见执行记录中的 `vip-ledger.json`。
+
 `null` 表示未知，不代表零或不存在；`reported_*` 字段来自用户报告，未经独立核实。Phase 00 完成时应有哪些对象（目标台账）见 [阶段计划](../../plan/00-preparation.md#阶段完成时的目标状态)，本目录记录它们的实际参数。
 
 ## 1. 修改台账的流程

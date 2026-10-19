@@ -1,0 +1,95 @@
+---
+- name: 02.03.02 宣告 speaker 故障、连接观测与无条件恢复
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 连续观测并停止当前宣告 VM 的 speaker，成功失败都恢复
+      when: metallb_execute
+      block:
+        - name: 生成实际宣告 VM 对应的精确维护计划
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', fault-plan, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/fault-plan.json']}
+          register: metallb_fault
+          changed_when: false
+        - name: 维护前保存最新恢复意图
+          ansible.builtin.copy: {src: '{{ metallb_attempt }}/fault-plan.json', dest: '{{ metallb_records }}/state/fault-plan.json', mode: '0600'}
+        - name: 启动有界新连接、原有长连接及 ARP 采样
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', observe, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/observer.json']}
+          async: 240
+          poll: 0
+          register: metallb_monitor_job
+          changed_when: false
+        - name: 确认原有 TCP 连接已连续复用，未就绪不注入故障
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', monitor-ready, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/warmup.json']}
+          register: metallb_warmed
+          changed_when: false
+          retries: 15
+          delay: 2
+          until: metallb_warmed.rc == 0
+        - name: 标记维护请求时间，供恢复耗时计算
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', mark, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/fault-start.json']}
+          changed_when: false
+        - name: OnDelete 保留幸存实例，仅移除当前宣告 VM 上的 speaker
+          ansible.builtin.command:
+            argv: '{{ metallb_k + ["patch","daemonset","cnpl-metallb-speaker","-n","metallb-system","--type=json","-p",(metallb_fault.stdout | from_json).patch | to_json] }}'
+          changed_when: true
+        - name: 等待旧 speaker 消失、幸存 UID 不变和 VIP 进入另一 VM
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', fault-state, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/during.json']}
+          register: metallb_during
+          changed_when: false
+          retries: 25
+          delay: 2
+          until: metallb_during.rc == 0
+        - name: 对迁移后的宣告做广播 ARP 唯一性核对
+          ansible.builtin.include_tasks: ../tasks/metallb-arp.yml
+          vars: {metallb_arp_case: during}
+        - name: 等待至少三个迁移后实际成功的新连接样本
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', fault-samples, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/fault-samples.json']}
+          register: metallb_samples
+          changed_when: false
+          retries: 10
+          delay: 1
+          until: metallb_samples.rc == 0
+      always:
+        - name: 先恢复 speaker，任何恢复结果都停止观测进程
+          block:
+            - name: 恢复原始调度字段与两个 speaker
+              ansible.builtin.include_tasks: ../tasks/metallb-restore-speaker.yml
+          always:
+            - name: 给本次有界观测发送停止标记
+              ansible.builtin.copy: {content: 'stop', dest: '{{ metallb_attempt }}/monitor.stop', mode: '0600'}
+              when: metallb_monitor_job.ansible_job_id is defined
+            - name: 收集观测进程最终退出状态
+              ansible.builtin.async_status: {jid: '{{ metallb_monitor_job.ansible_job_id }}'}
+              register: metallb_monitor_done
+              until: metallb_monitor_done.finished
+              retries: 20
+              delay: 1
+              when: metallb_monitor_job.ansible_job_id is defined
+            - name: 保存原始观测任务回执
+              ansible.builtin.copy: {content: '{{ metallb_monitor_done | to_nice_json }}', dest: '{{ metallb_attempt }}/monitor-job.json', mode: '0600'}
+              when: metallb_monitor_job.ansible_job_id is defined
+            - name: 清除已收集的本机异步任务缓存
+              ansible.builtin.async_status: {jid: '{{ metallb_monitor_job.ansible_job_id }}', mode: cleanup}
+              when: metallb_monitor_job.ansible_job_id is defined
+    - name: 恢复两个 speaker 后重新验证实际 VIP 业务路径
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', route, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/restored.json']}
+      register: metallb_recovered
+      changed_when: false
+      retries: 20
+      delay: 2
+      until: metallb_recovered.rc == 0
+      when: metallb_execute
+    - name: 确认恢复后没有重复 ARP 宣告
+      ansible.builtin.include_tasks: ../tasks/metallb-arp.yml
+      vars: {metallb_arp_case: restored}
+      when: metallb_execute
+    - name: 分别计算新连接恢复与原有连接断开/重连结果
+      ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', analyse, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/failover.json']}
+      changed_when: false
+      when: metallb_execute
+    - name: 报告故障漂移通过
+      ansible.builtin.debug: {msg: '02.03.02 PASS；实际 speaker 停止、VIP 跨 VM 接管、连接表现和完整恢复均已留痕。'}
+      when: metallb_execute

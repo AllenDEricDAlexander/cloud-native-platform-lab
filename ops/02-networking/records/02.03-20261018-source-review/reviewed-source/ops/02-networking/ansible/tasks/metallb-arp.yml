@@ -1,0 +1,9 @@
+---
+- name: 从独立 LAN VM 广播探测，核对唯一应答 MAC
+  ansible.builtin.command: {argv: [arping, -b, -I, ens33, -c, '3', -w, '4', 192.168.9.202]}
+  delegate_to: infra01
+  register: metallb_arp_probe
+  changed_when: false
+- name: 对比广播 ARP、管理 Mac ARP 和控制器宣告 VM
+  ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', arp-check, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --case, '{{ metallb_arp_case }}', --document, '{{ {"rc":metallb_arp_probe.rc,"stdout":metallb_arp_probe.stdout,"stderr":metallb_arp_probe.stderr} | to_json }}', --output, '{{ metallb_attempt }}/arp-{{ metallb_arp_case }}.json']}
+  changed_when: false

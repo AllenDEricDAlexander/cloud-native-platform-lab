@@ -1,0 +1,61 @@
+---
+- name: 02.03.01 持久主池及真实业务入口
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/metallb.yml]
+  tasks:
+    - name: 执行主池建立与分配策略验证
+      when: metallb_execute
+      block:
+        - name: 清理本批早前中断遗留的有界观测进程
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', stop-all, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/previous-monitors.json']}
+          changed_when: false
+        - name: 创建或复用受控持久主池和宣告
+          ansible.builtin.include_tasks: ../tasks/metallb-apply.yml
+          vars: {metallb_manifest: '{{ metallb_attempt }}/primary-pool.yaml'}
+        - name: 登记主池及宣告 UID，供后续批次精确复用
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', primary, --records, '{{ metallb_records }}', --output, '{{ metallb_component_record }}']}
+          changed_when: false
+        - name: 保存本次主池策略验收
+          ansible.builtin.copy: {src: '{{ metallb_component_record }}', dest: '{{ metallb_attempt }}/primary.json', mode: '0600'}
+        - name: 创建隔离空间及两个 VM 后端
+          ansible.builtin.include_tasks: ../tasks/metallb-apply.yml
+          vars: {metallb_manifest: '{{ metallb_attempt }}/l2-fixtures.yaml'}
+        - name: 等待两个 VM 后端 Ready
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', fixtures, --records, '{{ metallb_records }}', --output, '{{ metallb_attempt }}/fixtures.json']}
+          register: metallb_backends
+          changed_when: false
+          retries: 40
+          delay: 3
+          until: metallb_backends.rc == 0
+        - name: 重试前撤销本批旧测试 Service
+          ansible.builtin.include_tasks: ../tasks/metallb-delete-service.yml
+          vars: {metallb_delete_name: '{{ metallb_old_service }}'}
+          loop: [no-explicit-allocation, vip-primary, vip-reuse]
+          loop_control: {loop_var: metallb_old_service}
+        - name: 创建无显式申请的负向用例
+          ansible.builtin.include_tasks: ../tasks/metallb-apply.yml
+          vars: {metallb_manifest: '{{ metallb_attempt }}/l2-unallocated.yaml'}
+        - name: 验证主池不会自动分配 VIP 或 NodePort
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', pending, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/pending.json']}
+          changed_when: false
+        - name: 撤销负向用例
+          ansible.builtin.include_tasks: ../tasks/metallb-delete-service.yml
+          vars: {metallb_delete_name: no-explicit-allocation}
+        - name: 显式申请 .202，不使用预留网关 .201
+          ansible.builtin.include_tasks: ../tasks/metallb-apply.yml
+          vars: {metallb_manifest: '{{ metallb_attempt }}/l2-service.yaml'}
+        - name: 实测 Mac HTTP、后端 UID、ARP 与 ServiceL2Status
+          ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', route, --records, '{{ metallb_records }}', --attempt, '{{ metallb_attempt }}', --output, '{{ metallb_attempt }}/baseline.json']}
+          register: metallb_baseline
+          changed_when: false
+          retries: 30
+          delay: 2
+          until: metallb_baseline.rc == 0
+        - name: 从独立 LAN VM 排查重复宣告
+          ansible.builtin.include_tasks: ../tasks/metallb-arp.yml
+          vars: {metallb_arp_case: baseline}
+        - name: 报告主池通过
+          ansible.builtin.debug: {msg: '02.03.01 PASS；持久主池 .201–.210、显式分配策略、唯一 ARP 宣告与实际 HTTP 均通过。'}

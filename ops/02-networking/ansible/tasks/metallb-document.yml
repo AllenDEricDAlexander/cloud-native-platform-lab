@@ -1,0 +1,15 @@
+---
+- name: 限定创建范围并核对原始 UID，禁止接管外来对象
+  ansible.builtin.command:
+    argv: ['{{ metallb_python }}', '{{ metallb_check }}', object-plan, --records, '{{ metallb_records }}', --document, '{{ metallb_document | to_json }}', --output, '{{ metallb_attempt }}/guard-{{ metallb_document.kind | lower }}-{{ metallb_document.metadata.name }}.json']
+  changed_when: false
+- name: 在真实目标 Namespace 严格准入
+  ansible.builtin.command: {argv: '{{ metallb_k + ["apply","--dry-run=server","--validate=strict","-f","-"] }}', stdin: '{{ metallb_document | to_json }}'}
+  changed_when: false
+- name: 应用本对象并获取实际 UID
+  ansible.builtin.command: {argv: '{{ metallb_k + ["apply","-f","-","-o","json"] }}', stdin: '{{ metallb_document | to_json }}'}
+  register: metallb_applied
+  changed_when: true
+- name: 立即保存创建 UID 与 spec 摘要
+  ansible.builtin.command: {argv: ['{{ metallb_python }}', '{{ metallb_check }}', record-object, --records, '{{ metallb_records }}', --document, '{{ metallb_applied.stdout }}', --output, '{{ metallb_attempt }}/applied-{{ metallb_document.kind | lower }}-{{ metallb_document.metadata.name }}.json']}
+  changed_when: false

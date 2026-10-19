@@ -1,0 +1,129 @@
+---
+- name: 第七章部署 GitLab
+  hosts: gitlab_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  environment: {LC_ALL: C}
+  vars_files: [defaults.yml]
+  vars: {cnpl_service_fqdn: gitlab.svc.internal.egon.top}
+  pre_tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+      tags: [always]
+    - ansible.builtin.import_tasks: tasks/service-disk.yml
+      tags: [always]
+    - ansible.builtin.import_tasks: tasks/tls.yml
+      tags: [always]
+  tasks:
+    - name: 安装前准备配置目录
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0755'
+      loop: [/etc/gitlab/ssl, /etc/gitlab/trusted-certs, /etc/systemd/system/gitlab-runsvdir.service.d]
+      tags: [configure]
+    - name: 内置 Ruby/Gitaly 同样信任内部根 CA
+      ansible.builtin.copy:
+        src: /etc/pki/ca-trust/source/anchors/cnpl-root.crt
+        dest: /etc/gitlab/trusted-certs/cnpl-root.crt
+        remote_src: true
+        mode: '0644'
+      register: cnpl_gitlab_trusted_root
+      tags: [configure]
+    - name: 首次生成并保留 root 初始口令
+      ansible.builtin.shell: |
+        source /opt/cnpl/provision/scripts/lib/common.sh
+        if [[ -e /var/opt/gitlab/gitlab-rails && ! -s /etc/cnpl/secrets/gitlab-root.password ]]; then die '已有数据但缺少原秘密，停止初始化'; fi
+        secret_hex /etc/cnpl/secrets/gitlab-root.password
+        result
+      args: {executable: /bin/bash}
+      register: cnpl_gitlab_password
+      changed_when: "'CNPL_CHANGED=1' in cnpl_gitlab_password.stdout"
+      no_log: true
+      tags: [configure]
+    - name: 安装前分发本机证书
+      ansible.builtin.copy:
+        src: '/etc/cnpl/tls/{{ item.source }}'
+        dest: '/etc/gitlab/ssl/gitlab.svc.internal.egon.top.{{ item.extension }}'
+        remote_src: true
+        mode: '{{ item.mode }}'
+      loop:
+        - {source: fullchain.crt, extension: crt, mode: '0644'}
+        - {source: tls.key, extension: key, mode: '0600'}
+      no_log: true
+      diff: false
+      register: cnpl_gitlab_cert
+      tags: [configure]
+    - name: 先写配置再安装官方 RPM
+      ansible.builtin.copy:
+        src: ../config/gitlab.rb
+        dest: /etc/gitlab/gitlab.rb
+        mode: '0600'
+        backup: true
+      register: cnpl_gitlab_config
+      tags: [configure]
+    - name: 声明数据盘启动依赖
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/gitlab-runsvdir.service.d/10-cnpl.conf
+        mode: '0644'
+        content: "[Unit]\nRequiresMountsFor=/var/opt/gitlab\n"
+      register: cnpl_gitlab_unit
+      tags: [configure]
+    - name: 安装选定 EL10 GitLab CE RPM
+      ansible.builtin.import_tasks: tasks/service-packages.yml
+      vars: {cnpl_package_names: [gitlab-ce]}
+      tags: [configure]
+    - name: 生效安装后的配置
+      ansible.builtin.command: gitlab-ctl reconfigure
+      when: cnpl_gitlab_config is changed or cnpl_gitlab_cert is changed or cnpl_gitlab_trusted_root is changed or cnpl_gitlab_password is changed or cnpl_service_install is changed
+      tags: [configure]
+    - name: GitLab 开机启动
+      ansible.builtin.systemd_service:
+        name: gitlab-runsvdir
+        enabled: true
+        daemon_reload: '{{ cnpl_gitlab_unit is changed }}'
+        state: started
+      tags: [configure]
+    - name: 按角色补齐 Git SSH 与 HTTPS 来源
+      ansible.builtin.shell: |
+        source /opt/cnpl/provision/scripts/lib/common.sh
+        for ip in 192.168.9.15 192.168.9.160; do
+          rich_rule "rule family=\"ipv4\" source address=\"$ip/32\" port port=\"443\" protocol=\"tcp\" accept"
+        done
+        rich_rule 'rule family="ipv4" source address="192.168.9.160/32" port port="22" protocol="tcp" accept'
+        if [[ $CNPL_CHANGED == 1 ]]; then firewall-cmd --check-config; firewall-cmd --reload; fi
+        sshd -t
+        grep -Fxq 'AllowUsers ops@192.168.9.15 git@192.168.9.15 git@192.168.9.160' /etc/ssh/sshd_config.d/05-cnpl-users.conf
+        result
+      args: {executable: /bin/bash}
+      register: cnpl_gitlab_rules
+      changed_when: "'CNPL_CHANGED=1' in cnpl_gitlab_rules.stdout"
+      tags: [configure]
+    - name: GitLab 健康与就绪
+      ansible.builtin.uri:
+        url: 'https://gitlab.svc.internal.egon.top/{{ item }}'
+        use_proxy: false
+        validate_certs: true
+        status_code: 200
+      loop: ['-/health', '-/readiness', users/sign_in]
+      register: cnpl_gitlab_health
+      until: cnpl_gitlab_health.status == 200
+      retries: 60
+      delay: 10
+      tags: [verify]
+    - name: GitLab 内部检查
+      ansible.builtin.command: gitlab-rake gitlab:check SANITIZE=true
+      changed_when: false
+      tags: [verify]
+    - name: 验证 Rails 进程经 OpenWrt 访问 Google
+      ansible.builtin.command:
+        argv:
+          - gitlab-rails
+          - runner
+          - >-
+            require "net/http"; uri=URI("https://www.google.com/generate_204");
+            h=Net::HTTP.new(uri.host,uri.port); h.use_ssl=true; h.open_timeout=5; h.read_timeout=30;
+            r=h.get(uri.request_uri); puts "HTTP=#{r.code} proxy=#{h.proxy_address}:#{h.proxy_port}";
+            exit(r.code=="204" && h.proxy_address=="192.168.9.10" && h.proxy_port==7890 ? 0 : 1)
+      changed_when: false
+      tags: [verify]

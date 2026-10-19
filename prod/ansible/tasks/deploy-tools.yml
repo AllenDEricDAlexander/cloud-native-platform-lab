@@ -1,0 +1,46 @@
+---
+- name: 只接管已完成首次 SSH 的 Rocky 10.2 主机
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Rocky'
+      - ansible_facts.distribution_version == '10.2'
+      - ansible_facts.hostname == inventory_hostname
+      - inventory_hostname in groups.rocky_nodes
+    quiet: true
+- name: 安全能力必须保持开启
+  ansible.builtin.command:
+    argv: "{{ item }}"
+  loop:
+    - [getenforce]
+    - [firewall-cmd, --state]
+  register: cnpl_security
+  changed_when: false
+  check_mode: false
+- name: 保持 SELinux 与 firewalld
+  ansible.builtin.assert:
+    that:
+      - cnpl_security.results[0].stdout == 'Enforcing'
+      - cnpl_security.results[1].stdout == 'running'
+    quiet: true
+- name: 正式脚本与本机公开输入的目录
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop: [/opt/cnpl/provision, /opt/cnpl/provision/scripts, /opt/cnpl/provision/config, /opt/cnpl/provision/ansible/files, /opt/cnpl/provision/inputs, /etc/cnpl/inputs]
+- name: 分发正式脚本、实际配置与只读设备检查
+  ansible.builtin.copy:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: root
+    group: root
+    mode: preserve
+    directory_mode: '0750'
+  loop:
+    - {source: '{{ playbook_dir }}/../scripts/', destination: /opt/cnpl/provision/scripts/}
+    - {source: '{{ playbook_dir }}/../config/', destination: /opt/cnpl/provision/config/}
+    - {source: '{{ playbook_dir }}/files/', destination: /opt/cnpl/provision/ansible/files/}
+    - {source: '{{ playbook_dir }}/../inputs/hosts.ini', destination: /opt/cnpl/provision/inputs/hosts.ini}
+    - {source: '{{ playbook_dir }}/../inputs/data-disks.tsv', destination: /opt/cnpl/provision/inputs/data-disks.tsv}

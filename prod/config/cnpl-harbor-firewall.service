@@ -1,0 +1,12 @@
+[Unit]
+Description=CNPL Harbor published-port source policy
+Requires=docker.service
+After=docker.service firewalld.service
+PartOf=docker.service
+Before=cnpl-harbor.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cnpl-harbor-firewall
+RemainAfterExit=yes
+[Install]
+WantedBy=docker.service

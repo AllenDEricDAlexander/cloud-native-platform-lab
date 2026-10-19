@@ -1,0 +1,196 @@
+---
+- name: 参数必须已填写，目标只能属于本期十节点
+  ansible.builtin.assert:
+    that:
+      - groups.k8s_nodes | length == 10
+      - cnpl_nodes is defined
+      - cnpl_runtime_packages is defined
+      - cnpl_nodes.keys() | list | sort == groups.k8s_nodes | sort
+      - cnpl_runtime_packages.keys() | list | sort == cnpl_runtime_package_names | sort
+      - inventory_hostname in groups.k8s_nodes
+      - cnpl_pause_image is match('^harbor\.k8s\.internal\.egon\.top/bootstrap/pause@sha256:[0-9a-f]{64}$')
+      - cnpl_smoke_image is match('^harbor\.k8s\.internal\.egon\.top/bootstrap/busybox@sha256:[0-9a-f]{64}$')
+    fail_msg: 先核对十节点清单、软件完整 NEVRA 和 Harbor 镜像摘要。
+    quiet: true
+
+- name: 每台的磁盘与 UUID 参数必须有效且不重复
+  ansible.builtin.assert:
+    that:
+      - item.value.runtime_disk is match('^/dev/disk/by-id/[A-Za-z0-9_.:+-]+$')
+      - item.value.runtime_uuid is match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
+      - item.value.initialize is boolean
+      - item.value.osd_disks is sequence and item.value.osd_disks is not string
+      - item.value.runtime_disk not in item.value.osd_disks
+      - item.value.osd_disks | length == (1 if item.key in groups.k8s_storage_nodes else 0)
+    fail_msg: "{{ item.key }} 的稳定设备 ID、UUID、初始化开关或 OSD 清单不正确。"
+    quiet: true
+  loop: "{{ cnpl_nodes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: 运行时 UUID 及盘 ID 必须逐台唯一
+  ansible.builtin.assert:
+    that:
+      - cnpl_nodes.values() | map(attribute='runtime_uuid') | unique | length == 10
+      - cnpl_nodes.values() | map(attribute='runtime_disk') | unique | length == 10
+      - cnpl_nodes.values() | map(attribute='osd_disks') | flatten | unique | length == 3
+    quiet: true
+
+- name: 版本须为完整 name-epoch:version-release.arch，containerd 必须为 2.x
+  ansible.builtin.assert:
+    that:
+      - item.value is match('^' ~ (item.key | regex_escape) ~ '-[0-9]+:[A-Za-z0-9_.+~]+-[A-Za-z0-9_.+~]+\.(x86_64|noarch)$')
+      - item.key != 'containerd.io' or item.value is match('^containerd\.io-[0-9]+:2\.')
+    fail_msg: "{{ item.key }} 未填写有效的完整 NEVRA。"
+    quiet: true
+  loop: "{{ cnpl_runtime_packages | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: 当前节点必须是计划的 Rocky 10.2、四种角色之一
+  ansible.builtin.set_fact:
+    cnpl_node: "{{ cnpl_nodes[inventory_hostname] }}"
+    cnpl_roles: "{{ group_names | intersect(cnpl_role_capacity.keys() | list) }}"
+
+- name: 核对系统、角色、资源和已经人工设置的身份
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Rocky'
+      - ansible_facts.distribution_version == '10.2'
+      - cnpl_roles | length == 1
+      - ansible_facts.fqdn == inventory_hostname ~ '.k8s.internal.egon.top'
+      - ansible_facts[cnpl_node_interface].ipv4.address == ansible_host
+      - ansible_facts.processor_vcpus == cnpl_role_capacity[cnpl_roles[0]].vcpu
+      - ansible_facts.memtotal_mb >= cnpl_role_capacity[cnpl_roles[0]].memory_gib * 1024 * 0.9
+    fail_msg: 先按 3.5 修正该 VM 的主机名、IP、角色或硬件；此处不重置身份或改 SSH 授权。
+    quiet: true
+
+- name: 拒绝已入群或已有 kubelet 配置的节点
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: [/etc/kubernetes/admin.conf, /etc/kubernetes/kubelet.conf, /var/lib/kubelet/config.yaml]
+  register: cnpl_cluster_state
+
+- name: 00 引导只适用于未加入集群的节点
+  ansible.builtin.assert:
+    that: cnpl_cluster_state.results | selectattr('stat.exists') | list | length == 0
+    fail_msg: 发现集群配置，停止套用首次安装基线。
+    quiet: true
+
+- name: 读取安全状态与唯一身份
+  ansible.builtin.command:
+    argv: "{{ item }}"
+  loop:
+    - [getenforce]
+    - [cat, /etc/machine-id]
+    - [cat, /sys/class/dmi/id/product_uuid]
+    - [ssh-keygen, -lf, /etc/ssh/ssh_host_ed25519_key.pub]
+    - [stat, -fc, '%T', /sys/fs/cgroup]
+    - [firewall-cmd, --state]
+    - [firewall-cmd, --permanent, --zone=public, --query-rich-rule, "{{ cnpl_ssh_rule }}"]
+    - [firewall-cmd, --permanent, --zone=public, --query-rich-rule, "{{ cnpl_mac_drop_rule }}"]
+  register: cnpl_preflight_readings
+  changed_when: false
+  check_mode: false
+
+- name: 安全与基础身份必须符合准备阶段要求
+  ansible.builtin.assert:
+    that:
+      - cnpl_preflight_readings.results[0].stdout == 'Enforcing'
+      - cnpl_preflight_readings.results[1].stdout is match('^[0-9a-f]{32}$')
+      - cnpl_preflight_readings.results[4].stdout == 'cgroup2fs'
+      - cnpl_preflight_readings.results[5].stdout == 'running'
+    quiet: true
+
+- name: 读取控制端公开根证书、内网源和六把 RPM 公钥
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ cnpl_ca_file }}"
+    - "{{ cnpl_repo_file }}"
+    - "{{ cnpl_rpm_key_dir }}/rocky10.asc"
+    - "{{ cnpl_rpm_key_dir }}/epel10.asc"
+    - "{{ cnpl_rpm_key_dir }}/docker.asc"
+    - "{{ cnpl_rpm_key_dir }}/kubernetes.asc"
+    - "{{ cnpl_rpm_key_dir }}/gitlab.asc"
+    - "{{ cnpl_rpm_key_dir }}/cnpl-metadata.asc"
+  register: cnpl_public_inputs
+  delegate_to: localhost
+  become: false
+
+- name: 引导输入必须先在 admin 核验并保存
+  ansible.builtin.assert:
+    that: item.stat.exists and item.stat.isreg
+    fail_msg: "缺少公开输入 {{ item.item }}，先完成第五章。"
+    quiet: true
+  loop: "{{ cnpl_public_inputs.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: 每个内网仓库均须启用 HTTPS、签名与直连
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.ini', 'baseurl', section='cnpl-' ~ item, file=cnpl_repo_file) is match('^https://rpm\.svc\.internal\.egon\.top/')
+      - lookup('ansible.builtin.ini', 'gpgcheck', section='cnpl-' ~ item, file=cnpl_repo_file) == '1'
+      - lookup('ansible.builtin.ini', 'enabled', section='cnpl-' ~ item, file=cnpl_repo_file) == '1'
+      - lookup('ansible.builtin.ini', 'repo_gpgcheck', section='cnpl-' ~ item, file=cnpl_repo_file) == '1'
+      - lookup('ansible.builtin.ini', 'sslverify', section='cnpl-' ~ item, file=cnpl_repo_file) == '1'
+      - lookup('ansible.builtin.ini', 'proxy', section='cnpl-' ~ item, file=cnpl_repo_file) == '_none_'
+    quiet: true
+  loop: [baseos, appstream, crb, epel, docker, kubernetes, gitlab]
+
+- name: 只读识别运行时盘（不执行任何分区或格式化）
+  ansible.builtin.script:
+    cmd: >-
+      {{ playbook_dir }}/files/disk-state.sh {{ cnpl_node.runtime_disk | quote }}
+      {{ cnpl_runtime_size_bytes }} {{ cnpl_node.runtime_uuid | quote }}
+    executable: /bin/bash
+  register: cnpl_runtime_disk_state
+  changed_when: false
+  check_mode: false
+
+- name: 保存运行时盘只读结果
+  ansible.builtin.set_fact:
+    cnpl_disk: "{{ cnpl_runtime_disk_state.stdout | from_json }}"
+
+- name: 原始空盘只有显式批准后才能首次初始化
+  ansible.builtin.assert:
+    that: not cnpl_disk.raw or cnpl_node.initialize
+    fail_msg: 此盘为原始空盘；人工核对 VM / by-id / 容量后才可设 initialize=true。
+    quiet: true
+
+- name: OSD 候选盘只读核验（保持 1 TiB 整盘原始状态）
+  ansible.builtin.script:
+    cmd: "{{ playbook_dir }}/files/disk-state.sh {{ item | quote }} {{ cnpl_osd_size_bytes }} -"
+    executable: /bin/bash
+  loop: "{{ cnpl_node.osd_disks }}"
+  register: cnpl_osd_states
+  changed_when: false
+  check_mode: false
+
+- name: OSD 不得与运行时盘指向同一设备
+  ansible.builtin.assert:
+    that:
+      - (item.stdout | from_json).raw
+      - (item.stdout | from_json).path != cnpl_disk.path
+    quiet: true
+  loop: "{{ cnpl_osd_states.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: 记录公开身份（供最终全量唯一性检查）
+  ansible.builtin.set_fact:
+    cnpl_identity:
+      host: "{{ inventory_hostname }}"
+      ip: "{{ ansible_host }}"
+      machine_id: "{{ cnpl_preflight_readings.results[1].stdout }}"
+      product_uuid: "{{ cnpl_preflight_readings.results[2].stdout | lower }}"
+      ssh_fingerprint: "{{ cnpl_preflight_readings.results[3].stdout.split()[1] }}"
+      mac: "{{ ansible_facts[cnpl_node_interface].macaddress }}"
+
+- name: 检查模式不能替代新盘和缺失软件的首次安装
+  ansible.builtin.assert:
+    that: cnpl_disk.reusable
+    fail_msg: 新盘先运行 --tags preflight，只读预检后单机实际引导；完成后再运行 --check --diff。
+    quiet: true
+  when: ansible_check_mode

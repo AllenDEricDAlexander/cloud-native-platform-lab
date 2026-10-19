@@ -1,0 +1,115 @@
+---
+- name: SELinux 开机保持 Enforcing
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: SELINUX=enforcing
+
+- name: 基础服务启用并运行
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [firewalld, vmtoolsd, chronyd, auditd]
+
+- name: 检查 VMware 时间同步（只读；更改仍在 Web 控制台）
+  ansible.builtin.command: vmware-toolbox-cmd timesync status
+  register: cnpl_vmware_time
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: 周期时间同步须已在模板的 Web 配置中关闭
+  ansible.builtin.assert:
+    that: cnpl_vmware_time.stdout | trim == 'Disabled'
+    fail_msg: 在 vSphere Web 关闭周期宿主机同步，再重试；自动化不操作虚拟化平台。
+    quiet: true
+
+- name: 配置内部 NTP 客户端
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../config/chrony-client.conf"
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: 重启 chronyd
+
+- name: 注释 swap 挂载项，保留 LV 和原始条目
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(\s*[^#\s]\S*\s+\S+\s+swap\s.*)$'
+    replace: '# \1'
+    backup: true
+
+- name: 读取当前 swap
+  ansible.builtin.command: swapon --show --noheadings
+  register: cnpl_swap
+  changed_when: false
+  check_mode: false
+
+- name: 只在仍启用时关闭 swap
+  ansible.builtin.command: swapoff -a
+  when: cnpl_swap.stdout | length > 0
+
+- name: 配置持久化 journald
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /var/log/journal, group: systemd-journal, mode: '2755'}
+    - {path: /etc/systemd/journald.conf.d, group: root, mode: '0755'}
+
+- name: 日志容量和保留基线
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-cnpl.conf
+    mode: '0644'
+    content: |
+      [Journal]
+      Storage=persistent
+      SystemMaxUse=2G
+      SystemKeepFree=1G
+      MaxRetentionSec=30day
+      Compress=yes
+  notify: [重启 journald, 刷新持久日志]
+
+- name: 持久化内核模块
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/90-cnpl-k8s.conf
+    mode: '0644'
+    content: "overlay\nbr_netfilter\n"
+
+- name: 读取已加载模块
+  ansible.builtin.slurp:
+    src: /proc/modules
+  register: cnpl_loaded_modules
+
+- name: 仅加载尚未存在的模块
+  ansible.builtin.command:
+    argv: [modprobe, "{{ item }}"]
+  loop: [overlay, br_netfilter]
+  when: not (cnpl_loaded_modules.content | b64decode is search('(?m)^' ~ item ~ ' '))
+
+- name: 持久化 Kubernetes 内核参数
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-cnpl-k8s.conf
+    mode: '0644'
+    content: |
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+
+- name: 读取当前内核参数
+  ansible.builtin.command:
+    argv: [sysctl, -n, "{{ item }}"]
+  loop: [net.ipv4.ip_forward, net.bridge.bridge-nf-call-iptables, net.bridge.bridge-nf-call-ip6tables]
+  register: cnpl_sysctl
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: 存在差异时应用本项目内核参数
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-cnpl-k8s.conf
+  when: not ansible_check_mode and cnpl_sysctl.results | map(attribute='stdout') | list != ['1', '1', '1']

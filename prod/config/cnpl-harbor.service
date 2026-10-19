@@ -1,0 +1,15 @@
+# /etc/systemd/system/cnpl-harbor.service
+[Unit]
+Description=CNPL Harbor
+Requires=docker.service cnpl-harbor-firewall.service
+After=docker.service cnpl-harbor-firewall.service network-online.target
+RequiresMountsFor=/data
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/cnpl-harbor
+ExecStart=/bin/bash -c 'for attempt in 1 2 3 4 5 6; do /usr/bin/docker compose -f docker-compose.yml -f compose.cnpl.yml -f compose.images.yml up -d && exit 0; sleep 10; done; exit 1'
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f compose.cnpl.yml -f compose.images.yml stop
+TimeoutStartSec=600
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,131 @@
+---
+- name: 读取当前专用运行时挂载
+  ansible.builtin.command:
+    argv: [findmnt, -nr, -M, /var/lib/containerd, -o, UUID]
+  register: cnpl_mount_before
+  changed_when: false
+  failed_when: cnpl_mount_before.rc not in [0, 1]
+  check_mode: false
+
+- name: 读取当前挂载选项
+  ansible.builtin.command:
+    argv: [findmnt, -nr, -M, /var/lib/containerd, -o, OPTIONS]
+  register: cnpl_mount_options_before
+  changed_when: false
+  failed_when: cnpl_mount_options_before.rc not in [0, 1]
+  check_mode: false
+
+- name: 已有挂载必须就是本次指定的 UUID
+  ansible.builtin.assert:
+    that: cnpl_mount_before.rc == 1 or cnpl_mount_before.stdout == cnpl_node.runtime_uuid
+    fail_msg: /var/lib/containerd 已挂其他盘，停止处理。
+    quiet: true
+
+- name: 查看尚未挂盘的目标目录
+  ansible.builtin.stat:
+    path: /var/lib/containerd
+  register: cnpl_runtime_dir
+
+- name: 检查挂载前是否会隐藏根盘中的既有数据
+  ansible.builtin.find:
+    paths: /var/lib/containerd
+    hidden: true
+    file_type: any
+    recurse: false
+  register: cnpl_unmounted_data
+  when: cnpl_mount_before.rc == 1 and cnpl_runtime_dir.stat.exists
+
+- name: 未挂载的目录必须为空
+  ansible.builtin.assert:
+    that: cnpl_unmounted_data.matched | default(0) == 0
+    fail_msg: 根盘的 /var/lib/containerd 存在数据，先人工迁移核对，不直接覆盖挂载。
+    quiet: true
+
+- name: 仅对已批准、预检为原始空盘的运行时盘初始化
+  when: cnpl_disk.raw and cnpl_node.initialize and not ansible_check_mode
+  block:
+    - name: 建立 GPT 与一个 XFS 候选分区
+      ansible.builtin.command:
+        argv: [parted, --script, "{{ cnpl_node.runtime_disk }}", mklabel, gpt, mkpart, primary, xfs, 1MiB, '100%']
+    - name: 等待稳定分区 ID 建立
+      ansible.builtin.command: udevadm settle
+      changed_when: false
+    - name: 确认分区设备存在
+      ansible.builtin.stat:
+        path: "{{ cnpl_disk.partition }}"
+        follow: true
+      register: cnpl_new_partition
+    - name: 分区路径必须是块设备
+      ansible.builtin.assert:
+        that: cnpl_new_partition.stat.exists and cnpl_new_partition.stat.isblk
+        quiet: true
+    - name: 创建带预先记录 UUID 的 XFS（不使用强制覆盖参数）
+      ansible.builtin.command:
+        argv: [mkfs.xfs, -m, "uuid={{ cnpl_node.runtime_uuid }}", "{{ cnpl_disk.partition }}"]
+
+- name: 再次只读核对 UUID / 文件系统，拒绝半完成或不匹配状态
+  ansible.builtin.script:
+    cmd: >-
+      {{ playbook_dir }}/files/disk-state.sh {{ cnpl_node.runtime_disk | quote }}
+      {{ cnpl_runtime_size_bytes }} {{ cnpl_node.runtime_uuid | quote }}
+    executable: /bin/bash
+  register: cnpl_disk_after
+  changed_when: false
+  check_mode: false
+
+- name: 挂载前必须得到预期的 XFS 文件系统
+  ansible.builtin.assert:
+    that: (cnpl_disk_after.stdout | from_json).reusable
+    quiet: true
+
+- name: 创建运行时挂载点
+  ansible.builtin.file:
+    path: /var/lib/containerd
+    state: directory
+    mode: '0711'
+
+- name: 只读核对既有 fstab 挂载来源
+  ansible.builtin.command:
+    argv: [awk, '$1 !~ /^#/ && $2 == "/var/lib/containerd" {print $1}', /etc/fstab]
+  register: cnpl_fstab_source
+  changed_when: false
+  check_mode: false
+
+- name: 不覆盖其他卷或重复的持久挂载记录
+  ansible.builtin.assert:
+    that: cnpl_fstab_source.stdout_lines == [] or cnpl_fstab_source.stdout_lines == ['UUID=' ~ cnpl_node.runtime_uuid]
+    quiet: true
+    fail_msg: fstab 已有其他来源或重复挂载记录，先人工核对，不覆盖。
+
+- name: 按 UUID 持久化挂载（保留原 fstab 备份）
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^\S+\s+/var/lib/containerd\s+'
+    line: "UUID={{ cnpl_node.runtime_uuid }} /var/lib/containerd xfs defaults,nodev,nosuid 0 0"
+    backup: true
+  register: cnpl_fstab
+
+- name: 校验 fstab
+  ansible.builtin.command: findmnt --verify
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: 首次挂载运行时盘
+  ansible.builtin.command: mount /var/lib/containerd
+  when: cnpl_mount_before.rc == 1
+
+- name: 已挂载卷补齐 nodev / nosuid（不换盘、不格式化）
+  ansible.builtin.command: mount -o remount,nodev,nosuid /var/lib/containerd
+  when: >-
+    cnpl_mount_before.rc == 0 and
+    (cnpl_fstab is changed or 'nodev' not in cnpl_mount_options_before.stdout.split(',')
+    or 'nosuid' not in cnpl_mount_options_before.stdout.split(','))
+
+- name: 挂载后固定文件系统根目录权限，避免第二次执行才修正
+  ansible.builtin.file:
+    path: /var/lib/containerd
+    state: directory
+    owner: root
+    group: root
+    mode: '0711'

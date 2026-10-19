@@ -1,0 +1,36 @@
+---
+- name: 安装 Docker 与 Compose 的选定 RPM
+  ansible.builtin.import_tasks: service-packages.yml
+  vars:
+    cnpl_package_names: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin, container-selinux, iptables-nft]
+- name: Docker 配置目录
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: [/etc/docker, /etc/systemd/system/docker.service.d]
+- name: 保持 SELinux、iptables 后端与固定地址池
+  ansible.builtin.copy:
+    src: '{{ playbook_dir }}/../config/docker-daemon.json'
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+    backup: true
+  register: cnpl_docker_daemon
+- name: Docker 挂载依赖与独立进程代理
+  ansible.builtin.copy:
+    src: '{{ playbook_dir }}/../config/docker-{{ inventory_hostname }}.conf'
+    dest: /etc/systemd/system/docker.service.d/10-cnpl.conf
+    mode: '0644'
+  register: cnpl_docker_unit
+- name: 校验 Docker 配置
+  ansible.builtin.command: dockerd --validate --config-file /etc/docker/daemon.json
+  changed_when: false
+- name: 生效 Docker 配置与开机启动
+  ansible.builtin.systemd_service:
+    name: docker
+    daemon_reload: "{{ cnpl_docker_unit is changed }}"
+    enabled: true
+    state: "{{ 'restarted' if cnpl_docker_daemon is changed or cnpl_docker_unit is changed or cnpl_service_install is changed else 'started' }}"
+- name: Compose 插件必须存在
+  ansible.builtin.command: docker compose version --short
+  changed_when: false

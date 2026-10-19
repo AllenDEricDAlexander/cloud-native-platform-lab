@@ -1,0 +1,25 @@
+---
+- name: 十节点首次配置前的只读预检
+  hosts: k8s_nodes
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  environment:
+    LC_ALL: C
+  vars_files:
+    - defaults.yml
+  tasks:
+    - name: 读取参数、身份和磁盘
+      ansible.builtin.import_tasks: tasks/preflight.yml
+    - name: 当前所选节点身份不得重复
+      ansible.builtin.assert:
+        that:
+          - identities | map(attribute='machine_id') | unique | length == ansible_play_hosts | length
+          - identities | map(attribute='product_uuid') | unique | length == ansible_play_hosts | length
+          - identities | map(attribute='ssh_fingerprint') | unique | length == ansible_play_hosts | length
+          - identities | map(attribute='mac') | unique | length == ansible_play_hosts | length
+        fail_msg: 发现重复身份，先修复模板封装与克隆，不重置已交付节点身份。
+        quiet: true
+      vars:
+        identities: "{{ ansible_play_hosts | map('extract', hostvars, 'cnpl_identity') | list }}"
+      run_once: true

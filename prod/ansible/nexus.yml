@@ -1,0 +1,172 @@
+---
+- name: 第五章连续交付 PostgreSQL 与 Nexus
+  hosts: nexus_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  environment: {LC_ALL: C}
+  vars_files: [defaults.yml]
+  vars:
+    cnpl_service_fqdn: nexus.svc.internal.egon.top
+  pre_tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+      tags: [always]
+    - ansible.builtin.import_tasks: tasks/service-disk.yml
+      tags: [always]
+    - ansible.builtin.import_tasks: tasks/tls.yml
+      tags: [always]
+  tasks:
+    - name: 安装 PostgreSQL RPM
+      ansible.builtin.import_tasks: tasks/service-packages.yml
+      vars:
+        cnpl_package_names: [postgresql-server, postgresql-contrib]
+      tags: [pg]
+    - name: PostgreSQL unit 目录
+      ansible.builtin.file:
+        path: /etc/systemd/system/postgresql.service.d
+        state: directory
+        mode: '0755'
+      tags: [pg]
+    - name: PostgreSQL 绑定独立数据盘
+      ansible.builtin.copy:
+        src: ../config/postgresql.conf
+        dest: /etc/systemd/system/postgresql.service.d/10-cnpl.conf
+        mode: '0644'
+      register: cnpl_pg_unit
+      tags: [pg]
+    - name: 首次初始化或核验现有 PGDATA
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/postgresql.sh init
+      register: cnpl_pg_init
+      changed_when: "'CNPL_CHANGED=1' in cnpl_pg_init.stdout"
+      tags: [pg]
+    - name: 启动仅本机可访问的 PostgreSQL
+      ansible.builtin.systemd_service:
+        name: postgresql
+        daemon_reload: true
+        enabled: true
+        state: "{{ 'restarted' if cnpl_pg_unit is changed or cnpl_pg_init is changed or cnpl_service_install is changed else 'started' }}"
+      tags: [pg]
+    - name: 创建或核验数据库、角色和连接秘密
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/postgresql.sh database
+      register: cnpl_pg_db
+      changed_when: "'CNPL_CHANGED=1' in cnpl_pg_db.stdout"
+      no_log: true
+      tags: [pg]
+    - ansible.builtin.import_tasks: tasks/docker.yml
+      tags: [runtime]
+    - name: 安装目录与应用数据
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        owner: '{{ item.owner }}'
+        group: '{{ item.owner }}'
+        mode: '{{ item.mode }}'
+      loop:
+        - {path: /opt/cnpl-nexus, owner: root, mode: '0700'}
+        - {path: /srv/nexus/data, owner: '200', mode: '0750'}
+        - {path: /srv/nexus/data/etc, owner: '200', mode: '0750'}
+      tags: [application]
+    - name: 应用连接仅本机 PostgreSQL
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/postgresql.sh env
+      register: cnpl_nexus_env
+      changed_when: "'CNPL_CHANGED=1' in cnpl_nexus_env.stdout"
+      no_log: true
+      tags: [application]
+    - name: 应用 HTTP 仅监听回环
+      ansible.builtin.copy:
+        dest: /srv/nexus/data/etc/nexus.properties
+        owner: '200'
+        group: '200'
+        mode: '0644'
+        content: "application-host=127.0.0.1\napplication-port=8081\n"
+      register: cnpl_nexus_properties
+      tags: [application]
+    - name: 固定官方镜像、资源上限与持久挂载
+      ansible.builtin.copy:
+        src: ../config/compose-nexus.yml
+        dest: /opt/cnpl-nexus/compose.yml
+        mode: '0600'
+      register: cnpl_nexus_compose
+      tags: [application]
+    - name: 校验 Compose 不输出连接秘密
+      ansible.builtin.command: docker compose -f /opt/cnpl-nexus/compose.yml config --quiet
+      changed_when: false
+      no_log: true
+      tags: [application]
+    - name: 拉取固定 digest 的 Nexus 镜像
+      ansible.builtin.command: docker compose -f /opt/cnpl-nexus/compose.yml pull --policy missing
+      register: cnpl_nexus_pull
+      changed_when: "'Pulled' in (cnpl_nexus_pull.stdout ~ cnpl_nexus_pull.stderr)"
+      tags: [application]
+    - name: Nexus 开机恢复 unit
+      ansible.builtin.copy:
+        src: ../config/cnpl-nexus.service
+        dest: /etc/systemd/system/cnpl-nexus.service
+        mode: '0644'
+      register: cnpl_nexus_unit
+      tags: [application]
+    - name: 启动或按配置变化重建 Nexus 容器
+      ansible.builtin.systemd_service:
+        name: cnpl-nexus
+        daemon_reload: true
+        enabled: true
+        state: "{{ 'restarted' if cnpl_nexus_compose is changed or cnpl_nexus_properties is changed or cnpl_nexus_env is changed or cnpl_leaf_copy is changed else 'started' }}"
+      tags: [application]
+    - name: 配置 Nexus HTTPS 反向代理
+      ansible.builtin.copy:
+        src: ../config/cnpl-nexus.conf
+        dest: /etc/nginx/conf.d/cnpl-nexus.conf
+        mode: '0644'
+      register: cnpl_nexus_nginx
+      tags: [https]
+    - name: 查询 Nginx 反向代理 SELinux boolean
+      ansible.builtin.command: getsebool httpd_can_network_connect
+      register: cnpl_nginx_boolean
+      changed_when: false
+      tags: [https]
+    - name: 仅在需要时允许反向代理
+      ansible.builtin.command: setsebool -P httpd_can_network_connect 1
+      when: "'--> off' in cnpl_nginx_boolean.stdout"
+      tags: [https]
+    - name: 校验 Nginx 配置
+      ansible.builtin.command: nginx -t
+      changed_when: false
+      tags: [https]
+    - name: 生效 Nexus HTTPS 入口
+      ansible.builtin.systemd_service:
+        name: nginx
+        state: "{{ 'reloaded' if cnpl_nexus_nginx is changed or cnpl_leaf_copy is changed else 'started' }}"
+        enabled: true
+      tags: [https]
+    - name: 等待 Nexus 应用真实就绪
+      ansible.builtin.uri:
+        url: https://nexus.svc.internal.egon.top/service/rest/v1/status
+        validate_certs: true
+        use_proxy: false
+        status_code: 200
+      register: cnpl_nexus_ready
+      until: cnpl_nexus_ready.status == 200
+      retries: 60
+      delay: 10
+      tags: [api, verify]
+    - name: 按顺序配置管理员、应用代理、仓库与最小权限
+      ansible.builtin.command:
+        argv: [bash, /opt/cnpl/provision/scripts/operations/nexus-api.sh, '{{ item }}']
+      loop: [init, proxy, repositories, permissions]
+      register: cnpl_nexus_api
+      changed_when: "'CNPL_CHANGED=1' in cnpl_nexus_api.stdout"
+      no_log: true
+      tags: [api]
+    - name: 验证数据库监听和 schema
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/postgresql.sh verify
+      changed_when: false
+      tags: [verify]
+    - name: 取得真实依赖并验证权限（创建独立测试坐标）
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/nexus-api.sh verify
+      changed_when: true
+      tags: [never, acceptance]
+    - name: 保存 Nexus 自身离线恢复种子
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/nexus-seed.sh
+      register: cnpl_nexus_seed
+      changed_when: "'CNPL_CHANGED=1' in cnpl_nexus_seed.stdout"
+      tags: [seed]

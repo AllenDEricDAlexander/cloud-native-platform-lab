@@ -1,0 +1,175 @@
+---
+- name: 验收 Kubernetes 节点基线与真实 CRI 生命周期
+  hosts: k8s_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  environment:
+    LC_ALL: C
+  vars_files:
+    - defaults.yml
+  tasks:
+    - name: 验收不接受 check 模式代替实际探针
+      ansible.builtin.assert:
+        that: not ansible_check_mode
+        fail_msg: 此验收会创建并清理专用 CRI 探针，请实际运行；只读检查使用 preflight-nodes.yml。
+        quiet: true
+    - name: 复验身份、安全和运行时盘
+      ansible.builtin.import_tasks: tasks/preflight.yml
+    - name: 软件版本必须与审查参数一致
+      ansible.builtin.import_tasks: tasks/package-versions.yml
+    - name: 读取系统、挂载、服务与时间状态
+      ansible.builtin.command:
+        argv: "{{ item }}"
+      loop:
+        - [swapon, --show, --noheadings]
+        - [findmnt, -nr, -M, /var/lib/containerd, -o, UUID,FSTYPE,OPTIONS]
+        - [systemctl, is-active, containerd]
+        - [systemctl, is-enabled, containerd]
+        - [systemctl, is-active, kubelet]
+        - [systemctl, is-enabled, kubelet]
+        - [chronyc, waitsync, '30', '1', '0', '2']
+        - [awk, '/^nameserver/ {print $2}', /etc/resolv.conf]
+        - [containerd, --version]
+        - [sysctl, -n, net.ipv4.ip_forward]
+      register: cnpl_verify_readings
+      changed_when: false
+      failed_when: false
+    - name: 检查基线与运行时服务
+      ansible.builtin.assert:
+        that:
+          - cnpl_verify_readings.results[0].rc == 0 and cnpl_verify_readings.results[0].stdout == ''
+          - cnpl_node.runtime_uuid in cnpl_verify_readings.results[1].stdout
+          - "'xfs' in cnpl_verify_readings.results[1].stdout"
+          - "'nodev' in cnpl_verify_readings.results[1].stdout"
+          - "'nosuid' in cnpl_verify_readings.results[1].stdout"
+          - cnpl_verify_readings.results[2].stdout == 'active'
+          - cnpl_verify_readings.results[3].stdout == 'enabled'
+          - cnpl_verify_readings.results[4].stdout == 'inactive'
+          - cnpl_verify_readings.results[5].stdout == 'disabled'
+          - cnpl_verify_readings.results[6].rc == 0
+          - cnpl_verify_readings.results[7].stdout_lines == cnpl_dns_servers
+          - cnpl_verify_readings.results[8].stdout is search(' v?2\.')
+          - cnpl_verify_readings.results[9].stdout == '1'
+        fail_msg: 基线、专用盘、时间或运行时状态不符合要求，停止后续步骤。
+        quiet: true
+    - name: 只输出 CRI 条件，不输出完整配置
+      ansible.builtin.shell: |
+        set -o pipefail
+        crictl info | jq -c '{conditions: .status.conditions}'
+      args:
+        executable: /bin/bash
+      register: cnpl_cri_info
+      changed_when: false
+    - name: RuntimeReady 必须为 true；此时不要求 CNI Ready
+      ansible.builtin.assert:
+        that: >-
+          (cnpl_cri_info.stdout | from_json).conditions | selectattr('type', 'equalto', 'RuntimeReady')
+          | map(attribute='status') | list == [true]
+        quiet: true
+    - name: 只读取实际 containerd 配置中的关键字段
+      ansible.builtin.script:
+        cmd: "{{ playbook_dir }}/files/runtime-status.sh"
+        executable: /bin/bash
+      register: cnpl_runtime_effective
+      changed_when: false
+    - name: 实际配置必须使用预定摘要、SELinux 和 systemd cgroup
+      ansible.builtin.assert:
+        that:
+          - (cnpl_runtime_effective.stdout | from_json).version == 3
+          - (cnpl_runtime_effective.stdout | from_json).sandbox == cnpl_pause_image
+          - (cnpl_runtime_effective.stdout | from_json).selinux
+          - (cnpl_runtime_effective.stdout | from_json).systemd_cgroup
+        quiet: true
+    - name: 从 Harbor 拉取固定摘要并运行 host-network 探针
+      ansible.builtin.script:
+        cmd: "{{ playbook_dir }}/files/cri-smoke.sh"
+        executable: /bin/bash
+      environment:
+        CRI_SMOKE_CONFIRM: 'yes'
+        SMOKE_IMAGE: "{{ cnpl_smoke_image }}"
+      register: cnpl_smoke
+      changed_when: false
+    - name: 探针结果和清理结果均须成功
+      ansible.builtin.assert:
+        that:
+          - cnpl_smoke.stdout is search('(?m)^smoke_result=PASS\r?$')
+          - cnpl_smoke.stdout is search('(?m)^smoke_cleanup=yes\r?$')
+        quiet: true
+    - name: 检查持久化日志
+      ansible.builtin.stat:
+        path: "/var/log/journal/{{ cnpl_identity.machine_id }}"
+      register: cnpl_journal
+    - name: 持久化 journal 目录必须存在
+      ansible.builtin.assert:
+        that: cnpl_journal.stat.isdir | default(false)
+        quiet: true
+    - name: 仅汇总已验证的公开字段
+      ansible.builtin.set_fact:
+        cnpl_readiness:
+          identity: "{{ cnpl_identity }}"
+          runtime_disk: "{{ cnpl_node.runtime_disk }}"
+          runtime_uuid: "{{ cnpl_node.runtime_uuid }}"
+          osd_disks: "{{ cnpl_node.osd_disks }}"
+          containerd_version: "{{ cnpl_verify_readings.results[8].stdout }}"
+          packages: "{{ cnpl_installed_versions.results | map(attribute='stdout') | list }}"
+          cri_conditions: "{{ (cnpl_cri_info.stdout | from_json).conditions }}"
+          runtime_config: "{{ cnpl_runtime_effective.stdout | from_json }}"
+          smoke: "{{ cnpl_smoke.stdout_lines }}"
+          passed: true
+
+- name: 汇总本次所选节点的实际验收结果
+  hosts: k8s_nodes
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  tasks:
+    - name: 所选节点必须均已通过，不能把单机结果写成十节点通过
+      ansible.builtin.assert:
+        that: hostvars[item].cnpl_readiness is defined and hostvars[item].cnpl_readiness.passed
+        quiet: true
+      loop: "{{ ansible_play_hosts_all }}"
+      run_once: true
+    - name: 汇总公开验收数据
+      ansible.builtin.set_fact:
+        cnpl_report: "{{ ansible_play_hosts_all | map('extract', hostvars, 'cnpl_readiness') | list }}"
+      run_once: true
+    - name: 验收节点身份必须互相唯一
+      ansible.builtin.assert:
+        that:
+          - cnpl_report | map(attribute='identity.machine_id') | unique | length == ansible_play_hosts_all | length
+          - cnpl_report | map(attribute='identity.product_uuid') | unique | length == ansible_play_hosts_all | length
+          - cnpl_report | map(attribute='identity.ssh_fingerprint') | unique | length == ansible_play_hosts_all | length
+          - cnpl_report | map(attribute='identity.mac') | unique | length == ansible_play_hosts_all | length
+          - cnpl_report | map(attribute='runtime_uuid') | unique | length == ansible_play_hosts_all | length
+          - cnpl_report_dir is defined
+          - cnpl_report_dir is match('^/srv/cnpl/records/[A-Za-z0-9_.-]+$')
+        quiet: true
+      run_once: true
+    - name: 核对本次记录不会覆盖已有结果
+      ansible.builtin.stat:
+        path: "{{ cnpl_report_dir }}/readiness.json"
+      register: cnpl_report_previous
+      delegate_to: localhost
+      run_once: true
+    - name: 每次验收使用独立记录批次
+      ansible.builtin.assert:
+        that: not cnpl_report_previous.stat.exists
+        fail_msg: 记录已存在，请设置新的 cnpl_report_dir；不覆盖历史验收结果。
+        quiet: true
+      run_once: true
+    - name: 建立当前记录目录
+      ansible.builtin.file:
+        path: "{{ cnpl_report_dir }}"
+        state: directory
+        mode: '0750'
+      delegate_to: localhost
+      run_once: true
+    - name: 写入本次实际验收矩阵（只包含公开字段）
+      ansible.builtin.copy:
+        dest: "{{ cnpl_report_dir }}/readiness.json"
+        mode: '0640'
+        content: "{{ {'nodes': cnpl_report, 'count': cnpl_report | length} | to_nice_json }}\n"
+      delegate_to: localhost
+      run_once: true

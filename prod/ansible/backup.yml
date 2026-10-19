@@ -1,0 +1,280 @@
+---
+- name: 备份客户端生成本机专用密钥
+  hosts: private_services:dns_servers:management
+  serial: 1
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  vars_files: [defaults.yml]
+  tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+      tags: [prepare]
+    - name: 备份客户端 RPM
+      ansible.builtin.dnf:
+        name: restic
+        state: present
+        enablerepo: ['cnpl-*']
+        disablerepo: ['*']
+        disable_gpg_check: false
+        sslverify: true
+      tags: [prepare]
+    - name: 生成或复用本机专用密钥
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/backup.sh key
+      register: cnpl_backup_key
+      changed_when: "'CNPL_CHANGED=1' in cnpl_backup_key.stdout"
+      tags: [prepare]
+    - name: 只读取公开备份公钥
+      ansible.builtin.slurp:
+        src: /etc/cnpl/secrets/backup.ssh.pub
+      register: cnpl_backup_public
+      tags: [prepare]
+    - name: 提供本轮公开公钥，不传输私钥
+      ansible.builtin.set_fact:
+        cnpl_backup_pub: '{{ cnpl_backup_public.content | b64decode | trim }}'
+      tags: [prepare]
+
+- name: 配置受限 SFTP 备份服务器
+  hosts: backup_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  vars_files: [defaults.yml]
+  vars:
+    cnpl_backup_clients: [harbor, gitlab, nexus, admin, dns, dns02]
+  tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+      tags: [prepare]
+    - ansible.builtin.import_tasks: tasks/service-disk.yml
+      tags: [prepare]
+    - name: 六个客户端必须均在本轮准备且公钥唯一
+      ansible.builtin.assert:
+        that: (cnpl_backup_clients | map('extract', hostvars, 'cnpl_backup_pub') | unique | length) == 6
+        quiet: true
+      tags: [prepare]
+    - name: 独立 SFTP 账号
+      ansible.builtin.user:
+        name: 'bk_{{ item }}'
+        home: /
+        shell: /sbin/nologin
+        create_home: false
+        password_lock: true
+        state: present
+      loop: '{{ cnpl_backup_clients }}'
+      tags: [prepare]
+    - name: root 拥有的 chroot 与授权目录
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: [/srv/backup/sftp, /etc/ssh/backup-authorized-keys]
+      tags: [prepare]
+    - name: 每个角色独立 chroot 根
+      ansible.builtin.file:
+        path: '/srv/backup/sftp/bk_{{ item }}'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: '{{ cnpl_backup_clients }}'
+      tags: [prepare]
+    - name: 仅仓库目录归备份账号写入
+      ansible.builtin.file:
+        path: '/srv/backup/sftp/bk_{{ item }}/repo'
+        state: directory
+        owner: 'bk_{{ item }}'
+        group: 'bk_{{ item }}'
+        mode: '0700'
+      loop: '{{ cnpl_backup_clients }}'
+      tags: [prepare]
+    - name: 仅授权本角色公钥并绑定来源
+      ansible.builtin.copy:
+        dest: '/etc/ssh/backup-authorized-keys/bk_{{ item }}'
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          from="{{ hostvars[item].ansible_host }}",restrict {{ hostvars[item].cnpl_backup_pub }}
+      loop: '{{ cnpl_backup_clients }}'
+      register: cnpl_backup_auth
+      tags: [prepare]
+    - name: 独立 Match 文件只约束备份账号
+      ansible.builtin.copy:
+        src: ../config/backup-match.conf
+        dest: /etc/ssh/sshd_config.d/20-cnpl-backup.conf
+        mode: '0644'
+        validate: /usr/sbin/sshd -t -f %s
+      register: cnpl_backup_match
+      tags: [prepare]
+    - name: 设置限定目录的 SELinux 标签与必要 boolean
+      ansible.builtin.shell: |
+        source /opt/cnpl/provision/scripts/lib/common.sh
+        fcontext '/etc/ssh/backup-authorized-keys(/.*)?' ssh_home_t
+        fcontext '/srv/backup/sftp' home_root_t
+        fcontext '/srv/backup/sftp/bk_[a-z0-9]+' user_home_dir_t
+        fcontext '/srv/backup/sftp/bk_[a-z0-9]+/repo(/.*)?' user_home_t
+        restorecon -RF /etc/ssh/backup-authorized-keys /srv/backup/sftp
+        boolean=$(getsebool ssh_chroot_rw_homedirs) || die '缺少所需 chroot policy boolean'
+        if [[ $boolean == *'--> off' ]]; then setsebool -P ssh_chroot_rw_homedirs 1; CNPL_CHANGED=1; fi
+        result
+      args: {executable: /bin/bash}
+      register: cnpl_backup_labels
+      changed_when: "'CNPL_CHANGED=1' in cnpl_backup_labels.stdout"
+      tags: [prepare]
+    - name: 按六个客户端精确开放 SFTP
+      ansible.builtin.shell: |
+        source /opt/cnpl/provision/scripts/lib/common.sh
+        for ip in 192.168.9.11 192.168.9.12 192.168.9.13 192.168.9.14 192.168.9.15 192.168.9.17; do
+          rich_rule "rule family=\"ipv4\" source address=\"$ip/32\" port port=\"22\" protocol=\"tcp\" accept"
+        done
+        if [[ $CNPL_CHANGED == 1 ]]; then firewall-cmd --check-config; firewall-cmd --reload; fi
+        sshd -t
+        result
+      args: {executable: /bin/bash}
+      register: cnpl_backup_ports
+      changed_when: "'CNPL_CHANGED=1' in cnpl_backup_ports.stdout"
+      tags: [prepare]
+    - name: 生效受限 SFTP 配置
+      ansible.builtin.systemd_service:
+        name: sshd
+        state: reloaded
+      when: cnpl_backup_match is changed or cnpl_backup_auth is changed
+      tags: [prepare]
+    - name: 复核每个账号的实际限制
+      ansible.builtin.shell: |
+        set -o pipefail
+        sshd -T -C user=bk_{{ item }},addr={{ hostvars[item].ansible_host }},host=backup.mgmt.internal.egon.top | grep -E '^(forcecommand|chrootdirectory|passwordauthentication|allowtcpforwarding) '
+      args: {executable: /bin/bash}
+      loop: '{{ cnpl_backup_clients }}'
+      register: cnpl_sftp_effective
+      changed_when: false
+      tags: [prepare]
+    - name: 必须是 internal-sftp、独立 chroot、关闭密码与转发
+      ansible.builtin.assert:
+        that:
+          - "'forcecommand internal-sftp -d /repo' in item.stdout"
+          - "'chrootdirectory /srv/backup/sftp/%u' in item.stdout or ('chrootdirectory /srv/backup/sftp/bk_' ~ item.item) in item.stdout"
+          - "'passwordauthentication no' in item.stdout"
+          - "'allowtcpforwarding no' in item.stdout"
+        quiet: true
+      loop: '{{ cnpl_sftp_effective.results }}'
+      tags: [prepare]
+
+- name: 配置并核验六个独立加密仓库
+  hosts: private_services:dns_servers:management
+  serial: 1
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: 分发已人工核对的备份服务器主机公钥
+      ansible.builtin.copy:
+        src: /srv/cnpl/inputs/backup-hostkey.pub
+        dest: /etc/cnpl/inputs/backup-hostkey.pub
+        mode: '0644'
+      tags: [prepare]
+    - name: 在服务器只读检查现有仓库
+      ansible.builtin.stat:
+        path: '/srv/backup/sftp/bk_{{ inventory_hostname }}/repo/config'
+      delegate_to: backup
+      register: cnpl_repository_config
+      tags: [prepare]
+    - name: 首次仓库必须确为空目录
+      ansible.builtin.find:
+        paths: '/srv/backup/sftp/bk_{{ inventory_hostname }}/repo'
+        hidden: true
+        file_type: any
+      delegate_to: backup
+      register: cnpl_repository_files
+      when: not cnpl_repository_config.stat.exists
+      tags: [prepare]
+    - name: 拒绝未知仓库内容
+      ansible.builtin.assert:
+        that: cnpl_repository_config.stat.exists or (cnpl_repository_files.matched | default(-1)) == 0
+        quiet: true
+      tags: [prepare]
+    - name: 配置本机专用凭据，不重置已有仓库密码
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/backup.sh configure
+      environment:
+        CNPL_EXISTING_REPOSITORY: '{{ cnpl_repository_config.stat.exists | ternary("true", "false") }}'
+      register: cnpl_restic_configuration
+      changed_when: "'CNPL_CHANGED=1' in cnpl_restic_configuration.stdout"
+      no_log: true
+      tags: [prepare]
+    - name: 仅空仓库首次初始化，否则验证原密码
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/backup.sh init
+      environment:
+        CNPL_REPOSITORY_EMPTY: '{{ cnpl_repository_config.stat.exists | ternary("false", "true") }}'
+      register: cnpl_restic_init
+      changed_when: "'CNPL_CHANGED=1' in cnpl_restic_init.stdout"
+      no_log: true
+      tags: [prepare]
+    - name: 实际 SFTP、隔离与 restic 校验
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/backup.sh verify
+      changed_when: false
+      tags: [prepare, verify]
+    - name: 首次备份需要已确认的窗口
+      ansible.builtin.assert:
+        that: cnpl_backup_window_confirmed | default(false) | bool
+        quiet: true
+      tags: [never, first-backup]
+    - name: 执行首轮备份并保留失败退出码
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/backup.sh run
+      environment: {CNPL_BACKUP_APPROVED: 'yes'}
+      changed_when: true
+      tags: [never, first-backup]
+
+- name: 首轮成功后安装并启用错峰备份 timer
+  hosts: private_services:dns_servers:management
+  serial: 1
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    cnpl_backup_time: {harbor: '02:30:00', gitlab: '03:00:00', nexus: '03:30:00', admin: '04:00:00', dns: '04:30:00', dns02: '04:45:00'}
+  tasks:
+    - name: 首轮备份必须成功
+      ansible.builtin.stat:
+        path: /var/lib/cnpl/backups/last-success.json
+      register: cnpl_last_backup
+      tags: [never, timers]
+    - name: 缺少首轮结果时不启用无人值守任务
+      ansible.builtin.assert:
+        that: cnpl_last_backup.stat.exists
+        quiet: true
+      tags: [never, timers]
+    - name: 安装本角色备份服务
+      ansible.builtin.copy:
+        dest: '/etc/systemd/system/cnpl-backup-{{ inventory_hostname }}.service'
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=CNPL consistent backup {{ inventory_hostname }}
+          After=network-online.target
+          [Service]
+          Type=oneshot
+          Environment=CNPL_BACKUP_APPROVED=yes
+          ExecStart=/bin/bash /opt/cnpl/provision/scripts/operations/backup.sh run
+      tags: [never, timers]
+    - name: 显式使用北京时间并错峰
+      ansible.builtin.copy:
+        dest: '/etc/systemd/system/cnpl-backup-{{ inventory_hostname }}.timer'
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=CNPL backup schedule {{ inventory_hostname }}
+          [Timer]
+          OnCalendar=*-*-* {{ cnpl_backup_time[inventory_hostname] }} Asia/Shanghai
+          Persistent=true
+          RandomizedDelaySec=300
+          [Install]
+          WantedBy=timers.target
+      tags: [never, timers]
+    - name: 启用已通过首轮的备份 timer
+      ansible.builtin.systemd_service:
+        name: 'cnpl-backup-{{ inventory_hostname }}.timer'
+        daemon_reload: true
+        enabled: true
+        state: started
+      tags: [never, timers]

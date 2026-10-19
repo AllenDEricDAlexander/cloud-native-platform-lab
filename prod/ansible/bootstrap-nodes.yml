@@ -1,0 +1,47 @@
+---
+- name: 准备生产 Kubernetes 节点（00 阶段）
+  hosts: k8s_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  environment:
+    LC_ALL: C
+  vars_files:
+    - defaults.yml
+  pre_tasks:
+    - name: 参数、身份与磁盘只读预检
+      ansible.builtin.import_tasks: tasks/preflight.yml
+      tags: [always, preflight]
+  tasks:
+    - name: 接入内网信任、DNS 与 RPM 源
+      ansible.builtin.import_tasks: tasks/trust-repos.yml
+      tags: [trust]
+    - name: 准备专用运行时盘
+      ansible.builtin.import_tasks: tasks/storage.yml
+      tags: [storage]
+    - name: 配置系统公共基线
+      ansible.builtin.import_tasks: tasks/baseline.yml
+      tags: [baseline]
+    - name: 安装并配置 containerd 与入群工具
+      ansible.builtin.import_tasks: tasks/runtime.yml
+      tags: [runtime]
+  handlers:
+    - name: 重新加载 systemd
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+    - name: 重启 chronyd
+      ansible.builtin.systemd_service:
+        name: chronyd
+        state: restarted
+    - name: 重启 journald
+      ansible.builtin.systemd_service:
+        name: systemd-journald
+        state: restarted
+    - name: 刷新持久日志
+      ansible.builtin.command: journalctl --flush
+      changed_when: false
+    - name: 重启 containerd
+      ansible.builtin.systemd_service:
+        name: containerd
+        state: restarted

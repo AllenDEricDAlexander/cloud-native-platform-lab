@@ -1,0 +1,38 @@
+---
+cnpl_ca_file: /srv/cnpl/inputs/cnpl-root.crt
+cnpl_repo_file: /srv/cnpl/inputs/cnpl-private.repo
+cnpl_rpm_key_dir: /srv/cnpl/inputs/rpm-keys
+cnpl_dns_servers: [192.168.9.11, 192.168.9.17]
+cnpl_node_interface: ens33
+cnpl_runtime_size_bytes: 107374182400
+cnpl_osd_size_bytes: 1099511627776
+cnpl_role_capacity:
+  k8s_master_nodes: {vcpu: 4, memory_gib: 8}
+  k8s_infra_nodes: {vcpu: 6, memory_gib: 12}
+  k8s_storage_nodes: {vcpu: 8, memory_gib: 16}
+  k8s_work_nodes: {vcpu: 8, memory_gib: 16}
+cnpl_runtime_package_names:
+  - containerd.io
+  - container-selinux
+  - kubeadm
+  - kubelet
+  - kubectl
+  - cri-tools
+  - kubernetes-cni
+cnpl_base_packages:
+  - python3-dnf
+  - dnf-plugins-core
+  - dnf-command(versionlock)
+  - policycoreutils-python-utils
+  - openssl
+  - ca-certificates
+  - curl
+  - jq
+  - bind-utils
+  - audit
+  - chrony
+  - open-vm-tools
+  - parted
+  - xfsprogs
+cnpl_ssh_rule: 'rule family="ipv4" source address="192.168.9.15/32" port port="22" protocol="tcp" accept'
+cnpl_mac_drop_rule: 'rule priority="-300" family="ipv4" source address="192.168.9.200/32" drop'

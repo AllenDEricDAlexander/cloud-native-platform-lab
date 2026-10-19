@@ -1,0 +1,155 @@
+---
+- name: 读取当前活动网络连接（仅修改 DNS，不重设 IP / 网关）
+  ansible.builtin.command:
+    argv: [nmcli, -g, GENERAL.CONNECTION, device, show, "{{ cnpl_node_interface }}"]
+  register: cnpl_connection
+  changed_when: false
+  check_mode: false
+
+- name: 连接名称必须有效
+  ansible.builtin.assert:
+    that: cnpl_connection.stdout | length > 0 and cnpl_connection.stdout != '--'
+    quiet: true
+
+- name: 读取连接持久 DNS 设置
+  ansible.builtin.command:
+    argv: [nmcli, -g, 'ipv4.dns,ipv4.ignore-auto-dns,ipv6.dns,ipv6.ignore-auto-dns', connection, show, "{{ cnpl_connection.stdout }}"]
+  register: cnpl_dns_before
+  changed_when: false
+  check_mode: false
+
+- name: 只在不一致时设置两台内部 DNS
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - modify
+      - "{{ cnpl_connection.stdout }}"
+      - ipv4.dns
+      - "{{ cnpl_dns_servers | join(' ') }}"
+      - ipv4.ignore-auto-dns
+      - 'yes'
+      - ipv6.dns
+      - ''
+      - ipv6.ignore-auto-dns
+      - 'yes'
+  when: cnpl_dns_before.stdout_lines != [cnpl_dns_servers | join(','), 'yes', '', 'yes']
+  register: cnpl_dns_modify
+
+- name: 将 DNS 变更重新应用到接口（不执行 connection up）
+  ansible.builtin.command:
+    argv: [nmcli, device, reapply, "{{ cnpl_node_interface }}"]
+  when: cnpl_dns_modify is changed
+
+- name: 实际解析路径必须只包含两台内网 DNS
+  ansible.builtin.command:
+    argv: [awk, '/^nameserver/ {print $2}', /etc/resolv.conf]
+  register: cnpl_resolvers
+  changed_when: false
+  check_mode: false
+
+- name: DNS 未生效时停止，不自动重启网络或绕过解析
+  ansible.builtin.assert:
+    that: cnpl_resolvers.stdout_lines == cnpl_dns_servers
+    fail_msg: 核对 NetworkManager；如需重新激活连接，在 Web 客体控制台人工处理后重试。
+    quiet: true
+  when: not ansible_check_mode
+
+- name: 分发公开根 CA
+  ansible.builtin.copy:
+    src: "{{ cnpl_ca_file }}"
+    dest: /etc/pki/ca-trust/source/anchors/cnpl-root.crt
+    owner: root
+    group: root
+    mode: '0644'
+  register: cnpl_ca_copy
+
+- name: 根 CA 变化后更新系统信任
+  ansible.builtin.command: update-ca-trust
+  when: cnpl_ca_copy is changed
+
+- name: 创建内网 RPM 密钥目录
+  ansible.builtin.file:
+    path: /etc/pki/rpm-gpg/cnpl
+    state: directory
+    mode: '0755'
+
+- name: 分发已在第五章核验的六把公开 RPM 密钥
+  ansible.builtin.copy:
+    src: "{{ cnpl_rpm_key_dir }}/{{ item }}.asc"
+    dest: "/etc/pki/rpm-gpg/cnpl/{{ item }}.asc"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: [rocky10, epel10, docker, kubernetes, gitlab, cnpl-metadata]
+
+- name: 找到原有源配置文件
+  ansible.builtin.find:
+    paths: /etc/yum.repos.d
+    patterns: '*.repo'
+    excludes: cnpl-private.repo
+    file_type: file
+  register: cnpl_original_repos
+
+- name: 仅允许归档干净模板自带的源；未知配置停止处理
+  ansible.builtin.assert:
+    that: item.path | basename is match('(?i)^(rocky.*|epel.*|cnpl-media)\.repo$')
+    fail_msg: "发现非模板源 {{ item.path }}，人工核对后再继续，不覆盖未知配置。"
+    quiet: true
+  loop: "{{ cnpl_original_repos.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: 建立源配置归档目录（保留原内容，不删除）
+  ansible.builtin.file:
+    path: /etc/yum.repos.d/cnpl-disabled
+    state: directory
+    mode: '0755'
+
+- name: 归档目标必须尚不存在，避免 mv -n 留下仍生效的源
+  ansible.builtin.stat:
+    path: "/etc/yum.repos.d/cnpl-disabled/{{ item.path | basename }}"
+  loop: "{{ cnpl_original_repos.files }}"
+  register: cnpl_repo_archive
+
+- name: 重名归档先人工核对，不覆盖历史源文件
+  ansible.builtin.assert:
+    that: not item.stat.exists
+    fail_msg: 重名归档已存在，先核对并保留其来源与当前文件，不继续移动。
+    quiet: true
+  loop: "{{ cnpl_repo_archive.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: 归档公开源配置，只让内网源继续生效
+  ansible.builtin.command:
+    argv: [mv, -n, "{{ item.path }}", "/etc/yum.repos.d/cnpl-disabled/{{ item.path | basename }}"]
+  loop: "{{ cnpl_original_repos.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: 发布受控内网源文件
+  ansible.builtin.copy:
+    src: "{{ cnpl_repo_file }}"
+    dest: /etc/yum.repos.d/cnpl-private.repo
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: 确认内网名称能够解析
+  ansible.builtin.command:
+    argv: [getent, ahostsv4, "{{ item }}"]
+  loop: [rpm.svc.internal.egon.top, harbor.k8s.internal.egon.top]
+  changed_when: false
+  check_mode: false
+
+- name: 通过可信 HTTPS / 签名内网源补齐基础包
+  ansible.builtin.dnf:
+    name: "{{ cnpl_base_packages }}"
+    state: present
+    enablerepo: ['cnpl-*']
+    disablerepo: ['*']
+    disable_gpg_check: false
+    sslverify: true
+    install_weak_deps: false
+    update_cache: true

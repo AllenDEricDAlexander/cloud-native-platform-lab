@@ -1,0 +1,48 @@
+---
+- name: 第九章逐台收紧主机出站
+  hosts: rocky_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: admin 必须在单独人工确认窗口处理
+      ansible.builtin.assert:
+        that: inventory_hostname != 'admin' or (cnpl_admin_network_window | default(false) | bool)
+        fail_msg: admin 单独执行，人工验证 Mac 新会话后在 180 秒内 commit。
+        quiet: true
+    - ansible.builtin.import_tasks: tasks/deploy-tools.yml
+      tags: [always]
+    - name: 分发 DNS 实际上游白名单
+      ansible.builtin.copy:
+        src: /srv/cnpl/inputs/ntp-upstream-ip.txt
+        dest: /etc/cnpl/inputs/ntp-upstream-ip.txt
+        mode: '0644'
+      when: inventory_hostname in groups.dns_servers
+      tags: [always]
+    - name: 应用前先列出本角色实际规则
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/network.sh plan
+      changed_when: false
+      tags: [plan]
+    - name: 备份并安排本机超时回退后应用
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/network.sh apply
+      register: cnpl_network_apply
+      changed_when: "'CNPL_CHANGED=1' in cnpl_network_apply.stdout"
+      tags: [apply]
+    - name: 重置连接以验证重新建立 SSH
+      ansible.builtin.meta: reset_connection
+      tags: [apply]
+    - name: 通过原管理来源重新建立连接
+      ansible.builtin.wait_for_connection:
+        timeout: 45
+        connect_timeout: 5
+      tags: [apply]
+    - name: 真实允许和拒绝路径验收
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/network-check.sh
+      changed_when: false
+      tags: [apply, verify]
+    - name: 普通节点验收成功后取消本机回退
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/network.sh commit
+      when: inventory_hostname != 'admin'
+      changed_when: false
+      tags: [apply]

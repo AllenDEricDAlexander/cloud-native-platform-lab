@@ -1,0 +1,146 @@
+---
+- name: 第六章部署 Harbor
+  hosts: harbor_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  environment: {LC_ALL: C}
+  vars_files: [defaults.yml]
+  vars: {cnpl_service_fqdn: harbor.k8s.internal.egon.top}
+  pre_tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+      tags: [always]
+    - ansible.builtin.import_tasks: tasks/service-disk.yml
+      tags: [always]
+    - ansible.builtin.import_tasks: tasks/tls.yml
+      tags: [always]
+  tasks:
+    - ansible.builtin.import_tasks: tasks/docker.yml
+      tags: [runtime]
+    - name: Harbor 安装目录
+      ansible.builtin.file:
+        path: /opt/cnpl-harbor
+        state: directory
+        mode: '0700'
+      tags: [configure]
+    - name: 读取已核实的官方物料锁
+      ansible.builtin.include_vars:
+        file: /srv/cnpl/inputs/harbor.lock.json
+        name: cnpl_harbor_lock
+      tags: [configure]
+    - name: 物料必须固定版本与真实 SHA-256
+      ansible.builtin.assert:
+        that:
+          - cnpl_harbor_lock.version == '2.15.4'
+          - cnpl_harbor_lock.sha256 is match('^[0-9a-f]{64}$')
+        quiet: true
+      tags: [configure]
+    - name: 从官方入口下载并验证编排物料
+      ansible.builtin.get_url:
+        url: https://github.com/goharbor/harbor/releases/download/v2.15.4/harbor-online-installer-v2.15.4.tgz
+        dest: /opt/cnpl-harbor/harbor-online-installer-v2.15.4.tgz
+        checksum: 'sha256:{{ cnpl_harbor_lock.sha256 }}'
+        mode: '0600'
+        validate_certs: true
+      environment:
+        https_proxy: http://192.168.9.10:7890
+      tags: [configure]
+    - name: 解包官方编排脚本和完整配置
+      ansible.builtin.unarchive:
+        src: /opt/cnpl-harbor/harbor-online-installer-v2.15.4.tgz
+        dest: /opt/cnpl-harbor
+        remote_src: true
+        extra_opts: ['--strip-components=1']
+        creates: /opt/cnpl-harbor/harbor.yml.tmpl
+      tags: [configure]
+    - name: 绑定唯一 IPv4 HTTPS 入口
+      ansible.builtin.copy:
+        src: ../config/compose-harbor.yml
+        dest: /opt/cnpl-harbor/compose.cnpl.yml
+        mode: '0600'
+      tags: [configure]
+    - name: 配置本项目专用 Docker 入站/出站链
+      ansible.builtin.copy:
+        src: files/harbor-firewall.sh
+        dest: /usr/local/sbin/cnpl-harbor-firewall
+        mode: '0750'
+      register: cnpl_harbor_firewall
+      tags: [configure]
+    - name: 配置规则持久化 unit
+      ansible.builtin.copy:
+        src: ../config/cnpl-harbor-firewall.service
+        dest: /etc/systemd/system/cnpl-harbor-firewall.service
+        mode: '0644'
+      register: cnpl_harbor_firewall_unit
+      tags: [configure]
+    - name: 应用规则后才允许应用启动
+      ansible.builtin.systemd_service:
+        name: cnpl-harbor-firewall
+        daemon_reload: true
+        enabled: true
+        state: "{{ 'restarted' if cnpl_harbor_firewall is changed or cnpl_harbor_firewall_unit is changed else 'started' }}"
+      tags: [configure]
+    - name: 使用独立口令与官方 prepare 生成服务配置
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/harbor.sh configure
+      register: cnpl_harbor_configuration
+      changed_when: "'CNPL_CHANGED=1' in cnpl_harbor_configuration.stdout"
+      no_log: true
+      tags: [configure]
+    - name: 固定全部组件真实镜像 digest
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/harbor.sh images
+      register: cnpl_harbor_images
+      changed_when: "'CNPL_CHANGED=1' in cnpl_harbor_images.stdout"
+      tags: [configure]
+    - name: Harbor 开机恢复 unit
+      ansible.builtin.copy:
+        src: ../config/cnpl-harbor.service
+        dest: /etc/systemd/system/cnpl-harbor.service
+        mode: '0644'
+      register: cnpl_harbor_unit
+      tags: [configure]
+    - name: 启动或应用变更的 Harbor
+      ansible.builtin.systemd_service:
+        name: cnpl-harbor
+        daemon_reload: true
+        enabled: true
+        state: "{{ 'restarted' if cnpl_harbor_configuration is changed or cnpl_harbor_images is changed or cnpl_harbor_unit is changed or cnpl_leaf_copy is changed else 'started' }}"
+      tags: [configure]
+    - name: 等待真实健康状态
+      ansible.builtin.uri:
+        url: https://harbor.k8s.internal.egon.top/api/v2.0/health
+        validate_certs: true
+        use_proxy: false
+        return_content: true
+        status_code: 200
+      register: cnpl_harbor_ready
+      until: cnpl_harbor_ready.status == 200 and cnpl_harbor_ready.json.status == 'healthy'
+      retries: 60
+      delay: 10
+      tags: [verify, api]
+    - name: 建立项目和有期限的最小权限机器人
+      ansible.builtin.command:
+        argv: [bash, /opt/cnpl/provision/scripts/operations/harbor-api.sh, '{{ item }}']
+      loop: [projects, robots]
+      register: cnpl_harbor_api
+      changed_when: "'CNPL_CHANGED=1' in cnpl_harbor_api.stdout"
+      no_log: true
+      tags: [api]
+    - name: 保存本服务离线启动种子
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/harbor.sh seed
+      register: cnpl_harbor_seed
+      changed_when: "'CNPL_CHANGED=1' in cnpl_harbor_seed.stdout"
+      tags: [seed]
+    - name: 验收完整健康状态和认证
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/harbor.sh verify
+      changed_when: false
+      tags: [verify]
+    - name: 分发真实引导与诊断镜像摘要
+      ansible.builtin.copy:
+        src: /srv/cnpl/inputs/bootstrap-images.json
+        dest: /etc/cnpl/inputs/bootstrap-images.json
+        mode: '0644'
+      tags: [never, network-acceptance]
+    - name: 真实容器 DNS、HTTPS、代理与公网拒绝验收
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/container-network-check.sh
+      changed_when: true
+      tags: [never, network-acceptance]

@@ -1,0 +1,21 @@
+---
+- name: 查询实际安装 NEVRA，不输出配置或凭据
+  ansible.builtin.command:
+    argv: [rpm, -q, --qf, '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n', "{{ item.key }}"]
+  loop: "{{ cnpl_runtime_packages | dict2items }}"
+  register: cnpl_installed_versions
+  changed_when: false
+  check_mode: false
+  loop_control:
+    label: "{{ item.key }}"
+  when: not ansible_check_mode
+
+- name: 实际安装版本必须与参数文件完全一致
+  ansible.builtin.assert:
+    that: item.stdout_lines == [item.item.value]
+    fail_msg: "{{ item.item.key }} 实际版本与已审查参数不符。"
+    quiet: true
+  loop: "{{ cnpl_installed_versions.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when: not ansible_check_mode

@@ -1,0 +1,40 @@
+---
+- name: 从 admin 读取正式 RPM 版本锁
+  ansible.builtin.include_vars:
+    file: /srv/cnpl/inputs/packages.lock.json
+    name: cnpl_package_lock
+- name: 校验完整 NEVRA 与角色所需包
+  ansible.builtin.assert:
+    that:
+      - cnpl_package_lock[item] is match('^' ~ (item | regex_escape) ~ '-[0-9]+:[A-Za-z0-9_.+~]+-[A-Za-z0-9_.+~]+\.(x86_64|noarch)$')
+      - item != 'gitlab-ce' or cnpl_package_lock[item] is search('\.el10\.')
+    quiet: true
+  loop: "{{ cnpl_package_names }}"
+- name: 只从内网签名源安装选定版本
+  ansible.builtin.dnf:
+    name: "{{ cnpl_package_names | map('extract', cnpl_package_lock) | list }}"
+    state: present
+    enablerepo: ['cnpl-*']
+    disablerepo: ['*']
+    disable_gpg_check: false
+    sslverify: true
+    install_weak_deps: false
+  register: cnpl_service_install
+- name: 查询实际 NEVRA
+  ansible.builtin.command:
+    argv: [rpm, -q, --qf, '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}', "{{ item }}"]
+  loop: "{{ cnpl_package_names }}"
+  register: cnpl_service_packages
+  changed_when: false
+  when: not ansible_check_mode
+- name: 已安装版本必须与正式锁一致
+  ansible.builtin.assert:
+    that: item.stdout == cnpl_package_lock[item.item]
+    quiet: true
+  loop: "{{ cnpl_service_packages.results }}"
+  when: not ansible_check_mode
+- name: 锁定实际选定版本
+  ansible.builtin.command:
+    argv: "{{ ['dnf', '-q', 'versionlock', 'add'] + (cnpl_package_names | map('extract', cnpl_package_lock) | list) }}"
+  register: cnpl_service_locks
+  changed_when: "'Adding versionlock' in (cnpl_service_locks.stdout ~ cnpl_service_locks.stderr)"

@@ -1,0 +1,23 @@
+# /opt/cnpl-nexus/compose.yml
+services:
+  nexus:
+    image: docker.io/sonatype/nexus3@sha256:4a1b19c7efe6aa7b711605982cb83659c25217ac3422b3776a19f1768b8aa0c8
+    container_name: cnpl-nexus
+    network_mode: host
+    user: "200:200"
+    restart: unless-stopped
+    env_file:
+      - /etc/cnpl/secrets/nexus.env
+    volumes:
+      - /srv/nexus/data:/nexus-data:Z
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 16g
+    cpus: 4.0
+    pids_limit: 1024
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

@@ -1,0 +1,75 @@
+---
+- name: 第四章引导完成后接管双 DNS 与 NTP
+  hosts: dns_servers
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  vars_files: [defaults.yml]
+  tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+    - name: 安装实际角色 RPM
+      ansible.builtin.dnf:
+        name: [bind, bind-utils, chrony]
+        state: present
+        enablerepo: ['cnpl-*']
+        disablerepo: ['*']
+        disable_gpg_check: false
+        sslverify: true
+    - name: 分发本角色的实际 BIND 配置
+      ansible.builtin.copy:
+        src: '../config/named-{{ "primary" if inventory_hostname == "dns" else "secondary" }}.conf'
+        dest: /etc/named.conf
+        mode: '0644'
+        backup: true
+      register: cnpl_named_configuration
+    - name: 内容变化必须递增 SOA serial
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/bootstrap/04-dns.sh zone-precheck
+      changed_when: false
+      when: inventory_hostname == 'dns'
+    - name: 主 DNS 区域文件
+      ansible.builtin.copy:
+        src: '../config/cnpl-{{ item }}.zone'
+        dest: '/var/named/cnpl-{{ item }}.zone'
+        owner: root
+        group: named
+        mode: '0640'
+        backup: true
+      loop: [forward, reverse]
+      register: cnpl_named_zones
+      when: inventory_hostname == 'dns'
+    - name: 使用已核实并固定的上游时间源
+      ansible.builtin.copy:
+        src: /srv/cnpl/inputs/chrony-server.conf
+        dest: /etc/chrony.conf
+        mode: '0644'
+        backup: true
+      register: cnpl_time_server
+    - name: 校验 BIND 配置
+      ansible.builtin.command: named-checkconf
+      changed_when: false
+    - name: 校验主区域
+      ansible.builtin.command:
+        argv: [named-checkzone, '{{ item.zone }}', '{{ item.file }}']
+      loop:
+        - {zone: internal.egon.top, file: /var/named/cnpl-forward.zone}
+        - {zone: 9.168.192.in-addr.arpa, file: /var/named/cnpl-reverse.zone}
+      changed_when: false
+      when: inventory_hostname == 'dns'
+    - name: 恢复包策略标签
+      ansible.builtin.command: restorecon -RFv /var/named /etc/named.conf
+      register: cnpl_dns_labels
+      changed_when: cnpl_dns_labels.stdout | length > 0
+    - name: 根据差异重载 BIND
+      ansible.builtin.systemd_service:
+        name: named
+        enabled: true
+        state: "{{ 'reloaded' if cnpl_named_configuration is changed or cnpl_named_zones is changed else 'started' }}"
+    - name: 根据差异重启 chronyd
+      ansible.builtin.systemd_service:
+        name: chronyd
+        enabled: true
+        state: "{{ 'restarted' if cnpl_time_server is changed else 'started' }}"
+    - name: 验证双 DNS 与 NTP
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/bootstrap/04-dns.sh verify
+      changed_when: false

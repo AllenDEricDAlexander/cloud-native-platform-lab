@@ -1,0 +1,126 @@
+---
+- name: 按选定完整 NEVRA 首次安装运行时与入群 RPM
+  ansible.builtin.dnf:
+    name: "{{ cnpl_runtime_packages.values() | list }}"
+    state: present
+    enablerepo: ['cnpl-*']
+    disablerepo: ['*']
+    disable_gpg_check: false
+    sslverify: true
+    install_weak_deps: false
+
+- name: 校验实际完整 NEVRA
+  ansible.builtin.import_tasks: package-versions.yml
+
+- name: 锁定已选版本
+  ansible.builtin.command:
+    argv: "{{ ['dnf', '-q', 'versionlock', 'add'] + (cnpl_runtime_packages.values() | list) }}"
+  register: cnpl_versionlock
+  changed_when: "'Adding versionlock' in (cnpl_versionlock.stdout ~ cnpl_versionlock.stderr)"
+
+- name: kubelet 等待 01 阶段由 kubeadm 引导
+  ansible.builtin.systemd_service:
+    name: kubelet
+    enabled: false
+    state: stopped
+  when: not ansible_check_mode
+
+- name: 创建运行时配置目录
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/containerd
+    - /etc/containerd/certs.d/harbor.k8s.internal.egon.top
+    - /etc/systemd/system/containerd.service.d
+
+- name: 配置 containerd v3、systemd cgroup 和固定 pause 摘要
+  ansible.builtin.copy:
+    content: |
+      version = 3
+      root = '/var/lib/containerd'
+      state = '/run/containerd'
+      disabled_plugins = []
+      [plugins.'io.containerd.cri.v1.images']
+        [plugins.'io.containerd.cri.v1.images'.pinned_images]
+          sandbox = '{{ cnpl_pause_image }}'
+        [plugins.'io.containerd.cri.v1.images'.registry]
+          config_path = '/etc/containerd/certs.d'
+      [plugins.'io.containerd.cri.v1.runtime']
+        enable_selinux = true
+        [plugins.'io.containerd.cri.v1.runtime'.containerd]
+          default_runtime_name = 'runc'
+          [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
+            runtime_type = 'io.containerd.runc.v2'
+            [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
+              SystemdCgroup = true
+    dest: /etc/containerd/config.toml
+    mode: '0644'
+    backup: true
+  notify: 重启 containerd
+
+- name: Harbor 根信任
+  ansible.builtin.copy:
+    src: "{{ cnpl_ca_file }}"
+    dest: /etc/containerd/certs.d/harbor.k8s.internal.egon.top/ca.crt
+    mode: '0644'
+
+- name: Harbor 使用可信 HTTPS
+  ansible.builtin.copy:
+    dest: /etc/containerd/certs.d/harbor.k8s.internal.egon.top/hosts.toml
+    mode: '0644'
+    content: |
+      server = 'https://harbor.k8s.internal.egon.top'
+      [host.'https://harbor.k8s.internal.egon.top']
+        capabilities = ['pull', 'resolve']
+        ca = '/etc/containerd/certs.d/harbor.k8s.internal.egon.top/ca.crt'
+
+- name: containerd 强依赖运行时盘
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/containerd.service.d/10-cnpl.conf
+    mode: '0644'
+    content: |
+      [Unit]
+      RequiresMountsFor=/var/lib/containerd
+  notify: [重新加载 systemd, 重启 containerd]
+
+- name: crictl 只连接本机 CRI
+  ansible.builtin.copy:
+    dest: /etc/crictl.yaml
+    mode: '0644'
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 30
+      debug: false
+
+- name: 读取 SELinux 文件上下文定义
+  ansible.builtin.command: semanage fcontext -l
+  register: cnpl_fcontexts
+  changed_when: false
+  check_mode: false
+
+- name: 找出本项目运行时目录规则
+  ansible.builtin.set_fact:
+    cnpl_runtime_fcontext: >-
+      {{ cnpl_fcontexts.stdout_lines | select('match', '^' ~ ('/var/lib/containerd(/.*)?' | regex_escape) ~ '\s') | list }}
+
+- name: 需要时建立或修正运行时目录的持久标签
+  ansible.builtin.command:
+    argv: [semanage, fcontext, "{{ '-m' if cnpl_runtime_fcontext | length > 0 else '-a' }}", -t, container_var_lib_t, '/var/lib/containerd(/.*)?']
+  when: cnpl_runtime_fcontext | length == 0 or 'container_var_lib_t' not in cnpl_runtime_fcontext[0]
+
+- name: 仅把实际需要修正的标签恢复为持久策略
+  ansible.builtin.command: restorecon -RFv /var/lib/containerd /etc/containerd
+  register: cnpl_restorecon
+  changed_when: cnpl_restorecon.stdout | length > 0
+
+- name: 生效配置变更
+  ansible.builtin.meta: flush_handlers
+
+- name: containerd 开机启动并运行
+  ansible.builtin.systemd_service:
+    name: containerd
+    enabled: true
+    state: started

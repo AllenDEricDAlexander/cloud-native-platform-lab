@@ -1,0 +1,49 @@
+---
+- name: 第八章准备 build01 与 backup
+  hosts: build_nodes:backup_servers
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  vars_files: [defaults.yml]
+  tasks:
+    - ansible.builtin.import_tasks: tasks/service-host.yml
+    - ansible.builtin.import_tasks: tasks/service-disk.yml
+    - name: 构建机实际工具
+      ansible.builtin.dnf:
+        name: [git, curl, jq, openssl, python3-pip, java-21-openjdk-devel, maven, nodejs, npm]
+        state: present
+        enablerepo: ['cnpl-*']
+        disablerepo: ['*']
+        disable_gpg_check: false
+        sslverify: true
+      when: inventory_hostname in groups.build_nodes
+    - name: 构建目录
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        owner: ops
+        group: ops
+        mode: '0750'
+      loop: [/srv/build/work, /srv/build/cache]
+      when: inventory_hostname in groups.build_nodes
+    - name: 只向构建机分发 Nexus reader
+      ansible.builtin.copy:
+        src: /home/ops/.local/share/cnpl/secrets/cnpl-reader-user.json
+        dest: /etc/cnpl/secrets/nexus-reader.json
+        mode: '0600'
+      when: inventory_hostname in groups.build_nodes
+      no_log: true
+      diff: false
+    - name: 安装受保护的 Maven/npm/pip 客户端配置
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/build-client.sh configure
+      register: cnpl_build_client
+      changed_when: "'CNPL_CHANGED=1' in cnpl_build_client.stdout"
+      when: inventory_hostname in groups.build_nodes
+      no_log: true
+    - name: 构建机真实制品客户端验收
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/build-client.sh verify
+      become_user: ops
+      changed_when: true
+      when: inventory_hostname in groups.build_nodes
+      tags: [never, acceptance]

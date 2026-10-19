@@ -1,0 +1,33 @@
+---
+- name: 首次创建 GitLab 平台项目
+  hosts: gitlab_servers
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+  tasks:
+    - ansible.builtin.import_tasks: tasks/deploy-tools.yml
+      tags: [always]
+    - name: 仅分发 admin 专用 Git 公钥
+      ansible.builtin.copy:
+        src: /home/ops/.ssh/cnpl_git.pub
+        dest: /etc/cnpl/inputs/cnpl_git.pub
+        mode: '0644'
+      tags: [project]
+    - name: 创建短期令牌或按原凭据验证
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/gitlab-api.sh token
+      register: cnpl_gitlab_token
+      changed_when: "'CNPL_CHANGED=1' in cnpl_gitlab_token.stdout"
+      no_log: true
+      tags: [project]
+    - name: 私有项目、专用 Deploy Key 与 main 保护
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/gitlab-api.sh project
+      register: cnpl_gitlab_project
+      changed_when: "'CNPL_CHANGED=1' in cnpl_gitlab_project.stdout"
+      no_log: true
+      tags: [project]
+    - name: 验收后撤销本次短期引导令牌
+      ansible.builtin.command: bash /opt/cnpl/provision/scripts/operations/gitlab-api.sh revoke
+      register: cnpl_gitlab_revoke
+      changed_when: "'CNPL_CHANGED=1' in cnpl_gitlab_revoke.stdout"
+      no_log: true
+      tags: [never, revoke]

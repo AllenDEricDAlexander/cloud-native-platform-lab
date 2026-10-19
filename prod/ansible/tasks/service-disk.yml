@@ -1,0 +1,11 @@
+---
+- name: 只传输当前主机的正式磁盘输入
+  ansible.builtin.copy:
+    src: '/srv/cnpl/inputs/disks/{{ inventory_hostname }}.json'
+    dest: /etc/cnpl/inputs/data-disk.json
+    mode: '0640'
+- name: 预检并准备已批准的角色数据盘
+  ansible.builtin.command:
+    argv: [bash, /opt/cnpl/provision/scripts/operations/disk-prepare.sh, apply, /etc/cnpl/inputs/data-disk.json]
+  register: cnpl_service_disk
+  changed_when: "'CNPL_CHANGED=1' in cnpl_service_disk.stdout"

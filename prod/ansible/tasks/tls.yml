@@ -1,0 +1,39 @@
+---
+- name: 核对 admin 是否暂存了本服务叶材料
+  ansible.builtin.stat:
+    path: '/srv/cnpl-transfer/{{ inventory_hostname }}/{{ item }}'
+  loop: [tls.key, fullchain.crt]
+  register: cnpl_tls_staged
+  delegate_to: localhost
+  become: false
+- name: 临时材料须成套存在
+  ansible.builtin.assert:
+    that: (cnpl_tls_staged.results | selectattr('stat.exists') | list | length) in [0, 2]
+    quiet: true
+- name: 建立叶材料目录
+  ansible.builtin.file:
+    path: /etc/cnpl/tls
+    state: directory
+    mode: '0700'
+- name: 仅分发当前服务的叶材料
+  ansible.builtin.copy:
+    src: '/srv/cnpl-transfer/{{ inventory_hostname }}/{{ item.file }}'
+    dest: '/etc/cnpl/tls/{{ item.file }}'
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  loop:
+    - {file: tls.key, mode: '0600'}
+    - {file: fullchain.crt, mode: '0644'}
+  when: cnpl_tls_staged.results[0].stat.exists
+  no_log: true
+  diff: false
+  register: cnpl_leaf_copy
+- name: 无临时材料时复用现有叶证书，不重新生成
+  ansible.builtin.command:
+    argv: [openssl, x509, -in, /etc/cnpl/tls/fullchain.crt, -checkend, '2592000', -noout]
+  changed_when: false
+- name: 核对叶证书完整信任链与域名
+  ansible.builtin.command:
+    argv: [openssl, verify, -CAfile, /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem, -untrusted, /etc/cnpl/tls/fullchain.crt, -verify_hostname, "{{ cnpl_service_fqdn }}", /etc/cnpl/tls/fullchain.crt]
+  changed_when: false

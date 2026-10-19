@@ -35,7 +35,7 @@ def main(driver):
         s.record(json.loads(args.input.read_text()).get('results', []))
         value = {'recorded': True}
     elif action == 'observe':
-        value = s.wait(args.case, lambda: driver.observe(s, args.case), seconds=getattr(driver, 'WAIT_SECONDS', 120))
+        value = driver.observe(s,args.case) if args.case in getattr(driver,'FAST_CASES',[]) else s.wait(args.case, lambda: driver.observe(s, args.case), seconds=getattr(driver, 'WAIT_SECONDS', 120))
     elif action == 'cleanup-plan':
         value = {'commands': driver.restore(s) + s.cleanup()}
     elif action == 'accept':

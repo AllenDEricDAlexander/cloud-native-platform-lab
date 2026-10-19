@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: availability
+  namespace: lab-availability
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: pdb-demo
+      cnpl.io/phase-run: '{{ run }}'

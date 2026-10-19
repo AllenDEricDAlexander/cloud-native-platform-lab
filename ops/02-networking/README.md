@@ -168,59 +168,16 @@ bash ops/02-networking/scripts/scheduling.sh all "$LAB_SCHEDULING_RECORDS"
 
 <a id="02-08"></a>
 
-## 02.08 配额、QoS、驱逐与 PDB
+## 02.08 配额、QoS、限流、抢占与 PDB
 
-输入：独立压力 Namespace，保留节点与管理资源余量。
-
-1. 声明 ResourceQuota/LimitRange，测试缺失或超限 requests/limits 的拒绝；创建三类 QoS 工作负载并记录实际 qosClass。
-2. 在受限负载下观察资源压力和 Eviction，设置 PriorityClass 对照抢占；不把压力施加到控制平面或唯一数据副本。
-3. 配置 PDB，再对单 Worker 使用受控 drain 场景观察允许/阻止；说明 PDB 约束自愿驱逐，不能当作物理故障或所有直接删除的保护。
-
-### 操作命令与目的
+[完整 Ansible/YAML、作用/预期与恢复](examples/resource-governance/README.md)。三个预算空间、QoS分类、Pod OOM、CPU真实限流、32Mi空卷限额驱逐、只针对本批低优先级 Pod 的抢占、PDB 阻止/允许的标签限定 drain、直接删除对照在同一个入口完成。
 
 ```bash
-kubectl -n lab-net apply -f quota-demo.yaml -f limits-demo.yaml -f pdb-demo.yaml
-kubectl -n lab-net describe resourcequota lab-budget
-kubectl -n lab-net apply -f over-budget-demo.yaml  # 故意请求超配额资源
-kubectl -n lab-net get pod "$LAB_POD" -o jsonpath='{.status.qosClass}'
-kubectl -n lab-net get pdb
-kubectl drain "$LAB_TEST_WORKER" --ignore-daemonsets --timeout=120s
-# 观察 PDB 阻止/允许后，完成实验恢复调度
-kubectl uncordon "$LAB_TEST_WORKER"
+export LAB_RESOURCE_RECORDS="$PWD/ops/02-networking/records/02.08-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/resource-governance.sh all "$LAB_RESOURCE_RECORDS"
 ```
 
-drain 可能因 PDB 或本地数据保护停止，这本身可作为实验结果；不额外加 `--force` 绕过。压力和抢占先限制在有余量的测试 Worker。
-
-### 配置示例
-
-```yaml
-apiVersion: v1
-kind: ResourceQuota
-metadata: {name: lab-budget, namespace: lab-net}
-spec:
-  hard:
-    requests.cpu: "2"
-    requests.memory: 2Gi
-    limits.cpu: "4"
-    limits.memory: 4Gi
-    pods: "12"
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata: {name: echo-budget, namespace: lab-net}
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels: {app: echo}
-```
-
-### 预期结果
-
-超配额创建被拒绝；QoS 与 requests/limits 组合一致；drain 尊重 PDB，恢复后节点可调度。PDB 约束自愿驱逐，不保证物理故障时仍有足够副本；节点压力实验另记录 Evicted/抢占原因。
-
-交付：`ops/02-networking/networking/resource-governance/`；配额与驱逐用例。
-
-检查与失败处理：拒绝、驱逐和分布符合预期；触达停止阈值立即撤销压力并恢复节点调度。
+第一行绑定新目录，第二行运行全组并恢复 cordon/实验资源。前置为 02.07 已实际通过并清理；两 Worker 内存/文件系统余量预检。整 VM 耗尽与节点压力下的 QoS 驱逐顺序保留 BLOCKED，其余可运行结果单列通过，phase_complete=false。
 
 <a id="02-09"></a>
 

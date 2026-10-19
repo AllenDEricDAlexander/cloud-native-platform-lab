@@ -137,60 +137,21 @@ bash ops/02-networking/scripts/certificates.sh all "$LAB_TLS_RECORDS"
 
 ## 02.06 网络策略与出口治理
 
-输入：Hubble、确定的 DNS/仓库/数据库依赖清单。
+完整剧本、YAML、逐条作用/预期、52 个正反向用例、5 组实际源与回程以及恢复说明见 [完整操作指南](examples/policies/README.md)；[执行前核验记录](records/02.06-20261019-source-review/README.md)。02.05 内部验收已归档，公网 BLOCKED 保留。
 
-1. 先为实验 Namespace 建 default-deny，再逐项允许 DNS、入口、依赖服务；分别执行应允许和应拒绝的请求。
-2. 用相同流量对比标准 NetworkPolicy 与 Cilium 策略的 L3/L4/FQDN/适用 L7；保留 Flow 与源身份，检查 Ceph/仓库实际可见源。
-3. 隔离测试 Egress Gateway→OpenWrt 的出口节点/地址和回程路由；断 VPN 时验证受限出口停止、LAN 保持，记录出口节点故障后的会话变化。
-
-### 操作命令与目的
+在管理 Mac 一次运行整组：
 
 ```bash
-kubectl -n lab-net apply -f default-deny.yaml
-kubectl -n lab-net exec "$LAB_CLIENT_POD" -- curl --max-time 5 http://echo:8080/
-kubectl -n lab-net apply -f allow-dns.yaml -f allow-echo.yaml
-kubectl -n lab-net exec "$LAB_CLIENT_POD" -- nslookup echo.lab-net.svc.cluster.local
-kubectl -n lab-net exec "$LAB_CLIENT_POD" -- curl --max-time 5 http://echo:8080/
-hubble observe --namespace lab-net --verdict DROPPED --last 20
-kubectl apply -f cilium-egress-demo.yaml          # 独立的出口策略实验
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+export LAB_POLICY_RECORDS="$PWD/ops/02-networking/records/02.06-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 ```
 
-Egress Gateway 实验再配合出口节点的 `ip rule`、`ip route show table <实验路由表>`、OpenWrt 的路由/防火墙检查；请求自有的出口回显服务，比较源 IP。断隧道与恢复使用 00 已验证流程。
+第一行进入仓库，第二行绑定全新证据目录，第三行完成前置、全部配置预览、默认拒绝、标准/Cilium/FQDN/HTTP 对照、Harbor/存储 VM/代理的实际源与回程、实验 Pod 的代理入口不可达与恢复、汇总和清理。无需分节执行或输入口令。只有操作者启动正式部署。
 
-### 配置示例
+预期 AVAILABLE CASES PASS、CLEANUP PASS、failed/unreachable/rescued/ignored=0。当前模式保留 kube-proxy，02.06.04 Egress Gateway 模式、CRD 和真实 VPN/出口 VM 故障项 BLOCKED；Ceph 服务属于 Phase03，02.06.03 只完成存储 VM 路径验证，记 PARTIAL_CEPH_BLOCKED。passed=false、phase_complete=false，不把实验代理入口故障冒充真实 VPN 故障。
 
-默认拒绝策略；DNS、echo 服务及实际依赖使用另一个允许策略文件，不在主业务 Namespace 直接试验：
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: {name: default-deny, namespace: lab-net}
-spec:
-  podSelector: {}
-  policyTypes: [Ingress, Egress]
-```
-
-允许 DNS 的 egress 片段；同一 peer 内同时匹配 kube-system 和 DNS Pod：
-
-```yaml
-egress:
-  - to:
-      - namespaceSelector:
-          matchLabels: {kubernetes.io/metadata.name: kube-system}
-        podSelector:
-          matchLabels: {k8s-app: kube-dns}
-    ports:
-      - {protocol: UDP, port: 53}
-      - {protocol: TCP, port: 53}
-```
-
-### 预期结果
-
-施加默认拒绝后请求失败，添加最小允许规则后仅指定通路恢复；Hubble 给出允许/拒绝证据。VPN 断开时受限出口停止，LAN/DNS/仓库保持可达。Cilium 扩展策略只在确认当前模式支持后启用。
-
-交付：`ops/02-networking/networking/policies/`、`egress/`；双向允许/拒绝和断链结果。
-
-检查与失败处理：策略控制实际流量且不切断 DNS/恢复通道；失败回退本次策略版本，不删全体 NetworkPolicy。
+本轮只创建三个 restricted 临时 Namespace，按原 UID 清理；保持 .101–.110 VM、SELinux/firewalld、原 CNI/路由/代理与主 .201 的可信 TLS。完整指南提供原批 recover 命令与每类底层命令解释。
 
 <a id="02-07"></a>
 

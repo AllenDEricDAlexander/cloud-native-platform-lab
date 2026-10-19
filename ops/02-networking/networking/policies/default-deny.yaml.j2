@@ -1,0 +1,12 @@
+{% for name in pol_namespaces %}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: {{ name }}
+  labels: {cnpl.io/policy-run: '{{ pol_run }}'}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+{% endfor %}

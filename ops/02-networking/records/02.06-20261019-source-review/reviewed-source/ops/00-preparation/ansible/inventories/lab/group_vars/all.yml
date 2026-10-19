@@ -1,0 +1,10 @@
+# 连接方式：管理 Mac 上的专用密钥（执行记录第 49 节）。root 登录维持现状；改用专用管理账户与
+# 有限 sudo 由 node_base 按 ops/00-preparation/README.md 第 6 节实施，届时修改这里。
+ansible_user: root
+ansible_ssh_private_key_file: ~/.ssh/cnpl_lab_ed25519
+ansible_ssh_common_args: -o IdentitiesOnly=yes
+
+# 允许访问 kube-apiserver 等管理入口的管理端地址。管理 Mac 有线网卡当前经 DHCP 获得 .200（2026-10-16），
+# 在路由器做地址绑定或改为固定地址之前属于临时值；地址变化后改这里并重跑 node_base。
+lab_mgmt_sources:
+  - 192.168.9.200

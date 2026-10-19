@@ -1,0 +1,92 @@
+---
+- name: 整组 02.06 网络策略与出站验证，异常时自动回收本批实验
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/policies.yml]
+  tasks:
+    - name: 一次执行所有可运行用例
+      when: pol_mode == 'all'
+      block:
+        - name: 创建专用空间
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: namespaces}
+        - name: 先建立双向默认拒绝
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: default-deny}
+        - name: 再创建八个无凭据诊断 Pod
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: workloads}
+        - name: 等待默认拒绝收敛
+          ansible.builtin.include_tasks: ../tasks/policies-ready.yml
+          vars: {pol_case: denied}
+        - name: 记录初始阻断
+          ansible.builtin.include_tasks: ../tasks/policies-observe.yml
+          vars: {pol_case: denied}
+        - name: 放行标准 L3/L4、DNS、入口和监控依赖
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: standard}
+        - name: 等待标准策略收敛
+          ansible.builtin.include_tasks: ../tasks/policies-ready.yml
+          vars: {pol_case: standard}
+        - name: 完成全部标准策略正反向用例
+          ansible.builtin.include_tasks: ../tasks/policies-observe.yml
+          vars: {pol_case: standard}
+        - name: 移除标准放行，保留默认拒绝，避免与 Cilium 策略叠加掩盖限制
+          ansible.builtin.include_tasks: ../tasks/policies-remove.yml
+          vars: {pol_manifest: standard}
+        - name: 应用 Cilium 身份、FQDN 和 HTTP 策略
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: cilium}
+        - name: 等待 Cilium 策略收敛
+          ansible.builtin.include_tasks: ../tasks/policies-ready.yml
+          vars: {pol_case: cilium}
+        - name: 完成相同流量对照及 FQDN/HTTP 拒绝用例
+          ansible.builtin.include_tasks: ../tasks/policies-observe.yml
+          vars: {pol_case: cilium}
+        - name: 为专用出站 Pod 放行仓库、节点 TCP 和显式代理
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: egress}
+        - name: 等待出站策略收敛
+          ansible.builtin.include_tasks: ../tasks/policies-ready.yml
+          vars: {pol_case: egress}
+        - name: 一次验证实际 SNAT、存储 VM 回程、内网直连及代理外网
+          ansible.builtin.include_tasks: ../tasks/policies-observe.yml
+          vars: {pol_case: egress}
+        - name: 只对实验 Pod 模拟代理入口不可达
+          ansible.builtin.include_tasks: ../tasks/policies-apply.yml
+          vars: {pol_manifest: proxy-unreachable}
+        - name: 等待故障策略收敛
+          ansible.builtin.include_tasks: ../tasks/policies-ready.yml
+          vars: {pol_case: proxy-unreachable}
+        - name: 验证代理停止、直连后路被拒绝、LAN 继续
+          ansible.builtin.include_tasks: ../tasks/policies-observe.yml
+          vars: {pol_case: proxy-unreachable}
+        - name: 移除本批代理故障策略
+          ansible.builtin.include_tasks: ../tasks/policies-remove.yml
+          vars: {pol_manifest: proxy-unreachable}
+        - name: 等待恢复策略收敛
+          ansible.builtin.include_tasks: ../tasks/policies-ready.yml
+          vars: {pol_case: proxy-restored}
+        - name: 复核代理恢复、LAN 仍可达、直连仍被拒绝
+          ansible.builtin.include_tasks: ../tasks/policies-observe.yml
+          vars: {pol_case: proxy-restored}
+        - name: 记录 02.06.04 的真实模式缺口和未执行项
+          ansible.builtin.command:
+            argv: ['{{ pol_python }}', '{{ pol_check }}', blocked, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/egress-gateway.json']
+          changed_when: false
+        - name: 汇总本组完整证据，保留 Ceph/出口能力阻塞
+          ansible.builtin.command:
+            argv: ['{{ pol_python }}', '{{ pol_check }}', accept, --records, '{{ pol_records }}', --attempt, '{{ pol_attempt }}', --output, '{{ pol_records }}/passed.json']
+          changed_when: false
+      always:
+        - name: 成功或失败均回收本批空间
+          ansible.builtin.include_tasks: ../tasks/policies-cleanup.yml
+    - name: 显式恢复或清理
+      ansible.builtin.include_tasks: ../tasks/policies-cleanup.yml
+      when: pol_mode in ['cleanup','recover']
+    - name: 报告实际验证边界
+      ansible.builtin.debug:
+        msg: '02.06 AVAILABLE CASES PASS / CLEANUP PASS；02.06.01/02 PASS；02.06.03 存储 VM 路径通过但 Ceph 服务 BLOCKED；02.06.04 BLOCKED；phase_complete=false。'
+      when: pol_mode == 'all'

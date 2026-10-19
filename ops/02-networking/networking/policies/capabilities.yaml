@@ -1,0 +1,17 @@
+schema_version: 1
+cilium_version: 1.20.2
+egress_gateway:
+  execution_enabled: false
+  status: BLOCKED
+  required: {kube-proxy-replacement: 'true', enable-bpf-masquerade: 'true', enable-egress-gateway: 'true'}
+  reason: 当前主集群保留 kube-proxy；本轮不切换全局 CNI，不改 VM 默认路由，不中断既有 OpenWrt 代理。
+  reference: https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/egress-gateway/egress-gateway.rst
+  not_executed: [未安装 CRD 的实例准入, 指定出口 SNAT 验收, OpenWrt 策略路由联动, 真实 VPN 中断, 出口 VM 故障与会话漂移]
+external_probe:
+  url: https://www.google.com/generate_204
+  expected_status: 204
+  proxy: http://192.168.9.10:7890
+  source: 复用 00.06.02 已使用的目标及显式代理；不下载业务数据，不使用公网入站。
+ceph:
+  service_validation: BLOCKED
+  reason: Ceph 部署属于 Phase03；本轮用 storage01/02/03 的既有 kubelet TCP 端口验证 VM 路径，不将其宣称为 Ceph 验收。

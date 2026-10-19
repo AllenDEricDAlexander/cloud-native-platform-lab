@@ -1,0 +1,27 @@
+---
+- name: 核对三空间归属、对象 UID 和外来数据，生成安全删除计划
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', cleanup-plan, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/cleanup-plan.json']
+  changed_when: false
+  register: pol_cleanup
+- name: 只删除本批实验空间，API 原子校验 Namespace UID
+  ansible.builtin.command:
+    argv: '{{ pol_k + ["delete","--raw",item.url,"-f",item.body] }}'
+  loop: '{{ (pol_cleanup.stdout | from_json).objects }}'
+  loop_control: {label: '{{ item.key }}'}
+  changed_when: true
+- name: 等待本批临时空间完全消失
+  ansible.builtin.command:
+    argv: '{{ pol_k + ["wait","--for=delete","namespace/" ~ item,"--timeout=120s"] }}'
+  loop: '{{ pol_namespaces }}'
+  changed_when: false
+- name: 复核主入口、网络基线、原有策略和工作负载
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', final, --records, '{{ pol_records }}', --output, '{{ pol_records }}/state/closed.json']
+  changed_when: false
+  register: pol_final
+  retries: 10
+  delay: 2
+  until: pol_final.rc == 0
+- name: 清理结果
+  ansible.builtin.debug: {msg: '02.06 CLEANUP PASS；三个临时 Namespace 和实验策略已回收；原 VM 路由、主入口及既有资源保持。'}

@@ -1,0 +1,5 @@
+---
+- name: 应用整份经核验的策略或工作负载
+  ansible.builtin.include_tasks: policies-document.yml
+  loop: '{{ lookup("file", pol_attempt ~ "/" ~ pol_manifest ~ ".yaml") | from_yaml_all | select | list }}'
+  loop_control: {loop_var: pol_document, label: '{{ pol_document.kind }}/{{ pol_document.metadata.name }}'}

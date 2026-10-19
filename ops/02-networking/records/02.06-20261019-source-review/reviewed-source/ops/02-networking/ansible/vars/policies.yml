@@ -1,0 +1,19 @@
+---
+pol_root: '{{ (playbook_dir ~ "/../../../..") | realpath }}'
+pol_python: '{{ lookup("env", "HOME") }}/.venvs/cnpl-ansible/bin/python'
+pol_check: '{{ pol_root }}/ops/02-networking/tests/integration/policies/check.py'
+pol_materials: '{{ pol_root }}/ops/02-networking/tests/integration/policies/materials.py'
+pol_kubectl: '{{ lookup("env", "HOME") }}/.cnpl/bin/kubectl'
+pol_k: ['{{ pol_kubectl }}', --kubeconfig, '{{ lookup("env", "HOME") }}/.cnpl-secrets/kubeconfig-lab-primary', --request-timeout=20s]
+pol_lock: '{{ lookup("file", pol_root ~ "/ops/versions.lock.yaml") | from_yaml }}'
+pol_image: '{{ pol_lock.components.policy_fixture.internal_source }}'
+pol_namespaces: [lab-policy, lab-policy-peer, lab-egress]
+pol_pods:
+  - {name: client, namespace: lab-policy, node: worker01}
+  - {name: api, namespace: lab-policy, node: worker02}
+  - {name: dependency, namespace: lab-policy, node: worker01}
+  - {name: fqdn, namespace: lab-policy, node: worker01}
+  - {name: ingress, namespace: lab-policy-peer, node: worker01}
+  - {name: monitor, namespace: lab-policy-peer, node: worker02}
+  - {name: outsider, namespace: lab-policy-peer, node: worker02}
+  - {name: egress, namespace: lab-egress, node: worker01}

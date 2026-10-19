@@ -1,0 +1,20 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: internal-and-proxy, namespace: lab-egress, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: egress}}
+  egress:
+    - toEndpoints:
+        - matchLabels: {'k8s:io.kubernetes.pod.namespace': kube-system, 'k8s:k8s-app': kube-dns}
+      toPorts:
+        - ports: [{port: '53', protocol: ANY}]
+          rules: {dns: [{matchName: harbor.k8s.internal.egon.top}, {matchName: www.google.com}]}
+    - toCIDR: [192.168.9.12/32]
+      toPorts: [{ports: [{port: '443', protocol: TCP}]}]
+    - toCIDR: [192.168.9.10/32]
+      toPorts: [{ports: [{port: '7890', protocol: TCP}]}]
+    # 节点采用 remote-node 身份，不能假定 ipBlock 会匹配；仅允许无凭据 TCP 握手。
+    # 该实体包括所有远端 Kubernetes 节点，10250 仍有 kubelet 的认证授权边界。
+    - toEntities: [remote-node]
+      toPorts: [{ports: [{port: '10250', protocol: TCP}]}]

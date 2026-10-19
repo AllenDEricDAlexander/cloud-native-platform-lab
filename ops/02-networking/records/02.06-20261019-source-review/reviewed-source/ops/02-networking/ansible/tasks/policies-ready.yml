@@ -1,0 +1,9 @@
+---
+- name: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', ready, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/ready-{{ pol_case }}.json']
+  changed_when: false
+  register: pol_ready
+  retries: 60
+  delay: 2
+  until: pol_ready.rc == 0

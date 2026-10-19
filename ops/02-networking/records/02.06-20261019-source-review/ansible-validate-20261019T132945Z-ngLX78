@@ -1,0 +1,55 @@
+
+PLAY [完整 02.06 一次前检所有物料、VM、YAML 和前序边界] ************************
+
+TASK [限定模式与证据目录] ******************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建记录目录] ************************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019-source-review/attempts/20261019T132946Z-d8319468-validate)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019-source-review/state)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019-source-review/attempts/20261019T132946Z-d8319468-validate/observations)
+
+TASK [校验原集群、02.05 内部原始交接和模式边界] ********************************
+ok: [localhost]
+
+TASK [绑定上下文与运行标签] ****************************************************
+ok: [localhost]
+
+TASK [一次核验五台 VM 的安全状态、内网路由及既有代理] **************************
+ok: [localhost]
+
+TASK [确定性重建 Go 镜像并核对 Harbor 摘要] ************************************
+ok: [localhost]
+
+TASK [一次渲染全部实际执行 YAML] ***********************************************
+changed: [localhost] => (item=namespaces)
+changed: [localhost] => (item=default-deny)
+changed: [localhost] => (item=workloads)
+changed: [localhost] => (item=standard)
+changed: [localhost] => (item=cilium)
+changed: [localhost] => (item=egress)
+changed: [localhost] => (item=proxy-unreachable)
+
+TASK [全部清单执行严格服务端预览，包括出口参考但不落地] ************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/policies-prepare.yml:51:7
+
+49       loop: [namespaces, default-deny, workloads, standard, cilium, egress, proxy-unreachable]
+50       when: pol_mode in ['all','validate']
+51     - name: 全部清单执行严格服务端预览，包括出口参考但不落地
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/policies/check.py", "validate", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019-source-review", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019-source-review/attempts/20261019T132946Z-d8319468-validate", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019-source-review/attempts/20261019T132946Z-d8319468-validate/compatibility.json"], "delta": "0:00:07.026472", "end": "2026-10-19 21:30:19.833335", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-19 21:30:12.806863", "stderr": "kubectl: error: resource mapping not found for name: \"cnpl-policy-egress-reference\" namespace: \"\" from \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/networking/policies/egress-gateway-reference.yaml\": no matches for kind \"CiliumEgressGatewayPolicy\" in version \"cilium.io/v2\"\nensure CRDs are installed first", "stderr_lines": ["kubectl: error: resource mapping not found for name: \"cnpl-policy-egress-reference\" namespace: \"\" from \"/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/networking/policies/egress-gateway-reference.yaml\": no matches for kind \"CiliumEgressGatewayPolicy\" in version \"cilium.io/v2\"", "ensure CRDs are installed first"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=9    changed=2    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

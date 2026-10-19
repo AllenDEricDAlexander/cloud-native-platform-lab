@@ -1,0 +1,17 @@
+# 后续参考：已安装 CRD 时仅服务端 dry-run；否则按锁定官方 schema 校验，不安装 CRD。
+# 本轮绝不 apply 或自动升级 CNI。
+# 当前 kube-proxy-replacement=false，不满足 Cilium 1.20.2 的要求。
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: cnpl-policy-egress-reference
+  annotations: {cnpl.io/execution: blocked-reference-only}
+spec:
+  selectors:
+    - podSelector:
+        matchLabels: {io.kubernetes.pod.namespace: lab-egress, role: egress}
+  destinationCIDRs: [0.0.0.0/0]
+  excludedCIDRs: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+  egressGateway:
+    nodeSelector: {matchLabels: {kubernetes.io/hostname: worker02.k8s.internal.egon.top}}
+    egressIP: 192.168.9.110

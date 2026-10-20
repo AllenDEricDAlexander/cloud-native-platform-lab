@@ -1,6 +1,8 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
+import stat
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -57,6 +59,36 @@ class Isolation(unittest.TestCase):
             self.assertNotIn('--dry-run=server',commands[1]['argv'])
             self.assertIn('--dry-run=server',commands[2]['argv'])
             self.assertIn('ServiceAccount',commands[3]['argv'][-1])
+
+    def test_frr_config_is_readable_after_privilege_drop_with_private_umask(self):
+        with tempfile.TemporaryDirectory() as d:
+            state=self.state();state.attempt=Path(d)
+            state.command=lambda argv:{'argv':[str(v) for v in argv]}
+            c=m.iso.Cluster(state)
+            c.state['nodes']={'owned-worker':{'role':'worker','ip':'172.30.90.3'}}
+            previous=os.umask(0o077)
+            try:
+                with patch.object(m.iso,'Cluster',return_value=c),patch.object(c,'guard'),patch.object(c,'save'),patch.object(c,'image_load',return_value=[]):
+                    m.frr_plan(state,c)
+            finally:
+                os.umask(previous)
+            directory=Path(d)/'frr'
+            self.assertEqual(stat.S_IMODE(directory.stat().st_mode),0o755)
+            self.assertTrue(all(stat.S_IMODE(file.stat().st_mode)==0o644 for file in directory.iterdir()))
+            config=(directory/'frr.conf').read_text()
+            self.assertIn('ip prefix-list LAB seq 10 permit 10.246.0.0/16 ge 24 le 24',config)
+            self.assertIn('neighbor 172.30.90.3 route-map ONLY-LAB in',config)
+            self.assertNotIn('192.168.9.',config)
+
+    def test_l2_failure_handles_null_endpoint_collection(self):
+        state=self.state();state.context['isolation']['paused_node']='owned-worker'
+        c=m.iso.Cluster(state)
+        rows=[{'status':{'conditions':[{'type':'Ready','status':'False'}]}},
+              {'items':[{'metadata':{'labels':{'kubernetes.io/service-name':'l2'}},'endpoints':None}]}]
+        with patch.object(m.iso,'Cluster',return_value=c),patch.object(c,'get',side_effect=rows),patch.object(m,'l2',return_value={'passed':True,'holder':'other-worker'}):
+            result=m.observe(state,'l2-failure')
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['paused_node'],'owned-worker')
 
 
 if __name__=='__main__':unittest.main()

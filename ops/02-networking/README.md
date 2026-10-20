@@ -193,12 +193,15 @@ bash ops/02-networking/scripts/resource-governance.sh all "$LAB_RESOURCE_RECORDS
 
 [完整 Ansible/YAML、21步作用/预期与恢复](examples/dataplane/README.md)。管理 Mac 上临时kind，固定Kubernetes1.36.4/Cilium1.20.2，实际比较kube-proxy/eBPF与VXLAN/Native，独立Envoy Gateway、L2/ARP/暂停容器故障与FRR BGP前缀宣告/撤回，最后恢复基准并删除本批环境。
 
+[02.08 交接后的整组复核](records/02.09-20261020T135236Z-delivery-review/README.md)：五种 Cilium profile、网关模板、6 个内置对象和5个 CRD预览、9个自定义实例 schema、离线物料摘要、11项 Python测试与四种 Ansible模型分支通过。已修正 FRR公开配置目录权限和 EndpointSlice空值处理；Docker保持停止，正式kind实验由用户启动。
+
 ```bash
+export DOCKER_CONTEXT=desktop-linux
 export LAB_DATAPLANE_RECORDS="$PWD/ops/02-networking/records/02.09-$(date -u +%Y%m%dT%H%M%SZ)"
-bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
+docker desktop start && bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 ```
 
-先由操作者启动本机Docker Desktop（linux/arm64、cgroup v2、至少4CPU/6Gi，建议8Gi）；脚本不自动启动它。前置为02.08已实际完成与清理。全部物料已锁定并导出离线归档；主十VM、Cilium和.201保持。BGP仅使用专属Docker网络软件邻居，不接家庭路由器。
+当前终端固定 Docker Desktop context、绑定新批次，最后等待Docker启动成功再运行整组；脚本本身不启动它。Docker要求linux/arm64、cgroup v2、至少4CPU/6Gi，建议8Gi。前置为02.08已实际完成与清理。全部物料已锁定并导出离线归档；主十VM、Cilium和.201保持。BGP仅使用专属Docker网络软件邻居，不接家庭路由器。
 
 <a id="02-10"></a>
 

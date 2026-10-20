@@ -99,6 +99,8 @@ def save_kube_proxy(s,c):
 def frr_plan(s,c):
     c.guard()
     directory=s.attempt/'frr';directory.mkdir()
+    # 入口 umask=077；FRR 降权后仍需遍历挂载的公开配置目录。
+    directory.chmod(0o755)
     lines=['frr defaults traditional','hostname cnpl-frr','service integrated-vtysh-config',
         'ip prefix-list LAB seq 10 permit '+c.state['pod_cidr']+' ge 24 le 24',
         'ip prefix-list LAB seq 20 permit 172.30.90.224/28 ge 32 le 32',
@@ -262,7 +264,7 @@ def observe(s,name):
         r.require(not r.pol.base.ready(node),'等待暂停的 kind 节点 NotReady')
         value=l2(c);r.require(value['holder']!=old,'L2 Lease 未迁移')
         endpoints=c.get('endpointslices',namespace=NS)['items']
-        r.require(not any(e.get('nodeName')==old and e.get('conditions',{}).get('ready') is True for sl in endpoints if sl['metadata'].get('labels',{}).get('kubernetes.io/service-name')=='l2' for e in sl.get('endpoints',[])),'失效节点仍在就绪 EndpointSlice')
+        r.require(not any(e.get('nodeName')==old and e.get('conditions',{}).get('ready') is True for sl in endpoints if sl['metadata'].get('labels',{}).get('kubernetes.io/service-name')=='l2' for e in (sl.get('endpoints') or [])),'失效节点仍在就绪 EndpointSlice')
         value['paused_node']=old;return value
     if name=='l2-resume':
         c.ready();return l2(c)

@@ -4,11 +4,12 @@
 
 ~~~bash
 cd /Users/mario/SelfProject/cloud-native-platform-lab
+export DOCKER_CONTEXT=desktop-linux
 export LAB_DATAPLANE_RECORDS="$PWD/ops/02-networking/records/02.09-$(date -u +%Y%m%dT%H%M%SZ)"
-bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
+docker desktop start && bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 ~~~
 
-三行分别进入项目、绑定全新批次、一次完成以下21个步骤和自动清理。源码与物料可在 Docker 未运行时用 validate 核验；这不代表已完成实际隔离集群验收。
+四行分别进入项目、在当前终端固定本机 Docker Desktop context、绑定全新批次、等待 Docker 启动成功后一次完成以下21个步骤和自动清理。DOCKER_CONTEXT 不更改全局默认 context，私有 kubeconfig 也不改变主集群 context。源码与物料可在 Docker 未运行时用 validate 核验；这不代表已完成实际隔离集群验收。
 
 | 范围 | 实际操作与预期 |
 | --- | --- |

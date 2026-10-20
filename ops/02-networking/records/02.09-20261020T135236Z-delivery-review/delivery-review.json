@@ -1,0 +1,191 @@
+{
+  "stage": "02.09",
+  "reviewed_utc": "2026-10-20T13:58:18.941940+00:00",
+  "scope": "source, offline material and primary-cluster readonly validation; isolated runtime not started",
+  "passed": true,
+  "formal_runtime_passed": false,
+  "phase_complete": false,
+  "source_files_match": 32,
+  "validation": {
+    "passed": true,
+    "profiles": {
+      "baseline": {
+        "objects": 22,
+        "images": [
+          "cnpl.local/cilium-envoy:3510b9d2364efe4e-arm64",
+          "cnpl.local/cilium:02dd062a1f48a6ef-arm64",
+          "cnpl.local/operator:e614f51426eb2c56-arm64"
+        ]
+      },
+      "ebpf": {
+        "objects": 22,
+        "images": [
+          "cnpl.local/cilium-envoy:3510b9d2364efe4e-arm64",
+          "cnpl.local/cilium:02dd062a1f48a6ef-arm64",
+          "cnpl.local/operator:e614f51426eb2c56-arm64"
+        ]
+      },
+      "native": {
+        "objects": 22,
+        "images": [
+          "cnpl.local/cilium-envoy:3510b9d2364efe4e-arm64",
+          "cnpl.local/cilium:02dd062a1f48a6ef-arm64",
+          "cnpl.local/operator:e614f51426eb2c56-arm64"
+        ]
+      },
+      "l2": {
+        "objects": 22,
+        "images": [
+          "cnpl.local/cilium-envoy:3510b9d2364efe4e-arm64",
+          "cnpl.local/cilium:02dd062a1f48a6ef-arm64",
+          "cnpl.local/operator:e614f51426eb2c56-arm64"
+        ]
+      },
+      "bgp": {
+        "objects": 24,
+        "images": [
+          "cnpl.local/cilium-envoy:3510b9d2364efe4e-arm64",
+          "cnpl.local/cilium:02dd062a1f48a6ef-arm64",
+          "cnpl.local/operator:e614f51426eb2c56-arm64"
+        ]
+      }
+    },
+    "builtin_server_dry_run": 6,
+    "custom_structure": {
+      "passed": true,
+      "custom_documents": 9,
+      "scope": "OpenAPI structure; CEL and actual admission are checked after CRD installation before apply"
+    },
+    "docker_available": false,
+    "runtime_executed": false,
+    "custom_admission": "安装本批 CRD 后在隔离集群再次严格预览",
+    "primary_cilium_modified": false
+  },
+  "previous_runtime": {
+    "stage": "02.08",
+    "records": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261020T133923Z",
+    "run": "20261020T133924Z-c6b62b72",
+    "passed_sha256": "ae000bcf88bdbb0e1734cbb338dcaee170fed336a4ce747fbae09a1e0abc208f",
+    "closed_sha256": "f6dac71f5d703db1540cec2ee3075381a977d25abe7cc0d36e5a08bc617a2767",
+    "phase_complete": false
+  },
+  "targeted_checks": {
+    "dataplane-python": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "/Users/mario/.venvs/cnpl-ansible/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ops/02-networking/tests/integration/dataplane",
+        "-p",
+        "test_check.py"
+      ]
+    },
+    "framework-python": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "/Users/mario/.venvs/cnpl-ansible/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ops/02-networking/tests/integration/phase02",
+        "-p",
+        "test_*.py"
+      ]
+    },
+    "shell-syntax": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "bash",
+        "-n",
+        "ops/02-networking/scripts/dataplane.sh",
+        "ops/02-networking/scripts/phase02.sh"
+      ]
+    }
+  },
+  "python_tests": {
+    "dataplane": 7,
+    "shared_framework": 4
+  },
+  "offline_model": {
+    "scope": "Ansible orchestration only",
+    "passed": true,
+    "results": {
+      "normal": {
+        "passed": true,
+        "exit": 0,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=208  changed=45   unreachable=0    failed=0    skipped=1    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T135236Z-delivery-review/offline/ebeac8c5/normal/ansible.txt"
+      },
+      "failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=197  changed=43   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T135236Z-delivery-review/offline/ebeac8c5/failure/ansible.txt"
+      },
+      "command-failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=45   changed=4    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T135236Z-delivery-review/offline/ebeac8c5/command-failure/ansible.txt"
+      },
+      "recover": {
+        "passed": true,
+        "exit": 0,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=8    changed=1    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T135236Z-delivery-review/offline/ebeac8c5/recover/ansible.txt"
+      }
+    }
+  },
+  "materials": {
+    "images": 8,
+    "tools": 1,
+    "cilium_schema_files": 5,
+    "frr_probe_binary_hash_match": true
+  },
+  "fixes": [
+    "FRR config mount directory is traversable after daemon privilege drop under umask 077",
+    "null EndpointSlice endpoints are treated as an empty collection during convergence"
+  ],
+  "post_validation_readonly": {
+    "primary_cluster_uid_match": true,
+    "primary_resources_unchanged": true,
+    "main_tls_status": 404,
+    "docker_started": false,
+    "kind_creation_intent": false,
+    "private_kubeconfig_created": false
+  },
+  "docker_runtime_prerequisite": {
+    "current_state": "STOPPED",
+    "command": "docker desktop start",
+    "context": "desktop-linux",
+    "minimum_cpus": 4,
+    "minimum_memory_bytes": 6442450944,
+    "cgroup_version": "2",
+    "resources_checked_by_formal_all": true,
+    "daemon_resources_verified_this_review": false
+  },
+  "sensitive_material_scan": {
+    "files_scanned": 282,
+    "credential_pattern_hits": 0
+  },
+  "gateway_image_review": {
+    "passed": true,
+    "gateway_chart_images": [
+      "cnpl.local/gateway:a8d5dd3bf27282a9-arm64"
+    ],
+    "all_images_in_locked_materials": true
+  }
+}

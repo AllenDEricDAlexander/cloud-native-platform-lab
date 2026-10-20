@@ -1,0 +1,108 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+ok: [localhost]
+
+TASK [顺序执行专题计划，避免全局状态并发] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=create)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=load)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=baseline-install)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=gateway-install)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=gateway)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=stream)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=remove-kube-proxy)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=ebpf)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=native)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=l2-install)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=l2)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=l2-failure)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=l2-resume)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=l2-withdraw)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=frr)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=bgp-install)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=bgp)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=bgp-withdraw)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=restore-baseline)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=stream-stop)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml for localhost => (item=model-rejection)
+
+TASK [为 create 核对原 UID 并生成命令计划] *************************************
+ok: [localhost]
+
+TASK [初始化本用例的原始命令结果] **********************************************
+ok: [localhost]
+
+TASK [执行每个经过范围校验的命令] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=python create)
+
+TASK [create 命令] *************************************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [保留成功或部分失败的原始结果] ********************************************
+changed: [localhost]
+
+TASK [绑定已经实际创建的对象原 UID] ********************************************
+ok: [localhost]
+
+TASK [等待并验证 create 的真实结果] ********************************************
+ok: [localhost]
+
+TASK [为 load 核对原 UID 并生成命令计划] ***************************************
+ok: [localhost]
+
+TASK [初始化本用例的原始命令结果] **********************************************
+ok: [localhost]
+
+TASK [执行每个经过范围校验的命令] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=python load)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=python load)
+
+TASK [load 命令] ***************************************************************
+[ERROR]: Task failed: Module failed: A 'failed_when' expression evaluated to 'True'.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-command.yml:4:7
+
+2 - name: 执行单个受检命令并保留结果
+3   block:
+4     - name: '{{ phase_case.name }} 命令'
+        ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": true, "changed_when_result": true, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "-c", "import sys;sys.exit(2)"], "delta": "0:00:00.024242", "end": "2026-10-20 21:54:26.304729", "failed_when_result": true, "failed_when_suppressed_exception": "(traceback unavailable)", "msg": "The command exited with a non-zero return code.", "rc": 2, "start": "2026-10-20 21:54:26.280487", "stderr": "", "stderr_lines": [], "stdout": "", "stdout_lines": []}
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [保留成功或部分失败的原始结果] ********************************************
+changed: [localhost]
+
+TASK [绑定已经实际创建的对象原 UID] ********************************************
+ok: [localhost]
+
+TASK [成功或失败都恢复原状态并清理本批资源] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-cleanup.yml for localhost
+
+TASK [根据原 UID 和字段归属生成恢复与清理计划] *********************************
+ok: [localhost]
+
+TASK [恢复本批改动并按 UID 回收实验资源] ***************************************
+changed: [localhost] => (item=python)
+
+TASK [复核原资源、节点字段和主入口] ********************************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=45   changed=4    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

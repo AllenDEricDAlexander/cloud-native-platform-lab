@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdb-demo
+  namespace: lab-availability
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pdb-demo
+      cnpl.io/phase-run: '{{ run }}'
+  template:
+    metadata:
+      labels:
+        app: pdb-demo
+        cnpl.io/phase-run: '{{ run }}'
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: net
+        image: '{{ image }}'
+        imagePullPolicy: IfNotPresent
+        args:
+        - serve
+        env:
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 20m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker01.k8s.internal.egon.top
+                - worker02.k8s.internal.egon.top
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: pdb-demo
+                cnpl.io/phase-run: '{{ run }}'
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pdb-demo
+  namespace: lab-availability
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  selector:
+    app: pdb-demo
+    cnpl.io/phase-run: '{{ run }}'
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: availability
+  namespace: lab-availability
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: pdb-demo
+      cnpl.io/phase-run: '{{ run }}'

@@ -1,0 +1,19 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: '{{ priority_low }}'
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+value: -100000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: '{{ priority_high }}'
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+value: -99999
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority

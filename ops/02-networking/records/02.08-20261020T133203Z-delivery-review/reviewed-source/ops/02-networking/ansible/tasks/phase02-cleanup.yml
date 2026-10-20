@@ -1,0 +1,17 @@
+---
+- name: 根据原 UID 和字段归属生成恢复与清理计划
+  ansible.builtin.command:
+    argv: '{{ phase_args + ["cleanup-plan","--output",phase_attempt ~ "/cleanup-plan.json"] }}'
+  register: phase_cleanup
+  changed_when: false
+- name: 恢复本批改动并按 UID 回收实验资源
+  ansible.builtin.command: {argv: '{{ phase_command.argv }}'}
+  loop: '{{ (phase_cleanup.stdout | from_json).commands }}'
+  loop_control: {loop_var: phase_command, label: '{{ phase_command.argv[0] | basename }}'}
+  register: phase_cleaned
+  changed_when: true
+  failed_when: phase_cleaned.rc not in phase_command.allowed_rc
+- name: 复核原资源、节点字段和主入口
+  ansible.builtin.command:
+    argv: '{{ phase_args + ["final","--output",phase_records ~ "/state/closed.json"] }}'
+  changed_when: false

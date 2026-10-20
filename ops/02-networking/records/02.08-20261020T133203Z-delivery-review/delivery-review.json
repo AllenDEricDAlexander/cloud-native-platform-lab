@@ -1,0 +1,178 @@
+{
+  "stage": "02.08",
+  "reviewed_utc": "2026-10-20T13:37:38.895151+00:00",
+  "scope": "pre-execution validation only; formal runtime not started",
+  "passed": true,
+  "formal_runtime_passed": false,
+  "phase_complete": false,
+  "source_files_match": 45,
+  "declared_steps": 19,
+  "required_runtime_checks": 17,
+  "validation": {
+    "passed": true,
+    "server_dry_run_objects": 29,
+    "priority_reference_structure_checked": [
+      {
+        "pod": "preemptor",
+        "priorityClassName": "cnpl-0208-high-4a830a84"
+      },
+      {
+        "pod": "reserve",
+        "priorityClassName": "cnpl-0208-low-4a830a84"
+      }
+    ],
+    "priority_reference_admission": "实际创建本批 PriorityClass 后，原 Pod 在真实 Namespace apply 前再次严格预览",
+    "persisted": false
+  },
+  "targeted_checks": {
+    "resources-python": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "/Users/mario/.venvs/cnpl-ansible/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ops/02-networking/tests/integration/resource-governance",
+        "-p",
+        "test_check.py"
+      ],
+      "cwd": null
+    },
+    "framework-python": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "/Users/mario/.venvs/cnpl-ansible/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ops/02-networking/tests/integration/phase02",
+        "-p",
+        "test_*.py"
+      ],
+      "cwd": null
+    },
+    "shell-syntax": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "bash",
+        "-n",
+        "ops/02-networking/scripts/resource-governance.sh",
+        "ops/02-networking/scripts/phase02.sh"
+      ],
+      "cwd": null
+    },
+    "go-race": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "/Users/mario/.cnpl/toolchains/go1.27.2/go/bin/go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "ops/02-networking/examples/resource-governance"
+    },
+    "go-vet": {
+      "passed": true,
+      "rc": 0,
+      "command": [
+        "/Users/mario/.cnpl/toolchains/go1.27.2/go/bin/go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "ops/02-networking/examples/resource-governance"
+    }
+  },
+  "python_tests": {
+    "resource": 4,
+    "shared_framework": 4
+  },
+  "go_race_and_vet": true,
+  "offline_model": {
+    "scope": "Ansible orchestration only",
+    "passed": true,
+    "results": {
+      "normal": {
+        "passed": true,
+        "exit": 0,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=188  changed=41   unreachable=0    failed=0    skipped=3    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261020T133203Z-delivery-review/offline/f2c4ccbb/normal/ansible.txt"
+      },
+      "failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=177  changed=39   unreachable=0    failed=1    skipped=2    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261020T133203Z-delivery-review/offline/f2c4ccbb/failure/ansible.txt"
+      },
+      "command-failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=42   changed=4    unreachable=0    failed=1    skipped=1    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261020T133203Z-delivery-review/offline/f2c4ccbb/command-failure/ansible.txt"
+      },
+      "recover": {
+        "passed": true,
+        "exit": 0,
+        "cleanup": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=8    changed=1    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261020T133203Z-delivery-review/offline/f2c4ccbb/recover/ansible.txt"
+      }
+    }
+  },
+  "previous_runtime": {
+    "stage": "02.07",
+    "records": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.07-20261020T132429Z",
+    "run": "20261020T132431Z-95a3a4f1",
+    "passed_sha256": "c589289f3e0fa292153ab48573c7f216f9574b5e56784928bf8313f318216c41",
+    "closed_sha256": "9cd35df4916dc34e2428ba227a041cb6b86819849461292a86b8ac216d176e72",
+    "phase_complete": true
+  },
+  "vm_margin": {
+    "192.168.9.109": {
+      "MemAvailable": 15112249344,
+      "disk_free": 64166719488,
+      "containerd_free": 101710131200
+    },
+    "192.168.9.110": {
+      "MemAvailable": 15342161920,
+      "disk_free": 64137748480,
+      "containerd_free": 101606117376
+    }
+  },
+  "runtime_boundary_review": {
+    "negative_priorities_only": true,
+    "existing_pods_priority_guard": true,
+    "uid_owner_chain_and_run_guard": true,
+    "drain_scoped_to_run_and_app": true,
+    "node_restore_preserves_original_state": true,
+    "five_namespaces_and_two_priorityclasses": true,
+    "bounded_cpu_memory_emptydir": true
+  },
+  "post_validation_readonly": {
+    "temporary_namespaces_absent": true,
+    "test_priorityclasses_absent": true,
+    "node_ready_no_pressure": true,
+    "maintenance_marker_absent": true,
+    "worker02_uncordoned": true
+  },
+  "blocked": {
+    "whole_vm_pressure": {
+      "status": "BLOCKED",
+      "reason": "现有十 VM 承载主线；不耗尽整 VM。实际执行 Pod OOM 与空卷限额驱逐，未验证节点压力下的 QoS 驱逐次序。"
+    }
+  },
+  "sensitive_material_scan": {
+    "files_scanned": 279,
+    "credential_pattern_hits": 0
+  }
+}

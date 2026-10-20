@@ -176,6 +176,8 @@ bash ops/02-networking/scripts/scheduling.sh all "$LAB_SCHEDULING_RECORDS"
 
 [完整 Ansible/YAML、作用/预期与恢复](examples/resource-governance/README.md)。三个预算空间、QoS分类、Pod OOM、CPU真实限流、32Mi空卷限额驱逐、只针对本批低优先级 Pod 的抢占、PDB 阻止/允许的标签限定 drain、直接删除对照在同一个入口完成。
 
+[02.07 交接后的整组复核](records/02.08-20261020T133203Z-delivery-review/README.md)：29 个对象严格服务端预览、两个架构物料重建与匿名摘要、8 项 Python 测试、Go race/vet，以及 Ansible 正常/故意失败/恢复的四种模型分支通过。正式 all 共 19 步、17 项实际验收，由操作者一次启动；前检不代表实际资源实验通过。
+
 ```bash
 export LAB_RESOURCE_RECORDS="$PWD/ops/02-networking/records/02.08-$(date -u +%Y%m%dT%H%M%SZ)"
 bash ops/02-networking/scripts/resource-governance.sh all "$LAB_RESOURCE_RECORDS"

@@ -1,0 +1,28 @@
+---
+- name: 保存公开对象输入
+  ansible.builtin.copy:
+    content: '{{ pol_document | to_nice_json }}'
+    dest: '{{ pol_attempt }}/input-{{ pol_document.kind }}-{{ pol_document.metadata.namespace | default("cluster") }}-{{ pol_document.metadata.name }}.json'
+    mode: '0600'
+- name: 应用前验证空间边界与 UID，保存创建意图
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', object-plan, --records, '{{ pol_records }}', --manifest, '{{ pol_attempt }}/input-{{ pol_document.kind }}-{{ pol_document.metadata.namespace | default("cluster") }}-{{ pol_document.metadata.name }}.json', --output, '{{ pol_attempt }}/object-plan.json']
+  changed_when: false
+- name: 在真实目标空间再次严格服务端预览
+  ansible.builtin.command:
+    argv: '{{ pol_k + ["apply","--dry-run=server","--validate=strict","-f",pol_attempt ~ "/input-" ~ pol_document.kind ~ "-" ~ (pol_document.metadata.namespace | default("cluster")) ~ "-" ~ pol_document.metadata.name ~ ".json"] }}'
+  changed_when: false
+- name: 应用本批对象
+  ansible.builtin.command:
+    argv: '{{ pol_k + ["apply","--validate=strict","-f",pol_attempt ~ "/input-" ~ pol_document.kind ~ "-" ~ (pol_document.metadata.namespace | default("cluster")) ~ "-" ~ pol_document.metadata.name ~ ".json","-o","json"] }}'
+  register: pol_applied
+  changed_when: true
+- name: 保存实际对象
+  ansible.builtin.copy:
+    content: '{{ pol_applied.stdout }}'
+    dest: '{{ pol_attempt }}/applied-{{ pol_document.kind }}-{{ pol_document.metadata.namespace | default("cluster") }}-{{ pol_document.metadata.name }}.json'
+    mode: '0600'
+- name: 记录原始 UID
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', record, --records, '{{ pol_records }}', --manifest, '{{ pol_attempt }}/applied-{{ pol_document.kind }}-{{ pol_document.metadata.namespace | default("cluster") }}-{{ pol_document.metadata.name }}.json', --output, '{{ pol_attempt }}/receipt.json']
+  changed_when: false

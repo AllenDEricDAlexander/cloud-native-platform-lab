@@ -20,12 +20,12 @@ bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 
 - [02.05 原始交接](../../records/completed/02.05.json)的内部验收、清理回执、run、集群 UID 和 SHA256 全部匹配；公网 BLOCKED 允许继续内部实验。
 - 原十台 VM .101–.110 Ready；只使用 VM hostname，不读取或使用 ESXi 放置。Cilium 1.20.2 VXLAN、保留 kube-proxy，Cilium/Envoy/kube-proxy 10/10，CoreDNS 2/2；Hubble mTLS Relay 连通十个节点，L7 代理已经启用。
-- worker01/02、storage01/02/03 保持 SELinux Enforcing、firewalld/chronyd 活跃、时间同步；不修改 VM 的路由、防火墙或代理服务。
+- worker01/02、storage01/02/03 保持 SELinux Enforcing、firewalld/chronyd 活跃、时间同步。worker01 仅在本批实验期间添加精确的透明代理即时规则；永久配置、VM 路由及代理服务保持，结束时核对原防火墙规则恢复。
 - Harbor .12 与现有 OpenWrt .10:7890 可用；外网探测复用 00.06.02 的 https://www.google.com/generate_204，需可信 TLS + 204。公网入站能力与这个出站前提无关。
 - Mac 已有 kubectl、Ansible venv、Go 1.27.2、crane、SSH 密钥和 OpenWrt SSH 别名；均复用既有工具，不安装新依赖。
 - 三个专用 Namespace lab-policy、lab-policy-peer、lab-egress 不能被其他批次占用。标准库 Go 诊断镜像已经推送 Harbor 并锁定摘要；公开 CA bundle 保存在版本锁指定的本地 seed 路径。
 
-本轮只新增这三个空间及其中对象；不向 kube-system 或既有业务空间下发默认拒绝，不修改主 .201 入口或既有自动签发器。入口/监控使用有明确身份标签的模拟 Pod；既有入口的授权不能直接照抄这组教学标签。
+本轮新增这三个空间及其中对象，并在 worker01 临时衔接 firewalld 与 Cilium 透明代理；不向 kube-system 或既有业务空间下发默认拒绝，不修改主 .201 入口或既有自动签发器。入口/监控使用有明确身份标签的模拟 Pod；既有入口的授权不能直接照抄这组教学标签。
 
 ## 一次执行的全部实验
 
@@ -34,7 +34,7 @@ bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 | 前检 | 原集群和 02.05 交接；只读 SSH/路由/服务状态；确定性重建镜像并查 Harbor 摘要；全部 YAML strict server dry-run | YAML、CRD、准入、工具、VM、代理前提一次校验；dry-run 不落地。每个实际目标空间仍在 apply 前再次预览 |
 | 02.06.01 初始拒绝 | 三空间先建立双向 default-deny，再创建八 Pod；等待 Ready、实际镜像、身份及双向策略收敛 | client→api HTTP 与 client→DNS 都被策略拒绝；超时和 POLICY_DENIED 流量必须同时存在 |
 | 标准 NetworkPolicy | 放行 UDP/TCP DNS、client→api/dependency、入口→api:8080、monitor→api:9090 | Service DNS/IP、Pod IP、依赖、入口、监控成功；陌生入口、错误端口、越权依赖失败；相同的 /blocked 与 POST 请求仍成功，展示标准 L3/L4 边界 |
-| 02.06.02 Cilium 对照 | 删除标准“允许”策略，始终保留默认拒绝，再应用 CNP | 同一批原 Pod/UID 对照。GET /allowed 成功，GET /blocked 和 POST /allowed 返回代理 403；FQDN 允许 Harbor，Nexus DNS 返回 REFUSED、Nexus IP 和 Harbor 错误端口被拒绝 |
+| 02.06.02 Cilium 对照 | 删除标准“允许”策略，保留默认拒绝；记录 VM 原规则，添加本批透明 HTTP/DNS 的精确即时规则，再应用 CNP | 同一批原 Pod/UID 对照。GET /allowed 成功，GET /blocked 和 POST /allowed 返回代理 403；FQDN 允许 Harbor，Nexus DNS 返回 REFUSED、Nexus IP 和 Harbor 错误端口被拒绝 |
 | 02.06.03 内网与出站 | egress Pod 直连可信 Harbor /v2/，无凭据 TCP 握手 storage01/02/03:10250，经显式代理访问外网；禁止公网直连与 API:6443 | Harbor 401 是未携带仓库登录的正常认证响应；存储 VM TCP 成功；代理 TLS 204；直连拒绝有 Hubble 证据 |
 | 实际源与回程 | Harbor 的 ens33、三个存储 VM 的 any 抓取有界 TCP SYN；代理使用 worker01 ens33 出站 SYN；与本次 Pod socket 端口关联 | 记录 Pod IP、实际源、是否 SNAT、接口及真实源回程 ip route get；内网目标和 .10 的 VM 路由必须为 ens33 直连；存储 VM 的 any 同时覆盖隧道解封后流量，不假设 PodCIDR 回程或固定 SNAT |
 | 代理入口不可达 | 仅给 egress Pod 增加到 .10:7890 的拒绝，再移除 | 外网访问失败、没有公网直连后路；Harbor 与三个存储 VM 继续；撤销后代理重新返回 204。不会停止 mihomo 或真实 VPN |
@@ -42,6 +42,12 @@ bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 | 汇总与清理 | 校验本批策略 UID/spec、全部行为结果和来源输入；成功或失败均 always 清理 | 按本批 Namespace UID 前置条件删除三空间；保护主入口、原 Pod、既有策略、工作负载及网络配置；单独写 closed.json |
 
 共 52 个行为用例，每项要求连续三次符合预期；另有 5 组实际 SYN/socket/回程证据。未收敛的早期样本同样保留。端口关闭、证书错误、NXDOMAIN、kubectl/探测器自身故障不能冒充策略拒绝。Hubble 空白或丢失事件也会失败。
+
+L3/L4 策略丢弃只接受 Hubble 的 POLICY_DENIED（默认拒绝）或 POLICY_DENY（显式 deny）原因码；其他丢弃原因不算策略验证通过。
+
+Cilium 1.20.2 的 DNS 代理拒绝在 Hubble 中记录为 L7 REQUEST/DROPPED，未必生成含 RCODE=5 的响应事件。DNS 拒绝验收同时要求三次实际探测返回 REFUSED，以及相同域名、客户端 socket、Pod 身份和目标 DNS IP/端口的 L7 拒绝记录；不会把一般 UDP 丢包当成 DNS 策略拒绝。代理配置未变时，其 ACK 版本可以落后于全局策略版本；就绪检查首次下发和端口分配，精确授权行为仍由实际流量判断。
+
+firewalld 使用 nftables 时，Cilium 的 iptables ACCEPT 之后仍会继续经过 nftables INPUT 过滤。透明代理的 TPROXY 不改写报文中的目标端口，因此仅开放 Envoy 的动态监听端口不能解决问题。本批即时 rich rules 限定 client↔api 的实际 Pod IP 与 TCP/8080，以及 fqdn、egress↔实际 CoreDNS/Service IP 的 UDP/TCP 53 正反向元组；不会把整个 Pod CIDR 或代理端口范围加入 trusted。规则只在 worker01 生效，设一小时失效保护；创建意图、原规则及 Node/Pod UID 先写入 state/l7-firewall.json，再由 Ansible 添加。清理与 recover 只移除本批实际添加的子集，且核验即时和永久规则恢复。
 
 remote-node:10250 规则按 Cilium 身份匹配所有远端 Kubernetes 节点，只用于无凭据 TCP 握手；它不授予 kubelet API 权限，也不是限定为三个 IP 的规则。普通 ipBlock 不一定匹配集群节点身份，不能将其写成假定生效的节点 CIDR 白名单。
 
@@ -63,6 +69,7 @@ Ceph 安装与服务验收在 Phase03。这里记录三个存储 VM 上 3300/678
 | [总剧本](../../ansible/playbooks/policies.yml)、[前检](../../ansible/playbooks/policies-prepare.yml)、[整组执行](../../ansible/playbooks/policies-run.yml)、[变量](../../ansible/vars/policies.yml) | 一次完成所有步骤；block/always 负责异常回收 |
 | [逐份应用](../../ansible/tasks/policies-apply.yml)、[逐对象边界/预览/应用/记录](../../ansible/tasks/policies-document.yml) | 模板→JSON→原集群与 UID 检查→server dry-run→apply→UID 回执；不接管外来对象 |
 | [收敛](../../ansible/tasks/policies-ready.yml)、[观察](../../ansible/tasks/policies-observe.yml)、[移除](../../ansible/tasks/policies-remove.yml)、[清理](../../ansible/tasks/policies-cleanup.yml) | 原 Pod/镜像/Cilium 双向策略版本；行为及 Hubble；DeleteOptions UID 原子前置条件；清理后复核 |
+| [代理即时规则](../../ansible/tasks/policies-firewall.yml)、[规则撤销](../../ansible/tasks/policies-firewall-cleanup.yml) | 精确 Pod/对端/原端口；写入前的基线与创建意图；异常也撤销部分成功的规则；不修改永久配置 |
 | [Namespace](../../networking/policies/namespaces.yaml.j2)、[default-deny](../../networking/policies/default-deny.yaml.j2)、[工作负载/公开根/Service](../../networking/policies/workloads.yaml.j2) | restricted、无 ServiceAccount token、无特权/主机挂载、固定 VM、资源上限、Ready 探针；公开根用于验证 Harbor |
 | [标准策略](../../networking/policies/standard.yaml.j2)、[Cilium 策略](../../networking/policies/cilium.yaml.j2) | DNS/入口/依赖/监控；相同 Pod 上完成 L3/L4、身份、FQDN、HTTP 对照 |
 | [内网与代理](../../networking/policies/egress.yaml.j2)、[代理故障](../../networking/policies/proxy-unreachable.yaml.j2)、[能力边界](../../networking/policies/capabilities.yaml) | 只允许必要地址/端口；故障只作用于本批 Pod；保留能力缺口 |
@@ -78,20 +85,21 @@ Ceph 安装与服务验收在 Phase03。这里记录三个存储 VM 上 3300/678
 - kubectl apply --validate=strict ... -o json：应用已经校验、有创建意图的本批对象，记录实际 UID；写入由 Ansible 负责。
 - kubectl exec cilium-dbg endpoint list 与 kubectl get ciliumendpoint：只读观察身份、policy-enabled=both 与 spec/realized 版本收敛，不修改 agent。
 - kubectl exec -i /policy-lab probe：固定目标单次 nonce 请求，保留结果；预期网络失败与探测命令失败区分。
-- kubectl exec hubble status/observe：读取既有 Relay，验证 10/10、双向流量、身份、POLICY_DENIED/DNS REFUSED/HTTP403；保留 JSONL。
+- kubectl exec hubble status/observe：读取既有 Relay，验证 10/10；前检先用同一查询构造器和 --print-raw-filters 核验真实 CLI 参数。正式查询用两条 --allowlist 分别关联客户端 Pod→对端 IP/目标端口、对端 IP/源端口→客户端 Pod，兼容 Service DNAT；再校验身份、POLICY_DENIED/DNS REFUSED/HTTP403 并保留 JSONL。
+- ssh firewall-cmd --zone=public --add-rich-rule=... --timeout=3600：只为本批实际 Pod 和目标的 HTTP/DNS 元组添加临时规则；--remove-rich-rule 只撤销本批存在的规则。前后 --list-rich-rules 与 --permanent --list-rich-rules 只读核对原基线；不执行 reload 或切换区域。
 - ssh timeout 8 tcpdump：仅限定源/目标/端口的 SYN 元信息，无 -A/-X/-w，不抓取正文；最多 8 秒退出。随后 ip -j route get 记录真实源回程。
 - kubectl delete --raw ... -f DeleteOptions.json：API 原子校验原 UID 后删除；kubectl wait --for=delete 等待清理。外来对象、Secret 或 UID 漂移会停止删除并保留证据。
 
 ## 失败恢复与证据
 
-正常模式自动清理；中断或清理失败时，保持终端打印的**原证据目录**：
+正常模式自动清理。若已显示 CLEANUP PASS 且 state/closed.json 的 cleanup_passed=true，保留失败批次并选择全新目录重跑 all；无需再次 recover。中断或清理失败时，保持终端打印的**原证据目录**：
 
 ~~~bash
 bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/policies.sh recover "$LAB_POLICY_RECORDS"
 ~~~
 
-该命令按原 context/Namespace UID 清理并复核基线，不重新运行故障，不启动代理，不修改真实 VM 路由。恢复后选择全新目录运行 all。
+该命令按原 context/Namespace UID 清理，撤销原批临时代理规则并复核基线，不重新运行故障，不启动代理，不修改真实 VM 路由。恢复后选择全新目录运行 all。
 
 仅复核物料时，可用全新目录执行 validate；只做前检、重建/摘要检查、模板与 dry-run，不部署 Pod 或策略。正常首次运行直接 all，无需先单独 validate。
 
-批次保留完整 ansible-all-* 日志、context.json、state/source.json、state/protected.json、逐对象意图/UID、attempts 中的原始请求/Hubble/SYN/回程、passed.json 和 state/closed.json。passed.json 沿用既有文件命名，必须读取 available_cases_passed 与各步骤状态，不能凭文件存在或 failed=0 宣称阶段完成。
+批次保留完整 ansible-all-* 日志、context.json、state/source.json、state/protected.json、state/l7-firewall.json、逐对象意图/UID、attempts 中的原始请求/Hubble/SYN/回程、passed.json 和 state/closed.json。行为未达到连续三次时仍采集 Hubble 并保存 observations/<case>/result.json；代理收敛还检查 ACK 和端口分配。passed.json 沿用既有文件命名，必须读取 available_cases_passed 与各步骤状态，不能凭文件存在或 failed=0 宣称阶段完成。

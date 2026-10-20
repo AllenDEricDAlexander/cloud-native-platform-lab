@@ -1,0 +1,73 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: cilium-dns, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector:
+    matchExpressions: [{key: role, operator: NotIn, values: [fqdn]}]
+  egress:
+    - toEndpoints:
+        - matchLabels: {'k8s:io.kubernetes.pod.namespace': kube-system, 'k8s:k8s-app': kube-dns}
+      toPorts: [{ports: [{port: '53', protocol: ANY}]}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: cilium-client, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: client}}
+  egress:
+    - toEndpoints: [{matchLabels: {role: api}}]
+      toPorts:
+        - ports: [{port: '8080', protocol: TCP}]
+          rules: {http: [{method: GET, path: '^/allowed$'}]}
+    - toEndpoints: [{matchLabels: {role: dependency}}]
+      toPorts: [{ports: [{port: '8080', protocol: TCP}]}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: cilium-api, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: api}}
+  ingress:
+    - fromEndpoints:
+        - matchLabels: {role: client}
+        - matchLabels: {'k8s:io.kubernetes.pod.namespace': lab-policy-peer, role: ingress}
+      toPorts: [{ports: [{port: '8080', protocol: TCP}]}]
+    - fromEndpoints:
+        - matchLabels: {'k8s:io.kubernetes.pod.namespace': lab-policy-peer, role: monitor}
+      toPorts: [{ports: [{port: '9090', protocol: TCP}]}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: cilium-dependency, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: dependency}}
+  ingress:
+    - fromEndpoints: [{matchLabels: {role: client}}]
+      toPorts: [{ports: [{port: '8080', protocol: TCP}]}]
+{% for role, port in [('ingress',8080),('monitor',9090),('outsider',8080)] %}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: 'cilium-{{ role }}', namespace: lab-policy-peer, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: '{{ role }}'}}
+  egress:
+    - toEndpoints:
+        - matchLabels: {'k8s:io.kubernetes.pod.namespace': lab-policy, role: api}
+      toPorts: [{ports: [{port: '{{ port }}', protocol: TCP}]}]
+{% endfor %}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: cilium-fqdn, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: fqdn}}
+  egress:
+    - toEndpoints:
+        - matchLabels: {'k8s:io.kubernetes.pod.namespace': kube-system, 'k8s:k8s-app': kube-dns}
+      toPorts:
+        - ports: [{port: '53', protocol: ANY}]
+          rules: {dns: [{matchName: harbor.k8s.internal.egon.top}]}
+    - toFQDNs: [{matchName: harbor.k8s.internal.egon.top}]
+      toPorts: [{ports: [{port: '443', protocol: TCP}]}]

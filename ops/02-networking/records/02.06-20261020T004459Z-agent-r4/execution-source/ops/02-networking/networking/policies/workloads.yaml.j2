@@ -1,0 +1,47 @@
+{% for pod in pol_pods %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ pod.name }}
+  namespace: {{ pod.namespace }}
+  labels: {cnpl.io/policy-run: '{{ pol_run }}', role: '{{ pod.name }}'}
+spec:
+  automountServiceAccountToken: false
+  nodeSelector: {kubernetes.io/hostname: '{{ pod.node }}.k8s.internal.egon.top'}
+  securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+  containers:
+    - name: net
+      image: {{ pol_image }}
+      imagePullPolicy: IfNotPresent
+      args: [serve]
+      env:
+        - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+        - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+        - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+      ports: [{name: http, containerPort: 8080}, {name: metrics, containerPort: 9090}]
+      securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {cpu: 100m, memory: 64Mi}}
+      readinessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 2, timeoutSeconds: 1}
+      volumeMounts: [{name: trust, mountPath: /trust, readOnly: true}]
+  volumes: [{name: trust, configMap: {name: policy-root}}]
+{% endfor %}
+{% for namespace in pol_namespaces %}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: policy-root
+  namespace: {{ namespace }}
+  labels: {cnpl.io/policy-run: '{{ pol_run }}'}
+data:
+  root.crt: |
+{{ lookup('file', pol_root ~ '/ops/00-preparation/pki/public/cnpl-lab-root-ca.crt') | indent(4, true) }}
+{% endfor %}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: api, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  selector: {role: api, cnpl.io/policy-run: '{{ pol_run }}'}
+  ports: [{name: http, port: 8080, targetPort: http}]

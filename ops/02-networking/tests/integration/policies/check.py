@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import select
+import shlex
 import socket
 import subprocess
 import sys
@@ -132,7 +133,11 @@ def preflight(records, identity=False):
     version = call(K + ['exec', '-n', 'kube-system', agent, '-c', 'cilium-agent', '--', 'cilium-dbg', 'version'])
     require(re.search(r'\b1\.20\.2\b', version), '实际 Cilium 版本与本轮审阅的 1.20.2 不同')
     context['cilium_version'] = version.strip()
-    _, context['hubble_status'] = hubble_access('worker01.k8s.internal.egon.top')
+    prefix, context['hubble_status'] = hubble_access('worker01.k8s.internal.egon.top')
+    probe = {'metadata': {'namespace': NS[0], 'name': 'client'}}
+    since = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+    context['hubble_query_filters'] = yaml.safe_load(call(prefix + hubble_query(probe, ['192.168.20.10'], 53, since)
+        + ['--print-raw-filters'], timeout=25))
     require(not yaml.safe_load((PHASE / 'networking/policies/capabilities.yaml').read_text())['egress_gateway']['execution_enabled'], '本轮不允许自动切换全局 CNI')
     save(records / 'context.json', context)
     return context
@@ -157,6 +162,7 @@ def hosts(output):
     results['external_proxy_prerequisite'] = call(['/usr/bin/curl', '--silent', '--show-error', '--noproxy', '',
         '--proxy', PROXY, '--max-time', '20', '--output', '/dev/null', '--write-out', '%{http_code}', EXTERNAL], timeout=25)
     require(results['external_proxy_prerequisite'] == '204', '既有显式代理没有通过外网 TLS 前检')
+    results['transparent_proxy_firewall'] = firewall_snapshot('worker01.k8s.internal.egon.top')
     for last in [106, 107, 108]:
         ip = '192.168.9.' + str(last)
         results['ceph-listeners-' + ip] = call(ssh(ip, "ss -H -ltn '( sport = :3300 or sport = :6789 )'"), timeout=20)
@@ -283,6 +289,99 @@ def agents():
             if p['metadata'].get('labels', {}).get('k8s-app') == 'cilium' and base.ready(p)}
 
 
+def firewall_rules(inventory, dns_ips):
+    rules = []
+    pairs = [('client', inventory['api']['status']['podIP'], 8080, 'tcp')]
+    pairs += [(name, ip, 53, protocol) for name in ['fqdn', 'egress'] for ip in sorted(set(dns_ips))
+              for protocol in ['tcp', 'udp']]
+    for name, target, port, protocol in pairs:
+        source = inventory[name]['status']['podIP']
+        require(ipaddress.ip_address(source) in ipaddress.ip_network('10.244.0.0/16'), '代理源不在 Pod CIDR')
+        require(ipaddress.ip_address(target) in ipaddress.ip_network('10.244.0.0/16') or target == '192.168.20.10', '代理目标越界')
+        for src, dst, element in [(source, target, 'port'), (target, source, 'source-port')]:
+            rules.append('rule priority="-100" family="ipv4" source address="' + src + '/32" destination address="'
+                + dst + '/32" ' + element + ' port="' + str(port) + '" protocol="' + protocol + '" accept')
+    return sorted(set(rules))
+
+
+def firewall_snapshot(vm, rules=()):
+    require(vm == 'worker01.k8s.internal.egon.top', '透明代理规则只属于本批 worker01')
+    # 只读调用 VM 自带的 firewalld 解析器；不改 backend、接口所属区域或永久配置。
+    program = '''import json,subprocess,sys
+from firewall.core.rich import Rich_Rule
+def run(*args):
+    return subprocess.check_output(args,text=True).strip()
+rules=json.loads(sys.argv[1])
+value={'hostname':run('hostname'),'selinux':run('getenforce'),
+ 'active':run('systemctl','is-active','firewalld'),
+ 'zone':run('firewall-cmd','--get-zone-of-interface=ens33'),
+ 'runtime':sorted(run('firewall-cmd','--zone=public','--list-rich-rules').splitlines()),
+ 'permanent':sorted(run('firewall-cmd','--permanent','--zone=public','--list-rich-rules').splitlines()),
+ 'parsed':[str(Rich_Rule(rule_str=rule)) for rule in rules]}
+print(json.dumps(value))
+'''
+    value = json.loads(call(ssh(base.NODES[vm], shlex.join(['python3', '-c', program, json.dumps(list(rules))])), timeout=30))
+    require(value['hostname'] == vm and value['selinux'] == 'Enforcing' and value['active'] == 'active'
+            and value['zone'] == 'public', '透明代理 VM 安全状态或区域改变')
+    return value
+
+
+def firewall_plan(records, context, cleanup=False):
+    path = records / 'state/l7-firewall.json'
+    if cleanup and not path.exists():
+        return {'objects': []}
+    if not cleanup:
+        require(not path.exists(), '透明代理防火墙计划已经存在，不能覆盖原始基线')
+        inventory = pods(context)
+        require(all(inventory[name]['spec']['nodeName'] == 'worker01.k8s.internal.egon.top'
+                    for name in ['client', 'fqdn', 'egress']), '代理源 VM 与计划不同')
+        dns_ips = [p['status']['podIP'] for p in get('pods', namespace='kube-system')['items']
+                   if p['metadata'].get('labels', {}).get('k8s-app') == 'kube-dns' and base.ready(p)]
+        require(dns_ips, '没有 Ready CoreDNS')
+        rules = firewall_rules(inventory, dns_ips + ['192.168.20.10'])
+        vm = 'worker01.k8s.internal.egon.top'
+        before = firewall_snapshot(vm, rules)
+        require(before['parsed'] == rules, 'firewalld 解析后的规则与预览不同')
+        require(not set(rules) & (set(before['runtime']) | set(before['permanent'])), '临时规则已经存在，不能接管')
+        value = {'run': context['run'], 'cluster_uid': context['cluster_uid'], 'vm': vm,
+            'node_uid': get('node', vm)['metadata']['uid'], 'rules': rules,
+            'pod_uids': {name: inventory[name]['metadata']['uid'] for name in ['client', 'api', 'fqdn', 'egress']},
+            'before': {key: before[key] for key in ['runtime', 'permanent']}}
+        # 写入创建意图后才交给 Ansible 修改；即使中途退出也能撤销已添加的子集。
+        save(path, value)
+    else:
+        value = json.loads(path.read_text())
+        require(value['run'] == context['run'] and value['cluster_uid'] == context['cluster_uid'], '防火墙计划属于其他批次')
+        require(get('node', value['vm'])['metadata']['uid'] == value['node_uid'], '代理 VM Node UID 改变')
+        current = firewall_snapshot(value['vm'])
+        rules = [rule for rule in value['rules'] if rule in current['runtime']]
+        require(not set(value['rules']) & set(value['before']['runtime']), '禁止删除原有防火墙规则')
+    objects = []
+    for rule in rules:
+        command = ['firewall-cmd', '--zone=public', ('--remove-rich-rule=' if cleanup else '--add-rich-rule=') + rule]
+        if not cleanup:
+            command += ['--timeout=3600']
+        objects.append({'rule': rule, 'argv': ssh(base.NODES[value['vm']], shlex.join(command))})
+    return {'objects': objects, 'vm': value['vm'], 'runtime_only': True}
+
+
+def firewall_verify(records, context, restored=False):
+    path = records / 'state/l7-firewall.json'
+    if restored and not path.exists():
+        return {'passed': True, 'modified': False}
+    value = json.loads(path.read_text())
+    require(value['run'] == context['run'] and value['cluster_uid'] == context['cluster_uid'], '防火墙回执批次不符')
+    require(get('node', value['vm'])['metadata']['uid'] == value['node_uid'], '代理 VM Node UID 改变')
+    current = firewall_snapshot(value['vm'])
+    expected = set(value['before']['runtime']) | (set() if restored else set(value['rules']))
+    require(set(current['runtime']) == expected and current['permanent'] == value['before']['permanent'],
+            '代理运行规则未收敛或原有/永久规则发生变化')
+    if not restored:
+        inventory = pods(context)
+        require(all(inventory[name]['metadata']['uid'] == uid for name, uid in value['pod_uids'].items()), '代理源/目标 Pod UID 改变')
+    return {'passed': True, 'restored': restored, 'runtime_only': True, 'vm': value['vm'], 'rules': len(value['rules'])}
+
+
 def endpoint_state(context):
     inventory, agent_map = pods(context), agents()
     states = {}
@@ -298,6 +397,11 @@ def endpoint_state(context):
             realized, desired = policy.get('realized') or {}, policy.get('spec') or {}
             require(status['state'] == 'ready' and realized.get('policy-enabled') == 'both', '等待默认拒绝双向生效：' + name)
             require(realized.get('policy-revision', 0) >= desired.get('policy-revision', 1), '等待策略版本收敛：' + name)
+            if policy.get('proxy-statistics'):
+                # 无关策略也会推进全局 revision；代理内容未变时不会产生新 ACK。
+                # 首次代理下发及端口分配只负责就绪，精确行为由后续三次实际请求验收。
+                require(policy.get('proxy-policy-revision', 0) > 0, '等待代理策略首次 ACK：' + name)
+                require(all(p.get('allocated-proxy-port', 0) > 0 for p in policy['proxy-statistics']), '等待代理端口分配：' + name)
             require(cep['status']['identity']['id'] > 255, '缺少工作负载安全身份')
             states[name] = {'id': cep['status']['id'], 'identity': cep['status']['identity'], 'policy': policy}
     return {'passed': True, 'endpoints': states}
@@ -356,7 +460,7 @@ def matched(row, expected, backend=None):
     return expected in ['tcp', 200, 204, 401, 403]
 
 
-def flow_matches(flow, pod, ip, port, mode):
+def flow_matches(flow, pod, ip, port, mode, dns_query=None, client_ports=None):
     source, dest = flow.get('source') or {}, flow.get('destination') or {}
     def is_client(endpoint):
         return endpoint.get('namespace') == pod['metadata']['namespace'] and endpoint.get('pod_name', endpoint.get('podName')) == pod['metadata']['name'] and endpoint.get('identity', 0) > 255
@@ -368,10 +472,21 @@ def flow_matches(flow, pod, ip, port, mode):
     reverse = is_client(dest) and ips.get('source') in targets and transport.get('source_port', transport.get('sourcePort')) == int(port)
     if not (forward or (mode in [403, 'dns-deny'] and reverse)):
         return False
+    client_port = transport.get('source_port', transport.get('sourcePort')) if forward else transport.get('destination_port', transport.get('destinationPort'))
+    if client_ports and client_port not in client_ports:
+        return False
     if mode == 'drop':
-        return flow.get('verdict') == 'DROPPED' and flow.get('drop_reason_desc', flow.get('dropReasonDesc')) == 'POLICY_DENIED'
+        # 默认拒绝为 POLICY_DENIED；显式 ingress/egressDeny 为 POLICY_DENY。
+        return flow.get('verdict') == 'DROPPED' and flow.get('drop_reason_desc', flow.get('dropReasonDesc')) in ['POLICY_DENIED', 'POLICY_DENY']
     if mode == 'dns-deny':
-        return ((flow.get('l7') or {}).get('dns') or {}).get('rcode') == 5
+        l7 = flow.get('l7') or {}
+        dns = l7.get('dns') or {}
+        if dns_query and dns.get('query', '').rstrip('.').lower() != dns_query.rstrip('.').lower():
+            return False
+        # 1.20.2 把代理拒绝记录为 L7 REQUEST/DROPPED，不生成带 RCODE 的响应事件。
+        # RCODE=5 由三次实际探测证明；Hubble 再核对同域名、socket 与工作负载身份。
+        return dns.get('rcode') == 5 or (forward and flow.get('verdict') == 'DROPPED'
+            and l7.get('type') == 'REQUEST' and bool(dns.get('query')))
     if mode == 403:
         return ((flow.get('l7') or {}).get('http') or {}).get('code') == 403
     return flow.get('verdict') == 'FORWARDED'
@@ -386,7 +501,17 @@ def hubble_access(node):
     return prefix, status
 
 
-def flows(pod, ip, port, since, mode, output):
+def hubble_query(pod, targets, port, since):
+    name = pod['metadata']['namespace'] + '/' + pod['metadata']['name']
+    # --pod 与 --ip 互斥；--pod + --port 会把端口约束在 Pod 同侧。
+    # 显式关联对端端口，并保留 L7 拒绝/DNS 回包的反向记录。
+    forward = {'source_pod': [name], 'destination_ip': targets, 'destination_port': [str(port)]}
+    reverse = {'destination_pod': [name], 'source_ip': targets, 'source_port': [str(port)]}
+    return ['observe', '--since', since, '--last', '200', '--allowlist', json.dumps(forward),
+            '--allowlist', json.dumps(reverse), '-o', 'json']
+
+
+def flows(pod, ip, port, since, mode, output, dns_query=None, client_ports=None):
     prefix, status = hubble_access(pod['spec']['nodeName'])
     targets = list(ip) if isinstance(ip, (list, tuple, set)) else [ip]
     if int(port) == 53:
@@ -394,14 +519,12 @@ def flows(pod, ip, port, since, mode, output):
         targets += [p['status']['podIP'] for p in get('pods', namespace='kube-system')['items']
                     if p['metadata'].get('labels', {}).get('k8s-app') == 'kube-dns' and base.ready(p)]
     targets = sorted(set(targets))
-    ip_filter = ['--ip', targets[0]] if len(targets) == 1 else []
     for _ in range(6):
-        raw = call(prefix + ['observe', '--since', since, '--last', '200', '--pod',
-            pod['metadata']['namespace'] + '/' + pod['metadata']['name'], '--port', str(port), *ip_filter, '-o', 'json'], timeout=25)
+        raw = call(prefix + hubble_query(pod, targets, port, since), timeout=25)
         output.write_text(raw)
         envelopes = [json.loads(line) for line in raw.splitlines()]
         require(not any(e.get('lost_events') or e.get('lostEvents') for e in envelopes), 'Hubble 丢失事件，不能接受不完整证据')
-        matches = [e['flow'] for e in envelopes if e.get('flow') and flow_matches(e['flow'], pod, targets, port, mode)]
+        matches = [e['flow'] for e in envelopes if e.get('flow') and flow_matches(e['flow'], pod, targets, port, mode, dns_query, client_ports)]
         if matches:
             identities = {e['identity'] for f in matches for e in [f.get('source') or {}, f.get('destination') or {}]
                 if e.get('namespace') == pod['metadata']['namespace'] and e.get('pod_name', e.get('podName')) == pod['metadata']['name']}
@@ -424,14 +547,27 @@ def case(context, attempt, name, pod, protocol, target, expected, backend=None, 
         if len(streak) >= 3:
             break
         time.sleep(1)
-    require(len(streak) >= 3, '用例没有连续三次符合预期：' + name + '；详见 ' + str(path))
     parsed = urlparse(target)
     ip = flow_ip or (backend['status']['podIP'] if backend else parsed.hostname)
     port = flow_port or (parsed.port or (443 if parsed.scheme == 'https' else 8080))
     if protocol.startswith('dns-'):
         ip, port = '192.168.20.10', 53
-    evidence = flows(pod, ip, port, since, expected, path / 'hubble.jsonl')
-    return {'passed': True, 'name': name, 'source_uid': pod['metadata']['uid'], 'expected': expected, 'requests': streak, 'flow': evidence}
+    dns = {'dns_query': target, 'client_ports': [int(row['local'].rsplit(':', 1)[1])
+        for row in (streak or attempts) if row.get('local')]} if protocol.startswith('dns-') else {}
+    # 行为不符合预期也先取证，不能在清理前丢掉 TO_PROXY/DROP/反向 L7 线索。
+    try:
+        evidence = flows(pod, ip, port, since, expected, path / 'hubble.jsonl', **dns)
+    except (ValueError, KeyError, OSError, subprocess.TimeoutExpired) as error:
+        save(path / 'result.json', {'passed': False, 'expected': expected, 'consecutive_matches': len(streak),
+            'hubble_error': str(error), 'samples': len(attempts)})
+        raise
+    value = {'passed': len(streak) >= 3, 'name': name, 'source_uid': pod['metadata']['uid'],
+        'expected': expected, 'requests': streak, 'flow': evidence}
+    save(path / 'result.json', value)
+    require(value['passed'], '用例没有连续三次符合预期：' + name + '；预期 ' + str(expected)
+        + '，超时 ' + str(sum(bool(row.get('timeout')) for row in attempts)) + '/' + str(len(attempts))
+        + '；请求与 Hubble 证据：' + str(path))
+    return value
 
 
 def matrix(context, attempt, mode):
@@ -480,18 +616,20 @@ def wire(context, attempt, pod, destination, port, target, protocol='http', prox
     # 存储节点可能在隧道解封后接收 Pod 原地址；any 覆盖该 VM 内接口，避免只看 ens33 外层。
     interface = 'any' if destination in ['192.168.9.106', '192.168.9.107', '192.168.9.108'] else 'ens33'
     command = "timeout 8 tcpdump -l -nn -i " + interface + " -c 20 '" + bpf + "'"
-    process = subprocess.Popen(ssh(capture_ip, command), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(ssh(capture_ip, command), stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
     banner = ''
     try:
         deadline = time.monotonic() + 6
         while 'listening on' not in banner and time.monotonic() < deadline:
             if select.select([process.stderr], [], [], 0.3)[0]:
-                line = process.stderr.readline()
+                # select 只能看到内核缓冲；TextIOWrapper.readline 的预读会藏住下一行启动信息。
+                line = os.read(process.stderr.fileno(), 4096).decode(errors='replace')
                 require(line, '抓取进程提前退出：' + banner)
                 banner += line
         require('listening on' in banner, '抓取进程没有完成监听')
         row = request(pod, protocol, target, timeout=12000 if proxy else 5000, proxy=proxy, ca=ca)
         stdout, stderr = process.communicate(timeout=15)
+        stdout, stderr = stdout.decode(errors='replace'), stderr.decode(errors='replace')
         (folder / 'tcp-syn.txt').write_text(stdout)
         (folder / 'observer.txt').write_text(banner + stderr)
     finally:
@@ -591,6 +729,7 @@ def accept(records, context, attempt):
     require(boundary['status'] == 'BLOCKED' and boundary['passed'] is False, '出口模式边界不符')
     require(source() == json.loads((records / 'state/source.json').read_text()), '执行期间输入改变')
     require(protected() == json.loads((records / 'state/protected.json').read_text()), '既有网络、策略或工作负载发生变化')
+    firewall_verify(records, context)
     return {'stage': '02.06', 'available_cases_passed': True, 'passed': False, 'phase_complete': False,
         'cluster_uid': context['cluster_uid'], 'run': context['run'], 'attempt': str(attempt),
         'steps': {'02.06.01': 'PASS', '02.06.02': 'PASS', '02.06.03': 'PARTIAL_CEPH_BLOCKED', '02.06.04': 'BLOCKED'},
@@ -601,12 +740,14 @@ def final(records, context):
     require(all(optional('namespace', ns) is None for ns in NS), '临时命名空间未完全删除')
     path = records / 'state/protected.json'
     require(not path.exists() or protected() == json.loads(path.read_text()), '清理后原有资源发生变化')
+    firewall = firewall_verify(records, context, restored=True)
     gw.data_plane(context, laboratory=False)
     tls = gw.probe.http('192.168.9.201', '/cnpl-policy-preflight')
     require(tls['status'] == 404 and tls['tls_peer_sha256'], '清理后主入口可信 TLS 异常')
     value = json.loads((records / 'passed.json').read_text()) if (records / 'passed.json').exists() else {}
     return {'stage': '02.06', 'cleanup_passed': True, 'cluster_uid': context['cluster_uid'], 'run': context['run'],
         'temporary_namespaces_absent': True, 'existing_resources_unchanged': True,
+        'temporary_firewall_rules_restored': firewall['passed'],
         'available_cases_passed': value.get('available_cases_passed', False), 'phase_complete': False,
         'main_tls_status': tls['status'], 'main_tls_sha256': tls['tls_peer_sha256']}
 
@@ -641,6 +782,10 @@ def main():
         value = delete_plan(records, context, args.manifest, args.output)
     elif action == 'ready':
         value = endpoint_state(context)
+    elif action in ['firewall-plan', 'firewall-cleanup-plan']:
+        value = firewall_plan(records, context, action == 'firewall-cleanup-plan')
+    elif action in ['firewall-verify', 'firewall-restored']:
+        value = firewall_verify(records, context, action == 'firewall-restored')
     elif action == 'matrix':
         value = matrix(context, attempt, args.case)
     elif action == 'egress':

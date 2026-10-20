@@ -139,6 +139,8 @@ bash ops/02-networking/scripts/certificates.sh all "$LAB_TLS_RECORDS"
 
 完整剧本、YAML、逐条作用/预期、52 个正反向用例、5 组实际源与回程以及恢复说明见 [完整操作指南](examples/policies/README.md)；[执行前核验记录](records/02.06-20261019-source-review/README.md)。02.05 内部验收已归档，公网 BLOCKED 保留。
 
+[实际执行归档](records/02.06-20261020T004459Z-agent-r4/README.md)：52 个行为用例、5 组抓包和清理通过，Ansible failed=0；Ceph 与主集群 Egress Gateway 缺口仍保留。用户要求在本条完整命令结束后暂停，02.07–10 正式实验未启动。
+
 在管理 Mac 一次运行整组：
 
 ```bash
@@ -151,7 +153,7 @@ bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 
 预期 AVAILABLE CASES PASS、CLEANUP PASS、failed/unreachable/rescued/ignored=0。当前模式保留 kube-proxy，02.06.04 Egress Gateway 模式、CRD 和真实 VPN/出口 VM 故障项 BLOCKED；Ceph 服务属于 Phase03，02.06.03 只完成存储 VM 路径验证，记 PARTIAL_CEPH_BLOCKED。passed=false、phase_complete=false，不把实验代理入口故障冒充真实 VPN 故障。
 
-本轮只创建三个 restricted 临时 Namespace，按原 UID 清理；保持 .101–.110 VM、SELinux/firewalld、原 CNI/路由/代理与主 .201 的可信 TLS。完整指南提供原批 recover 命令与每类底层命令解释。
+本轮创建三个 restricted 临时 Namespace，并在 worker01 添加本批精确 HTTP/DNS 透明代理即时规则；结束按原 UID 清理空间并撤销规则，核对原即时/永久规则恢复。保持 .101–.110 VM、SELinux/firewalld、原 CNI/路由/代理与主 .201 的可信 TLS。完整指南提供原批 recover 命令与每类底层命令解释。
 
 <a id="02-07"></a>
 

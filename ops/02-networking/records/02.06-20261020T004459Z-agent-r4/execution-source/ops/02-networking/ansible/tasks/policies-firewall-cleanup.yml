@@ -1,0 +1,16 @@
+---
+- name: 按原批次和 Node UID 找出已添加的临时代理规则
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', firewall-cleanup-plan, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/firewall-cleanup-plan.json']
+  changed_when: false
+  register: pol_firewall_cleanup
+- name: 只撤销本批已经存在的即时代理规则
+  ansible.builtin.command:
+    argv: '{{ item.argv }}'
+  loop: '{{ (pol_firewall_cleanup.stdout | from_json).objects }}'
+  loop_control: {label: '{{ item.rule }}'}
+  changed_when: true
+- name: 确认 VM 即时与永久规则均恢复原始基线
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', firewall-restored, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/firewall-restored.json']
+  changed_when: false

@@ -1,0 +1,64 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: standard-dns, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  podSelector:
+    matchExpressions: [{key: role, operator: NotIn, values: [fqdn]}]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: standard-client, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  podSelector: {matchLabels: {role: client}}
+  policyTypes: [Egress]
+  egress:
+    - to: [{podSelector: {matchExpressions: [{key: role, operator: In, values: [api, dependency]}]}}]
+      ports: [{port: 8080, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: standard-api, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  podSelector: {matchLabels: {role: api}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {role: client}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: lab-policy-peer}}
+          podSelector: {matchLabels: {role: ingress}}
+      ports: [{port: 8080, protocol: TCP}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: lab-policy-peer}}
+          podSelector: {matchLabels: {role: monitor}}
+      ports: [{port: 9090, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: standard-dependency, namespace: lab-policy, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  podSelector: {matchLabels: {role: dependency}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {role: client}}}]
+      ports: [{port: 8080, protocol: TCP}]
+{% for role, port in [('ingress',8080),('monitor',9090),('outsider',8080)] %}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: 'standard-{{ role }}', namespace: lab-policy-peer, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  podSelector: {matchLabels: {role: '{{ role }}'}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: lab-policy}}
+          podSelector: {matchLabels: {role: api}}
+      ports: [{port: {{ port }}, protocol: TCP}]
+{% endfor %}

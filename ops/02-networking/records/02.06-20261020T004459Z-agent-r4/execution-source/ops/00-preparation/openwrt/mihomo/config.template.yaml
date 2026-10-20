@@ -1,0 +1,44 @@
+# mihomo 显式代理（00.06.02）：由 /etc/init.d/mihomo 启动时生成实际配置，
+# 把 __SUBSCRIPTION_URL__ 替换为 /etc/mihomo/subscription-url（0600，仅在 OpenWrt 上，不进仓库）的内容。
+# 只提供 HTTP/SOCKS 混合端口给实验网段；不做透明代理、不接管 DNS，默认网关仍是 .1。
+mixed-port: 7890
+allow-lan: true
+bind-address: 192.168.9.10
+lan-allowed-ips: [192.168.9.0/24, 127.0.0.1/32]
+mode: rule
+# warning：info 级别会把每个经代理的连接（含订阅服务器域名）写入 logread。
+log-level: warning
+ipv6: false
+# 控制接口只在本机，用于查看节点与延迟；不对 LAN 开放。
+external-controller: 127.0.0.1:9090
+
+proxy-providers:
+  subscription:
+    type: http
+    url: "__SUBSCRIPTION_URL__"
+    path: ./providers/subscription.yaml
+    # 订阅更新直连：不依赖已有节点可用；首次启动时节点组为空，本来也只能直连（第 88 节）。
+    proxy: DIRECT
+    interval: 86400
+    health-check:
+      enable: true
+      url: https://www.gstatic.com/generate_204
+      interval: 300
+
+proxy-groups:
+  - name: PROXY
+    type: url-test
+    use: [subscription]
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+
+# 内部名称与私有地址直连；其余走代理。不使用 GEOIP：首次运行要从 GitHub 下载地址库。
+rules:
+  - DOMAIN-SUFFIX,internal.egon.top,DIRECT
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - MATCH,PROXY

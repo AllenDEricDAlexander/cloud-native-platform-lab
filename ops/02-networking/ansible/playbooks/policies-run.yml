@@ -36,6 +36,8 @@
         - name: 移除标准放行，保留默认拒绝，避免与 Cilium 策略叠加掩盖限制
           ansible.builtin.include_tasks: ../tasks/policies-remove.yml
           vars: {pol_manifest: standard}
+        - name: 准备 firewalld 与透明代理的本批精确放行和恢复基线
+          ansible.builtin.include_tasks: ../tasks/policies-firewall.yml
         - name: 应用 Cilium 身份、FQDN 和 HTTP 策略
           ansible.builtin.include_tasks: ../tasks/policies-apply.yml
           vars: {pol_manifest: cilium}

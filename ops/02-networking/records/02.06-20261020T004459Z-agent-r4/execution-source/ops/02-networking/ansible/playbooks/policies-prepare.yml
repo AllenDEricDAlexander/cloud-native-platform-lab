@@ -1,0 +1,72 @@
+---
+- name: 完整 02.06 一次前检所有物料、VM、YAML 和前序边界
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/policies.yml]
+  tasks:
+    - name: 限定模式与证据目录
+      ansible.builtin.assert:
+        that:
+          - pol_mode in ['all','validate','cleanup','recover']
+          - pol_records.startswith(pol_root ~ '/ops/02-networking/records/02.06-')
+          - pol_records | realpath == pol_records
+    - name: 生成独立 attempt 标识
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']
+      register: pol_clock
+      changed_when: false
+    - name: 绑定本次 attempt
+      ansible.builtin.set_fact: {pol_attempt: '{{ pol_records }}/attempts/{{ pol_clock.stdout }}-{{ pol_mode }}'}
+    - name: 创建记录目录
+      ansible.builtin.file: {path: '{{ item }}', state: directory, mode: '0700'}
+      loop: ['{{ pol_attempt }}', '{{ pol_records }}/state', '{{ pol_attempt }}/observations']
+    - name: 校验原集群、02.05 内部原始交接和模式边界
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', '{{ pol_check }}', '{{ "identity" if pol_mode in ["cleanup","recover"] else "preflight" }}', --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/preflight.json']
+      register: pol_preflight
+      changed_when: false
+    - name: 绑定上下文与运行标签
+      ansible.builtin.set_fact:
+        pol_context: '{{ pol_preflight.stdout | from_json }}'
+        pol_run: '{{ (pol_preflight.stdout | from_json).run }}'
+    - name: 一次核验五台 VM 的安全状态、内网路由及既有代理
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', '{{ pol_check }}', hosts, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/hosts.json']
+      changed_when: false
+      when: pol_mode in ['all','validate']
+    - name: 确定性重建 Go 镜像并核对 Harbor 摘要
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', '{{ pol_materials }}', verify, --output, '{{ pol_attempt }}/materials.json']
+      changed_when: false
+      when: pol_mode in ['all','validate']
+    - name: 一次渲染全部实际执行 YAML
+      ansible.builtin.template:
+        src: '../../networking/policies/{{ item }}.yaml.j2'
+        dest: '{{ pol_attempt }}/{{ item }}.yaml'
+        mode: '0600'
+      loop: [namespaces, default-deny, workloads, standard, cilium, egress, proxy-unreachable]
+      when: pol_mode in ['all','validate']
+    - name: 全部清单执行严格服务端预览，包括出口参考但不落地
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', '{{ pol_check }}', validate, --records, '{{ pol_records }}', --attempt, '{{ pol_attempt }}', --output, '{{ pol_attempt }}/compatibility.json']
+      changed_when: false
+      when: pol_mode in ['all','validate']
+    - name: 记录执行源码与输入摘要
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', '{{ pol_check }}', source, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/source.json']
+      changed_when: false
+    - name: 保存既有网络、策略、工作负载和主入口基线
+      ansible.builtin.command:
+        argv: ['{{ pol_python }}', '{{ pol_check }}', protected, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/protected.json']
+      changed_when: false
+      when: pol_mode in ['all','validate']
+    - name: 正式执行绑定不可覆盖的原始基线
+      ansible.builtin.copy: {src: '{{ pol_attempt }}/{{ item }}.json', dest: '{{ pol_records }}/state/{{ item }}.json', force: false, mode: '0600'}
+      loop: [source, protected]
+      when: pol_mode == 'all'
+    - name: 报告前检通过，运行实验由统一入口继续
+      ansible.builtin.debug:
+        msg: '02.06 SOURCE VALIDATION PASS；仅 VM；公网入站仍 BLOCKED，Ceph 与 Egress Gateway 前提不足单独记录。'
+      when: pol_mode in ['all','validate']

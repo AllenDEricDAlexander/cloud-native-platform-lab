@@ -1,0 +1,9 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: {name: proxy-unreachable, namespace: lab-egress, labels: {cnpl.io/policy-run: '{{ pol_run }}'}}
+spec:
+  endpointSelector: {matchLabels: {role: egress}}
+  egressDeny:
+    - toCIDR: [192.168.9.10/32]
+      toPorts: [{ports: [{port: '7890', protocol: TCP}]}]

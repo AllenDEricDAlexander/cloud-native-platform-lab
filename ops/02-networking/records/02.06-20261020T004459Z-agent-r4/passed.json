@@ -1,0 +1,3311 @@
+{
+  "stage": "02.06",
+  "available_cases_passed": true,
+  "passed": false,
+  "phase_complete": false,
+  "cluster_uid": "4d3e52d7-e203-4daf-aced-9c3a666fcf5b",
+  "run": "20261020T004502Z-cfaad896",
+  "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020T004459Z-agent-r4/attempts/20261020T004501Z-3efe8bed-all",
+  "steps": {
+    "02.06.01": "PASS",
+    "02.06.02": "PASS",
+    "02.06.03": "PARTIAL_CEPH_BLOCKED",
+    "02.06.04": "BLOCKED"
+  },
+  "results": {
+    "denied": {
+      "passed": true,
+      "cases": {
+        "api-drop": {
+          "passed": true,
+          "name": "denied-api-drop",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "6182666b437845b58df4565da4c8a8b5",
+              "at": "2026-10-20T00:46:52.722819306Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "9c6b03aa2ccb4916a234f9b6aa528a54",
+              "at": "2026-10-20T00:46:58.795165621Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "c5b9fdc08c3644f98d4cc50a44c2b5a4",
+              "at": "2026-10-20T00:47:04.914121015Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 75.83\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dns-drop": {
+          "passed": true,
+          "name": "denied-dns-drop",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "ff1e70ac415943738a7ea6e95ef42deb",
+              "at": "2026-10-20T00:47:10.817098114Z",
+              "elapsed_ms": 1801,
+              "local": "10.244.8.192:39950",
+              "remote": "192.168.20.10:53",
+              "rcode": -1,
+              "error": "read udp 10.244.8.192:39950->192.168.20.10:53: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "5cee33cf46b64eb5baeb27a00801bd70",
+              "at": "2026-10-20T00:47:16.899341298Z",
+              "elapsed_ms": 1801,
+              "local": "10.244.8.192:59848",
+              "remote": "192.168.20.10:53",
+              "rcode": -1,
+              "error": "read udp 10.244.8.192:59848->192.168.20.10:53: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "c44653430c1d4fd7965b8abd4112d709",
+              "at": "2026-10-20T00:47:22.916164699Z",
+              "elapsed_ms": 1801,
+              "local": "10.244.8.192:55206",
+              "remote": "192.168.20.10:53",
+              "rcode": -1,
+              "error": "read udp 10.244.8.192:55206->192.168.20.10:53: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 6,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 87.88\nConnected Nodes: 10/10\n"
+          }
+        }
+      },
+      "policies": {
+        "NetworkPolicy/lab-policy/default-deny": {
+          "uid": "9fc65f0d-d4fc-4e2e-bc9c-61280b754967",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "NetworkPolicy/lab-policy-peer/default-deny": {
+          "uid": "f8ac97f2-6d51-43a2-8152-dd24290f694d",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "NetworkPolicy/lab-egress/default-deny": {
+          "uid": "593aa651-d4af-46aa-9888-e493cda41456",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        }
+      }
+    },
+    "standard": {
+      "passed": true,
+      "enforcer": "Cilium 1.20.2 agent/Envoy",
+      "cases": {
+        "dns-udp": {
+          "passed": true,
+          "name": "standard-dns-udp",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "dns",
+          "requests": [
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "852cd6ed04cf4c9d8d31bd3283aa41e5",
+              "at": "2026-10-20T00:47:50.696168657Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:58566",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "27b34e4426d748f4897c6c6196131b3a",
+              "at": "2026-10-20T00:47:55.118504969Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:41788",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "0ace926cbe2b456996b3c43f140a42d4",
+              "at": "2026-10-20T00:47:59.41232093Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:44981",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 8,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 93.83\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dns-tcp": {
+          "passed": true,
+          "name": "standard-dns-tcp",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "dns",
+          "requests": [
+            {
+              "protocol": "dns-tcp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "1cb29c0774e548fb834dcb95eb909e90",
+              "at": "2026-10-20T00:48:03.617659555Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:37452",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-tcp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "147981389d394f16915085ebfdba55d3",
+              "at": "2026-10-20T00:48:07.917146605Z",
+              "elapsed_ms": 73,
+              "local": "10.244.8.192:37462",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-tcp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "f1998a9592844c959e01d9a76ef05633",
+              "at": "2026-10-20T00:48:12.317020786Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:56740",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 23,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 93.78\nConnected Nodes: 10/10\n"
+          }
+        },
+        "api-allowed": {
+          "passed": true,
+          "name": "standard-api-allowed",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "959ded99ff644b1e939f7a5cbf766856",
+              "at": "2026-10-20T00:48:16.690186519Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:55936",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"959ded99ff644b1e939f7a5cbf766856\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:55936\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "910d2d395ff04951b0199cefdf25e7a1",
+              "at": "2026-10-20T00:48:21.017290821Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:55950",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"910d2d395ff04951b0199cefdf25e7a1\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:55950\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "822900bc168a4d1a83cb74c03d6ceb36",
+              "at": "2026-10-20T00:48:25.393036635Z",
+              "elapsed_ms": 19,
+              "local": "10.244.8.192:45076",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"822900bc168a4d1a83cb74c03d6ceb36\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:45076\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 30,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 94.20\nConnected Nodes: 10/10\n"
+          }
+        },
+        "service-allowed": {
+          "passed": true,
+          "name": "standard-service-allowed",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://192.168.20.233:8080/allowed",
+              "nonce": "17fe46d5bca94ecc9c8bc14fd0ccce61",
+              "at": "2026-10-20T00:48:29.518941449Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:50850",
+              "remote": "192.168.20.233:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"17fe46d5bca94ecc9c8bc14fd0ccce61\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:50850\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://192.168.20.233:8080/allowed",
+              "nonce": "0939457765b34948b40fb60024aef524",
+              "at": "2026-10-20T00:48:33.895288238Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:54630",
+              "remote": "192.168.20.233:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"0939457765b34948b40fb60024aef524\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:54630\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://192.168.20.233:8080/allowed",
+              "nonce": "a7b199ef79f048769804a03af90c02b6",
+              "at": "2026-10-20T00:48:38.214399487Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:54636",
+              "remote": "192.168.20.233:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"a7b199ef79f048769804a03af90c02b6\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:54636\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 30,
+            "target_ips": [
+              "10.244.9.107",
+              "192.168.20.233"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 96.68\nConnected Nodes: 10/10\n"
+          }
+        },
+        "path-comparison": {
+          "passed": true,
+          "name": "standard-path-comparison",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/blocked",
+              "nonce": "b626e149ec834ec4b0e0650a51ab5869",
+              "at": "2026-10-20T00:48:42.395119314Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:45382",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"b626e149ec834ec4b0e0650a51ab5869\",\"path\":\"/blocked\",\"peer\":\"10.244.8.192:45382\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/blocked",
+              "nonce": "592d500a90504f6eba26bd11a341d0f9",
+              "at": "2026-10-20T00:48:46.719403368Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:45384",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"592d500a90504f6eba26bd11a341d0f9\",\"path\":\"/blocked\",\"peer\":\"10.244.8.192:45384\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/blocked",
+              "nonce": "880d345112e840518880f4f9791c0169",
+              "at": "2026-10-20T00:48:51.115056382Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:45394",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"880d345112e840518880f4f9791c0169\",\"path\":\"/blocked\",\"peer\":\"10.244.8.192:45394\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 30,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 97.50\nConnected Nodes: 10/10\n"
+          }
+        },
+        "method-comparison": {
+          "passed": true,
+          "name": "standard-method-comparison",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "c671fed3013f49698e89b3a9c8a8490d",
+              "at": "2026-10-20T00:48:55.118708534Z",
+              "elapsed_ms": 4,
+              "local": "10.244.8.192:33978",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"POST\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"c671fed3013f49698e89b3a9c8a8490d\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:33978\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "1c711b4a12dd49a5affe57d4c526f9db",
+              "at": "2026-10-20T00:48:59.395997798Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:33984",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"POST\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"1c711b4a12dd49a5affe57d4c526f9db\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:33984\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "0d418afe486e4ecfbb333bbd31e512a1",
+              "at": "2026-10-20T00:49:03.718357829Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:42446",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"POST\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"0d418afe486e4ecfbb333bbd31e512a1\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:42446\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 30,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.30\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dependency": {
+          "passed": true,
+          "name": "standard-dependency",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "6eb669177cf144caaf581525aba252ef",
+              "at": "2026-10-20T00:49:07.914898466Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:58346",
+              "remote": "10.244.8.18:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker01.k8s.internal.egon.top\",\"nonce\":\"6eb669177cf144caaf581525aba252ef\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:58346\",\"pod\":\"dependency\",\"uid\":\"e57f968d-d1a9-4863-b20f-6d7cde25a865\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "e6313527d8e84c1dbeb7abee3eb5ed27",
+              "at": "2026-10-20T00:49:12.292054407Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:58356",
+              "remote": "10.244.8.18:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker01.k8s.internal.egon.top\",\"nonce\":\"e6313527d8e84c1dbeb7abee3eb5ed27\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:58356\",\"pod\":\"dependency\",\"uid\":\"e57f968d-d1a9-4863-b20f-6d7cde25a865\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "8ecd555ac8574faf8f04ec657207df01",
+              "at": "2026-10-20T00:49:16.613855533Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:45248",
+              "remote": "10.244.8.18:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker01.k8s.internal.egon.top\",\"nonce\":\"8ecd555ac8574faf8f04ec657207df01\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:45248\",\"pod\":\"dependency\",\"uid\":\"e57f968d-d1a9-4863-b20f-6d7cde25a865\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 18,
+            "target_ips": [
+              "10.244.8.18"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.55\nConnected Nodes: 10/10\n"
+          }
+        },
+        "ingress": {
+          "passed": true,
+          "name": "standard-ingress",
+          "source_uid": "fad07f6e-a7e0-4d96-831f-38bda8bd6c53",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "3fbf8be051aa43b09e88eb27072f77fc",
+              "at": "2026-10-20T00:49:20.657785421Z",
+              "elapsed_ms": 92,
+              "local": "10.244.8.80:41244",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"3fbf8be051aa43b09e88eb27072f77fc\",\"path\":\"/allowed\",\"peer\":\"10.244.8.80:41244\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "838c9f32029d4e70a47186a9bc42f94f",
+              "at": "2026-10-20T00:49:25.050174615Z",
+              "elapsed_ms": 4,
+              "local": "10.244.8.80:44574",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"838c9f32029d4e70a47186a9bc42f94f\",\"path\":\"/allowed\",\"peer\":\"10.244.8.80:44574\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "353da93e86104f3b9095c9937f9d6fca",
+              "at": "2026-10-20T00:49:29.2532575Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.80:44580",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"353da93e86104f3b9095c9937f9d6fca\",\"path\":\"/allowed\",\"peer\":\"10.244.8.80:44580\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 30,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              65437
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.98\nConnected Nodes: 10/10\n"
+          }
+        },
+        "monitor": {
+          "passed": true,
+          "name": "standard-monitor",
+          "source_uid": "be4b0725-6540-4de5-a30f-d677043d8806",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "2d8bf0716b484eacbb0db5e1c5b29895",
+              "at": "2026-10-20T00:49:33.283207337Z",
+              "elapsed_ms": 1,
+              "local": "10.244.9.230:41040",
+              "remote": "10.244.9.107:9090",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"2d8bf0716b484eacbb0db5e1c5b29895\",\"path\":\"/metrics\",\"peer\":\"10.244.9.230:41040\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "105c525c8d31497980a98d4b72574ba2",
+              "at": "2026-10-20T00:49:37.408183859Z",
+              "elapsed_ms": 1,
+              "local": "10.244.9.230:42444",
+              "remote": "10.244.9.107:9090",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"105c525c8d31497980a98d4b72574ba2\",\"path\":\"/metrics\",\"peer\":\"10.244.9.230:42444\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "32893e41000344c08bb2cbbd924a9721",
+              "at": "2026-10-20T00:49:41.594241908Z",
+              "elapsed_ms": 85,
+              "local": "10.244.9.230:42458",
+              "remote": "10.244.9.107:9090",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"32893e41000344c08bb2cbbd924a9721\",\"path\":\"/metrics\",\"peer\":\"10.244.9.230:42458\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 18,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              8755
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.93\nConnected Nodes: 10/10\n"
+          }
+        },
+        "outsider-drop": {
+          "passed": true,
+          "name": "standard-outsider-drop",
+          "source_uid": "30db66e0-c747-4444-b77b-ab734cf1dcb6",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "a16c812af3de44e89adc41e89112ded8",
+              "at": "2026-10-20T00:49:45.693029628Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "f48d2949ed4c4733b6d8a82d4f4e43d6",
+              "at": "2026-10-20T00:49:51.629945023Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "7f2b69bf5b524808b621dcd8873e7fb6",
+              "at": "2026-10-20T00:49:57.593983934Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              20402
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.72\nConnected Nodes: 10/10\n"
+          }
+        },
+        "metrics-drop": {
+          "passed": true,
+          "name": "standard-metrics-drop",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "01c688c2cef0478a92328729313c8f8a",
+              "at": "2026-10-20T00:50:03.397427998Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:9090/metrics\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "e8b9d0fb2ab641ffbed1bf35d1a2ecc4",
+              "at": "2026-10-20T00:50:09.612994179Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:9090/metrics\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "1f38f4b4c1d54ba8a69deba76090ff38",
+              "at": "2026-10-20T00:50:15.712528541Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:9090/metrics\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 97.92\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dependency-drop": {
+          "passed": true,
+          "name": "standard-dependency-drop",
+          "source_uid": "fad07f6e-a7e0-4d96-831f-38bda8bd6c53",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "d5e1d98fd9874c0ea00ec686d8bc5fee",
+              "at": "2026-10-20T00:50:21.555173711Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.8.18:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "9839338d90eb4f8f81a6f9509cb55070",
+              "at": "2026-10-20T00:50:27.650328549Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.8.18:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "42eec569ec7f4068acd15286a97807f0",
+              "at": "2026-10-20T00:50:33.750229849Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.8.18:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.8.18"
+            ],
+            "workload_identities": [
+              65437
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 96.97\nConnected Nodes: 10/10\n"
+          }
+        }
+      },
+      "policies": {
+        "NetworkPolicy/lab-policy/default-deny": {
+          "uid": "9fc65f0d-d4fc-4e2e-bc9c-61280b754967",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "NetworkPolicy/lab-policy/standard-api": {
+          "uid": "89b18ed5-3224-42ca-ad3f-a51ac1d8aad8",
+          "spec_sha256": "90104f14b51de25f87a33e3044fde728d8ccb8f62132d4e80643cbedfd4cab41"
+        },
+        "NetworkPolicy/lab-policy/standard-client": {
+          "uid": "1bfdd0da-618f-4433-9315-ac9f28e25014",
+          "spec_sha256": "b43ce1b509f8ed421008179289c4ede3f7c146e3aedab4a5dbe223970bf55721"
+        },
+        "NetworkPolicy/lab-policy/standard-dependency": {
+          "uid": "f43d1532-2606-46ac-937a-cf4f5304d238",
+          "spec_sha256": "c6aed428b219d884ab883f80fc85c40b803c7d92b0ec7746f44b3a5c2104a2f0"
+        },
+        "NetworkPolicy/lab-policy/standard-dns": {
+          "uid": "87117e26-6b86-43e3-8e82-04df2f218955",
+          "spec_sha256": "75c5c4e759643a557ce0450d793533cec5845a67e5168e687bc6ce10a016f770"
+        },
+        "NetworkPolicy/lab-policy-peer/default-deny": {
+          "uid": "f8ac97f2-6d51-43a2-8152-dd24290f694d",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "NetworkPolicy/lab-policy-peer/standard-ingress": {
+          "uid": "3b63c3b8-2bcb-4529-9d34-8b5fef7a5c32",
+          "spec_sha256": "7e0ac062df7134fe5be150190f8351aad361eda476a06d4e68601d50c7691b6b"
+        },
+        "NetworkPolicy/lab-policy-peer/standard-monitor": {
+          "uid": "1516003d-f659-4ac0-b298-b5101d97c419",
+          "spec_sha256": "0defc8231eb517b3178dc01a9bca2aa5d606a755192f67ea8017f073c185f240"
+        },
+        "NetworkPolicy/lab-policy-peer/standard-outsider": {
+          "uid": "afd16419-0eaa-4cc3-a18c-5086011959ee",
+          "spec_sha256": "a9e096719d9d4a59258247b976d722f200293c1c29eca037b823ce88707b9b4f"
+        },
+        "NetworkPolicy/lab-egress/default-deny": {
+          "uid": "593aa651-d4af-46aa-9888-e493cda41456",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        }
+      }
+    },
+    "cilium": {
+      "passed": true,
+      "enforcer": "Cilium 1.20.2 agent/Envoy",
+      "cases": {
+        "dns-udp": {
+          "passed": true,
+          "name": "cilium-dns-udp",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "dns",
+          "requests": [
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "7f05b9264d20457baf86d19f31b6e203",
+              "at": "2026-10-20T00:51:52.4139955Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:48075",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "e71196d4cc24406783fd1ae955c48b01",
+              "at": "2026-10-20T00:51:56.818896126Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:45655",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "2b7c1468160147bfb4ddd1d01caaed00",
+              "at": "2026-10-20T00:52:01.19029139Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:54916",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 8,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 92.63\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dns-tcp": {
+          "passed": true,
+          "name": "cilium-dns-tcp",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "dns",
+          "requests": [
+            {
+              "protocol": "dns-tcp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "fb85b6e68baf4de79b03b49500f4077c",
+              "at": "2026-10-20T00:52:05.490233715Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:47006",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-tcp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "c1e8e5a426644bbb95cfe4803bef9ee6",
+              "at": "2026-10-20T00:52:09.817740566Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:47018",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-tcp",
+              "target": "api.lab-policy.svc.cluster.local",
+              "nonce": "f54bc4600bca46f5bf13403be537bc49",
+              "at": "2026-10-20T00:52:14.114859128Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:38746",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.20.233"
+              ],
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 23,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 93.73\nConnected Nodes: 10/10\n"
+          }
+        },
+        "api-allowed": {
+          "passed": true,
+          "name": "cilium-api-allowed",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "283e8bb90c234595a5c8966762c9025d",
+              "at": "2026-10-20T00:52:18.295898511Z",
+              "elapsed_ms": 94,
+              "local": "10.244.8.192:46936",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"283e8bb90c234595a5c8966762c9025d\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:46936\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "aa1e0f2b604941f6a5f2c61eb9fddc24",
+              "at": "2026-10-20T00:52:22.616753606Z",
+              "elapsed_ms": 7,
+              "local": "10.244.8.192:34464",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"aa1e0f2b604941f6a5f2c61eb9fddc24\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:34464\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "e386d50dbe884ef484ecc4ce25e6e77b",
+              "at": "2026-10-20T00:52:27.017712421Z",
+              "elapsed_ms": 7,
+              "local": "10.244.8.192:34480",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"e386d50dbe884ef484ecc4ce25e6e77b\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:34480\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 39,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 95.33\nConnected Nodes: 10/10\n"
+          }
+        },
+        "service-allowed": {
+          "passed": true,
+          "name": "cilium-service-allowed",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://192.168.20.233:8080/allowed",
+              "nonce": "76fe45c7cc4b4a39a5d9f6476890bcaa",
+              "at": "2026-10-20T00:52:31.113592299Z",
+              "elapsed_ms": 7,
+              "local": "10.244.8.192:59804",
+              "remote": "192.168.20.233:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"76fe45c7cc4b4a39a5d9f6476890bcaa\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:59804\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://192.168.20.233:8080/allowed",
+              "nonce": "b4d392d426f347a99098f58c26e20fcf",
+              "at": "2026-10-20T00:52:35.513868503Z",
+              "elapsed_ms": 7,
+              "local": "10.244.8.192:44672",
+              "remote": "192.168.20.233:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"b4d392d426f347a99098f58c26e20fcf\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:44672\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://192.168.20.233:8080/allowed",
+              "nonce": "a3dfb2f49a534c0b9faf82c907677bb1",
+              "at": "2026-10-20T00:52:39.893013798Z",
+              "elapsed_ms": 6,
+              "local": "10.244.8.192:44676",
+              "remote": "192.168.20.233:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"a3dfb2f49a534c0b9faf82c907677bb1\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:44676\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 43,
+            "target_ips": [
+              "10.244.9.107",
+              "192.168.20.233"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 96.83\nConnected Nodes: 10/10\n"
+          }
+        },
+        "path-comparison": {
+          "passed": true,
+          "name": "cilium-path-comparison",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 403,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/blocked",
+              "nonce": "51585fcdb5af4c94a4a8cc24afae8935",
+              "at": "2026-10-20T00:52:43.99407769Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:34210",
+              "remote": "10.244.9.107:8080",
+              "status": 403,
+              "rcode": -1,
+              "body": "Access denied\r\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/blocked",
+              "nonce": "a407f056392046e7857f47beaf8185c1",
+              "at": "2026-10-20T00:52:48.318352961Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:34216",
+              "remote": "10.244.9.107:8080",
+              "status": 403,
+              "rcode": -1,
+              "body": "Access denied\r\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/blocked",
+              "nonce": "377ffffc942443f9a0ccec8de2663065",
+              "at": "2026-10-20T00:52:52.612840631Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.192:38792",
+              "remote": "10.244.9.107:8080",
+              "status": 403,
+              "rcode": -1,
+              "body": "Access denied\r\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 3,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.17\nConnected Nodes: 10/10\n"
+          }
+        },
+        "method-comparison": {
+          "passed": true,
+          "name": "cilium-method-comparison",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 403,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "9d0b3fd919e845c29c1f89662d1ee1fc",
+              "at": "2026-10-20T00:52:56.619323969Z",
+              "elapsed_ms": 95,
+              "local": "10.244.8.192:38802",
+              "remote": "10.244.9.107:8080",
+              "status": 403,
+              "rcode": -1,
+              "body": "Access denied\r\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "60b98cbad8eb4459b3a69a4e6502738a",
+              "at": "2026-10-20T00:53:01.013632288Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:38816",
+              "remote": "10.244.9.107:8080",
+              "status": 403,
+              "rcode": -1,
+              "body": "Access denied\r\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "94ecece1fa424d988bf1775e441b1194",
+              "at": "2026-10-20T00:53:05.299962236Z",
+              "elapsed_ms": 93,
+              "local": "10.244.8.192:43252",
+              "remote": "10.244.9.107:8080",
+              "status": 403,
+              "rcode": -1,
+              "body": "Access denied\r\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 3,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.87\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dependency": {
+          "passed": true,
+          "name": "cilium-dependency",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "2f731eb503cd41fab1d3e55ea119bf78",
+              "at": "2026-10-20T00:53:09.518893529Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:40666",
+              "remote": "10.244.8.18:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker01.k8s.internal.egon.top\",\"nonce\":\"2f731eb503cd41fab1d3e55ea119bf78\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:40666\",\"pod\":\"dependency\",\"uid\":\"e57f968d-d1a9-4863-b20f-6d7cde25a865\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "883fdbb9a6b242b7b18de77318a0fd23",
+              "at": "2026-10-20T00:53:13.922007279Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.192:40316",
+              "remote": "10.244.8.18:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker01.k8s.internal.egon.top\",\"nonce\":\"883fdbb9a6b242b7b18de77318a0fd23\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:40316\",\"pod\":\"dependency\",\"uid\":\"e57f968d-d1a9-4863-b20f-6d7cde25a865\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "b834f29ee9794821bff8d3421d8e584d",
+              "at": "2026-10-20T00:53:18.290384026Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.192:40326",
+              "remote": "10.244.8.18:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker01.k8s.internal.egon.top\",\"nonce\":\"b834f29ee9794821bff8d3421d8e584d\",\"path\":\"/allowed\",\"peer\":\"10.244.8.192:40326\",\"pod\":\"dependency\",\"uid\":\"e57f968d-d1a9-4863-b20f-6d7cde25a865\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 18,
+            "target_ips": [
+              "10.244.8.18"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.32\nConnected Nodes: 10/10\n"
+          }
+        },
+        "ingress": {
+          "passed": true,
+          "name": "cilium-ingress",
+          "source_uid": "fad07f6e-a7e0-4d96-831f-38bda8bd6c53",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "e5c44f3f739444c1864092f1c3c038f0",
+              "at": "2026-10-20T00:53:22.251963059Z",
+              "elapsed_ms": 4,
+              "local": "10.244.8.80:43662",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"e5c44f3f739444c1864092f1c3c038f0\",\"path\":\"/allowed\",\"peer\":\"10.244.8.80:43662\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "e97c623e67a041c2b71d0fe25e64abc6",
+              "at": "2026-10-20T00:53:26.652885244Z",
+              "elapsed_ms": 3,
+              "local": "10.244.8.80:43010",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"e97c623e67a041c2b71d0fe25e64abc6\",\"path\":\"/allowed\",\"peer\":\"10.244.8.80:43010\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "cc29d09e756740239bc5cb3da17c4374",
+              "at": "2026-10-20T00:53:30.953401193Z",
+              "elapsed_ms": 93,
+              "local": "10.244.8.80:43014",
+              "remote": "10.244.9.107:8080",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"cc29d09e756740239bc5cb3da17c4374\",\"path\":\"/allowed\",\"peer\":\"10.244.8.80:43014\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 30,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              65437
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.30\nConnected Nodes: 10/10\n"
+          }
+        },
+        "monitor": {
+          "passed": true,
+          "name": "cilium-monitor",
+          "source_uid": "be4b0725-6540-4de5-a30f-d677043d8806",
+          "expected": 200,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "7ef0b1018ea84c578e63f2939b8bc647",
+              "at": "2026-10-20T00:53:34.910058871Z",
+              "elapsed_ms": 70,
+              "local": "10.244.9.230:47970",
+              "remote": "10.244.9.107:9090",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"7ef0b1018ea84c578e63f2939b8bc647\",\"path\":\"/metrics\",\"peer\":\"10.244.9.230:47970\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "35ddfb7ae087471ba6b4239718d83cdc",
+              "at": "2026-10-20T00:53:39.107626737Z",
+              "elapsed_ms": 1,
+              "local": "10.244.9.230:59748",
+              "remote": "10.244.9.107:9090",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"35ddfb7ae087471ba6b4239718d83cdc\",\"path\":\"/metrics\",\"peer\":\"10.244.9.230:59748\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "37b7047babc84a7b867c2243a9c1c043",
+              "at": "2026-10-20T00:53:43.285303502Z",
+              "elapsed_ms": 2,
+              "local": "10.244.9.230:59750",
+              "remote": "10.244.9.107:9090",
+              "status": 200,
+              "rcode": -1,
+              "body": "{\"method\":\"GET\",\"node\":\"worker02.k8s.internal.egon.top\",\"nonce\":\"37b7047babc84a7b867c2243a9c1c043\",\"path\":\"/metrics\",\"peer\":\"10.244.9.230:59750\",\"pod\":\"api\",\"uid\":\"24677ef3-dccb-44e9-8a51-dd97a486b9d6\"}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 18,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              8755
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.42\nConnected Nodes: 10/10\n"
+          }
+        },
+        "outsider-drop": {
+          "passed": true,
+          "name": "cilium-outsider-drop",
+          "source_uid": "30db66e0-c747-4444-b77b-ab734cf1dcb6",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "35e6896260df4cda9f6deee31e7e55c4",
+              "at": "2026-10-20T00:53:47.227385703Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "33b99efae7e446858a65863de0c2edb1",
+              "at": "2026-10-20T00:53:53.194009949Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:8080/allowed",
+              "nonce": "09d0507f3ba5406185b59101f471a3e6",
+              "at": "2026-10-20T00:53:59.226651043Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              20402
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.52\nConnected Nodes: 10/10\n"
+          }
+        },
+        "metrics-drop": {
+          "passed": true,
+          "name": "cilium-metrics-drop",
+          "source_uid": "c57c3175-4a1f-4e12-bd7c-8614a64edd12",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "b04c10a64cc44c17be1c4ad91e4677b5",
+              "at": "2026-10-20T00:54:05.11753704Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:9090/metrics\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "483f1916c1b84cda91baf869274ace05",
+              "at": "2026-10-20T00:54:11.290500047Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:9090/metrics\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.9.107:9090/metrics",
+              "nonce": "dac3f9a89fc9467db0f8022d5fc5e5f9",
+              "at": "2026-10-20T00:54:17.313640282Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.9.107:9090/metrics\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.9.107"
+            ],
+            "workload_identities": [
+              4716
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.17\nConnected Nodes: 10/10\n"
+          }
+        },
+        "dependency-drop": {
+          "passed": true,
+          "name": "cilium-dependency-drop",
+          "source_uid": "fad07f6e-a7e0-4d96-831f-38bda8bd6c53",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "6812f6d370ad414ebe31c1b592777fe1",
+              "at": "2026-10-20T00:54:23.157199818Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.8.18:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "deef341be2424c4cb21cb66eaf16e631",
+              "at": "2026-10-20T00:54:29.15665038Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.8.18:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "http://10.244.8.18:8080/allowed",
+              "nonce": "8f89577641f64d7aabbbe16486e3e6ea",
+              "at": "2026-10-20T00:54:35.246292714Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "Get \"http://10.244.8.18:8080/allowed\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.8.18"
+            ],
+            "workload_identities": [
+              65437
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 96.33\nConnected Nodes: 10/10\n"
+          }
+        },
+        "fqdn-dns": {
+          "passed": true,
+          "name": "cilium-fqdn-dns",
+          "source_uid": "bfed3380-671e-4f1d-9aab-3f7e6dbf0b06",
+          "expected": "dns",
+          "requests": [
+            {
+              "protocol": "dns-udp",
+              "target": "harbor.k8s.internal.egon.top",
+              "nonce": "7668ab653c724ae19a4298739c2de3ad",
+              "at": "2026-10-20T00:54:41.137120125Z",
+              "elapsed_ms": 6,
+              "local": "10.244.8.252:35424",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.9.12"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "harbor.k8s.internal.egon.top",
+              "nonce": "4152eaf1ccba485ca0bcfb28b4090cf1",
+              "at": "2026-10-20T00:54:45.524037333Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.252:56391",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.9.12"
+              ],
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "harbor.k8s.internal.egon.top",
+              "nonce": "d0999ac30238445399ff8560e8f2bc3f",
+              "at": "2026-10-20T00:54:49.843590436Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.252:44235",
+              "remote": "192.168.20.10:53",
+              "rcode": 0,
+              "addresses": [
+                "192.168.9.12"
+              ],
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              46087
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 96.13\nConnected Nodes: 10/10\n"
+          }
+        },
+        "fqdn-harbor": {
+          "passed": true,
+          "name": "cilium-fqdn-harbor",
+          "source_uid": "bfed3380-671e-4f1d-9aab-3f7e6dbf0b06",
+          "expected": 401,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "8639fd553bcc4371a534da3d382f8d7d",
+              "at": "2026-10-20T00:54:54.239032541Z",
+              "elapsed_ms": 307,
+              "local": "10.244.8.252:33148",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "c9dd351168d54e5cbca0a6cb56d6ddcc",
+              "at": "2026-10-20T00:54:58.841022464Z",
+              "elapsed_ms": 301,
+              "local": "10.244.8.252:33160",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "cf648cf9813241799f733f5ae65388ed",
+              "at": "2026-10-20T00:55:03.438318318Z",
+              "elapsed_ms": 294,
+              "local": "10.244.8.252:42618",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.12"
+            ],
+            "workload_identities": [
+              46087
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.38\nConnected Nodes: 10/10\n"
+          }
+        },
+        "fqdn-dns-drop": {
+          "passed": true,
+          "name": "cilium-fqdn-dns-drop",
+          "source_uid": "bfed3380-671e-4f1d-9aab-3f7e6dbf0b06",
+          "expected": "dns-deny",
+          "requests": [
+            {
+              "protocol": "dns-udp",
+              "target": "nexus.svc.internal.egon.top",
+              "nonce": "5dcac4ecb4694c15a80e7ac6af959d3d",
+              "at": "2026-10-20T00:55:07.842335088Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.252:35962",
+              "remote": "192.168.20.10:53",
+              "rcode": 5,
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "nexus.svc.internal.egon.top",
+              "nonce": "e4a2e0d18b2b438ab803dad263e276d6",
+              "at": "2026-10-20T00:55:12.142869989Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.252:56186",
+              "remote": "192.168.20.10:53",
+              "rcode": 5,
+              "timeout": false
+            },
+            {
+              "protocol": "dns-udp",
+              "target": "nexus.svc.internal.egon.top",
+              "nonce": "78995cf9269b441d9835c6d4755ba040",
+              "at": "2026-10-20T00:55:16.247216612Z",
+              "elapsed_ms": 90,
+              "local": "10.244.8.252:48701",
+              "remote": "192.168.20.10:53",
+              "rcode": 5,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 3,
+            "target_ips": [
+              "10.244.8.232",
+              "10.244.9.95",
+              "192.168.20.10"
+            ],
+            "workload_identities": [
+              46087
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.63\nConnected Nodes: 10/10\n"
+          }
+        },
+        "fqdn-ip-drop": {
+          "passed": true,
+          "name": "cilium-fqdn-ip-drop",
+          "source_uid": "bfed3380-671e-4f1d-9aab-3f7e6dbf0b06",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.14:443",
+              "nonce": "e2364dd6fc7c4c6eaf5cc812a5d05f9a",
+              "at": "2026-10-20T00:55:20.725748698Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.14:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.14:443",
+              "nonce": "d7734958dbb9420f87b1fb28980e6087",
+              "at": "2026-10-20T00:55:26.74186727Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.14:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.14:443",
+              "nonce": "270157fa8bac4eeeb58c805e5abeb1fa",
+              "at": "2026-10-20T00:55:32.825905586Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.14:443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "192.168.9.14"
+            ],
+            "workload_identities": [
+              46087
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.02\nConnected Nodes: 10/10\n"
+          }
+        },
+        "fqdn-port-drop": {
+          "passed": true,
+          "name": "cilium-fqdn-port-drop",
+          "source_uid": "bfed3380-671e-4f1d-9aab-3f7e6dbf0b06",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.12:8443",
+              "nonce": "9639406b8c984c6583c77b8c653e7494",
+              "at": "2026-10-20T00:55:38.646172143Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.12:8443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.12:8443",
+              "nonce": "2cc6355268394c12bfcca1c36ff56a39",
+              "at": "2026-10-20T00:55:44.826837765Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.12:8443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.12:8443",
+              "nonce": "d21b903e08e0443a8c24a4a803277d33",
+              "at": "2026-10-20T00:55:50.84322538Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.12:8443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "192.168.9.12"
+            ],
+            "workload_identities": [
+              46087
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.93\nConnected Nodes: 10/10\n"
+          }
+        }
+      },
+      "policies": {
+        "NetworkPolicy/lab-policy/default-deny": {
+          "uid": "9fc65f0d-d4fc-4e2e-bc9c-61280b754967",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-api": {
+          "uid": "92ddb9d8-7ed5-4f06-9628-15097ef73db9",
+          "spec_sha256": "e80477004a4518fde25887f01e1f322ec5ccbce05f4e60baeb70dc71c28780e6"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-client": {
+          "uid": "60176308-7b1b-4a5b-8669-0cf2023d96b4",
+          "spec_sha256": "117daa0d6113c50ffa8a29d40107400305d35ffac4ae691e1f82298842cc9d4b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dependency": {
+          "uid": "48639755-871f-4de0-986a-9076ad20d2fa",
+          "spec_sha256": "3e7283d4728f713c24a125e0670393e9460276fbfe5a9e3651edc3a831a9fab8"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dns": {
+          "uid": "9fb75161-c1e4-4e75-a47b-d81e8b876736",
+          "spec_sha256": "4b6531d148a9387431e3d02493438c9416197433e2663f322166f3773e2fbc1b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-fqdn": {
+          "uid": "30cb25f0-9a71-4200-9cc9-d5c8c7e06910",
+          "spec_sha256": "d06c0e0af88526b741cab52bce8571cfdb1f9b4f28f11b57ec2fb2555e08d13d"
+        },
+        "NetworkPolicy/lab-policy-peer/default-deny": {
+          "uid": "f8ac97f2-6d51-43a2-8152-dd24290f694d",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-ingress": {
+          "uid": "9aeb32c9-a3df-4aef-b76c-82178aadf13d",
+          "spec_sha256": "bcfc127463725eab247763b7d0b8d0a8ab501e635696d637a6b3635ec0f17afb"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-monitor": {
+          "uid": "b348c728-1d20-42e4-be47-41f62d872157",
+          "spec_sha256": "36ce6be99289c0c3202f8efd2798ba7f97d1d08d71a1b1899b34250f35133332"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-outsider": {
+          "uid": "ee86dbb4-709a-4a64-950b-d69ef09afe8f",
+          "spec_sha256": "46932de86f4216a2ba27fa40aa84f600fe73dd2a6a2795d8c72a210a4772e3c1"
+        },
+        "NetworkPolicy/lab-egress/default-deny": {
+          "uid": "593aa651-d4af-46aa-9888-e493cda41456",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        }
+      }
+    },
+    "egress": {
+      "passed": true,
+      "cases": {
+        "harbor": {
+          "passed": true,
+          "name": "egress-harbor",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": 401,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "70e0a68e2a3142bcad839511c8789713",
+              "at": "2026-10-20T00:56:02.630029018Z",
+              "elapsed_ms": 218,
+              "local": "10.244.8.33:47612",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "70ce7d165bca4c509f7777e96e483b97",
+              "at": "2026-10-20T00:56:07.236018143Z",
+              "elapsed_ms": 300,
+              "local": "10.244.8.33:47624",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "5c4ef6a81e914699a63a8d9b9a0e4465",
+              "at": "2026-10-20T00:56:11.832328307Z",
+              "elapsed_ms": 305,
+              "local": "10.244.8.33:47636",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.12"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.03\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-106": {
+          "passed": true,
+          "name": "egress-storage-106",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "3c1c874991384c76adb8cf0e6fea40de",
+              "at": "2026-10-20T00:56:16.33211303Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:54972",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "fe9e7acd0e3f46898f31e9b93f1e784b",
+              "at": "2026-10-20T00:56:20.731641375Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:54976",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "f18c9b9953da4d45a30537a6a8d2b6ee",
+              "at": "2026-10-20T00:56:25.008780204Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:33366",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.106"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.97\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-107": {
+          "passed": true,
+          "name": "egress-storage-107",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "d9535cbe132249fb8b1d18f6865dfdb3",
+              "at": "2026-10-20T00:56:29.210384249Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:34758",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "d63c84b903db42f4bf0abe268d64ca5c",
+              "at": "2026-10-20T00:56:33.532322965Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:53598",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "0432ee9896ae471da1bf858da9400243",
+              "at": "2026-10-20T00:56:37.811020796Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:53600",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.107"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.58\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-108": {
+          "passed": true,
+          "name": "egress-storage-108",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "bea9fabd1dfc49a9968eee49212fdab6",
+              "at": "2026-10-20T00:56:41.931610612Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:36352",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "22d0a258b5cf4412994566f0c5a4212d",
+              "at": "2026-10-20T00:56:46.230137035Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:44986",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "e0fe2c0ad1064fab9ef08d5b9acd3a34",
+              "at": "2026-10-20T00:56:50.609027221Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:44988",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.108"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.75\nConnected Nodes: 10/10\n"
+          }
+        },
+        "proxy": {
+          "passed": true,
+          "name": "egress-proxy",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": 204,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "c2de98af6ba64541bf6f2a24f9b7c87f",
+              "at": "2026-10-20T00:56:54.833905518Z",
+              "elapsed_ms": 471,
+              "local": "10.244.8.33:35426",
+              "remote": "192.168.9.10:7890",
+              "status": 204,
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "2ff913672e954363af5aa6bf93f395a7",
+              "at": "2026-10-20T00:56:59.732387557Z",
+              "elapsed_ms": 473,
+              "local": "10.244.8.33:35438",
+              "remote": "192.168.9.10:7890",
+              "status": 204,
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "492801c7a8704ab19be7aa31d9983791",
+              "at": "2026-10-20T00:57:04.539995525Z",
+              "elapsed_ms": 561,
+              "local": "10.244.8.33:40200",
+              "remote": "192.168.9.10:7890",
+              "status": 204,
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 24,
+            "target_ips": [
+              "192.168.9.10"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.98\nConnected Nodes: 10/10\n"
+          }
+        },
+        "no-direct-fallback": {
+          "passed": true,
+          "name": "egress-direct-drop",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "000a8459f18c4ebfabc93a483430bb24",
+              "at": "2026-10-20T00:57:09.233427268Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "c97c4957d7c944a79c74a7db1a59e406",
+              "at": "2026-10-20T00:57:15.407335404Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "9bcbd36cf3444fc0bfae23db1c433983",
+              "at": "2026-10-20T00:57:21.533091029Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "1.1.1.1"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 96.17\nConnected Nodes: 10/10\n"
+          }
+        },
+        "api-drop": {
+          "passed": true,
+          "name": "egress-api-drop",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "453b01f1f04a426faaa3a05c9acfa9c3",
+              "at": "2026-10-20T00:57:27.336268278Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "ce8a654eff9b4cfa9a34768d9432d4cc",
+              "at": "2026-10-20T00:57:33.531965389Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "448d4f7ee5df472ab37a23f0afe5e9f6",
+              "at": "2026-10-20T00:57:39.731329889Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "192.168.9.101"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 94.67\nConnected Nodes: 10/10\n"
+          }
+        }
+      },
+      "wire": {
+        "harbor": {
+          "passed": true,
+          "pod_ip": "10.244.8.33",
+          "pod_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "node_ip": "192.168.9.109",
+          "wire_source": "192.168.9.109",
+          "snat": true,
+          "capture_vm": "192.168.9.12",
+          "destination": "192.168.9.12",
+          "port": 443,
+          "socket": "10.244.8.33:47990",
+          "return_route": [
+            {
+              "dst": "192.168.9.109",
+              "dev": "ens33",
+              "prefsrc": "192.168.9.12",
+              "flags": [],
+              "uid": 0,
+              "cache": []
+            }
+          ],
+          "capture_interface": "ens33",
+          "capture_scope": "目标 VM 内核在 ens33 收到的 SYN"
+        },
+        "storage-106": {
+          "passed": true,
+          "pod_ip": "10.244.8.33",
+          "pod_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "node_ip": "192.168.9.109",
+          "wire_source": "192.168.9.109",
+          "snat": true,
+          "capture_vm": "192.168.9.106",
+          "destination": "192.168.9.106",
+          "port": 10250,
+          "socket": "10.244.8.33:37348",
+          "return_route": [
+            {
+              "dst": "192.168.9.109",
+              "dev": "ens33",
+              "prefsrc": "192.168.9.106",
+              "flags": [],
+              "uid": 0,
+              "cache": []
+            }
+          ],
+          "capture_interface": "any",
+          "capture_scope": "目标 VM 内核在 any 收到的 SYN"
+        },
+        "storage-107": {
+          "passed": true,
+          "pod_ip": "10.244.8.33",
+          "pod_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "node_ip": "192.168.9.109",
+          "wire_source": "192.168.9.109",
+          "snat": true,
+          "capture_vm": "192.168.9.107",
+          "destination": "192.168.9.107",
+          "port": 10250,
+          "socket": "10.244.8.33:49950",
+          "return_route": [
+            {
+              "dst": "192.168.9.109",
+              "dev": "ens33",
+              "prefsrc": "192.168.9.107",
+              "flags": [],
+              "uid": 0,
+              "cache": []
+            }
+          ],
+          "capture_interface": "any",
+          "capture_scope": "目标 VM 内核在 any 收到的 SYN"
+        },
+        "storage-108": {
+          "passed": true,
+          "pod_ip": "10.244.8.33",
+          "pod_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "node_ip": "192.168.9.109",
+          "wire_source": "192.168.9.109",
+          "snat": true,
+          "capture_vm": "192.168.9.108",
+          "destination": "192.168.9.108",
+          "port": 10250,
+          "socket": "10.244.8.33:56182",
+          "return_route": [
+            {
+              "dst": "192.168.9.109",
+              "dev": "ens33",
+              "prefsrc": "192.168.9.108",
+              "flags": [],
+              "uid": 0,
+              "cache": []
+            }
+          ],
+          "capture_interface": "any",
+          "capture_scope": "目标 VM 内核在 any 收到的 SYN"
+        },
+        "proxy": {
+          "passed": true,
+          "pod_ip": "10.244.8.33",
+          "pod_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "node_ip": "192.168.9.109",
+          "wire_source": "192.168.9.109",
+          "snat": true,
+          "capture_vm": "192.168.9.109",
+          "destination": "192.168.9.10",
+          "port": 7890,
+          "socket": "10.244.8.33:49130",
+          "return_route": [
+            {
+              "type": "local",
+              "dst": "192.168.9.109",
+              "dev": "lo",
+              "table": "local",
+              "prefsrc": "192.168.9.109",
+              "flags": [],
+              "uid": 0,
+              "cache": [
+                "local"
+              ]
+            }
+          ],
+          "capture_interface": "ens33",
+          "capture_scope": "worker ens33 上的出站 SYN"
+        }
+      },
+      "policies": {
+        "NetworkPolicy/lab-policy/default-deny": {
+          "uid": "9fc65f0d-d4fc-4e2e-bc9c-61280b754967",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-api": {
+          "uid": "92ddb9d8-7ed5-4f06-9628-15097ef73db9",
+          "spec_sha256": "e80477004a4518fde25887f01e1f322ec5ccbce05f4e60baeb70dc71c28780e6"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-client": {
+          "uid": "60176308-7b1b-4a5b-8669-0cf2023d96b4",
+          "spec_sha256": "117daa0d6113c50ffa8a29d40107400305d35ffac4ae691e1f82298842cc9d4b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dependency": {
+          "uid": "48639755-871f-4de0-986a-9076ad20d2fa",
+          "spec_sha256": "3e7283d4728f713c24a125e0670393e9460276fbfe5a9e3651edc3a831a9fab8"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dns": {
+          "uid": "9fb75161-c1e4-4e75-a47b-d81e8b876736",
+          "spec_sha256": "4b6531d148a9387431e3d02493438c9416197433e2663f322166f3773e2fbc1b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-fqdn": {
+          "uid": "30cb25f0-9a71-4200-9cc9-d5c8c7e06910",
+          "spec_sha256": "d06c0e0af88526b741cab52bce8571cfdb1f9b4f28f11b57ec2fb2555e08d13d"
+        },
+        "NetworkPolicy/lab-policy-peer/default-deny": {
+          "uid": "f8ac97f2-6d51-43a2-8152-dd24290f694d",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-ingress": {
+          "uid": "9aeb32c9-a3df-4aef-b76c-82178aadf13d",
+          "spec_sha256": "bcfc127463725eab247763b7d0b8d0a8ab501e635696d637a6b3635ec0f17afb"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-monitor": {
+          "uid": "b348c728-1d20-42e4-be47-41f62d872157",
+          "spec_sha256": "36ce6be99289c0c3202f8efd2798ba7f97d1d08d71a1b1899b34250f35133332"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-outsider": {
+          "uid": "ee86dbb4-709a-4a64-950b-d69ef09afe8f",
+          "spec_sha256": "46932de86f4216a2ba27fa40aa84f600fe73dd2a6a2795d8c72a210a4772e3c1"
+        },
+        "NetworkPolicy/lab-egress/default-deny": {
+          "uid": "593aa651-d4af-46aa-9888-e493cda41456",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-egress/internal-and-proxy": {
+          "uid": "26856197-a0f0-4e5b-bfee-e3ccf07ae02f",
+          "spec_sha256": "2b1e9518fd9de4bcef21dc3d2e2e2f1f7f2dc792def03992296285961f13504d"
+        }
+      },
+      "ceph_service_status": "BLOCKED",
+      "fault_scope": "只对 lab-egress 探测 Pod 拒绝代理 TCP；不是切断真实 VPN",
+      "public_source_ip_verified": false
+    },
+    "proxy-unreachable": {
+      "passed": true,
+      "cases": {
+        "harbor": {
+          "passed": true,
+          "name": "proxy-unreachable-harbor",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": 401,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "66b9f95139ba46dbbb68487144f41318",
+              "at": "2026-10-20T00:58:44.334762988Z",
+              "elapsed_ms": 302,
+              "local": "10.244.8.33:48968",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "4d793c78f1eb4bd580ef2510fd3cda3f",
+              "at": "2026-10-20T00:58:48.909966385Z",
+              "elapsed_ms": 304,
+              "local": "10.244.8.33:48984",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "28796991d7884529a10e27f1d28018c4",
+              "at": "2026-10-20T00:58:53.437156836Z",
+              "elapsed_ms": 305,
+              "local": "10.244.8.33:40830",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.12"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.38\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-106": {
+          "passed": true,
+          "name": "proxy-unreachable-storage-106",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "879f9cccffe543afa0fcafe3c71b17ab",
+              "at": "2026-10-20T00:58:57.836006805Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:47010",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "14c2022a3ce942c88cc5b24925b2e185",
+              "at": "2026-10-20T00:59:02.108008226Z",
+              "elapsed_ms": 22,
+              "local": "10.244.8.33:47018",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "0c0185d18e4f4215a9eda9f724c0d7b1",
+              "at": "2026-10-20T00:59:06.50765601Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:52968",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.106"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.58\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-107": {
+          "passed": true,
+          "name": "proxy-unreachable-storage-107",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "3dcde443589f419ea75fa92caa95b8e2",
+              "at": "2026-10-20T00:59:10.636190759Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:39414",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "aeed8d1a05b04df1b32258f28baa069e",
+              "at": "2026-10-20T00:59:14.931341443Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:45696",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "b654a305c5ff4421947c17d105c6251c",
+              "at": "2026-10-20T00:59:19.232254575Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:45710",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.107"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 99.62\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-108": {
+          "passed": true,
+          "name": "proxy-unreachable-storage-108",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "6fbfbbe5ce594a2fa8b7c0b937778345",
+              "at": "2026-10-20T00:59:23.531064622Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:47398",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "7294e32063c6430bad6305094c24563b",
+              "at": "2026-10-20T00:59:27.807968758Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:47412",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "728a52c10ddc4dc5a55d27fc250ae5b7",
+              "at": "2026-10-20T00:59:32.135368576Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:47422",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.108"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 100.57\nConnected Nodes: 10/10\n"
+          }
+        },
+        "proxy": {
+          "passed": true,
+          "name": "proxy-unreachable-proxy",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "5a6aee2a4bed43c2935e56406e9f9f37",
+              "at": "2026-10-20T00:59:36.335720357Z",
+              "elapsed_ms": 2001,
+              "rcode": -1,
+              "error": "Get \"https://www.google.com/generate_204\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "45392e06a807424fb46faf0957a42574",
+              "at": "2026-10-20T00:59:42.710573593Z",
+              "elapsed_ms": 2000,
+              "rcode": -1,
+              "error": "Get \"https://www.google.com/generate_204\": context deadline exceeded",
+              "timeout": true
+            },
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "75a9941db96f4317b6b0463e3c5db8eb",
+              "at": "2026-10-20T00:59:48.936820268Z",
+              "elapsed_ms": 2001,
+              "rcode": -1,
+              "error": "Get \"https://www.google.com/generate_204\": context deadline exceeded",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "192.168.9.10"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.02\nConnected Nodes: 10/10\n"
+          }
+        },
+        "no-direct-fallback": {
+          "passed": true,
+          "name": "proxy-unreachable-direct-drop",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "0fa6887695cb42d4aa54d55047ab1cb3",
+              "at": "2026-10-20T00:59:55.036553136Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "14992ebd589f408c8e2472e5024bd63f",
+              "at": "2026-10-20T01:00:01.110784296Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "320b0637ca4a4ea0992a470fdccd6738",
+              "at": "2026-10-20T01:00:07.333190139Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "1.1.1.1"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 95.77\nConnected Nodes: 10/10\n"
+          }
+        },
+        "api-drop": {
+          "passed": true,
+          "name": "proxy-unreachable-api-drop",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "7af7e47ba81e40f0bc75726878595884",
+              "at": "2026-10-20T01:00:13.337695869Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "e25372acae1249448d1f7b8cea4a4a7e",
+              "at": "2026-10-20T01:00:19.436143685Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "e007f42be99f4ec4bd0716c977be3455",
+              "at": "2026-10-20T01:00:25.708130483Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "192.168.9.101"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 94.53\nConnected Nodes: 10/10\n"
+          }
+        }
+      },
+      "wire": {},
+      "policies": {
+        "NetworkPolicy/lab-policy/default-deny": {
+          "uid": "9fc65f0d-d4fc-4e2e-bc9c-61280b754967",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-api": {
+          "uid": "92ddb9d8-7ed5-4f06-9628-15097ef73db9",
+          "spec_sha256": "e80477004a4518fde25887f01e1f322ec5ccbce05f4e60baeb70dc71c28780e6"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-client": {
+          "uid": "60176308-7b1b-4a5b-8669-0cf2023d96b4",
+          "spec_sha256": "117daa0d6113c50ffa8a29d40107400305d35ffac4ae691e1f82298842cc9d4b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dependency": {
+          "uid": "48639755-871f-4de0-986a-9076ad20d2fa",
+          "spec_sha256": "3e7283d4728f713c24a125e0670393e9460276fbfe5a9e3651edc3a831a9fab8"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dns": {
+          "uid": "9fb75161-c1e4-4e75-a47b-d81e8b876736",
+          "spec_sha256": "4b6531d148a9387431e3d02493438c9416197433e2663f322166f3773e2fbc1b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-fqdn": {
+          "uid": "30cb25f0-9a71-4200-9cc9-d5c8c7e06910",
+          "spec_sha256": "d06c0e0af88526b741cab52bce8571cfdb1f9b4f28f11b57ec2fb2555e08d13d"
+        },
+        "NetworkPolicy/lab-policy-peer/default-deny": {
+          "uid": "f8ac97f2-6d51-43a2-8152-dd24290f694d",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-ingress": {
+          "uid": "9aeb32c9-a3df-4aef-b76c-82178aadf13d",
+          "spec_sha256": "bcfc127463725eab247763b7d0b8d0a8ab501e635696d637a6b3635ec0f17afb"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-monitor": {
+          "uid": "b348c728-1d20-42e4-be47-41f62d872157",
+          "spec_sha256": "36ce6be99289c0c3202f8efd2798ba7f97d1d08d71a1b1899b34250f35133332"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-outsider": {
+          "uid": "ee86dbb4-709a-4a64-950b-d69ef09afe8f",
+          "spec_sha256": "46932de86f4216a2ba27fa40aa84f600fe73dd2a6a2795d8c72a210a4772e3c1"
+        },
+        "NetworkPolicy/lab-egress/default-deny": {
+          "uid": "593aa651-d4af-46aa-9888-e493cda41456",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-egress/internal-and-proxy": {
+          "uid": "26856197-a0f0-4e5b-bfee-e3ccf07ae02f",
+          "spec_sha256": "2b1e9518fd9de4bcef21dc3d2e2e2f1f7f2dc792def03992296285961f13504d"
+        },
+        "CiliumNetworkPolicy/lab-egress/proxy-unreachable": {
+          "uid": "59300f11-5a2b-41fc-acbc-7c66be474eb1",
+          "spec_sha256": "b2fa551b686f6f3ba074d2af75e8f840317c75816c9985c2866ca5ee3448083d"
+        }
+      },
+      "ceph_service_status": "BLOCKED",
+      "fault_scope": "只对 lab-egress 探测 Pod 拒绝代理 TCP；不是切断真实 VPN",
+      "public_source_ip_verified": false
+    },
+    "proxy-restored": {
+      "passed": true,
+      "cases": {
+        "harbor": {
+          "passed": true,
+          "name": "proxy-restored-harbor",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": 401,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "b44ac6e2bff4423985e043cf8cf5f99a",
+              "at": "2026-10-20T01:00:36.030493699Z",
+              "elapsed_ms": 308,
+              "local": "10.244.8.33:36614",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "b5d835da53bb475ba1496541125b92ff",
+              "at": "2026-10-20T01:00:40.806341175Z",
+              "elapsed_ms": 298,
+              "local": "10.244.8.33:36626",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://harbor.k8s.internal.egon.top/v2/",
+              "nonce": "31957e18ad454d57af0c3150588fbf2f",
+              "at": "2026-10-20T01:00:45.433591798Z",
+              "elapsed_ms": 306,
+              "local": "10.244.8.33:42420",
+              "remote": "192.168.9.12:443",
+              "status": 401,
+              "rcode": -1,
+              "body": "{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized: unauthorized\"}]}\n",
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.12"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.48\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-106": {
+          "passed": true,
+          "name": "proxy-restored-storage-106",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "a5453712453a48d686469ecf880921d1",
+              "at": "2026-10-20T01:00:49.832537715Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:39908",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "4746f2832d1f4ac29927262d1c7ec0e5",
+              "at": "2026-10-20T01:00:54.131929699Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.33:44396",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.106:10250",
+              "nonce": "1999ca9a23c9452384466239ce80bc11",
+              "at": "2026-10-20T01:00:58.336381107Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:44402",
+              "remote": "192.168.9.106:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.106"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.87\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-107": {
+          "passed": true,
+          "name": "proxy-restored-storage-107",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "26de83e462a64181855b2860fe05d91c",
+              "at": "2026-10-20T01:01:02.507061365Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:33958",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "29e29d7378ee49a0b07ca440a5d8cff6",
+              "at": "2026-10-20T01:01:06.830373334Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:33960",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.107:10250",
+              "nonce": "d2fcca4063244f8e9f7a3c07bcbff214",
+              "at": "2026-10-20T01:01:11.131796066Z",
+              "elapsed_ms": 2,
+              "local": "10.244.8.33:33966",
+              "remote": "192.168.9.107:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.107"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.30\nConnected Nodes: 10/10\n"
+          }
+        },
+        "storage-108": {
+          "passed": true,
+          "name": "proxy-restored-storage-108",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "tcp",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "29aabd2207bb4393b8dc1ab448fe2ad2",
+              "at": "2026-10-20T01:01:15.236422834Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:47744",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "aa60d2aa1c114bd88c436c75118e696c",
+              "at": "2026-10-20T01:01:19.630230469Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:47748",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.108:10250",
+              "nonce": "fbe3c0054b384692a645abaa2342485c",
+              "at": "2026-10-20T01:01:23.943391585Z",
+              "elapsed_ms": 1,
+              "local": "10.244.8.33:44280",
+              "remote": "192.168.9.108:10250",
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 15,
+            "target_ips": [
+              "192.168.9.108"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 98.82\nConnected Nodes: 10/10\n"
+          }
+        },
+        "proxy": {
+          "passed": true,
+          "name": "proxy-restored-proxy",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": 204,
+          "requests": [
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "c7fc02abc1eb4db5a1d23fd8d2735912",
+              "at": "2026-10-20T01:01:28.039403338Z",
+              "elapsed_ms": 463,
+              "local": "10.244.8.33:38038",
+              "remote": "192.168.9.10:7890",
+              "status": 204,
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "4e84ae2c99e347a9b997c62ada7485c7",
+              "at": "2026-10-20T01:01:32.836043165Z",
+              "elapsed_ms": 474,
+              "local": "10.244.8.33:45152",
+              "remote": "192.168.9.10:7890",
+              "status": 204,
+              "rcode": -1,
+              "timeout": false
+            },
+            {
+              "protocol": "http",
+              "target": "https://www.google.com/generate_204",
+              "nonce": "75913350eb6c44e385a838e9ba0c2e27",
+              "at": "2026-10-20T01:01:37.533724023Z",
+              "elapsed_ms": 478,
+              "local": "10.244.8.33:45164",
+              "remote": "192.168.9.10:7890",
+              "status": 204,
+              "rcode": -1,
+              "timeout": false
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 24,
+            "target_ips": [
+              "192.168.9.10"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 97.95\nConnected Nodes: 10/10\n"
+          }
+        },
+        "no-direct-fallback": {
+          "passed": true,
+          "name": "proxy-restored-direct-drop",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "e93b8ae9d48c4ba686a9ca0f9f1e9e6c",
+              "at": "2026-10-20T01:01:42.031237386Z",
+              "elapsed_ms": 1802,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "82c173b79b9641a6979058c70b20765c",
+              "at": "2026-10-20T01:01:48.131803753Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "1.1.1.1:443",
+              "nonce": "a2fed7817f94470782a258eecabd1393",
+              "at": "2026-10-20T01:01:54.237566574Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 1.1.1.1:443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "1.1.1.1"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 95.68\nConnected Nodes: 10/10\n"
+          }
+        },
+        "api-drop": {
+          "passed": true,
+          "name": "proxy-restored-api-drop",
+          "source_uid": "fde6e7af-6299-4533-bff2-8d917c66f9c0",
+          "expected": "drop",
+          "requests": [
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "efda08079dcc4ac7b504a59d27450c7e",
+              "at": "2026-10-20T01:02:00.136377876Z",
+              "elapsed_ms": 1801,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "ce2a2ebed587429f84b984cc7ec7c1c1",
+              "at": "2026-10-20T01:02:06.236017371Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            },
+            {
+              "protocol": "tcp",
+              "target": "192.168.9.101:6443",
+              "nonce": "6135bfe3326744fd9e769f4acb4733e8",
+              "at": "2026-10-20T01:02:12.536860103Z",
+              "elapsed_ms": 1800,
+              "rcode": -1,
+              "error": "dial tcp4 192.168.9.101:6443: i/o timeout",
+              "timeout": true
+            }
+          ],
+          "flow": {
+            "passed": true,
+            "matching_flows": 12,
+            "target_ips": [
+              "192.168.9.101"
+            ],
+            "workload_identities": [
+              59610
+            ],
+            "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 94.95\nConnected Nodes: 10/10\n"
+          }
+        }
+      },
+      "wire": {},
+      "policies": {
+        "NetworkPolicy/lab-policy/default-deny": {
+          "uid": "9fc65f0d-d4fc-4e2e-bc9c-61280b754967",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-api": {
+          "uid": "92ddb9d8-7ed5-4f06-9628-15097ef73db9",
+          "spec_sha256": "e80477004a4518fde25887f01e1f322ec5ccbce05f4e60baeb70dc71c28780e6"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-client": {
+          "uid": "60176308-7b1b-4a5b-8669-0cf2023d96b4",
+          "spec_sha256": "117daa0d6113c50ffa8a29d40107400305d35ffac4ae691e1f82298842cc9d4b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dependency": {
+          "uid": "48639755-871f-4de0-986a-9076ad20d2fa",
+          "spec_sha256": "3e7283d4728f713c24a125e0670393e9460276fbfe5a9e3651edc3a831a9fab8"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-dns": {
+          "uid": "9fb75161-c1e4-4e75-a47b-d81e8b876736",
+          "spec_sha256": "4b6531d148a9387431e3d02493438c9416197433e2663f322166f3773e2fbc1b"
+        },
+        "CiliumNetworkPolicy/lab-policy/cilium-fqdn": {
+          "uid": "30cb25f0-9a71-4200-9cc9-d5c8c7e06910",
+          "spec_sha256": "d06c0e0af88526b741cab52bce8571cfdb1f9b4f28f11b57ec2fb2555e08d13d"
+        },
+        "NetworkPolicy/lab-policy-peer/default-deny": {
+          "uid": "f8ac97f2-6d51-43a2-8152-dd24290f694d",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-ingress": {
+          "uid": "9aeb32c9-a3df-4aef-b76c-82178aadf13d",
+          "spec_sha256": "bcfc127463725eab247763b7d0b8d0a8ab501e635696d637a6b3635ec0f17afb"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-monitor": {
+          "uid": "b348c728-1d20-42e4-be47-41f62d872157",
+          "spec_sha256": "36ce6be99289c0c3202f8efd2798ba7f97d1d08d71a1b1899b34250f35133332"
+        },
+        "CiliumNetworkPolicy/lab-policy-peer/cilium-outsider": {
+          "uid": "ee86dbb4-709a-4a64-950b-d69ef09afe8f",
+          "spec_sha256": "46932de86f4216a2ba27fa40aa84f600fe73dd2a6a2795d8c72a210a4772e3c1"
+        },
+        "NetworkPolicy/lab-egress/default-deny": {
+          "uid": "593aa651-d4af-46aa-9888-e493cda41456",
+          "spec_sha256": "79558fd7757e83a7e26bf87d1840b7c975e8571d0e2a458ed61e159d9d578d27"
+        },
+        "CiliumNetworkPolicy/lab-egress/internal-and-proxy": {
+          "uid": "26856197-a0f0-4e5b-bfee-e3ccf07ae02f",
+          "spec_sha256": "2b1e9518fd9de4bcef21dc3d2e2e2f1f7f2dc792def03992296285961f13504d"
+        }
+      },
+      "ceph_service_status": "BLOCKED",
+      "fault_scope": "只对 lab-egress 探测 Pod 拒绝代理 TCP；不是切断真实 VPN",
+      "public_source_ip_verified": false
+    }
+  },
+  "egress_gateway": {
+    "status": "BLOCKED",
+    "passed": false,
+    "phase_complete": false,
+    "observed": {
+      "kube-proxy-replacement": "false",
+      "enable-bpf-masquerade": "false",
+      "enable-egress-gateway": "false",
+      "enable-l7-proxy": "true"
+    },
+    "missing": {
+      "kube-proxy-replacement": {
+        "required": "true",
+        "observed": "false"
+      },
+      "enable-bpf-masquerade": {
+        "required": "true",
+        "observed": "false"
+      },
+      "enable-egress-gateway": {
+        "required": "true",
+        "observed": "false"
+      }
+    },
+    "crd_installed": false,
+    "reason": "当前主集群保留 kube-proxy；本轮不切换全局 CNI，不改 VM 默认路由，不中断既有 OpenWrt 代理。",
+    "not_executed": [
+      "未安装 CRD 的实例准入",
+      "指定出口 SNAT 验收",
+      "OpenWrt 策略路由联动",
+      "真实 VPN 中断",
+      "出口 VM 故障与会话漂移"
+    ]
+  },
+  "public_source_ip_verified": false
+}

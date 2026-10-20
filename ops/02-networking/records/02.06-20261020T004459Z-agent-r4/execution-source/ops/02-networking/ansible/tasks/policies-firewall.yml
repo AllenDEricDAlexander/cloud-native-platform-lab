@@ -1,0 +1,16 @@
+---
+- name: 为本批透明 HTTP 和 DNS 代理记录精确规则与 VM 原始基线
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', firewall-plan, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/firewall-plan.json']
+  changed_when: false
+  register: pol_firewall
+- name: 仅即时放行本批 Pod 与对端的 HTTP DNS 正反向元组，一小时自动失效
+  ansible.builtin.command:
+    argv: '{{ item.argv }}'
+  loop: '{{ (pol_firewall.stdout | from_json).objects }}'
+  loop_control: {label: '{{ item.rule }}'}
+  changed_when: true
+- name: 核验代理即时规则和原有永久规则
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', firewall-verify, --records, '{{ pol_records }}', --output, '{{ pol_attempt }}/firewall-active.json']
+  changed_when: false

@@ -1,0 +1,5 @@
+---
+- name: 验证 {{ pol_case }} 的连续三次实际行为、Hubble 与身份
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', '{{ "egress" if pol_case in ["egress","proxy-unreachable","proxy-restored"] else "matrix" }}', --case, '{{ pol_case }}', --records, '{{ pol_records }}', --attempt, '{{ pol_attempt }}', --output, '{{ pol_attempt }}/{{ pol_case }}.json']
+  changed_when: false

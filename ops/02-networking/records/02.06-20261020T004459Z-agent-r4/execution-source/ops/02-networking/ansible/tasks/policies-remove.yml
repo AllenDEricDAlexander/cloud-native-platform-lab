@@ -1,0 +1,18 @@
+---
+- name: 根据原 UID 生成策略删除计划
+  ansible.builtin.command:
+    argv: ['{{ pol_python }}', '{{ pol_check }}', delete-plan, --records, '{{ pol_records }}', --manifest, '{{ pol_attempt }}/{{ pol_manifest }}.yaml', --output, '{{ pol_attempt }}/remove-{{ pol_manifest }}.json']
+  changed_when: false
+  register: pol_remove
+- name: 使用 API UID 前置条件删除本批策略
+  ansible.builtin.command:
+    argv: '{{ pol_k + ["delete","--raw",item.url,"-f",item.body] }}'
+  loop: '{{ (pol_remove.stdout | from_json).objects }}'
+  loop_control: {label: '{{ item.key }}'}
+  changed_when: true
+- name: 等待原策略删除完成，避免前后台策略短暂叠加
+  ansible.builtin.command:
+    argv: '{{ pol_k + ["wait","--for=delete",item.key.split("/")[0] ~ "/" ~ item.key.split("/")[2],"-n",item.key.split("/")[1],"--timeout=60s"] }}'
+  loop: '{{ (pol_remove.stdout | from_json).objects }}'
+  loop_control: {label: '{{ item.key }}'}
+  changed_when: false

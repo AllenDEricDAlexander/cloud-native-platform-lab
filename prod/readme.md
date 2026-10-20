@@ -173,6 +173,8 @@ DNF/RPM 软件源、Nexus 与其 PostgreSQL 数据库共用 nexus VM，目录、
 
 第 3–5.6 使用正式 Shell 完成引导，5.7 从内网 RPM 安装 Ansible / Helm / kubectl，5.8 起由 admin 的 Ansible 编排部署、Shell 完成专用操作。脚本与实际配置随文档交付，不提供 example、自定义 Python 或 Jinja 模板。详细命令、配置、执行位置及逐步验收见 [01 准备阶段部署手册](01-preparation.md)。起点是已安装干净 Rocky Linux 10.2 的 `rocky-base`，先准备模板，再准备 admin，最终交付 18 台 Rocky 与 1 台 OpenWrt。模板不配置免密登录、不包含角色服务或秘密；本章步骤均待人工审查后执行。
 
+01 文档的 Shell、Ansible、配置与静态清单统一放在 [01ops/](01ops/)，admin 上的代码目录为 `/srv/cnpl/configuration/01ops/`。后续 02、03 文档分别使用 `02ops/`、`03ops/`，各自保存配套文件。
+
 OpenWrt 就绪后，管理路径收紧为 **Mac → admin → 其他受管主机**。Ansible、Helm、kubectl、部署密钥和受控配置位于 admin；Mac 的个人密钥只用于 admin。新 Rocky 先用密码修改主机信息，再由 admin 使用 `ssh-copy-id` 配置公钥，验证成功后收紧认证与来源。vSphere 的创建、克隆、加盘、上传与开关机全部由人工通过 Web 控制台完成。
 
 dns、dns02、Harbor、GitLab、Nexus 在各自部署前配置 `192.168.9.10:7890` 显式出网代理，逐台通过 Google HTTPS 验收；内网服务保持直连。主机工具、DNF 与各应用进程分别配置代理，五台服务 VM 的出网授权在私服建成后继续保留。

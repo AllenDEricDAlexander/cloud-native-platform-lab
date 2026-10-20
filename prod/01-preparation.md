@@ -653,17 +653,30 @@ scp "$HOME/Downloads/cnpl-prod-seed/mihomo/mihomo-linux-amd64-compatible-v1.19.3
 
 本章至 5.6 使用 Shell，5.7 才安装 Ansible / Helm / kubectl；5.8 起由 admin 的 Ansible 编排。文件均为正式 `.sh`、`.yml` 和实际配置，不提供 example 文件、自定义 Python 或 Jinja 模板。脚本只执行当前指定步骤，没有贯穿 3–10 的自动部署入口。
 
+本手册配套文件统一放在 [01ops/](01ops/)，按文档编号独立管理；后续 02、03 文档分别使用 `02ops/`、`03ops/`。当前目录如下：
+
+```text
+prod/
+├── readme.md
+├── 01-preparation.md
+└── 01ops/
+    ├── scripts/    # Shell 入口、引导与专用操作
+    ├── ansible/    # Playbook、任务与受管脚本
+    ├── config/     # 服务实际配置
+    └── inputs/     # 静态主机清单、Ansible 配置与磁盘预算
+```
+
 **位置：Mac，本项目目录。** 先把已审核文件传给 admin；Mac 不连接其他 VM：
 
 ```bash
-ssh cnpl-admin 'mkdir -p /srv/cnpl/configuration'
-rsync -a prod/ cnpl-admin:/srv/cnpl/configuration/
+ssh cnpl-admin 'mkdir -p /srv/cnpl/configuration/01ops'
+rsync -a prod/01ops/ cnpl-admin:/srv/cnpl/configuration/01ops/
 ```
 
 **位置：admin，ops。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh base
 umask 077
 mkdir -p "$HOME/.ssh"
@@ -684,29 +697,29 @@ scp -O scripts/bootstrap/03-openwrt.sh root@192.168.9.10:/tmp/cnpl-openwrt.sh
 ssh root@192.168.9.10 'CNPL_SSH_KEY_VERIFIED=yes sh /tmp/cnpl-openwrt.sh lock'
 ```
 
-[03-openwrt.sh](scripts/bootstrap/03-openwrt.sh) 自动找到 lan zone，建立 admin SSH / 代理白名单，确认公钥已验证后关闭 Dropbear 密码认证。它不修改已购订阅、Mihomo 配置和 procd 服务。重新从 admin 建立 SSH 并复验代理后，结束 Mac → OpenWrt 会话。
+[03-openwrt.sh](01ops/scripts/bootstrap/03-openwrt.sh) 自动找到 lan zone，建立 admin SSH / 代理白名单，确认公钥已验证后关闭 Dropbear 密码认证。它不修改已购订阅、Mihomo 配置和 procd 服务。重新从 admin 建立 SSH 并复验代理后，结束 Mac → OpenWrt 会话。
 
 **位置：admin，root。** 从已验证的 Mac 公钥会话 `sudo -i`，执行：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 CNPL_SSH_KEY_VERIFIED=yes bash scripts/bootstrap/03-management.sh lock-ssh
 ```
 
-[sshd-auth.conf](config/sshd-auth.conf) 关闭 root / 密码登录和转发；独立 users 文件限制 admin 的 ops 来源为 Mac `.200`。脚本保留发行版主配置和已有 authorized_keys。另开 Mac 终端执行 `ssh cnpl-admin`，必须成功；保留 Web 控制台恢复入口。此后 Mac 唯一的 VM SSH 目标为 admin。
+[sshd-auth.conf](01ops/config/sshd-auth.conf) 关闭 root / 密码登录和转发；独立 users 文件限制 admin 的 ops 来源为 Mac `.200`。脚本保留发行版主配置和已有 authorized_keys。另开 Mac 终端执行 `ssh cnpl-admin`，必须成功；保留 Web 控制台恢复入口。此后 Mac 唯一的 VM SSH 目标为 admin。
 
 ### 3.2 配置 admin 引导软件源与基础命令
 
 **位置：admin，root。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/bootstrap/03-management.sh admin-tools
 bash scripts/bootstrap/03-management.sh proxy
 bash scripts/bootstrap/03-management.sh proxy-check
 ```
 
-安装范围为 DNF 插件、OpenSSL、dig、GPG、jq；通过已验收的 `.10:7890` 访问 Rocky 受信任源，不安装 Ansible、Helm、kubectl。[proxy.sh](config/proxy.sh) 同时设置大小写代理变量和内网直连范围；DNF main 设置保留其他选项。首次没有 config-manager 时，仅通过命令参数引导插件安装，再重跑 proxy 持久化。
+安装范围为 DNF 插件、OpenSSL、dig、GPG、jq；通过已验收的 `.10:7890` 访问 Rocky 受信任源，不安装 Ansible、Helm、kubectl。[proxy.sh](01ops/config/proxy.sh) 同时设置大小写代理变量和内网直连范围；DNF main 设置保留其他选项。首次没有 config-manager 时，仅通过命令参数引导插件安装，再重跑 proxy 持久化。
 
 验收：脚本退出 0，Google 输出 `HTTP=204 proxy=192.168.9.10`，RPM 签名校验开启。内网 DNF 源建成后，各仓库的 `proxy=_none_` 优先于 main 的公网代理。
 
@@ -715,14 +728,14 @@ bash scripts/bootstrap/03-management.sh proxy-check
 **位置：admin，ops。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/bootstrap/03-management.sh ssh-client
 ssh -G cnpl-openwrt | sed -n '1,35p'
 ```
 
 入口维护自己的 `~/.ssh/cnpl.d/management.conf`。已有其他 SSH 配置时，脚本要求人工把 Include 放到正确位置，保留原有条目；主机身份检查保持开启，不配置 ProxyJump 或转发。
 
-[scripts/run-step.sh](scripts/run-step.sh) 为当前一条命令建立独立记录目录，保留输出与真实退出码。需要记录的配置命令按以下方式运行：
+[01ops/scripts/run-step.sh](01ops/scripts/run-step.sh) 为当前一条命令建立独立记录目录，保留输出与真实退出码。需要记录的配置命令按以下方式运行：
 
 ```bash
 bash scripts/run-step.sh 03-admin-proxy sudo bash scripts/bootstrap/03-management.sh proxy-check
@@ -770,7 +783,7 @@ TARGET_IP=192.168.9.11
 ssh -o StrictHostKeyChecking=ask -o PubkeyAuthentication=no "ops@$TARGET_IP"
 ssh-copy-id -i "$HOME/.ssh/cnpl_deploy.pub" "ops@$TARGET_IP"
 ssh -o BatchMode=yes "ops@$TARGET_IP" hostname -f
-bash /srv/cnpl/configuration/scripts/bootstrap/stage-host.sh dns
+bash /srv/cnpl/configuration/01ops/scripts/bootstrap/stage-host.sh dns
 ssh -t "ops@$TARGET_IP"
 ```
 
@@ -805,10 +818,10 @@ bash scripts/bootstrap/03-management.sh proxy-check
 
 每台输出 `HTTP=204 proxy=192.168.9.10`，默认网关仍为 `.1`。Harbor / Nexus 的 Docker 守护进程，以及 Nexus Java、Harbor 组件、GitLab Rails 等应用代理，在服务章节单独配置和验收。
 
-角色数据盘先在 Web 添加，预算集中在 [data-disks.tsv](inputs/data-disks.tsv)，与 0.3 台账一致。随后只读核对 `lsblk --bytes --output PATH,TYPE,SIZE,FSTYPE,UUID,MOUNTPOINTS,SERIAL` 和 `/dev/disk/by-id/`。**位置：admin，ops。** 当前到 nexus 阶段时登记：
+角色数据盘先在 Web 添加，预算集中在 [data-disks.tsv](01ops/inputs/data-disks.tsv)，与 0.3 台账一致。随后只读核对 `lsblk --bytes --output PATH,TYPE,SIZE,FSTYPE,UUID,MOUNTPOINTS,SERIAL` 和 `/dev/disk/by-id/`。**位置：admin，ops。** 当前到 nexus 阶段时登记：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh disk nexus
 bash scripts/bootstrap/stage-host.sh nexus
 ```
@@ -824,7 +837,7 @@ bash scripts/operations/disk-prepare.sh inspect /etc/cnpl/inputs/data-disk.json
 bash scripts/operations/disk-prepare.sh apply /etc/cnpl/inputs/data-disk.json
 ```
 
-[只读磁盘检查](ansible/files/disk-state.sh) 拒绝系统盘、错误容量、未知签名/分区、其他挂载点或错误 UUID；[disk-prepare.sh](scripts/operations/disk-prepare.sh) 只有显式批准的原始空盘才能建 GPT/XFS。已有匹配卷复用，fstab 冲突和目录已有数据则停止。
+[只读磁盘检查](01ops/ansible/files/disk-state.sh) 拒绝系统盘、错误容量、未知签名/分区、其他挂载点或错误 UUID；[disk-prepare.sh](01ops/scripts/operations/disk-prepare.sh) 只有显式批准的原始空盘才能建 GPT/XFS。已有匹配卷复用，fstab 冲突和目录已有数据则停止。
 
 | 角色 | 预算与挂载点 | 执行方式 |
 | --- | --- | --- |
@@ -846,7 +859,7 @@ bash scripts/operations/disk-prepare.sh apply /etc/cnpl/inputs/data-disk.json
 **位置：admin，ops。** 查询上游时间服务，人工确认两台时间服务器实际可用的独立 IPv4，录入并保存：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh ntp-addresses
 bash scripts/bootstrap/stage-host.sh dns
 bash scripts/bootstrap/stage-host.sh dns02
@@ -864,7 +877,7 @@ bash scripts/bootstrap/03-management.sh import-public
 bash scripts/run-step.sh 04-dns-primary bash scripts/bootstrap/04-dns.sh server
 ```
 
-[03-management.sh](scripts/bootstrap/03-management.sh) 导入公开输入；[04-dns.sh](scripts/bootstrap/04-dns.sh) 安装 BIND/chrony，分发 [named-primary.conf](config/named-primary.conf)、[正向区域](config/cnpl-forward.zone)、[反向区域](config/cnpl-reverse.zone) 及已登记的上游时间配置。
+[03-management.sh](01ops/scripts/bootstrap/03-management.sh) 导入公开输入；[04-dns.sh](01ops/scripts/bootstrap/04-dns.sh) 安装 BIND/chrony，分发 [named-primary.conf](01ops/config/named-primary.conf)、[正向区域](01ops/config/cnpl-forward.zone)、[反向区域](01ops/config/cnpl-reverse.zone) 及已登记的上游时间配置。
 
 实际配置：只监听 `.11` / 回环；递归与查询只接受登记 VM；正反向区域只向 `.17` 传送。Mac 不在 ACL 中，无通配业务解析。脚本在加载前执行 named-checkconf / named-checkzone，恢复 SELinux 标签。
 
@@ -880,7 +893,7 @@ bash scripts/bootstrap/03-management.sh import-public
 bash scripts/run-step.sh 04-dns-secondary bash scripts/bootstrap/04-dns.sh server
 ```
 
-使用 [named-secondary.conf](config/named-secondary.conf)：只监听 `.17` / 回环，两个区域均为 secondary，从 `.11` 传送到发行版 slaves 目录。不会另建同名 primary 区域。检查 named 正常、区域传送完成。
+使用 [named-secondary.conf](01ops/config/named-secondary.conf)：只监听 `.17` / 回环，两个区域均为 secondary，从 `.11` 传送到发行版 slaves 目录。不会另建同名 primary 区域。检查 named 正常、区域传送完成。
 
 ### 4.4 仅向登记客户端开放 DNS / NTP
 
@@ -913,11 +926,11 @@ chronyc waitsync 30 1 0 2
 **位置：admin，root。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/bootstrap/04-dns.sh client
 ```
 
-**位置：当前已建普通 Rocky 服务，root。** 在其 bundle 目录运行同一 client 入口。它只修改 ens33 的 DNS 并 reapply，不改变 IP、默认路由或重新激活连接；分发 [chrony-client.conf](config/chrony-client.conf)，使用 `.11/.17`。DNS 服务器不运行 client 模式。
+**位置：当前已建普通 Rocky 服务，root。** 在其 bundle 目录运行同一 client 入口。它只修改 ens33 的 DNS 并 reapply，不改变 IP、默认路由或重新激活连接；分发 [chrony-client.conf](01ops/config/chrony-client.conf)，使用 `.11/.17`。DNS 服务器不运行 client 模式。
 
 **位置：admin，ops。**
 
@@ -933,7 +946,7 @@ OpenWrt 只切换 DNS/NTP 到两台内网服务，保持地址、网关与现有
 **位置：admin，root。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/run-step.sh 04-dns-acceptance bash scripts/bootstrap/04-dns.sh verify
 ```
 
@@ -952,11 +965,11 @@ ssh ops@192.168.9.11 'sudo systemctl start named'
 **位置：admin，root。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/bootstrap/04-pki.sh init
 ```
 
-[04-pki.sh](scripts/bootstrap/04-pki.sh) 首次创建加密 RSA 根私钥、中间 CA 和内部域名约束。口令由 OpenSSL 交互输入，不写脚本、环境变量或日志。根私钥不分发，日常由中间 CA 签发；保存独立受控离线副本。
+[04-pki.sh](01ops/scripts/bootstrap/04-pki.sh) 首次创建加密 RSA 根私钥、中间 CA 和内部域名约束。口令由 OpenSSL 交互输入，不写脚本、环境变量或日志。根私钥不分发，日常由中间 CA 签发；保存独立受控离线副本。
 
 已有完整 CA 时只验证；部分文件缺失则停止，不能自动另建一套 CA。公开根证书保存 `/srv/cnpl/inputs/cnpl-root.crt` 并安装到 admin 信任库。
 
@@ -965,7 +978,7 @@ bash scripts/bootstrap/04-pki.sh init
 **位置：admin，root。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/bootstrap/04-pki.sh issue nexus
 bash scripts/bootstrap/04-pki.sh issue harbor
 bash scripts/bootstrap/04-pki.sh issue gitlab
@@ -978,8 +991,8 @@ bash scripts/bootstrap/04-pki.sh issue gitlab
 **位置：admin，ops。** 重新 stage 已建两台 DNS；各主机 root 运行 import-public 和 trust：
 
 ```bash
-bash /srv/cnpl/configuration/scripts/bootstrap/stage-host.sh dns
-bash /srv/cnpl/configuration/scripts/bootstrap/stage-host.sh dns02
+bash /srv/cnpl/configuration/01ops/scripts/bootstrap/stage-host.sh dns
+bash /srv/cnpl/configuration/01ops/scripts/bootstrap/stage-host.sh dns02
 ```
 
 ```bash
@@ -991,7 +1004,7 @@ bash scripts/bootstrap/04-pki.sh trust
 Nexus 在 5.1 创建后，**admin root** 暂存自己的叶材料：
 
 ```bash
-bash /srv/cnpl/configuration/scripts/bootstrap/04-pki.sh stage nexus
+bash /srv/cnpl/configuration/01ops/scripts/bootstrap/04-pki.sh stage nexus
 ```
 
 **admin ops** 安全传输，目标公钥已核验：
@@ -1086,7 +1099,7 @@ cd /home/ops/.local/share/cnpl-bundle
 bash scripts/run-step.sh 05-rpm-https bash scripts/bootstrap/05-rpm.sh serve
 ```
 
-实际配置见 [nginx.conf](config/nginx.conf)、[cnpl-rpm.conf](config/cnpl-rpm.conf)：只有 `.14:443`，使用双 SAN 叶证书；`/keys/` 提供公开密钥，内容来自只读 current。Nginx ACL 和 firewalld ipset 都限制到登记 VM；仓库内容使用 httpd_sys_content_t，叶材料使用 cert_t。nginx -t 通过才启用/重载。
+实际配置见 [nginx.conf](01ops/config/nginx.conf)、[cnpl-rpm.conf](01ops/config/cnpl-rpm.conf)：只有 `.14:443`，使用双 SAN 叶证书；`/keys/` 提供公开密钥，内容来自只读 current。Nginx ACL 和 firewalld ipset 都限制到登记 VM；仓库内容使用 httpd_sys_content_t，叶材料使用 cert_t。nginx -t 通过才启用/重载。
 
 ### 5.6 内网客户端源配置
 
@@ -1096,18 +1109,18 @@ bash scripts/run-step.sh 05-rpm-https bash scripts/bootstrap/05-rpm.sh serve
 mkdir -p /srv/cnpl/inputs/rpm-keys
 scp ops@192.168.9.14:/srv/nexus/repos/keys/*.asc /srv/cnpl/inputs/rpm-keys/
 scp ops@192.168.9.14:/srv/nexus/repos/keys/*.fpr /srv/cnpl/inputs/rpm-keys/
-install -m 0644 /srv/cnpl/configuration/config/cnpl-private.repo /srv/cnpl/inputs/cnpl-private.repo
+install -m 0644 /srv/cnpl/configuration/01ops/config/cnpl-private.repo /srv/cnpl/inputs/cnpl-private.repo
 ```
 
 **位置：admin，root。**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 CNPL_INPUTS=/srv/cnpl/inputs bash scripts/bootstrap/05-rpm.sh client
 bash scripts/run-step.sh 05-rpm-client bash scripts/bootstrap/05-rpm.sh verify
 ```
 
-[cnpl-private.repo](config/cnpl-private.repo) 七个仓库全部使用 HTTPS，`enabled=1`、`gpgcheck=1`、`repo_gpgcheck=1`、`sslverify=1`、`proxy=_none_`。client 校验六把公钥与指纹，归档模板公开源，未知源/重名归档停止；不删除原文件。DNF 缓存成功后补齐 jq 与 versionlock 插件。
+[cnpl-private.repo](01ops/config/cnpl-private.repo) 七个仓库全部使用 HTTPS，`enabled=1`、`gpgcheck=1`、`repo_gpgcheck=1`、`sslverify=1`、`proxy=_none_`。client 校验六把公钥与指纹，归档模板公开源，未知源/重名归档停止；不删除原文件。DNF 缓存成功后补齐 jq 与 versionlock 插件。
 
 dns、dns02、nexus：admin ops 依次执行 stage-host；各 VM root 运行 import-public、`05-rpm.sh client`、`05-rpm.sh verify`。此时仅处理已创建主机。后续新主机由 Ansible 完成相同接入。
 
@@ -1118,20 +1131,20 @@ dns、dns02、nexus：admin ops 依次执行 stage-host；各 VM root 运行 imp
 **位置：admin，ops。** 先只查询内网仓库，对照 0.4 与 01 兼容矩阵选定实际版本；无合适候选时停止，先审核版本计划：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh admin-packages
 ```
 
 正式 NEVRA 保存为 /srv/cnpl/inputs/admin-tools.lock.json，后续安装和复现使用同一文件。**随后在 admin root 执行：**
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/run-step.sh 05-admin-tools bash scripts/bootstrap/05-admin-tools.sh
 ```
 
 该入口此时才从内网 RPM 安装 **Ansible、Helm、kubectl**，以及 Git、jq、restic、Skopeo、versionlock。记录实际 RPM 并锁定管理工具；只验证 Helm 和 kubectl 客户端，不查询或初始化集群。
 
-**位置：admin，ops。** 正式 [hosts.ini](inputs/hosts.ini) 和 [ansible.cfg](inputs/ansible.cfg) 已进入 `/srv/cnpl/inputs`。四类 K8s 子组为 master 3、infra 2、storage 3、work 2；父组 k8s_nodes=10，rocky_nodes=18，全部=19，admin local，OpenWrt root/become=false 且不接受 Rocky Python 变量。
+**位置：admin，ops。** 正式 [hosts.ini](01ops/inputs/hosts.ini) 和 [ansible.cfg](01ops/inputs/ansible.cfg) 已进入 `/srv/cnpl/inputs`。四类 K8s 子组为 master 3、infra 2、storage 3、work 2；父组 k8s_nodes=10，rocky_nodes=18，全部=19，admin local，OpenWrt root/become=false 且不接受 Rocky Python 变量。
 
 ```bash
 export ANSIBLE_CONFIG=/srv/cnpl/inputs/ansible.cfg
@@ -1156,7 +1169,7 @@ ansible-vault create host_vars/nexus.yml
 回到 source 目录，录入真实软件版本锁：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh packages
 ```
 
@@ -1165,8 +1178,8 @@ bash scripts/prepare-inputs.sh packages
 先离线检查整组脚本（只解析，不连接 VM），再接管已引导的 DNS：
 
 ```bash
-bash /srv/cnpl/configuration/scripts/validate.sh
-cd /srv/cnpl/configuration/ansible
+bash /srv/cnpl/configuration/01ops/scripts/validate.sh
+cd /srv/cnpl/configuration/01ops/ansible
 ansible-playbook dns.yml --syntax-check --ask-vault-pass
 ansible-playbook dns.yml --list-hosts --ask-vault-pass
 bash ../scripts/run-step.sh 05-dns-adopt ansible-playbook dns.yml --ask-vault-pass
@@ -1176,10 +1189,10 @@ bash ../scripts/run-step.sh 05-dns-adopt ansible-playbook dns.yml --ask-vault-pa
 
 ### 5.8 连续部署 PostgreSQL 与 Nexus，核对数据目录
 
-以下入口均在 **admin ops** 执行，Ansible 使用已核实的 ops 公钥和 Vault 提权。完整实现见 [nexus.yml](ansible/nexus.yml)。先确认目标和语法：
+以下入口均在 **admin ops** 执行，Ansible 使用已核实的 ops 公钥和 Vault 提权。完整实现见 [nexus.yml](01ops/ansible/nexus.yml)。先确认目标和语法：
 
 ```bash
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 export ANSIBLE_CONFIG=/srv/cnpl/inputs/ansible.cfg
 ansible-playbook nexus.yml --syntax-check --ask-vault-pass
 ansible-playbook nexus.yml --list-hosts --ask-vault-pass
@@ -1197,7 +1210,7 @@ bash ../scripts/run-step.sh 05-nexus-pg ansible-playbook nexus.yml --tags pg --a
 
 ### 5.10 创建 Nexus 数据库与连接秘密
 
-pg 阶段同时执行 [postgresql.sh](scripts/operations/postgresql.sh)：首次生成独立连接秘密，创建非超级用户 nexus、其数据库/schema 与 pg_trgm。已有账号缺少原秘密时停止，不自动改密码。
+pg 阶段同时执行 [postgresql.sh](01ops/scripts/operations/postgresql.sh)：首次生成独立连接秘密，创建非超级用户 nexus、其数据库/schema 与 pg_trgm。已有账号缺少原秘密时停止，不自动改密码。
 
 **从 admin 登录 nexus，root，只读验收：**
 
@@ -1217,9 +1230,9 @@ ss -lnt | grep ':5432'
 bash ../scripts/run-step.sh 05-nexus-runtime ansible-playbook nexus.yml --tags runtime --ask-vault-pass
 ```
 
-[Docker 任务](ansible/tasks/docker.yml) 从内网安装锁定 RPM，分发 [daemon.json](config/docker-daemon.json) 与 [nexus drop-in](config/docker-nexus.conf)。保留 SELinux 和 Docker iptables，使用固定地址池、日志上限与 `.10:7890` 守护进程代理；ops 不加入 docker 组。
+[Docker 任务](01ops/ansible/tasks/docker.yml) 从内网安装锁定 RPM，分发 [daemon.json](01ops/config/docker-daemon.json) 与 [nexus drop-in](01ops/config/docker-nexus.conf)。保留 SELinux 和 Docker iptables，使用固定地址池、日志上限与 `.10:7890` 守护进程代理；ops 不加入 docker 组。
 
-实际 Nexus 镜像锁在 [compose-nexus.yml](config/compose-nexus.yml)，来自官方 sonatype/nexus3 的完整 digest，不依赖尚未部署的 Harbor。
+实际 Nexus 镜像锁在 [compose-nexus.yml](01ops/config/compose-nexus.yml)，来自官方 sonatype/nexus3 的完整 digest，不依赖尚未部署的 Harbor。
 
 ### 5.12 写入 Compose 并启动应用
 
@@ -1235,7 +1248,7 @@ bash ../scripts/run-step.sh 05-nexus-application ansible-playbook nexus.yml --ta
 bash ../scripts/run-step.sh 05-nexus-https ansible-playbook nexus.yml --tags https --ask-vault-pass
 ```
 
-[cnpl-nexus.conf](config/cnpl-nexus.conf) 与 DNF 共用 Nginx，独立域名，后端仅回环。ACL 只允许本机、admin、build01；启用 Nginx 必需的 SELinux 反向代理 boolean。必须通过 nginx -t 和可信域名请求，不能用防火墙掩盖应用错误监听。
+[cnpl-nexus.conf](01ops/config/cnpl-nexus.conf) 与 DNF 共用 Nginx，独立域名，后端仅回环。ACL 只允许本机、admin、build01；启用 Nginx 必需的 SELinux 反向代理 boolean。必须通过 nginx -t 和可信域名请求，不能用防火墙掩盖应用错误监听。
 
 ### 5.14 初始化管理员凭据
 
@@ -1243,15 +1256,15 @@ bash ../scripts/run-step.sh 05-nexus-https ansible-playbook nexus.yml --tags htt
 bash ../scripts/run-step.sh 05-nexus-api ansible-playbook nexus.yml --tags api --ask-vault-pass
 ```
 
-api 阶段按顺序执行 [nexus-api.sh](scripts/operations/nexus-api.sh) 的 init、proxy、repositories、permissions。初始化先验证保存的正式管理员凭据；只有新实例仍有初始密码时才完成首次设密。重跑复用原口令，不无条件更改管理员密码。
+api 阶段按顺序执行 [nexus-api.sh](01ops/scripts/operations/nexus-api.sh) 的 init、proxy、repositories、permissions。初始化先验证保存的正式管理员凭据；只有新实例仍有初始密码时才完成首次设密。重跑复用原口令，不无条件更改管理员密码。
 
 ### 5.15 配置 Nexus 自身的 HTTP 出网代理
 
-api 阶段按 [nexus-http.json](config/nexus-http.json) 设置 Java HTTP/HTTPS 代理 `.10:7890`，内部域名/IP 直连。这与主机登录环境和 Docker 代理分别生效。先 GET 比较所管字段，存在差异才 PUT，再由真实依赖请求验证回源。
+api 阶段按 [nexus-http.json](01ops/config/nexus-http.json) 设置 Java HTTP/HTTPS 代理 `.10:7890`，内部域名/IP 直连。这与主机登录环境和 Docker 代理分别生效。先 GET 比较所管字段，存在差异才 PUT，再由真实依赖请求验证回源。
 
 ### 5.16 创建依赖仓库
 
-api 阶段建立 Maven Central / npm / PyPI proxy、Maven releases / snapshots hosted、maven-public group。配置依据 [Maven proxy 请求](config/nexus-maven-proxy.json) 与脚本内正式 hosted/group 请求；releases 为 ALLOW_ONCE，snapshots 为 ALLOW。
+api 阶段建立 Maven Central / npm / PyPI proxy、Maven releases / snapshots hosted、maven-public group。配置依据 [Maven proxy 请求](01ops/config/nexus-maven-proxy.json) 与脚本内正式 hosted/group 请求；releases 为 ALLOW_ONCE，snapshots 为 ALLOW。
 
 每个对象先 GET，404 才创建；已存在但正式配置不符时停止。不会把冲突状态当作本次新建成功。
 
@@ -1282,7 +1295,7 @@ acceptance 会在独立测试坐标上传一个小 POM。必须通过 Maven/npm/
 
 ### 5.18 开机恢复与请求验收
 
-[cnpl-nexus.service](config/cnpl-nexus.service) 绑定数据盘、PostgreSQL、Docker，Compose 开机恢复。先执行完整配置的重复验证，再在 vSphere Web 人工重启 nexus：
+[cnpl-nexus.service](01ops/config/cnpl-nexus.service) 绑定数据盘、PostgreSQL、Docker，Compose 开机恢复。先执行完整配置的重复验证，再在 vSphere Web 人工重启 nexus：
 
 ```bash
 ansible-playbook nexus.yml --ask-vault-pass
@@ -1300,7 +1313,7 @@ ansible-playbook nexus.yml --tags acceptance --ask-vault-pass
 第五章全部通过后，在 Web 人工创建 harbor，完成 3.5 首次身份和 SSH、3.6 主机代理 / Google 验收、Vault 文件。**admin ops** 登记数据盘和官方物料摘要：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh disk harbor
 bash scripts/prepare-inputs.sh harbor
 cd /srv/cnpl/inputs
@@ -1314,20 +1327,20 @@ ansible-vault create host_vars/harbor.yml
 **位置：admin，ops。**
 
 ```bash
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 export ANSIBLE_CONFIG=/srv/cnpl/inputs/ansible.cfg
 ansible-playbook harbor.yml --syntax-check --ask-vault-pass
 ansible-playbook harbor.yml --list-hosts --ask-vault-pass
 bash ../scripts/run-step.sh 06-harbor-runtime ansible-playbook harbor.yml --tags runtime --ask-vault-pass
 ```
 
-公共前置任务接入内网源、准备批准的数据盘和本服务证书。Docker 使用锁定 RPM、[Harbor drop-in](config/docker-harbor.conf)，代理为 `.10:7890`，内网直连；保持 SELinux、iptables 与固定地址池。
+公共前置任务接入内网源、准备批准的数据盘和本服务证书。Docker 使用锁定 RPM、[Harbor drop-in](01ops/config/docker-harbor.conf)，代理为 `.10:7890`，内网直连；保持 SELinux、iptables 与固定地址池。
 
 ### 6.3 限制容器发布端口的来源
 
-[harbor-firewall.sh](ansible/files/harbor-firewall.sh) 只维护 CNPL-HARBOR 专用链并挂到 DOCKER-USER；登记 VM 只允许访问 `.12:443`，Mac 不在允许列表。容器内部互访、内部 DNS 和代理路径分别放行，其余容器主动出站拒绝。
+[harbor-firewall.sh](01ops/ansible/files/harbor-firewall.sh) 只维护 CNPL-HARBOR 专用链并挂到 DOCKER-USER；登记 VM 只允许访问 `.12:443`，Mac 不在允许列表。容器内部互访、内部 DNS 和代理路径分别放行，其余容器主动出站拒绝。
 
-[规则 unit](config/cnpl-harbor-firewall.service) 在 Docker/firewalld 后、Harbor 前执行。Docker 重启和 firewalld 重载后须重新检查链。配置入口如下，与后续 6.4–6.6 在同一 configure 阶段执行：
+[规则 unit](01ops/config/cnpl-harbor-firewall.service) 在 Docker/firewalld 后、Harbor 前执行。Docker 重启和 firewalld 重载后须重新检查链。配置入口如下，与后续 6.4–6.6 在同一 configure 阶段执行：
 
 ```bash
 bash ../scripts/run-step.sh 06-harbor-configure ansible-playbook harbor.yml --tags configure --ask-vault-pass
@@ -1341,15 +1354,15 @@ configure 从官方 v2.15.4 入口下载 online installer，使用 6.1 已核实
 
 ### 6.5 配置 harbor.yml 与 TLS
 
-[harbor.sh](scripts/operations/harbor.sh) configure 在服务器首次生成两个不同口令并保存，后续复用；已有数据但缺少原秘密时停止。设置正式 hostname、叶证书、`/data`、systemd 挂载依赖与 SELinux 标签。
+[harbor.sh](01ops/scripts/operations/harbor.sh) configure 在服务器首次生成两个不同口令并保存，后续复用；已有数据但缺少原秘密时停止。设置正式 hostname、叶证书、`/data`、systemd 挂载依赖与 SELinux 标签。
 
 主机与 Docker 代理已独立配置；应用 proxy 段启用 core/jobservice/**trivy**，沿用[该版本官方配置](https://raw.githubusercontent.com/goharbor/harbor/v2.15.4/make/harbor.yml.tmpl)的组件名，不写成 trivy-adapter。通过官方 storage_service.ca_bundle 将内部公开根 CA 注入各容器共享信任目录，扫描器保持 TLS 校验和数据库更新。配置/叶材料有变化才重新 prepare；私密配置不进入日志。
 
 ### 6.6 绑定固定 IPv4 地址并首次启动
 
-configure 分发 [Compose 入口限制](config/compose-harbor.yml)：唯一公开端口为 `192.168.9.12:443:8443`。Compose 必须支持 `!override` 并通过 config --quiet，不能因插件不支持而扩大端口范围。
+configure 分发 [Compose 入口限制](01ops/config/compose-harbor.yml)：唯一公开端口为 `192.168.9.12:443:8443`。Compose 必须支持 `!override` 并通过 config --quiet，不能因插件不支持而扩大端口范围。
 
-[harbor.sh](scripts/operations/harbor.sh) images 拉取官方组件，逐项取得真实 RepoDigest/Image ID，写 compose.images.yml 与 `/data/bootstrap-images.json`，以 digest 启动。记录缺失、摘要不唯一或组件不完整即失败，不假造 image manifest。
+[harbor.sh](01ops/scripts/operations/harbor.sh) images 拉取官方组件，逐项取得真实 RepoDigest/Image ID，写 compose.images.yml 与 `/data/bootstrap-images.json`，以 digest 启动。记录缺失、摘要不唯一或组件不完整即失败，不假造 image manifest。
 
 ### 6.7 设置开机恢复与健康验收
 
@@ -1357,7 +1370,7 @@ configure 分发 [Compose 入口限制](config/compose-harbor.yml)：唯一公�
 ansible-playbook harbor.yml --tags verify,seed --ask-vault-pass
 ```
 
-[Harbor unit](config/cnpl-harbor.service) 依赖数据盘、Docker 与专用防火墙，使用有界重试处理日志服务启动顺序。health 必须 healthy、全部组件 healthy；未登录 `/v2/` 为 401。
+[Harbor unit](01ops/config/cnpl-harbor.service) 依赖数据盘、Docker 与专用防火墙，使用有界重试处理日志服务启动顺序。health 必须 healthy、全部组件 healthy；未登录 `/v2/` 为 401。
 
 seed 保存本服务组件归档与校验文件，纳入第十章加密备份。恢复模式 `harbor.sh restore-images` 只使用已校验种子，比较 Image ID，生成 `pull_policy: never` overlay；不会自动启动恢复服务。
 
@@ -1368,7 +1381,7 @@ ansible-playbook harbor.yml --tags api --ask-vault-pass
 ansible-playbook credentials.yml --limit harbor_servers --ask-vault-pass
 ```
 
-[harbor-api.sh](scripts/operations/harbor-api.sh) 建立公开 bootstrap、私有 business 项目，以及 90 天期限的 publisher / reader 机器人；权限分别为 pull+push / pull。公开项目只表示读取权限，网络仍收紧到登记 VM。
+[harbor-api.sh](01ops/scripts/operations/harbor-api.sh) 建立公开 bootstrap、私有 business 项目，以及 90 天期限的 publisher / reader 机器人；权限分别为 pull+push / pull。公开项目只表示读取权限，网络仍收紧到登记 VM。
 
 已有机器人但缺少一次性秘密时停止，不偷偷创建新账号或放宽权限。秘密只受控传给 admin，不发给十节点。确认服务安装后由 admin root 执行 `04-pki.sh unstage harbor`。
 
@@ -1378,7 +1391,7 @@ ansible-playbook credentials.yml --limit harbor_servers --ask-vault-pass
 
 ```bash
 source /etc/profile.d/cnpl-proxy.sh
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/run-step.sh 06-image-supply bash scripts/operations/supply-images.sh
 ```
 
@@ -1400,7 +1413,7 @@ ansible harbor_servers -b -m ansible.builtin.command -a "bash /opt/cnpl/provisio
 现在在 Web 创建 gitlab，完成 3.5、3.6 的身份/管理/主机代理验收。**admin ops** 登记 150 GiB 数据盘并创建本机 Vault：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh disk gitlab
 cd /srv/cnpl/inputs
 ansible-vault create host_vars/gitlab.yml
@@ -1413,13 +1426,13 @@ ansible-vault create host_vars/gitlab.yml
 **位置：admin，ops。**
 
 ```bash
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 ansible-playbook gitlab.yml --syntax-check --ask-vault-pass
 ansible-playbook gitlab.yml --list-hosts --ask-vault-pass
 bash ../scripts/run-step.sh 07-gitlab ansible-playbook gitlab.yml --tags configure --ask-vault-pass
 ```
 
-[gitlab.yml](ansible/gitlab.yml) 先挂数据盘、安装证书、生成并保留初始口令、写 [gitlab.rb](config/gitlab.rb)，再安装锁定的 EL10 RPM。内置 PostgreSQL/Redis 与 Nexus 数据库独立。公开根 CA 同时安装到 /etc/gitlab/trusted-certs，由 reconfigure 更新内置运行时信任。Rails/Sidekiq、Workhorse、Gitaly 分别配置代理；数据留在 `/var/opt/gitlab`，不设置已移除的旧版存储字段。
+[gitlab.yml](01ops/ansible/gitlab.yml) 先挂数据盘、安装证书、生成并保留初始口令、写 [gitlab.rb](01ops/config/gitlab.rb)，再安装锁定的 EL10 RPM。内置 PostgreSQL/Redis 与 Nexus 数据库独立。公开根 CA 同时安装到 /etc/gitlab/trusted-certs，由 reconfigure 更新内置运行时信任。Rails/Sidekiq、Workhorse、Gitaly 分别配置代理；数据留在 `/var/opt/gitlab`，不设置已移除的旧版存储字段。
 
 ### 7.3 管理 SSH 与 Git SSH 分开授权
 
@@ -1451,15 +1464,15 @@ if [ ! -e "$HOME/.ssh/cnpl_git" ]; then
 fi
 ssh-add "$HOME/.ssh/cnpl_git"
 ssh -o StrictHostKeyChecking=ask ops@gitlab.svc.internal.egon.top hostname -f
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 ansible-playbook gitlab-project.yml --tags project --ask-vault-pass
 bash ../scripts/run-step.sh 07-git-project bash ../scripts/operations/gitlab-check.sh
 ansible-playbook gitlab-project.yml --tags revoke --ask-vault-pass
 ```
 
-首次域名连接仍与控制台核对指纹。项目入口只传公钥；[gitlab-api.sh](scripts/operations/gitlab-api.sh) 在 GitLab 本机生成 7 天短期 token，建立私有 platform/configuration、项目级可写 Deploy Key 和 main 保护（禁止直接 push，只允许维护者 merge）。
+首次域名连接仍与控制台核对指纹。项目入口只传公钥；[gitlab-api.sh](01ops/scripts/operations/gitlab-api.sh) 在 GitLab 本机生成 7 天短期 token，建立私有 platform/configuration、项目级可写 Deploy Key 和 main 保护（禁止直接 push，只允许维护者 merge）。
 
-[gitlab-check.sh](scripts/operations/gitlab-check.sh) 在独立记录目录 clone，创建测试分支和小提交，验证 push 成功、main push 被保护、无授权密钥失败；随后只删除本次测试分支。测试完成立即撤销短期 token，不把秘密提交项目。已撤销的引导凭据不会在重跑时自动再生成。
+[gitlab-check.sh](01ops/scripts/operations/gitlab-check.sh) 在独立记录目录 clone，创建测试分支和小提交，验证 push 成功、main push 被保护、无授权密钥失败；随后只删除本次测试分支。测试完成立即撤销短期 token，不把秘密提交项目。已撤销的引导凭据不会在重跑时自动再生成。
 
 ## 8. 私服完成后再准备剩余 12 台 VM
 
@@ -1485,7 +1498,7 @@ ansible k8s_nodes -b -m ansible.builtin.command -a 'ls -l /dev/disk/by-id/' --as
 ### 8.3 在 admin 准备 Ansible 文件和公开输入
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh nodes
 ```
 
@@ -1496,7 +1509,7 @@ bash scripts/prepare-inputs.sh nodes
 ### 8.4 先只读预检，再单机执行，最后按角色分批
 
 ```bash
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 ansible-playbook bootstrap-nodes.yml -e @/srv/cnpl/inputs/k8s-bootstrap.yml --syntax-check --ask-vault-pass
 ansible-playbook bootstrap-nodes.yml -e @/srv/cnpl/inputs/k8s-bootstrap.yml --list-hosts --ask-vault-pass
 ansible-playbook preflight-nodes.yml -e @/srv/cnpl/inputs/k8s-bootstrap.yml --ask-vault-pass
@@ -1520,15 +1533,15 @@ ansible-playbook bootstrap-nodes.yml --limit k8s_work_nodes -e @/srv/cnpl/inputs
 
 ### 8.5 Ansible 接管内网信任、存储和系统基线
 
-[预检](ansible/tasks/preflight.yml) 检查真实 Rocky 10.2、角色资源、IP/主机名、唯一身份、安全、SSH 来源、软件和磁盘参数；已有集群配置即停止。[信任/源](ansible/tasks/trust-repos.yml) 切双 DNS、安装根 CA/公开密钥、归档模板源，仅用内网 DNF 补包。
+[预检](01ops/ansible/tasks/preflight.yml) 检查真实 Rocky 10.2、角色资源、IP/主机名、唯一身份、安全、SSH 来源、软件和磁盘参数；已有集群配置即停止。[信任/源](01ops/ansible/tasks/trust-repos.yml) 切双 DNS、安装根 CA/公开密钥、归档模板源，仅用内网 DNF 补包。
 
-[存储任务](ansible/tasks/storage.yml) 只初始化已批准空盘，匹配 UUID 则复用；[disk-state.sh](ansible/files/disk-state.sh) 只读检查且不依赖 jq/Python。根盘已有运行时数据或挂载冲突均停止。
+[存储任务](01ops/ansible/tasks/storage.yml) 只初始化已批准空盘，匹配 UUID 则复用；[disk-state.sh](01ops/ansible/files/disk-state.sh) 只读检查且不依赖 jq/Python。根盘已有运行时数据或挂载冲突均停止。
 
-[基线](ansible/tasks/baseline.yml) 保持 SELinux/firewalld，配置内部 NTP、关闭 swap、持久 journald、overlay/br_netfilter 和 sysctl。DNS 只 reapply；VMware 时间同步设置回到 Web 人工修改。
+[基线](01ops/ansible/tasks/baseline.yml) 保持 SELinux/firewalld，配置内部 NTP、关闭 swap、持久 journald、overlay/br_netfilter 和 sysctl。DNS 只 reapply；VMware 时间同步设置回到 Web 人工修改。
 
 ### 8.6 Ansible 安装并配置 containerd 与入群工具
 
-[runtime.yml](ansible/tasks/runtime.yml) 从内网按完整 NEVRA 安装 containerd.io、container-selinux、kubeadm、kubelet、kubectl、cri-tools、kubernetes-cni，核验实际版本再锁定。实际 TOML 在任务中完整定义，使用 v3、SELinux、systemd cgroup、固定 pause digest、Harbor HTTPS 信任与数据盘挂载依赖。
+[runtime.yml](01ops/ansible/tasks/runtime.yml) 从内网按完整 NEVRA 安装 containerd.io、container-selinux、kubeadm、kubelet、kubectl、cri-tools、kubernetes-cni，核验实际版本再锁定。实际 TOML 在任务中完整定义，使用 v3、SELinux、systemd cgroup、固定 pause digest、Harbor HTTPS 信任与数据盘挂载依赖。
 
 00 阶段 kubelet 不启动、不启用；不运行 kubeadm init/join，不安装 CNI，不创建 Ceph OSD。缺包或签名失败不回退公网/手装二进制。
 
@@ -1539,7 +1552,7 @@ REPORT_DIR=/srv/cnpl/records/k8s-cp01-$(date -u +%Y%m%dT%H%M%SZ)
 ansible-playbook verify-nodes.yml --limit cp01 -e @/srv/cnpl/inputs/k8s-bootstrap.yml -e "cnpl_report_dir=$REPORT_DIR" --ask-vault-pass
 ```
 
-[验收 playbook](ansible/verify-nodes.yml) 检查实际版本、DNS/NTP、安全、挂载、持久日志和运行时配置。[runtime-status.sh](ansible/files/runtime-status.sh) 只输出必要字段；[cri-smoke.sh](ansible/files/cri-smoke.sh) 拉取固定 Harbor digest，执行 host-network sandbox/BusyBox，使用 cnplprep.slice，验证退出 0、`CNPL_CRI_OK`、无新增 AVC，并只清理本次 ID。任何探针/审计/清理失败均失败。
+[验收 playbook](01ops/ansible/verify-nodes.yml) 检查实际版本、DNS/NTP、安全、挂载、持久日志和运行时配置。[runtime-status.sh](01ops/ansible/files/runtime-status.sh) 只输出必要字段；[cri-smoke.sh](01ops/ansible/files/cri-smoke.sh) 拉取固定 Harbor digest，执行 host-network sandbox/BusyBox，使用 cnplprep.slice，验证退出 0、`CNPL_CRI_OK`、无新增 AVC，并只清理本次 ID。任何探针/审计/清理失败均失败。
 
 RuntimeReady 必须 true。无 CNI 阶段允许 NetworkReady=false；这不替代真实 CRI 生命周期验收。汇总只保存公开字段，不读取 Vault 明文或输出完整运行时配置。
 
@@ -1561,7 +1574,7 @@ jq '{count,passed:([.nodes[].passed]|all)}' "$REPORT_DIR/readiness.json"
 在 Web 完成硬件和首次 SSH 后，**admin ops** 登记两个角色数据盘，执行：
 
 ```bash
-cd /srv/cnpl/configuration
+cd /srv/cnpl/configuration/01ops
 bash scripts/prepare-inputs.sh disk build01
 bash scripts/prepare-inputs.sh disk backup
 cd ansible
@@ -1570,11 +1583,11 @@ ansible-playbook build-backup.yml --list-hosts --ask-vault-pass
 bash ../scripts/run-step.sh 08-build-backup ansible-playbook build-backup.yml --ask-vault-pass
 ```
 
-[build-backup.yml](ansible/build-backup.yml) 安装 CA/内网源、DNS/NTP、安全与日志基线，准备 `/srv/build` 和 `/srv/backup`。build01 从内网 RPM 安装 Git、Java/Maven、Node/npm、pip；backup 的受限账号和仓库在第十章建立。两台均无公网代理权限。
+[build-backup.yml](01ops/ansible/build-backup.yml) 安装 CA/内网源、DNS/NTP、安全与日志基线，准备 `/srv/build` 和 `/srv/backup`。build01 从内网 RPM 安装 Git、Java/Maven、Node/npm、pip；backup 的受限账号和仓库在第十章建立。两台均无公网代理权限。
 
 ### 8.9a build01 客户端配置与实际制品获取
 
-[build-client.sh](scripts/operations/build-client.sh) 只接收 reader，生成 ops 专用的 Maven settings、npmrc、pip.conf 和 netrc，均位于 `~/.config/cnpl/`，不覆盖其他项目配置；全部使用 Nexus 与系统 CA，无跳过 TLS 选项。
+[build-client.sh](01ops/scripts/operations/build-client.sh) 只接收 reader，生成 ops 专用的 Maven settings、npmrc、pip.conf 和 netrc，均位于 `~/.config/cnpl/`，不覆盖其他项目配置；全部使用 Nexus 与系统 CA，无跳过 TLS 选项。
 
 ```bash
 ansible-playbook build-backup.yml --tags acceptance --ask-vault-pass
@@ -1609,21 +1622,21 @@ ansible rocky_nodes -b -m ansible.builtin.command -a 'firewall-cmd --zone=public
 人工核对没有全网 SSH/HTTPS/DNS 等额外入口。**位置：Mac，本项目目录，解锁原个人密钥后：**
 
 ```bash
-bash prod/scripts/operations/mac-check.sh
+bash prod/01ops/scripts/operations/mac-check.sh
 ```
 
-[mac-check.sh](scripts/operations/mac-check.sh) 验证 admin 公钥登录，并对其他 18 台 SSH、私服 HTTPS、DNS TCP 与代理做有界拒绝测试。所有 VM 应先由 admin 验证在线；不把 VM 关机造成的不可达当成隔离通过，不分发 Mac 密钥。
+[mac-check.sh](01ops/scripts/operations/mac-check.sh) 验证 admin 公钥登录，并对其他 18 台 SSH、私服 HTTPS、DNS TCP 与代理做有界拒绝测试。所有 VM 应先由 admin 验证在线；不把 VM 关机造成的不可达当成隔离通过，不分发 Mac 密钥。
 
 ### 9.2 Rocky 的主机出站策略
 
-[network.sh](scripts/operations/network.sh) 按正式角色生成 HOST→ANY、priority -500、target DROP 的 cnpl-egress。共用允许内部 DNS/NTP、Harbor/RPM；服务 VM 经 `.10:7890`，DNS 额外仅允许固定上游 UDP 123；admin 可管理其他 VM，build01 可访问 GitLab，六个备份客户端可到 `.16:22`。IPv6 仅保留必要回环，不留公网绕行。
+[network.sh](01ops/scripts/operations/network.sh) 按正式角色生成 HOST→ANY、priority -500、target DROP 的 cnpl-egress。共用允许内部 DNS/NTP、Harbor/RPM；服务 VM 经 `.10:7890`，DNS 额外仅允许固定上游 UDP 123；admin 可管理其他 VM，build01 可访问 GitLab，六个备份客户端可到 `.16:22`。IPv6 仅保留必要回环，不留公网绕行。
 
-应用前备份本机 firewalld，安排 **180 秒本机超时回退**。应用后由 admin 重新建立连接并执行 [network-check.sh](scripts/operations/network-check.sh)；通过后才 commit。失败停止后续节点，等待回退或使用 Web 控制台，不跳过失败。
+应用前备份本机 firewalld，安排 **180 秒本机超时回退**。应用后由 admin 重新建立连接并执行 [network-check.sh](01ops/scripts/operations/network-check.sh)；通过后才 commit。失败停止后续节点，等待回退或使用 Web 控制台，不跳过失败。
 
 **位置：admin，ops。先 build01：**
 
 ```bash
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 ansible-playbook network.yml --syntax-check --ask-vault-pass
 ansible-playbook network.yml --limit build_nodes --tags plan --ask-vault-pass
 bash ../scripts/run-step.sh 09-build-network ansible-playbook network.yml --limit build_nodes --tags apply --ask-vault-pass
@@ -1656,7 +1669,7 @@ ansible-playbook gitlab.yml --tags verify --ask-vault-pass
 ansible-playbook nexus.yml --tags verify --ask-vault-pass
 ```
 
-[container-network-check.sh](scripts/operations/container-network-check.sh) 从真实 core 容器读取唯一 Harbor 网络，只使用已锁定摘要的 BusyBox/curl 诊断镜像。临时容器验证 UDP DNS 实际返回、TCP 53 建连、可信 HTTPS、经代理 Google 204，以及直接公网 TCP 443 未建连；只清理本次唯一名称的容器。额外协议或诊断错误不当作拒绝成功。
+[container-network-check.sh](01ops/scripts/operations/container-network-check.sh) 从真实 core 容器读取唯一 Harbor 网络，只使用已锁定摘要的 BusyBox/curl 诊断镜像。临时容器验证 UDP DNS 实际返回、TCP 53 建连、可信 HTTPS、经代理 Google 204，以及直接公网 TCP 443 未建连；只清理本次唯一名称的容器。额外协议或诊断错误不当作拒绝成功。
 
 再执行 6.9 的实际扫描和镜像请求。容器内部组件互访、经代理的回源都须通过；直接公网新连接必须拒绝。维护窗口临时停止 OpenWrt 验证未缓存回源失败，恢复后再成功。只检查宿主机 curl 或链存在不算应用验收完成。
 
@@ -1671,7 +1684,7 @@ backup 已在第八章交付 500 GiB `/srv/backup`、CA/内网源、DNS/NTP、ad
 ```bash
 ssh-keygen -F 192.168.9.16 -f "$HOME/.ssh/known_hosts" | awk '$2=="ssh-ed25519" {print "backup.mgmt.internal.egon.top,192.168.9.16 "$2" "$3}' > /srv/cnpl/inputs/backup-hostkey.pub
 test -s /srv/cnpl/inputs/backup-hostkey.pub
-cd /srv/cnpl/configuration/ansible
+cd /srv/cnpl/configuration/01ops/ansible
 ansible-playbook backup.yml --syntax-check --ask-vault-pass
 ansible-playbook backup.yml --list-hosts --ask-vault-pass
 ```
@@ -1684,9 +1697,9 @@ ansible-playbook backup.yml --list-hosts --ask-vault-pass
 bash ../scripts/run-step.sh 10-backup-prepare ansible-playbook backup.yml --tags prepare --ask-vault-pass
 ```
 
-[backup.yml](ansible/backup.yml) 分三步：六客户端本地生成/复用专用密钥，只汇集公钥；backup 创建六个 nologin 账号和 root 拥有的独立 chroot；最后各客户端配置自己的仓库。
+[backup.yml](01ops/ansible/backup.yml) 分三步：六客户端本地生成/复用专用密钥，只汇集公钥；backup 创建六个 nologin 账号和 root 拥有的独立 chroot；最后各客户端配置自己的仓库。
 
-公钥必须六份互异；授权绑定本角色来源，管理公钥保持原样。[backup-match.conf](config/backup-match.conf) 对 bk_* 强制 internal-sftp；只有各自 `/repo` 可写。精确目录的 SELinux 标签与必要 chroot boolean 生效，全程 Enforcing。
+公钥必须六份互异；授权绑定本角色来源，管理公钥保持原样。[backup-match.conf](01ops/config/backup-match.conf) 对 bk_* 强制 internal-sftp；只有各自 `/repo` 可写。精确目录的 SELinux 标签与必要 chroot boolean 生效，全程 Enforcing。
 
 实际验收包括 `sshd -T -C` 的 ForceCommand/chroot/密码/转发设置，以及真实 SFTP 列目录、读取 jail 外 `/etc/passwd` 被拒绝。首次 prepare 必须包含六个客户端及 backup，不能只 --limit backup 后引用未准备的公钥。
 
@@ -1694,7 +1707,7 @@ bash ../scripts/run-step.sh 10-backup-prepare ansible-playbook backup.yml --tags
 
 同一个 prepare 阶段在服务器只读检查 repo/config；只有确为空目录才能 init。已有仓库先验证原口令，缺少原解密口令则停止，不生成新密码覆盖。
 
-[backup.sh](scripts/operations/backup.sh) 在各客户端生成 0600 restic.env/password，使用独立 SSH 配置和经过核实的 known_hosts，不修改 root 全局 SSH 配置。密码需另存受控离线介质，不能只在本服务和 backup VM 内保存。
+[backup.sh](01ops/scripts/operations/backup.sh) 在各客户端生成 0600 restic.env/password，使用独立 SSH 配置和经过核实的 known_hosts，不修改 root 全局 SSH 配置。密码需另存受控离线介质，不能只在本服务和 backup VM 内保存。
 
 ```bash
 ansible-playbook backup.yml --tags verify --ask-vault-pass
@@ -1728,12 +1741,12 @@ Nexus 不备份运行中 PGDATA 冒充一致性；DNF current 先 readlink 得�
 **OpenWrt 专用备份身份，位置：admin root。**
 
 ```bash
-bash /srv/cnpl/configuration/scripts/operations/openwrt-backup-key.sh
+bash /srv/cnpl/configuration/01ops/scripts/operations/openwrt-backup-key.sh
 ```
 
-[正式入口](scripts/operations/openwrt-backup-key.sh) 通过已验证的部署身份查询专用公钥是否存在，仅缺失时用 `ssh-copy-id` 安装；已有私钥/公钥复用，异常重复停止。它始终引用 ops 已核对的 OpenWrt known_hosts，并显式指定部署私钥，只交互解锁、不打开密码认证。
+[正式入口](01ops/scripts/operations/openwrt-backup-key.sh) 通过已验证的部署身份查询专用公钥是否存在，仅缺失时用 `ssh-copy-id` 安装；已有私钥/公钥复用，异常重复停止。它始终引用 ops 已核对的 OpenWrt known_hosts，并显式指定部署私钥，只交互解锁、不打开密码认证。
 
-[OpenWrt 核验脚本](scripts/operations/10-openwrt-backup.sh) 只读检查专用公钥。admin 首次生成带固定 tar 命令、关闭转发/PTY 的公钥授权行，直接通过 ssh-copy-id 追加；不会先装通用公钥再改写授权文件。已有不符的授权停止人工核对，其他部署授权保持原样。最后使用专用密钥请求一个普通 printf 命令，必须仍返回合法配置归档；不能执行普通 shell。Dropbear 不支持限制时停止，不降级成通用 root 无人值守身份。订阅等秘密只进入加密仓库。
+[OpenWrt 核验脚本](01ops/scripts/operations/10-openwrt-backup.sh) 只读检查专用公钥。admin 首次生成带固定 tar 命令、关闭转发/PTY 的公钥授权行，直接通过 ssh-copy-id 追加；不会先装通用公钥再改写授权文件。已有不符的授权停止人工核对，其他部署授权保持原样。最后使用专用密钥请求一个普通 printf 命令，必须仍返回合法配置归档；不能执行普通 shell。Dropbear 不支持限制时停止，不降级成通用 root 无人值守身份。订阅等秘密只进入加密仓库。
 
 ### 10.5a 首轮备份执行与记录
 
@@ -1758,7 +1771,7 @@ ansible 'private_services:dns_servers:management' -b -m ansible.builtin.command 
 
 ### 10.7 恢复演练与独立副本
 
-**位置：对应备份客户端，root。** 使用 [restore.sh](scripts/operations/restore.sh) 选择真实快照，提取到全新专用目录：
+**位置：对应备份客户端，root。** 使用 [restore.sh](01ops/scripts/operations/restore.sh) 选择真实快照，提取到全新专用目录：
 
 ```bash
 bash /opt/cnpl/provision/scripts/operations/restore.sh list
@@ -1791,7 +1804,7 @@ bash /opt/cnpl/provision/scripts/operations/restore.sh nexus-db "$RESTORE_DIR"
 
 要求 PostgreSQL major 一致，使用唯一临时数据库实际 pg_restore，核对 schema 表数；只删除本次创建的测试库，生产 nexus 库不变。
 
-DNS/数据库校验之外，三个私服整服务恢复使用 [rebuild-service.sh](scripts/operations/rebuild-service.sh)。每次备份保存来源角色、machine-id 和 GitLab 精确 RPM；恢复脚本要求替代 VM 的 machine-id 与来源不同，拒绝原生产 VM、非空数据目录、已有 Nexus 表或已有 GitLab 项目。
+DNS/数据库校验之外，三个私服整服务恢复使用 [rebuild-service.sh](01ops/scripts/operations/rebuild-service.sh)。每次备份保存来源角色、machine-id 和 GitLab 精确 RPM；恢复脚本要求替代 VM 的 machine-id 与来源不同，拒绝原生产 VM、非空数据目录、已有 Nexus 表或已有 GitLab 项目。
 
 **人工边界：** 在维护窗口通过 Web 停止原 VM，从 rocky-base 创建同角色替代 VM，核对容量、独立身份与新磁盘，完成 3.5 管理授权；重新人工核验该主机的 SSH 指纹，脚本不清空 known_hosts 或重建 SSH 身份。更新并保留新旧磁盘记录，原备份不变。恢复目录必须有足够暂存空间；恢复目标在验收前隔离业务流量。
 

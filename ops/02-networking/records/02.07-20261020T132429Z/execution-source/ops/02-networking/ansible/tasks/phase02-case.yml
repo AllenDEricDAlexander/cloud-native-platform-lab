@@ -1,0 +1,29 @@
+---
+- name: 为 {{ phase_case.name }} 核对原 UID 并生成命令计划
+  ansible.builtin.command:
+    argv: '{{ phase_args + ["plan","--case",phase_case.name,"--output",phase_attempt ~ "/plan-" ~ phase_case.name ~ ".json"] }}'
+  register: phase_plan
+  changed_when: false
+- name: 初始化本用例的原始命令结果
+  ansible.builtin.set_fact: {phase_command_results: []}
+- name: 顺序执行，首个意外失败停止后续命令
+  block:
+    - name: 执行每个经过范围校验的命令
+      ansible.builtin.include_tasks: phase02-command.yml
+      loop: '{{ (phase_plan.stdout | from_json).commands }}'
+      loop_control: {loop_var: phase_command, label: '{{ phase_command.argv[0] | basename }} {{ phase_case.name }}'}
+  always:
+    - name: 保留成功或部分失败的原始结果
+      ansible.builtin.copy:
+        content: '{{ {"results": phase_command_results} | to_nice_json }}'
+        dest: '{{ phase_attempt }}/commands-{{ phase_case.name }}.json'
+        mode: '0600'
+    - name: 绑定已经实际创建的对象原 UID
+      ansible.builtin.command:
+        argv: '{{ phase_args + ["record","--case",phase_case.name,"--input",phase_attempt ~ "/commands-" ~ phase_case.name ~ ".json","--output",phase_attempt ~ "/receipt-" ~ phase_case.name ~ ".json"] }}'
+      changed_when: false
+- name: 等待并验证 {{ phase_case.name }} 的真实结果
+  ansible.builtin.command:
+    argv: '{{ phase_args + ["observe","--case",phase_case.name,"--output",phase_attempt ~ "/" ~ phase_case.name ~ ".json"] }}'
+  changed_when: false
+  when: phase_case.check | default(true)

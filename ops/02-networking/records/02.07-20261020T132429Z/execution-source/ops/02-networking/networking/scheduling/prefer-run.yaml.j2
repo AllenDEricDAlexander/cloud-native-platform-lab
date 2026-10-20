@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prefer-run
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: prefer-run
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  nodeSelector:
+    kubernetes.io/hostname: storage03.k8s.internal.egon.top
+  tolerations:
+  - key: node-role.kubernetes.io/storage
+    operator: Exists
+    effect: NoSchedule

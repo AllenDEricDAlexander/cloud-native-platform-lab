@@ -139,7 +139,7 @@ bash ops/02-networking/scripts/certificates.sh all "$LAB_TLS_RECORDS"
 
 完整剧本、YAML、逐条作用/预期、52 个正反向用例、5 组实际源与回程以及恢复说明见 [完整操作指南](examples/policies/README.md)；[执行前核验记录](records/02.06-20261019-source-review/README.md)。02.05 内部验收已归档，公网 BLOCKED 保留。
 
-[实际执行归档](records/02.06-20261020T004459Z-agent-r4/README.md)：52 个行为用例、5 组抓包和清理通过，Ansible failed=0；Ceph 与主集群 Egress Gateway 缺口仍保留。用户要求在本条完整命令结束后暂停，02.07–10 正式实验未启动。
+[实际执行归档](records/02.06-20261020T004459Z-agent-r4/README.md)：52 个行为用例、5 组抓包和清理通过，Ansible failed=0；Ceph 与主集群 Egress Gateway 缺口仍保留。该批结束后按要求暂停，后续由用户自行运行；02.07 的实际结果见下一节。
 
 在管理 Mac 一次运行整组：
 
@@ -160,6 +160,8 @@ bash ops/02-networking/scripts/policies.sh all "$LAB_POLICY_RECORDS"
 ## 02.07 VM 调度与分布
 
 [完整 Ansible/YAML、逐项作用、预期与恢复](examples/scheduling/README.md)。只使用 VM hostname；包含 Required/Preferred、标签变化、NoSchedule/PreferNoSchedule/NoExecute、Pod 亲和/反亲和和 TopologySpread。每次先核对现有 Pod 的 NoExecute 容忍，结束精确恢复原标签/污点。
+
+[实际执行归档](records/02.07-20261020T132429Z/README.md)：16 项结果全部通过，Ansible failed=0；原节点标签/污点、实验空间清理和既有资源保护基线一致，主 .201 可信 TLS 正常。已生成 [02.08 交接](records/completed/02.07.json)。
 
 ```bash
 export LAB_SCHEDULING_RECORDS="$PWD/ops/02-networking/records/02.07-$(date -u +%Y%m%dT%H%M%SZ)"

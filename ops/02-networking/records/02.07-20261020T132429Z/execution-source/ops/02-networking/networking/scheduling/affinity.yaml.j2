@@ -1,0 +1,454 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: anchor
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: anchor
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  nodeSelector:
+    kubernetes.io/hostname: worker01.k8s.internal.egon.top
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: colocated
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: colocated
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: anchor
+            cnpl.io/phase-run: '{{ run }}'
+        topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hard-0
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: hard
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: hard
+            cnpl.io/phase-run: '{{ run }}'
+        topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hard-1
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: hard
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: hard
+            cnpl.io/phase-run: '{{ run }}'
+        topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hard-2
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: hard
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: hard
+            cnpl.io/phase-run: '{{ run }}'
+        topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-0
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: soft
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: soft
+              cnpl.io/phase-run: '{{ run }}'
+          topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-1
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: soft
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: soft
+              cnpl.io/phase-run: '{{ run }}'
+          topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: soft-2
+  namespace: lab-scheduling
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    app: soft
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: net
+    image: '{{ image }}'
+    args:
+    - serve
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 5m
+        memory: 8Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - worker01.k8s.internal.egon.top
+            - worker02.k8s.internal.egon.top
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: soft
+              cnpl.io/phase-run: '{{ run }}'
+          topologyKey: kubernetes.io/hostname

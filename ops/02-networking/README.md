@@ -176,6 +176,8 @@ bash ops/02-networking/scripts/scheduling.sh all "$LAB_SCHEDULING_RECORDS"
 
 [完整 Ansible/YAML、作用/预期与恢复](examples/resource-governance/README.md)。三个预算空间、QoS分类、Pod OOM、CPU真实限流、32Mi空卷限额驱逐、只针对本批低优先级 Pod 的抢占、PDB 阻止/允许的标签限定 drain、直接删除对照在同一个入口完成。
 
+[实际执行归档](records/02.08-20261020T133923Z/README.md)：17 项可运行结果和清理通过，Ansible failed=0；五个实验空间、两个 PriorityClass 与维护字段均已回收，主 .201 可信 TLS 正常。整 VM 压力排序保持 BLOCKED，已生成 [02.09 交接](records/completed/02.08.json)。
+
 [02.07 交接后的整组复核](records/02.08-20261020T133203Z-delivery-review/README.md)：29 个对象严格服务端预览、两个架构物料重建与匿名摘要、8 项 Python 测试、Go race/vet，以及 Ansible 正常/故意失败/恢复的四种模型分支通过。正式 all 共 19 步、17 项实际验收，由操作者一次启动；前检不代表实际资源实验通过。
 
 ```bash

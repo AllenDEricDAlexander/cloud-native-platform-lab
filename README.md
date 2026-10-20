@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | [00](plan/00-preparation.md) | 虚拟机、Linux 与 CRI、网络与代理、DNS、CA、仓库、备份、离线物料 | 主线可交接（[阶段验收](ops/00-preparation/records/2026-10-14/acceptance.md)）：十台节点与 DNS、CA、代理、Harbor、GitLab、Nexus、备份就绪，断网验收通过；未完成项在后续阶段跟踪 |
 | [01](plan/01-kubernetes.md) | kubeadm 初始化、控制平面高可用、Cilium | [基础集群、完整备份与单 VM HA 通过](ops/01-kubernetes/records/2026-10-17-restart/README.md)；[01.03–01.10 核心实验验收与清理通过，已生成 02 交接](ops/01-kubernetes/records/core-07-10/runs/10-20261018T132014Z/README.md)；.15 分发待交付 |
-| [02](plan/02-networking.md) | 服务网络、MetalLB、Gateway、网络策略 | [02.01](ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)可执行项和清理通过，Ceph/主出口模式仍阻塞；[完整02.07](ops/02-networking/records/02.07-20261020T132429Z/README.md)调度验收和清理通过，02.08–10 正式实验未开始 |
+| [02](plan/02-networking.md) | 服务网络、MetalLB、Gateway、网络策略 | [02.01](ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)可执行项和清理通过，Ceph/主出口模式仍阻塞；[完整02.07](ops/02-networking/records/02.07-20261020T132429Z/README.md)调度验收和清理通过；[02.08](ops/02-networking/records/02.08-20261020T133923Z/README.md)可执行项与清理通过，整 VM 压力排序仍 BLOCKED；02.09–10 正式实验未开始 |
 | [03](plan/03-ceph-middleware.md) | Ceph、Rook CSI、中间件 | 未开始 |
 | [04](plan/04-devops-platform.md) | CI/CD、GitOps、平台工程 | 未开始 |
 | [05](plan/05-observability.md) | Zabbix VM 监控、指标、日志、追踪、成本 | [Zabbix 先行方案](ops/05-observability/README.md#zabbix-design)已调整为复用 build01，部署未开始；其余未开始 |
@@ -47,7 +47,7 @@
 | `ops/<阶段>/records/` | 实际做了什么、结果如何 | 按发生顺序的执行记录与原始证据，包括失败与修正 |
 
 - **了解项目**：架构 → 阶段计划。
-- **动手操作**：打开对应阶段的操作流程（当前 Phase02，02.07 调度验收与清理已归档，下一步为 [02.08](ops/02-networking/README.md#02-08)，由操作者启动），输出保存到该阶段的 records。
+- **动手操作**：打开对应阶段的操作流程（当前 Phase02，02.08 可执行项与清理已归档，下一步为 [02.09](ops/02-networking/README.md#02-09)，由操作者启动），输出保存到该阶段的 records。
 - **查看进度或排查问题**：看执行记录；遇到过的问题和处理方法都在其中。
 
 ## 5. 共同约定

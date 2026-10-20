@@ -1,0 +1,83 @@
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: '{{ name }}'
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  gracefulRestart:
+    enabled: false
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: '{{ name }}'
+  ebgpMultihop: 4
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: '{{ name }}'
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    advertise: '{{ name }}'
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+  - advertisementType: Service
+    service:
+      addresses:
+      - LoadBalancerIP
+    selector:
+      matchLabels:
+        cnpl.io/phase-run: '{{ run }}'
+        cnpl.io/lb: bgp
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: '{{ name }}'
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeSelector:
+    matchExpressions:
+    - key: kubernetes.io/hostname
+      operator: In
+      values:
+      - worker01.k8s.internal.egon.top
+      - worker02.k8s.internal.egon.top
+  bgpInstances:
+  - name: comparison
+    localASN: 65010
+    peers:
+    - name: frr
+      peerASN: 65009
+      peerAddress: '{{ frr_ip }}'
+      peerConfigRef:
+        name: '{{ name }}'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bgp
+  namespace: lab-dataplane-vm
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    cnpl.io/lb: bgp
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  externalTrafficPolicy: Cluster
+  selector:
+    app: api
+    cnpl.io/phase-run: '{{ run }}'
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080

@@ -1,0 +1,489 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-0
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: cp01.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-1
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: cp02.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-2
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: cp03.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-3
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: infra01.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-4
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: infra02.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-5
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: storage01.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-6
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: storage02.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-7
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: storage03.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-8
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: worker01.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-cleanup-9
+  namespace: lab-dataplane-vm-admin
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeName: worker02.k8s.internal.egon.top
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  tolerations:
+  - operator: Exists
+  containers:
+  - name: cleanup
+    image: '{{ kube_proxy_image }}'
+    imagePullPolicy: IfNotPresent
+    command:
+    - /usr/local/bin/kube-proxy
+    - --cleanup
+    - --proxy-mode=iptables
+    securityContext:
+      runAsUser: 0
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volumeMounts:
+    - name: modules
+      mountPath: /lib/modules
+      readOnly: true
+    - name: lock
+      mountPath: /run/xtables.lock
+  volumes:
+  - name: modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate

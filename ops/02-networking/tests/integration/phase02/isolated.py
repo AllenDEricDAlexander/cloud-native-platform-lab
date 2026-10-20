@@ -5,12 +5,17 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import yaml
 import runtime as r
 
 MATERIALS=r.module('isolation_materials',r.HERE.parent/'dataplane/materials.py')
 HELM=str(Path.home()/'.cnpl/bin/helm')
 KUBECTL=str(Path.home()/'.cnpl/bin/kubectl')
+
+
+def require_runtime_host():
+    r.require(sys.platform!='darwin','禁止在 Mac 运行 Docker/kind 实验；请使用 VM 执行入口。旧批次仅允许清理恢复。')
 
 
 def locks(topic):
@@ -24,14 +29,17 @@ def locks(topic):
 
 
 def prepare(s,mesh=False):
+    if s.mode=='all':require_runtime_host()
     lock=locks(s.topic)
     MATERIALS.verify(lock)
-    context=r.call(['docker','context','show']).strip()
-    endpoint=json.loads(r.call(['docker','context','inspect',context,'--format','{{json .Endpoints.docker.Host}}']))
-    r.require(endpoint.startswith('unix://'),'本入口要求本机 Docker Unix socket')
-    info=subprocess.run(['docker','--context',context,'info','--format','{{json .}}'],capture_output=True,text=True,timeout=15)
-    available=info.returncode==0
-    data=json.loads(info.stdout) if available else {}
+    context,available,data='disabled-on-mac',False,{}
+    if sys.platform!='darwin':
+        context=r.call(['docker','context','show']).strip()
+        endpoint=json.loads(r.call(['docker','context','inspect',context,'--format','{{json .Endpoints.docker.Host}}']))
+        r.require(endpoint.startswith('unix://'),'本入口要求本机 Docker Unix socket')
+        info=subprocess.run(['docker','--context',context,'info','--format','{{json .}}'],capture_output=True,text=True,timeout=15)
+        available=info.returncode==0
+        data=json.loads(info.stdout) if available else {}
     if s.mode=='all':
         r.require(available,'Docker 当前未运行；请先启动 Docker Desktop，再运行本专题 all。不会自动启动 Docker。')
         r.require(data.get('OSType')=='linux' and data.get('Architecture') in ['aarch64','arm64'],'物料锁仅覆盖本机 linux/arm64 Docker')
@@ -102,6 +110,7 @@ class Cluster:
         return [self.s.command(self.docker+['load','--input',value['archive']])]
 
     def create_plan(self):
+        require_runtime_host()
         self.check_engine()
         self.state['creation_intent']=True;self.save()
         commands=self.image_load('kind-node')+self.image_load('resource')
@@ -152,8 +161,9 @@ class Cluster:
                 path=self.s.attempt/('isolated-'+obj['kind']+'-'+m.get('namespace','cluster')+'-'+m['name']+'.json')
                 r.save(path,obj)
                 # Namespace/SA/CRD 的创建必须先落地，之后的依赖对象才能做真实准入。
-                commands += [self.s.command(self.k+['apply','--dry-run=server','--validate=strict','-f',path]),
-                             self.s.command(self.k+['apply','--validate=strict','-f',path])]
+                apply=['apply']+(['--server-side','--field-manager=cnpl-gateway-crds'] if obj['kind']=='CustomResourceDefinition' else [])
+                commands += [self.s.command(self.k+apply+['--dry-run=server','--validate=strict','-f',path]),
+                             self.s.command(self.k+apply+['--validate=strict','-f',path])]
         return commands
 
     def delete(self,kind,name,ns=None):

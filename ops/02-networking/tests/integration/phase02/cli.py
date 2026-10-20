@@ -17,7 +17,7 @@ def main(driver):
     p.add_argument('--input', type=Path)
     p.add_argument('--output', type=Path, required=True)
     args = p.parse_args()
-    s = r.Session(driver.TOPIC, driver.STAGE, args.records, args.attempt, driver.NAMESPACES)
+    s = getattr(driver, 'Session', r.Session)(driver.TOPIC, driver.STAGE, args.records, args.attempt, driver.NAMESPACES)
     s.mode = args.mode
     action = args.action
     if action == 'prepare':
@@ -25,11 +25,11 @@ def main(driver):
         if args.mode in ['all','validate']:
             driver.prepare(s)
             s.bind_sources(args.mode)
-        value = {'context': s.context, 'steps': driver.steps(s)}
+        value = {'context': s.context, 'steps': driver.steps(s), 'restore_steps': getattr(driver, 'RESTORE_STEPS', [])}
     elif action == 'validate':
         value = driver.validate(s) if hasattr(driver, 'validate') else s.validate()
     elif action == 'plan':
-        step = next(step for step in driver.steps(s) if step['name'] == args.case)
+        step = next(step for step in driver.steps(s) + getattr(driver, 'RESTORE_STEPS', []) if step['name'] == args.case)
         value = {'commands': s.apply(step['file']) if step.get('file') else driver.plan(s, args.case)}
     elif action == 'record':
         s.record(json.loads(args.input.read_text()).get('results', []))

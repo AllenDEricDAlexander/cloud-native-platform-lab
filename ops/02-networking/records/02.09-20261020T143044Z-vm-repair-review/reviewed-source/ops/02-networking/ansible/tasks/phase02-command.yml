@@ -1,0 +1,12 @@
+---
+- name: 执行单个受检命令并保留结果
+  block:
+    - name: '{{ phase_case.name }} 命令'
+      ansible.builtin.command: {argv: '{{ phase_command.argv }}'}
+      register: phase_one
+      changed_when: true
+      failed_when: phase_one.rc not in phase_command.allowed_rc
+  always:
+    - name: 追加本命令的原始输出
+      ansible.builtin.set_fact:
+        phase_command_results: '{{ phase_command_results + [phase_one | combine({"phase_command": phase_command})] }}'

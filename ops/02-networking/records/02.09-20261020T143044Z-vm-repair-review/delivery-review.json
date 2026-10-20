@@ -1,0 +1,251 @@
+{
+  "stage": "02.09",
+  "reviewed_utc": "2026-10-20T15:15:34.287277+00:00",
+  "user_selected_target": "existing .101-.110 VM primary cluster",
+  "management": "Mac CLI only; no local Docker/kind runtime",
+  "source_validation_passed": true,
+  "formal_vm_runtime_passed": false,
+  "phase_complete": false,
+  "source_files_match": 40,
+  "normal_steps": 22,
+  "restore_steps": 7,
+  "validation": {
+    "passed": true,
+    "backend": "vm-primary",
+    "builtin_server_dry_run": 20,
+    "custom_structure": {
+      "passed": true,
+      "custom_documents": 8,
+      "scope": "OpenAPI structure; CEL and actual admission are checked after CRD installation before apply"
+    },
+    "crd_server_side_previews": 25,
+    "profiles": {
+      "ebpf": {
+        "non_secret_objects": 33
+      },
+      "native": {
+        "non_secret_objects": 33
+      },
+      "l2": {
+        "non_secret_objects": 33
+      },
+      "bgp": {
+        "non_secret_objects": 35
+      }
+    },
+    "mac_container_runtime_used": false,
+    "runtime_executed": false
+  },
+  "python_tests": {
+    "dataplane_vm_and_legacy_guard": 18,
+    "shared_framework": 4
+  },
+  "targeted_checks": {
+    "dataplane-tests": {
+      "rc": 0,
+      "passed": true,
+      "command": [
+        "/Users/mario/.venvs/cnpl-ansible/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ops/02-networking/tests/integration/dataplane",
+        "-p",
+        "test_*.py"
+      ]
+    },
+    "shared-tests": {
+      "rc": 0,
+      "passed": true,
+      "command": [
+        "/Users/mario/.venvs/cnpl-ansible/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ops/02-networking/tests/integration/phase02",
+        "-p",
+        "test_*.py"
+      ]
+    },
+    "shell-syntax": {
+      "rc": 0,
+      "passed": true,
+      "command": [
+        "bash",
+        "-n",
+        "ops/02-networking/scripts/dataplane.sh",
+        "ops/02-networking/scripts/phase02.sh"
+      ]
+    }
+  },
+  "offline_models": {
+    "scope": "Ansible orchestration only",
+    "passed": true,
+    "results": {
+      "normal": {
+        "passed": true,
+        "exit": 0,
+        "cleanup": true,
+        "firewall_restored": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=281  changed=61   unreachable=0    failed=0    skipped=1    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/offline/c744c183/normal/ansible.txt"
+      },
+      "failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": true,
+        "firewall_restored": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=270  changed=59   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/offline/c744c183/failure/ansible.txt"
+      },
+      "command-failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": true,
+        "firewall_restored": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=110  changed=18   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/offline/c744c183/command-failure/ansible.txt"
+      },
+      "recover": {
+        "passed": true,
+        "exit": 0,
+        "cleanup": true,
+        "firewall_restored": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=72   changed=15   unreachable=0    failed=0    skipped=4    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/offline/c744c183/recover/ansible.txt"
+      },
+      "rollback-failure": {
+        "passed": true,
+        "exit": 2,
+        "cleanup": false,
+        "firewall_restored": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=251  changed=54   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+        "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/offline/c744c183/rollback-failure/ansible.txt"
+      }
+    }
+  },
+  "large_crd_exact_failure_replay": {
+    "passed": true,
+    "exact_failed_input_bytes": 1424276,
+    "input_sha256": "ed30d496eec7287da785a349ba37a5456741289a0255e77927ea633e5f82eb57",
+    "results": {
+      "client": {
+        "rc": 1,
+        "size_limit_error": true,
+        "command": [
+          "/Users/mario/.cnpl/bin/kubectl",
+          "--kubeconfig",
+          "/Users/mario/.cnpl-secrets/kubeconfig-lab-primary",
+          "--request-timeout=20s",
+          "apply",
+          "--dry-run=server",
+          "--validate=strict",
+          "-f",
+          "ops/02-networking/records/02.09-20261020T140750Z/attempts/20261020T140759Z-9748582d-all/isolated-CustomResourceDefinition-cluster-envoyproxies.gateway.envoyproxy.io.json",
+          "-o",
+          "name"
+        ]
+      },
+      "server": {
+        "rc": 0,
+        "size_limit_error": false,
+        "command": [
+          "/Users/mario/.cnpl/bin/kubectl",
+          "--kubeconfig",
+          "/Users/mario/.cnpl-secrets/kubeconfig-lab-primary",
+          "--request-timeout=20s",
+          "apply",
+          "--server-side",
+          "--field-manager=cnpl-gateway-crds",
+          "--dry-run=server",
+          "--validate=strict",
+          "-f",
+          "ops/02-networking/records/02.09-20261020T140750Z/attempts/20261020T140759Z-9748582d-all/isolated-CustomResourceDefinition-cluster-envoyproxies.gateway.envoyproxy.io.json",
+          "-o",
+          "name"
+        ]
+      }
+    },
+    "primary_crd_uid_and_spec_unchanged": true,
+    "persisted": false
+  },
+  "post_review_primary": {
+    "passed": true,
+    "primary_resources_match_02_08_baseline": true,
+    "vm_session_protection_exercised": true,
+    "protected_objects": 67,
+    "namespaces_absent": true,
+    "cilium_original_revision": 4,
+    "cilium_and_kubeproxy_ready": 10,
+    "main_tls_status": 404,
+    "mac_runtime_started": false
+  },
+  "original_cilium_revision": 4,
+  "original_cilium_manifest_sha256": "ee8879ef6ba6202f79676727b4c632a2c9f979195aebedbf51a0b2f338e95454",
+  "schema_catalog_count": 7,
+  "changes": [
+    "CRD server-side preview and apply; exact 1.4MB failure replay passed",
+    "Mac Docker/kind stopped and obsolete local runtime entry rejected before startup",
+    "VM Session preserves release/controller UIDs while allowing managed Pod restarts",
+    "original Helm revision rollback includes original TLS/RBAC manifest",
+    "UID-scoped temporary kube-proxy suspension and per-VM cleanup Pods",
+    "CiliumNode cluster-pool CIDRs and guarded Native route restore",
+    "non-overlapping .211-.214 VIPs with duplicate address detection",
+    "temporary Mac-only firewall rules, always revoked even if rollback fails",
+    "selector L2 handoff without stopping VMs",
+    "FRR amd64 on a VM Pod, eBGP multihop and allowed RIB withdrawal",
+    "02.10 legacy Mac/kind and full batch all disabled until VM port is delivered"
+  ],
+  "blocked": {
+    "external_bgp_forwarding": "No independent upstream; VM-hosted FRR proves control-plane sessions/RIB/withdrawal only"
+  },
+  "architecture": "Reuse Session/CLI/Ansible plan-command-observe-restore; optional Session override isolates expected Cilium controller reconciliation; no new runtime dependency on Mac",
+  "original_helm_live_server_dryrun": {
+    "passed": true,
+    "method": "original Helm controller/ConfigMap manifests replayed with actual API strict dry-run; API normalization included",
+    "objects": {
+      "ConfigMap/cilium-config": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "ConfigMap/cilium-envoy-config": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "ConfigMap/hubble-relay-config": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "ConfigMap/hubble-ui-nginx": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "DaemonSet/cilium": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "DaemonSet/cilium-envoy": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "Deployment/cilium-operator": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "Deployment/hubble-relay": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      },
+      "Deployment/hubble-ui": {
+        "uid_match": true,
+        "spec_or_data_match": true
+      }
+    },
+    "raw_comparison_note": "Kubernetes omits zero CPU/probe delays and false readOnly fields; raw rendering differs without semantic drift",
+    "persisted": false
+  }
+}

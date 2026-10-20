@@ -1,17 +1,8 @@
-apiVersion: gateway.networking.k8s.io/v1
-kind: GatewayClass
-metadata:
-  name: cnpl-comparison
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-spec:
-  controllerName: gateway.envoyproxy.io/cnpl-isolated
----
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: edge
-  namespace: lab-dataplane
+  namespace: lab-dataplane-vm
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
@@ -19,11 +10,20 @@ spec:
     type: Kubernetes
     kubernetes:
       envoyDeployment:
-        name: comparison-edge
+        name: '{{ name }}'
         replicas: 2
         pod:
           nodeSelector:
-            cnpl.io/kind-role: worker
+            node-role.kubernetes.io/worker: ''
+          labels: &id001
+            cnpl.io/phase-run: '{{ run }}'
+            cnpl.io/component: phase02-vm-dataplane-edge
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: *id001
         container:
           image: '{{ envoy_image }}'
           resources:
@@ -42,25 +42,34 @@ spec:
                   containers:
                   - name: shutdown-manager
                     image: '{{ gateway_image }}'
+                metadata:
+                  labels: *id001
+            metadata:
+              labels:
+                cnpl.io/phase-run: '{{ run }}'
       envoyService:
-        name: comparison-edge
+        name: '{{ name }}'
         type: NodePort
         externalTrafficPolicy: Cluster
+        labels:
+          cnpl.io/phase-run: '{{ run }}'
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: edge
-  namespace: lab-dataplane
+  namespace: lab-dataplane-vm
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
-  gatewayClassName: cnpl-comparison
+  gatewayClassName: '{{ gateway_class }}'
   infrastructure:
     parametersRef:
       group: gateway.envoyproxy.io
       kind: EnvoyProxy
       name: edge
+    labels:
+      cnpl.io/phase-run: '{{ run }}'
   listeners:
   - name: http
     protocol: HTTP
@@ -73,7 +82,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: edge
-  namespace: lab-dataplane
+  namespace: lab-dataplane-vm
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:

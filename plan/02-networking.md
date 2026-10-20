@@ -1,6 +1,6 @@
 # Phase 02｜云原生网络、调度与服务治理
 
-文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](../ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](../ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](../ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](../ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)52 个行为用例、5 组实际源与回程及清理通过，Ceph/主出口模式仍阻塞；[完整02.07](../ops/02-networking/records/02.07-20261020T132429Z/README.md)16 项调度验收与清理通过；[02.08](../ops/02-networking/records/02.08-20261020T133923Z/README.md)17 项可执行验收与清理通过，整VM压力排序仍 BLOCKED；02.09–10 正式实验未开始。步骤数：45。
+文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](../ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](../ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](../ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](../ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)52 个行为用例、5 组实际源与回程及清理通过，Ceph/主出口模式仍阻塞；[完整02.07](../ops/02-networking/records/02.07-20261020T132429Z/README.md)16 项调度验收与清理通过；[02.08](../ops/02-networking/records/02.08-20261020T133923Z/README.md)17 项可执行验收与清理通过，整VM压力排序仍 BLOCKED；02.09 原 Mac/kind 批次失败后已清理，现改为用户选定的 VM 主集群入口（正式切换未执行）；02.10 旧本地后端停用，VM 版待交付。步骤数：45。
 
 从可观测的基础通信开始，建立 Service、网关、证书、网络隔离和调度规则，再逐项比较 eBPF、负载均衡、出站治理与服务网格。
 
@@ -364,7 +364,7 @@
 
 [本专题具体操作、配置与检查](../ops/02-networking/README.md#02-09)
 
-本节在管理Mac独立kind执行，保留主十VM的Cilium/kube-proxy；模板、物料、验证和回退由独立入口一次完成。
+本节按用户确认在现有 .101–.110 VM 主集群执行。Mac 仅运行管理命令，禁止本地 Docker/kind。先保存原 Cilium Helm revision 与 kube-proxy spec，再完成受控切换、同一通信矩阵及自动回退；原有连接可能重连。L2 使用与 MetalLB 不相交的 .211–.214，BGP 使用 VM 内软件邻居，不把它算作真实外部上游转发。
 
 ### 02.09.01 比较 kube-proxy 与 eBPF 替代
 

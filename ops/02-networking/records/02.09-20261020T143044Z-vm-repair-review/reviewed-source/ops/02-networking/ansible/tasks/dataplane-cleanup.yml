@@ -1,0 +1,14 @@
+---
+- name: 恢复 VM 数据面与实验标签，异常时也撤销临时入口规则
+  block:
+    - name: 顺序恢复原 VM 数据面并实际复验
+      ansible.builtin.include_tasks: phase02-case.yml
+      loop: '{{ (phase_prepare.stdout | from_json).restore_steps | default([]) | rejectattr("name","equalto","recover-firewall") | list }}'
+      loop_control: {loop_var: phase_case, label: '{{ phase_case.name }}'}
+  always:
+    - name: 总是撤销本批 Mac 来源的临时访问规则
+      ansible.builtin.include_tasks: phase02-case.yml
+      loop: '{{ (phase_prepare.stdout | from_json).restore_steps | default([]) | selectattr("name","equalto","recover-firewall") | list }}'
+      loop_control: {loop_var: phase_case, label: '{{ phase_case.name }}'}
+- name: 按原 UID 回收本批资源并复核原 VM 主线
+  ansible.builtin.include_tasks: phase02-cleanup.yml

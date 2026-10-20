@@ -1,0 +1,54 @@
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: comparison
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  blocks:
+  - start: 172.30.90.224
+    stop: 172.30.90.230
+  serviceSelector:
+    matchExpressions:
+    - key: cnpl.io/lb
+      operator: In
+      values:
+      - l2
+      - bgp
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: comparison
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  serviceSelector:
+    matchLabels:
+      cnpl.io/lb: l2
+  nodeSelector:
+    matchLabels:
+      cnpl.io/kind-role: worker
+  interfaces:
+  - ^eth0$
+  loadBalancerIPs: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2
+  namespace: lab-dataplane
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    cnpl.io/lb: l2
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/l2-announcer
+  externalTrafficPolicy: Cluster
+  selector:
+    app: api
+    cnpl.io/phase-run: '{{ run }}'
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080

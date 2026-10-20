@@ -1,0 +1,25 @@
+{
+  "target": "existing ten Rocky VM primary Kubernetes cluster .101-.110",
+  "management": "Mac CLI only; no local container runtime",
+  "fixes": [
+    "server-side apply for CRD preview and apply",
+    "reject legacy local kind runtime on Mac",
+    "VM-native dataplane driver"
+  ],
+  "implementation": [
+    "reuse existing Cilium Helm release and exact original revision for rollback, preserve managed controller UIDs",
+    "use CiliumNode PodCIDRs for existing cluster-pool IPAM",
+    "temporarily suspend kube-proxy by UID-checked selector patch, bounded cleanup Pods on VMs, restore original spec",
+    "same bounded Pod/Service/NodePort/Gateway/API matrix across baseline, eBPF and Native Routing",
+    "non-overlapping .211-.214 test VIPs, selector-driven L2 lease handoff; never stop a VM",
+    "FRR software BGP peer as a Pod on VM; verify allowed RIB and withdrawal; external upstream forwarding stays BLOCKED",
+    "reuse shared Ansible orchestration with driver-specific restore stages; keep cleanup path for original failed batch"
+  ],
+  "validation": [
+    "unit regressions and real large-CRD server dry-run",
+    "all YAML and Helm profiles validated before runtime",
+    "actual Ansible normal/failure/recover models",
+    "VM readonly networking/material prerequisites"
+  ],
+  "formal_runtime_started": false
+}

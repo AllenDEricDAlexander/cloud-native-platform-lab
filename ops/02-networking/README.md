@@ -189,36 +189,27 @@ bash ops/02-networking/scripts/resource-governance.sh all "$LAB_RESOURCE_RECORDS
 
 <a id="02-09"></a>
 
-## 02.09 隔离数据面、L2 与 BGP 对照
+## 02.09 VM 主集群数据面、L2 与 BGP
 
-[完整 Ansible/YAML、21步作用/预期与恢复](examples/dataplane/README.md)。管理 Mac 上临时kind，固定Kubernetes1.36.4/Cilium1.20.2，实际比较kube-proxy/eBPF与VXLAN/Native，独立Envoy Gateway、L2/ARP/暂停容器故障与FRR BGP前缀宣告/撤回，最后恢复基准并删除本批环境。
+旧 Mac/Docker/kind 方案已停用，原失败批次已清理并停止 Docker。用户已明确选择现有 .101–.110 VM 主集群；Mac 只作管理端。[完整 Ansible、22步 YAML、作用/预期和恢复](examples/dataplane/README.md)覆盖 kube-proxy/eBPF、VXLAN/Native、独立测试网关、L2 Lease/ARP迁移、FRR限定RIB及撤回，再恢复原 Helm revision、控制器、路由、标签与临时规则。
 
-[02.08 交接后的整组复核](records/02.09-20261020T135236Z-delivery-review/README.md)：五种 Cilium profile、网关模板、6 个内置对象和5个 CRD预览、9个自定义实例 schema、离线物料摘要、11项 Python测试与四种 Ansible模型分支通过。已修正 FRR公开配置目录权限和 EndpointSlice空值处理；Docker保持停止，正式kind实验由用户启动。
-
-```bash
-export DOCKER_CONTEXT=desktop-linux
+~~~bash
+cd /Users/mario/SelfProject/cloud-native-platform-lab
 export LAB_DATAPLANE_RECORDS="$PWD/ops/02-networking/records/02.09-$(date -u +%Y%m%dT%H%M%SZ)"
-docker desktop start && bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
-```
+bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
+~~~
 
-当前终端固定 Docker Desktop context、绑定新批次，最后等待Docker启动成功再运行整组；脚本本身不启动它。Docker要求linux/arm64、cgroup v2、至少4CPU/6Gi，建议8Gi。前置为02.08已实际完成与清理。全部物料已锁定并导出离线归档；主十VM、Cilium和.201保持。BGP仅使用专属Docker网络软件邻居，不接家庭路由器。
+三行分别进入仓库、创建全新批次、一次完成所有实验与自动恢复。原 Mac/kind 记录目录只能保留/恢复，不能续跑。主集群的原有连接可能重连；不承诺零中断。BGP外部上游转发保持BLOCKED，不能把软件邻居内的Service访问算作这项验收。
 
 <a id="02-10"></a>
 
-## 02.10 Istio、SPIFFE/SPIRE 与交接
+## 02.10 Istio、SPIFFE/SPIRE
 
-[全部 Ansible/YAML、21步作用/预期与恢复](examples/mesh/README.md)。另一套临时kind内演练Sidecar、Ambient/waypoint，mTLS精确身份授权、超时/有界重试、SPIRE PSAT注册/真实SVID与轮换、注册撤销和旧证书TTL。独立CA/bundle不自动联合信任。清理后才写正式handoff。
-
-```bash
-export LAB_MESH_RECORDS="$PWD/ops/02-networking/records/02.10-$(date -u +%Y%m%dT%H%M%SZ)"
-bash ops/02-networking/scripts/mesh.sh all "$LAB_MESH_RECORDS"
-```
-
-第一行绑定新目录，第二行一次完成身份/网格实验并删除本批环境。前置为02.09实际通过与清理，本机Docker保持运行。主集群Cilium/证书/入口保持；全部私钥仅在隔离环境/进程内，私有kubeconfig不入Git。
+原本地 kind 执行方案与“Mac 不运行容器实验”的约束冲突，已停用。VM 版尚未交付，当前不提供正式 all 命令，也不能继续旧整批入口。[当前范围与迁移状态](examples/mesh/README.md)。
 
 ## 02.06–10 分步与整批执行
 
-五个专题各有独立all/validate/recover入口，按顺序执行。每个脚本自动查找前一步真实通过及清理回执。[总操作指南](examples/06-10/README.md)提供五条独立命令、作用、预期、失败恢复和可选顺序入口。
+02.06–09 已有独立入口，按顺序执行；02.10 旧 kind 后端在 Mac 上被硬性拒绝，VM 版交付前不能整批 all。每个脚本自动查找前一步真实通过及清理回执。[总操作指南](examples/06-10/README.md)提供五条独立命令、作用、预期、失败恢复和可选顺序入口。
 
 ```bash
 bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/run-06-10.sh all

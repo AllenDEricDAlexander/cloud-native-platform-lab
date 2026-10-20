@@ -28,7 +28,16 @@ RESOURCE = {'Namespace': ('v1', 'namespaces'), 'Pod': ('v1', 'pods'), 'Service':
     'ConfigMap': ('v1', 'configmaps'), 'ServiceAccount': ('v1', 'serviceaccounts'),
     'Deployment': ('apps/v1', 'deployments'), 'ResourceQuota': ('v1', 'resourcequotas'),
     'LimitRange': ('v1', 'limitranges'), 'PodDisruptionBudget': ('policy/v1', 'poddisruptionbudgets'),
-    'PriorityClass': ('scheduling.k8s.io/v1', 'priorityclasses')}
+    'PriorityClass': ('scheduling.k8s.io/v1', 'priorityclasses'),
+    'CustomResourceDefinition': ('apiextensions.k8s.io/v1', 'customresourcedefinitions'),
+    'Gateway': ('gateway.networking.k8s.io/v1', 'gateways'),
+    'EnvoyProxy': ('gateway.envoyproxy.io/v1alpha1', 'envoyproxies'),
+    'HTTPRoute': ('gateway.networking.k8s.io/v1', 'httproutes'),
+    'CiliumLoadBalancerIPPool': ('cilium.io/v2', 'ciliumloadbalancerippools'),
+    'CiliumL2AnnouncementPolicy': ('cilium.io/v2alpha1', 'ciliuml2announcementpolicies'),
+    'CiliumBGPClusterConfig': ('cilium.io/v2', 'ciliumbgpclusterconfigs'),
+    'CiliumBGPPeerConfig': ('cilium.io/v2', 'ciliumbgppeerconfigs'),
+    'CiliumBGPAdvertisement': ('cilium.io/v2', 'ciliumbgpadvertisements')}
 
 
 def quantity(value):
@@ -163,8 +172,9 @@ class Session:
                 save(path, {'key': self.key(obj), 'uid': None, 'run': self.run})
             file = self.attempt / ('input-' + self.key(obj).replace('/', '-') + '.json')
             save(file, obj)
-            commands += [self.command(self.k + ['apply', '--dry-run=server', '--validate=strict', '-f', file]),
-                         self.command(self.k + ['apply', '--validate=strict', '-f', file, '-o', 'json'], self.key(obj))]
+            apply = ['apply'] + (['--server-side', '--field-manager=cnpl-gateway-crds'] if obj['kind'] == 'CustomResourceDefinition' else [])
+            commands += [self.command(self.k + apply + ['--dry-run=server', '--validate=strict', '-f', file]),
+                         self.command(self.k + apply + ['--validate=strict', '-f', file, '-o', 'json'], self.key(obj))]
         return commands
 
     def command(self, argv, key=None, allowed_rc=None):

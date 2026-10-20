@@ -15,6 +15,7 @@ def main():
     mode,folder=sys.argv[1:]
     records=Path(folder).resolve()
     r.require(mode in ['all','validate'],'整批入口只支持 all/validate；恢复请使用对应专题原目录')
+    r.require(mode!='all' or sys.platform!='darwin','当前整批包含尚未交付 VM 版的 02.10；禁止在 Mac 使用旧 kind 后端。请分别运行已交付的 VM 专题。')
     r.require(records.parent==r.PHASE/'records' and records.name.startswith('batch-02.06-10-'),'整批目录越界')
     r.require(not (records/'plan.json').exists(),'整批目录已使用，请换新目录，原证据保留')
     records.mkdir(parents=True,exist_ok=True)

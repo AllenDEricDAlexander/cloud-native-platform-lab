@@ -1,50 +1,64 @@
-# 02.09 独立 kind 的完整数据面对照
+# 02.09：现有十 VM 主集群的数据面对照
 
-先完成 02.08 all 及清理。管理 Mac 的 Docker Desktop 需由操作者启动，使用本机 desktop-linux/Linux arm64、cgroup v2，至少4 CPU/6Gi内存（建议8Gi）。本入口不会启动 Docker 或改动十 VM 主集群的 Cilium、kube-proxy、路由或 VIP。
+执行目标已由用户明确为 .101–.110 的现有主集群。Mac 只运行管理命令、Ansible、Helm、kubectl 和只读探测；不启动 Docker Desktop，不创建本地 kind。项目根目录 AGENTS.md 固定了这一约束。
+
+本组会临时切换主集群 Cilium/kube-proxy 与路由，既有连接可能中断并重连。停止其他集群网络维护后，一次执行：
 
 ~~~bash
 cd /Users/mario/SelfProject/cloud-native-platform-lab
-export DOCKER_CONTEXT=desktop-linux
 export LAB_DATAPLANE_RECORDS="$PWD/ops/02-networking/records/02.09-$(date -u +%Y%m%dT%H%M%SZ)"
-docker desktop start && bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
+bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 ~~~
 
-四行分别进入项目、在当前终端固定本机 Docker Desktop context、绑定全新批次、等待 Docker 启动成功后一次完成以下21个步骤和自动清理。DOCKER_CONTEXT 不更改全局默认 context，私有 kubeconfig 也不改变主集群 context。源码与物料可在 Docker 未运行时用 validate 核验；这不代表已完成实际隔离集群验收。
+三行依次进入仓库、绑定全新证据批次、完成本专题全部前检、22步实验和自动回退清理。无需 Docker 命令或新增 VM；原 Mac/kind 失败批次不能续跑，必须使用新目录。
 
-| 范围 | 实际操作与预期 |
+## 前置与恢复基线
+
+- 同集群 02.08 的可运行验收与清理回执匹配；十 VM Ready、无压力；原 Cilium 1.20.2、cluster-pool IPAM、kube-proxy/VXLAN 基线保持。真实地址块来自 CiliumNode，不切换 IPAM。
+- 保存原 Cilium Helm revision、值和 manifest 的摘要、控制器 UID/spec、Cilium ConfigMap 摘要、Node UID、路由和 firewalld 规则。Helm TLS 内容只在进程内计算摘要，不输出、不存入公开记录。
+- 恢复使用原 Helm revision 的既有 manifest（含原 TLS/RBAC），不重新渲染近似配置。kube-proxy 通过 NodeSelector 暂停并恢复，DaemonSet 原 UID 保持。
+- 测试 VIP .211–.214 必须与 MetalLB 地址池和现有 Service 不相交；NodePort 31080/31090 必须未占用。
+- 复用既有 Envoy Gateway controller/GatewayClass；在实验空间创建独立 HTTP 网关，不重装主 .201 网关。
+
+## 一次完成的内容
+
+| 范围 | 操作与预期 |
 | --- | --- |
-| 隔离前检 | 固定 kind0.33.0/Kubernetes1.36.4/Cilium1.20.2；kind工具官方校验和、arm64镜像平台/配置/离线归档摘要；API只绑定127.0.0.1。私有kubeconfig写入管理端秘密目录，不改默认context |
-| 基准 | 新建专属 Docker bridge、一个control-plane与两个容器worker；禁用默认CNI，预加载已校验镜像，安装保留kube-proxy的VXLAN Cilium。所有kind节点必须使用private cgroup namespace |
-| 真实应用与网关 | 两worker应用副本、control-plane诊断Pod、NodePort30080/30090，以及独立Envoy Gateway1.9.2/Envoy1.39.1；每组核对Pod IP、Service IP、DNS、NodePort、Gateway请求的nonce/UID及API Service可信TLS |
-| 02.09.01 | 保存kube-proxy原DS；只在本批kind节点停止DS并清理其iptables链；切换eBPF替代并跑同一矩阵。持久TCP连接容器记录原连接、失败、重连，不承诺零中断 |
-| 02.09.02 | 切换Native Routing、autoDirectNodeRoutes、已定义PodCIDR；同矩阵通过，并读取每节点实际PodCIDR→peerIP内核路由。与先前VXLAN在同一临时集群比较，不拿Mac与VM的绝对性能混比 |
-| 02.09.03 | 启用L2、独立IPAM池172.30.90.224–230，class=io.cilium/l2-announcer；核对实际HTTP、Lease持有者与外部探针ARP MAC。暂停持有者容器，等NotReady/EndpointSlice摘除及Lease迁移后再次验证；恢复容器与流量 |
-| 02.09.04 | 专属网络中的FRR10.5.0软件邻居，ASN65009/65010；只接收本批PodCIDR /24及VIP /32；独立class=io.cilium/bgp-control-plane的Service，核对Established、真实RIB和FRR路由路径HTTP。删除广告后路由撤回、该无L2路径访问失败、NodePort正向对照仍成功 |
-| 回退/清理 | 重建原kube-proxy DS，恢复VXLAN/非替代模式，再跑矩阵；停止并保存持久连接观测；always恢复暂停容器、删除本批kind/附属容器/专属网络；主十VM资源与.201可信TLS不变 |
+| 工作负载与基准 | 两 Worker 各一个 API 副本、client 与持久 TCP 观测；同一 Pod IP、DNS、ClusterIP、NodePort、HTTP Gateway、API Service 可信 TLS 矩阵；响应检查 nonce/原后端 UID |
+| CRD | 预览与实际应用均使用 server-side apply，避免 last-applied 注解的256KiB限制；只补齐缺失的版本锁定 Cilium CRD |
+| eBPF | 保留原 Cilium/IPAM，启用 kube-proxy replacement；暂停原 kube-proxy DS并等待Pod消失；十个一次性 VM Pod 用原 kube-proxy 镜像执行 --cleanup；重复矩阵 |
+| Native Routing | 同一 VM 集群切换 Native/autoDirectNodeRoutes；读取每 VM 到其余 CiliumNode PodCIDR 的内核直连路由，重复矩阵 |
+| L2 | 专属 .211–.214 地址池；核对 VIP/Lease/实际 HTTP/VM MAC；用本批标签让原宣告者退出选择范围，验证迁移后恢复。此为选择器撤出，不停止 VM |
+| BGP | FRR10.5.0 amd64 Pod 在 Worker 作软件邻居，ASN65009/65010；只接收两 Worker PodCIDR 和本批 VIP /32。验证 Established、RIB和广告撤回，不修改家庭上游 |
+| 连接 | 保留实际成功、失败和重连日志，不承诺零中断 |
+| 回退与清理 | 原 kube-proxy spec/10个Pod、原 Cilium Helm revision、原 Node 路由/标签、原模式矩阵；撤销临时入口规则，原UID删除实验对象，主 .201可信TLS正常 |
 
-这三个kind节点是隔离实验的容器节点，不是额外VM。L2/BGP仅在专属Docker网络内传播，不接家庭路由器，不宣告192.168.9.0/24、主VIP或默认路由，不涉及物理宿主机。原主集群02.06.04的OpenWrt联动前提缺口不会因本实验而被自动视为通过。
+只为 Mac .200 来源的本批 NodePort/VIP 请求，在两个 Worker 添加精确即时 rich rules，设置两小时失效保护；不改变永久规则或关闭 SELinux/firewalld，正常与失败恢复均核验原规则。
 
-[独立剧本](../../ansible/playbooks/dataplane.yml)、[全部模板与顺序](../../networking/dataplane)、[隔离保护/生命周期](../../tests/integration/phase02/isolated.py)、[验收器](../../tests/integration/dataplane/check.py)、[镜像归档核验](../../tests/integration/dataplane/materials.py)。
+实验空间为 lab-dataplane-vm 和 lab-dataplane-vm-admin。后者容纳一次性 kube-proxy 清理 Pod（hostNetwork、原镜像、限定参数）和软件 FRR；FRR不使用hostNetwork或主机挂载，其路由表只属于自己的Pod网络空间。
 
-命令作用：
+新增 Cilium BGP CRD 作为组件 schema 保留；本批 Pool、宣告策略、BGP配置/广告、Service和测试空间回收。已有 CRD 不接管或覆盖其他归属实例。
 
-- docker info/inspect：只读固定daemon身份、容器ID/所属网络、镜像配置digest；拒绝host网络或不同归属。
-- docker load / kind load image-archive：导入平台摘要固定的本地归档。Pod引用独有本地tag并禁止拉取，预览同时校验Chart没有额外未知镜像。
-- docker network create / kind create：只创建本批独有名称和标签的网络/节点；Node镜像先按配置摘要验证，API/kubeconfig明确指定。
-- helm upgrade --reset-values：只针对隔离kubeconfig切换完整Cilium值集；agent/operator按配置重启，等待收敛；不使用主集群Helm回滚充当完整回退。
-- kubectl apply --dry-run=server：在实际kind中安装CRD后逐份预览；写操作由Ansible逐条执行，意外失败立即停止后续命令并保存部分结果。
-- docker pause/unpause：只作用于通过kind标签、原ID、专属网络检查的节点容器；不暂停VM或其他容器。
-- vtysh show bgp ... json：读取FRR实际邻居与RIB；FRR前缀表只允许本批Pod/VIP范围，没有默认路由宣告。
-- kind delete cluster / docker rm/network rm：只回收本批对象；不prune其他镜像、网络、卷或容器。
+**外部 BGP 转发保留 BLOCKED**：集群内 FRR证明会话、受限 RIB与撤回，不能用 Pod内Service访问替代真实上游转发。验收读取 available_cases_passed=true 与 cleanup_passed=true；phase_complete=false保留这一缺口。
 
-正常预期：21步真实结果通过、回退矩阵通过、CLEANUP PASS、failed/unreachable/rescued/ignored=0。primary cluster_uid和临时cluster_uid分别记录，任何指向主API的临时kubeconfig会被拒绝。
+## 文件与执行边界
 
-失败或中断后：
+[Ansible入口](../../ansible/playbooks/dataplane.yml)、[全部步骤/YAML](../../networking/dataplane/cases.yml)、[VM验收器](../../tests/integration/dataplane/vm.py)、[恢复编排](../../ansible/tasks/dataplane-cleanup.yml)复用既有计划→命令→取证→always框架。
+
+- kubectl/Helm固定原VM kubeconfig和集群UID，Node/控制器UID与非本批Helm值发生漂移时拒绝覆盖。
+- Helm upgrade使用固定Chart、reuse-values及限定网络配置；保留原revision供回退。
+- CRD的apply/dry-run均为 --server-side --field-manager=cnpl-gateway-crds，不使用force-conflicts。
+- 写操作由Ansible执行，UID与原字段测试保护并发修改。
+- validate仅做VM只读前检、物料/模板/CRD严格预览和Helm渲染，不开始正式切换；all应用每份原始对象前再次严格预览。
+
+## 恢复
+
+正常all自动回退。若中断或清理未完成，使用**原目录**：
 
 ~~~bash
 bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/dataplane.sh recover "$LAB_DATAPLANE_RECORDS"
 ~~~
 
-使用原记录和原Docker context恢复。Docker已停止时需操作者先启动它。恢复不会重跑迁移，主要恢复暂停状态并删除隔离环境；私有kubeconfig不入Git，公开回执保留UID、路由、ARP、请求和全部失败。
+恢复不重跑实验；先恢复kube-proxy，再恢复原Cilium release。原状态未恢复时不宣称CLEANUP PASS；回退检查异常也撤销本批临时入口规则。原Mac/kind失败批次已清理、Docker已停止，不应再启动它续跑。
 
-依据：[kind0.33.0与固定节点镜像](https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0)、[Cilium1.20.2 L2限制/class](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/l2-announcements.rst)、[BGPv2及class](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/bgp-control-plane/bgp-control-plane-configuration.rst)。
+参考：[Cilium v1.20.2连接边界](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/kubernetes/kubeproxy-free.rst)、[Helm revision回退](https://helm.sh/docs/intro/using_helm/)、[Cilium v1.20.2 BGP](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/bgp-control-plane/bgp-control-plane-configuration.rst)。

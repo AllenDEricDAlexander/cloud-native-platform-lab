@@ -1027,6 +1027,50 @@ components:
 # 每个 artifact 在执行前补 name/type/architecture/source/internal_source/
 # digest 或 sha256；Chart 同时记录 Chart 版本和实际镜像；包记录完整版本及依赖。
 # 以下组件按首次使用阶段逐一提升为上方的完整锁定记录，不允许仅锁核心组件就部署扩展。
+  dataplane_vm:
+    target: existing-primary-vms
+    vip_addresses:
+    - 192.168.9.211
+    - 192.168.9.212
+    - 192.168.9.213
+    - 192.168.9.214
+    frr:
+      version: 10.5.0
+      architecture: amd64
+      source: quay.io/frrouting/frr:10.5.0
+      manifest_digest: sha256:0ee746488c1da328f6fb14e64b6be070c1fc74633e83a6581af3e446e9ebdb4f
+      config_digest: sha256:8ea58782e01b426ccf76464cb63a3f2370c25ebb7d3212dd0369bd5a592c2fc4
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-frr@sha256:0ee746488c1da328f6fb14e64b6be070c1fc74633e83a6581af3e446e9ebdb4f
+    schemas:
+      ciliumloadbalancerippools:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumloadbalancerippools.yaml
+        sha256: 31dd3d26d987e46bc04d66ec2f9bdcf2aa2b13b7b368e515ca324961b55d65b1
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumloadbalancerippools.yaml
+      ciliuml2announcementpolicies:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliuml2announcementpolicies.yaml
+        sha256: 5a5ada1455e5169d1f95d4814302677ebff4bf477b5298483e9b827a70feee7a
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliuml2announcementpolicies.yaml
+      ciliumbgpclusterconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpclusterconfigs.yaml
+        sha256: 51206558786549a8962fa7c6e178583409a655a480f9fc5e5c277fb48969908c
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpclusterconfigs.yaml
+      ciliumbgppeerconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgppeerconfigs.yaml
+        sha256: 91ab4563c9b4a6fd4314e9fe0b128fcd77f15b50f3a5be6a32a7703dede70f60
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgppeerconfigs.yaml
+      ciliumbgpadvertisements:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpadvertisements.yaml
+        sha256: 44f04798cdfcfece42128630836086ee8c160ece8a4801dcb02eb03b1eadc5f7
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpadvertisements.yaml
+      ciliumbgpnodeconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpnodeconfigs.yaml
+        sha256: fcc8689b3e2985935e4badf23b545e5c4343e878e78c567fde28b035c56272b8
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigs.yaml
+      ciliumbgpnodeconfigoverrides:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpnodeconfigoverrides.yaml
+        sha256: 8032d71df06d36600de9e6d7c6808e719537118feb5ffa528d692adbb4552238
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigoverrides.yaml
+
 pending_by_phase:
   # pause 与 cri_smoke_image 已于 2026-10-16 提升为上方 components 记录；
   # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。

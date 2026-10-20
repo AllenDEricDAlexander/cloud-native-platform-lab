@@ -1,0 +1,45 @@
+---
+- name: 完整专题前检、执行、故障恢复与回执
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files: [../vars/phase02.yml]
+  tasks:
+    - name: 生成独立 attempt 标识
+      ansible.builtin.command:
+        argv: ['{{ phase_python }}', -c, 'import datetime,uuid; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+uuid.uuid4().hex[:8])']
+      register: phase_clock
+      changed_when: false
+    - name: 绑定 attempt 和专题
+      ansible.builtin.set_fact: {phase_attempt: '{{ phase_records }}/attempts/{{ phase_clock.stdout }}-{{ phase_mode }}'}
+    - name: 准备原身份、VM、输入摘要、所有模板与安全边界
+      ansible.builtin.command:
+        argv: '{{ phase_args + ["prepare","--output",phase_attempt ~ "/prepare.json"] }}'
+      register: phase_prepare
+      changed_when: false
+    - name: 全部执行清单严格服务端预览或锁定 schema 校验
+      ansible.builtin.command:
+        argv: '{{ phase_args + ["validate","--output",phase_attempt ~ "/validation.json"] }}'
+      changed_when: false
+      when: phase_mode in ['all','validate']
+    - name: 一次执行本专题全部用例
+      when: phase_mode == 'all'
+      block:
+        - name: 顺序执行专题计划，避免全局状态并发
+          ansible.builtin.include_tasks: ../tasks/phase02-case.yml
+          loop: '{{ (phase_prepare.stdout | from_json).steps }}'
+          loop_control: {loop_var: phase_case, label: '{{ phase_case.name }}'}
+        - name: 汇总全部必需证据与已知前置缺口
+          ansible.builtin.command:
+            argv: '{{ phase_args + ["accept","--output",phase_records ~ "/passed.json"] }}'
+          changed_when: false
+      always:
+        - name: 成功或失败都恢复原状态并清理本批资源
+          ansible.builtin.include_tasks: '../tasks/{{ phase_cleanup_tasks | default("phase02-cleanup.yml") }}'
+    - name: 原批显式恢复
+      ansible.builtin.include_tasks: '../tasks/{{ phase_cleanup_tasks | default("phase02-cleanup.yml") }}'
+      when: phase_mode in ['cleanup','recover']
+    - name: 报告专题结果
+      ansible.builtin.debug:
+        msg: '{{ phase_topic }} {{ "SOURCE VALIDATION PASS" if phase_mode == "validate" else "CLEANUP PASS；可运行用例结果见 passed.json，BLOCKED 项保持单列" }}'

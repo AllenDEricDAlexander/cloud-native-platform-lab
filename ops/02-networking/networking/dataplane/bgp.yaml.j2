@@ -1,7 +1,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumBGPPeerConfig
 metadata:
-  name: comparison
+  name: '{{ name }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
@@ -16,15 +16,16 @@ spec:
     safi: unicast
     advertisements:
       matchLabels:
-        advertise: comparison
+        advertise: '{{ name }}'
+  ebgpMultihop: 4
 ---
 apiVersion: cilium.io/v2
 kind: CiliumBGPAdvertisement
 metadata:
-  name: comparison
+  name: '{{ name }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    advertise: comparison
+    advertise: '{{ name }}'
 spec:
   advertisements:
   - advertisementType: PodCIDR
@@ -34,18 +35,23 @@ spec:
       - LoadBalancerIP
     selector:
       matchLabels:
+        cnpl.io/phase-run: '{{ run }}'
         cnpl.io/lb: bgp
 ---
 apiVersion: cilium.io/v2
 kind: CiliumBGPClusterConfig
 metadata:
-  name: comparison
+  name: '{{ name }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
   nodeSelector:
-    matchLabels:
-      cnpl.io/kind-role: worker
+    matchExpressions:
+    - key: kubernetes.io/hostname
+      operator: In
+      values:
+      - worker01.k8s.internal.egon.top
+      - worker02.k8s.internal.egon.top
   bgpInstances:
   - name: comparison
     localASN: 65010
@@ -54,13 +60,13 @@ spec:
       peerASN: 65009
       peerAddress: '{{ frr_ip }}'
       peerConfigRef:
-        name: comparison
+        name: '{{ name }}'
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: bgp
-  namespace: lab-dataplane
+  namespace: lab-dataplane-vm
   labels:
     cnpl.io/phase-run: '{{ run }}'
     cnpl.io/lb: bgp

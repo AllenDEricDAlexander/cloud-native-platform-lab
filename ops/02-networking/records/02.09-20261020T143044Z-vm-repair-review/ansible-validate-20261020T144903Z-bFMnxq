@@ -1,0 +1,23 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:16:7
+
+14     - name: 绑定 attempt 和专题
+15       ansible.builtin.set_fact: {phase_attempt: '{{ phase_records }}/attempts/{{ phase_clock.stdout }}-{{ phase_mo...
+16     - name: 准备原身份、VM、输入摘要、所有模板与安全边界
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/dataplane/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/attempts/20261020T144903Z-4facd070-validate", "--mode", "validate", "prepare", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T143044Z-vm-repair-review/attempts/20261020T144903Z-4facd070-validate/prepare.json"], "delta": "0:00:02.151729", "end": "2026-10-20 22:49:06.388452", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-20 22:49:04.236723", "stderr": "原 Cilium Helm release 或版本不符", "stderr_lines": ["原 Cilium Helm release 或版本不符"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=2    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+

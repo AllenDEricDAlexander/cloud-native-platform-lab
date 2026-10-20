@@ -36,9 +36,9 @@
           changed_when: false
       always:
         - name: 成功或失败都恢复原状态并清理本批资源
-          ansible.builtin.include_tasks: ../tasks/phase02-cleanup.yml
+          ansible.builtin.include_tasks: '../tasks/{{ phase_cleanup_tasks | default("phase02-cleanup.yml") }}'
     - name: 原批显式恢复
-      ansible.builtin.include_tasks: ../tasks/phase02-cleanup.yml
+      ansible.builtin.include_tasks: '../tasks/{{ phase_cleanup_tasks | default("phase02-cleanup.yml") }}'
       when: phase_mode in ['cleanup','recover']
     - name: 报告专题结果
       ansible.builtin.debug:

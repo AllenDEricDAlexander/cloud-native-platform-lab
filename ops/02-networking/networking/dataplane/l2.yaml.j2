@@ -1,43 +1,46 @@
 apiVersion: cilium.io/v2
 kind: CiliumLoadBalancerIPPool
 metadata:
-  name: comparison
+  name: '{{ name }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
   blocks:
-  - start: 172.30.90.224
-    stop: 172.30.90.230
+  - start: 192.168.9.211
+    stop: 192.168.9.214
   serviceSelector:
-    matchExpressions:
-    - key: cnpl.io/lb
-      operator: In
-      values:
-      - l2
-      - bgp
+    matchLabels:
+      cnpl.io/phase-run: '{{ run }}'
 ---
 apiVersion: cilium.io/v2alpha1
 kind: CiliumL2AnnouncementPolicy
 metadata:
-  name: comparison
+  name: '{{ name }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
   serviceSelector:
     matchLabels:
+      cnpl.io/phase-run: '{{ run }}'
       cnpl.io/lb: l2
   nodeSelector:
-    matchLabels:
-      cnpl.io/kind-role: worker
+    matchExpressions:
+    - key: kubernetes.io/hostname
+      operator: In
+      values:
+      - worker01.k8s.internal.egon.top
+      - worker02.k8s.internal.egon.top
+    - key: cnpl.io/phase02-l2-exclude
+      operator: DoesNotExist
   interfaces:
-  - ^eth0$
+  - ^ens33$
   loadBalancerIPs: true
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: l2
-  namespace: lab-dataplane
+  namespace: lab-dataplane-vm
   labels:
     cnpl.io/phase-run: '{{ run }}'
     cnpl.io/lb: l2

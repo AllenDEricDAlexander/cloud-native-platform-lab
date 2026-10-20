@@ -1,0 +1,89 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: cnpl-comparison
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  controllerName: gateway.envoyproxy.io/cnpl-isolated
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: edge
+  namespace: lab-dataplane
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        name: comparison-edge
+        replicas: 2
+        pod:
+          nodeSelector:
+            cnpl.io/kind-role: worker
+        container:
+          image: '{{ envoy_image }}'
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                  - name: shutdown-manager
+                    image: '{{ gateway_image }}'
+      envoyService:
+        name: comparison-edge
+        type: NodePort
+        externalTrafficPolicy: Cluster
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: edge
+  namespace: lab-dataplane
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  gatewayClassName: cnpl-comparison
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: edge
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: edge
+  namespace: lab-dataplane
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  parentRefs:
+  - name: edge
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: api
+      port: 8080

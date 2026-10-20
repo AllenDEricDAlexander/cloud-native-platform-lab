@@ -1,0 +1,1084 @@
+# 草案结构，禁止据此部署。候选版本不是最终锁定或兼容性实测结果。
+schema_version: 1
+status: draft
+reviewed_at: null
+validated_at: null
+policy:
+  exact_versions_required: true
+  artifact_checksums_required: true
+  internal_sources_required_for_offline: true
+  require_phase_specific_validation: true
+components:
+  rocky_linux:
+    phase: "00"
+    candidate: "10.2"
+    version: null
+    artifacts:
+      - name: Rocky-10.2-x86_64-minimal.iso
+        type: iso
+        architecture: x86_64
+        source: https://download.rockylinux.org/pub/rocky/10.2/isos/x86_64/Rocky-10.2-x86_64-minimal.iso
+        internal_source: null
+        sha256: aac6ac3ce781b91a91ce78463405f66c611a5dca4b3840c79e5e01d97302f6c8
+        checksum_source: https://download.rockylinux.org/pub/rocky/10.2/isos/x86_64/CHECKSUM
+        checksum_verified_at: '2026-10-14'
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/assets.md
+    status: pending
+  openwrt:
+    phase: "00"
+    candidate: "25.12.5"
+    version: "25.12.5"
+    note: x86-64 BIOS 镜像（非 EFI），VMXNET3 与 PVSCSI 驱动内置；单网卡旁路由，只提供显式代理（执行记录第 68–71、85–86 节）
+    artifacts:
+      - name: openwrt-25.12.5-x86-64-generic-ext4-combined.img.gz
+        type: disk_image
+        architecture: x86_64
+        sha256: 23e2538e8ab0eb52dfed1c65d608ecdb71ffd432dd54885da138ae67cd9e4461
+        source: https://downloads.openwrt.org/releases/25.12.5/targets/x86/64/openwrt-25.12.5-x86-64-generic-ext4-combined.img.gz
+        checksum_source: https://downloads.openwrt.org/releases/25.12.5/targets/x86/64/sha256sums（HTTPS 获取，签名未验证）
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/openwrt/openwrt-25.12.5-x86-64-generic-ext4-combined.img.gz
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.05.02-openwrt-network.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.05.03-openwrt-base.txt
+    status: deployed
+  proxy_core:
+    phase: "00"
+    candidate: "mihomo v1.19.32"
+    version: "1.19.32"
+    runs_on: OpenWrt（192.168.9.10），procd 服务 /etc/init.d/mihomo
+    purpose: 00.06.02 显式 HTTP/SOCKS 代理，订阅为 Clash 类；订阅地址只在 OpenWrt 的 /etc/mihomo/subscription-url
+    artifacts:
+      - name: mihomo-linux-amd64-compatible-v1.19.32.gz
+        type: binary_gzip
+        architecture: x86_64（GOAMD64 v1，兼容任意 x86-64 CPU）
+        sha256: ba3ce607747a07f948fc35780e108a4a7c7f552a38b9bd4d115f313ebcb89c20
+        binary_sha256: 7a0d59da2e678d56c899a3db996a2ad8963286c4f3634b0451435db248f13fa1  # 解压后的 /usr/bin/mihomo，62054526 字节
+        source: https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-linux-amd64-compatible-v1.19.32.gz
+        checksum_source: GitHub Releases 页面为该资产显示的 sha256（2026-09-30 发布；项目未提供签名）
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/mihomo/mihomo-linux-amd64-compatible-v1.19.32.gz
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.06.02-mihomo-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.06.02-proxy-test.txt
+    status: deployed
+  opentofu:
+    phase: "00"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  ansible:
+    phase: "00"
+    candidate: "ansible-core 2.21.5"
+    version: "2.21.5"
+    runs_on: 管理 Mac（Homebrew Python 3.14.6，独立 venv ~/.venvs/cnpl-ansible）；以后迁到管理 VM .15
+    requirements: ops/00-preparation/ansible/requirements.txt
+    artifacts:
+      - name: ansible_core-2.21.5-py3-none-any.whl
+        type: python_wheel
+        source: https://pypi.org/project/ansible-core/2.21.5/
+        sha256: 08886f9f3e23d129aa98a01271c4a47833516e1cb7c737a246788cb474f41222
+        requires_python: '>=3.12'
+        supported_controller_python: ['3.12', '3.13', '3.14']
+        metadata_verified_at: '2026-10-16'
+        dependencies_resolved_at_install:  # 2026-10-16 pip freeze（venv ~/.venvs/cnpl-ansible，Python 3.14.6）
+          cffi: 2.1.1
+          cryptography: 50.0.2
+          Jinja2: 3.1.6
+          MarkupSafe: 3.0.4
+          packaging: 26.3
+          pycparser: 3.11
+          PyYAML: 6.0.3  # with libyaml 0.2.5
+          resolvelib: 1.2.1
+    target_python_observed: /usr/bin/python3.12 (3.12.13) on all ten nodes
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.01-ansible-control-node.txt
+    status: installed_management_side
+  ansible_collections:
+    phase: "00"
+    candidate: "ansible.posix 2.2.2"
+    version: "2.2.2"
+    requirements: ops/00-preparation/ansible/requirements.yml
+    artifacts:
+      - name: ansible-posix-2.2.2.tar.gz
+        type: ansible_collection
+        source: https://galaxy.ansible.com/api/v3/plugin/ansible/content/published/collections/artifacts/ansible-posix-2.2.2.tar.gz
+        sha256: 00a58c5d804c9adc99c3c3dc1b9f2246f4bb5f7337941440e0956f0e31c3b82b
+        requires_ansible: '>=2.16.0'
+        metadata_verified_at: '2026-10-16'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.01-ansible-control-node.txt
+    status: installed_management_side
+  containerd:
+    phase: "00"
+    candidate: "2.4.2"
+    version: "2.4.2"
+    artifacts:
+      - name: containerd.io-2.4.2-2.el10.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 2.4.2-2.el10
+        source: https://download.docker.com/linux/centos/10/x86_64/stable/Packages/containerd.io-2.4.2-2.el10.x86_64.rpm
+        internal_source: null
+        sha256: 323346eb71f8886bce5c382978cf0b3934c14c08e20e10837b395c19b9ebd11e
+        checksum_source: https://download.docker.com/linux/centos/10/x86_64/stable/repodata/repomd.xml
+        metadata_verified_at: '2026-10-14'
+        checksum_verified_at: '2026-10-14'
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/containerd.io-2.4.2-2.el10.x86_64.rpm
+        local_source_reverified_at: '2026-10-16'  # 曾缺失，自母机 scp 回传后 shasum -c OK
+        signature_verified: true
+        signature_verified_at: '2026-10-14'
+        signature_evidence: ops/00-preparation/records/2026-10-14/evidence/00.10.02-runtime-disk-before.txt
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-containerd-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: validated_ten_nodes_host_network  # 2026-10-16 十台 host-network CRI 自测通过；10.2 仓库拉取路径待 Harbor
+  runc:
+    phase: "00"
+    candidate: "1.5.2"
+    version: "1.5.2"
+    provided_by: containerd.io-2.4.2-2.el10.x86_64.rpm
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-containerd-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: validated_ten_nodes_host_network  # 2026-10-16 十台 host-network CRI 自测通过；10.2 仓库拉取路径待 Harbor
+  cri_tools:
+    phase: "00"
+    candidate: "1.36.0"
+    version: "1.36.0"
+    # 2026-10-16 选用 pkgs.k8s.io v1.36 签名 RPM，与 kubeadm/kubelet/kubectl 同一仓库与签名链；
+    # 同日核对的 GitHub tarball（sha256 83855e11…25a3）保留在执行记录第 30–31 节，未采用。
+    artifacts:
+      - name: cri-tools-1.36.0-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.0-150500.1.1
+        installs: [/usr/bin/crictl]
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/cri-tools-1.36.0-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/cri-tools-1.36.0-150500.1.1.x86_64.rpm
+        sha256: e622a370e92664907b660c7bd7af73831d3d8132be5616be8ec11581a7443970
+        size_bytes: 7805276
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml.key
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        signing_key_expires: '2026-12-29'
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-crictl-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: validated_ten_nodes_host_network  # 2026-10-16 十台 host-network CRI 自测通过；10.2 仓库拉取路径待 Harbor
+  kubeadm:
+    phase: "00"
+    candidate: "1.36.5"
+    version: "1.36.5"
+    artifacts:
+      - name: kubeadm-1.36.5-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.5-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubeadm-1.36.5-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubeadm-1.36.5-150500.1.1.x86_64.rpm
+        sha256: 0f857b25db48cb01e5c69dc1d02a1fc02c125a0d04a5cd58440a4e9adb631f5a
+        size_bytes: 12737484
+        requires: []
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    required_images_v1_36_5:  # kubeadm config images list --kubernetes-version v1.36.5，2026-10-16 母机输出；Digest 待 01 前锁定
+      - registry.k8s.io/kube-apiserver:v1.36.5
+      - registry.k8s.io/kube-controller-manager:v1.36.5
+      - registry.k8s.io/kube-scheduler:v1.36.5
+      - registry.k8s.io/kube-proxy:v1.36.5
+      - registry.k8s.io/coredns/coredns:v1.14.2
+      - registry.k8s.io/pause:3.10.2
+      - registry.k8s.io/etcd:3.6.8-0
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: installed_unvalidated
+  kubelet:
+    phase: "00"
+    candidate: "1.36.5"
+    version: "1.36.5"
+    artifacts:
+      - name: kubelet-1.36.5-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.5-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubelet-1.36.5-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubelet-1.36.5-150500.1.1.x86_64.rpm
+        sha256: 15b55de802c19f1c5b89c065086ad8feec3430fd58da836300f51688ecbbb63b
+        size_bytes: 13521112
+        requires: ['kubernetes-cni >= 1.2.0', 'util-linux']
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: installed_unvalidated  # 00 保持 disabled，01 由 kubeadm 引导时 enable
+  kubectl:
+    phase: "00"
+    candidate: "1.36.5"
+    version: "1.36.5"
+    artifacts:
+      - name: kubectl-1.36.5-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.36.5-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubectl-1.36.5-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubectl-1.36.5-150500.1.1.x86_64.rpm
+        sha256: 9e406829bad036e45e08f6c49176f479c06d239cf64a96befa56f8b1b55a37fc
+        size_bytes: 11897980
+        requires: []
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: installed_unvalidated
+  pause:
+    phase: "00"
+    candidate: "3.10.2"
+    version: "3.10.2"
+    reference: registry.k8s.io/pause:3.10.2
+    selected_by: containerd 2.4.2 effective pinned_images.sandbox（evidence/00.10.02-cri-runtime-status.txt）
+    artifacts:
+      - name: registry.k8s.io/pause:3.10.2
+        type: oci_image
+        architecture: linux/amd64
+        index_digest: sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4
+        platform_manifest_digest: sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17
+        config_digest: sha256:4a83b15d3ecfe0d916b2d0a7991bc2854a629b8097017c2ee1ff65b30ae4c07c
+        layer_digests: ['sha256:81ede36234b06d9a16771d804ef81ea888e29f8c425a5269e3d55d34a1b128a8']
+        source: https://registry.k8s.io/v2/pause/manifests/3.10.2
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/pause@sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17
+        metadata_verified_at: '2026-10-16'
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/pause-3.10.2-amd64.tar
+        local_archive_format: docker-archive（crane 0.22.1 tarball，RepoTags 保留完整名）
+        local_archive_sha256: a7061466662a39698d769c0a523904539c7e48499df38d98c9a4f2ec33469db6
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-image-import.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: validated_ten_nodes_host_network  # 2026-10-16 十台 host-network CRI 自测通过；10.2 仓库拉取路径待 Harbor
+  cri_smoke_image:
+    phase: "00"
+    candidate: "1.38.0-1"
+    version: "1.38.0-1"
+    reference: registry.k8s.io/e2e-test-images/busybox:1.38.0-1
+    purpose: 00.10.02 host-network CRI 自测，需要 /bin/sh；不进入业务或平台工作负载
+    artifacts:
+      - name: registry.k8s.io/e2e-test-images/busybox:1.38.0-1
+        type: oci_image
+        architecture: linux/amd64
+        index_digest: sha256:302d6221f7d600725e0f926f9f04f8fbbb2a32678b4e991da760a5062d4dc7e1
+        platform_manifest_digest: sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+        config_digest: sha256:45a1d298552b4ed95d21af416e729f4340ef42a54050de7e0aebb37c1bee9606
+        layer_digests: ['sha256:436a1b1fd078ee8e117111472724c2827077657189af7a781829d0825d48d2ab']
+        source: https://registry.k8s.io/v2/e2e-test-images/busybox/manifests/1.38.0-1
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/busybox@sha256:7d31f97bcfddb5ee2912c5e7479c23ab31a4e340e80d1c874a9c40b81eef340f
+        metadata_verified_at: '2026-10-16'
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/busybox-1.38.0-1-amd64.tar
+        local_archive_format: docker-archive（crane 0.22.1 tarball，RepoTags 保留完整名）
+        local_archive_sha256: 2f116433c938819176fbbcb1996987a29b9f1aa0785bcbf134a51f8abf4f70a0
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-image-import.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-pass.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-smoke-post-reboot.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: validated_ten_nodes_host_network  # 2026-10-16 十台 host-network CRI 自测通过；10.2 仓库拉取路径待 Harbor
+  image_export_tool:
+    phase: "00"
+    candidate: "crane 0.22.1"
+    version: "0.22.1"
+    runs_on: management Mac (arm64), Homebrew package crane
+    purpose: Harbor 之前把官方镜像导出为 docker-archive 种子；不进入节点
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-cri-image-import.txt
+    status: installed_management_side
+  cni_plugins:
+    phase: "00"
+    candidate: "1.9.1"
+    version: "1.9.1"
+    note: kubelet RPM 硬依赖 kubernetes-cni，00 只安装 /opt/cni/bin 插件二进制与空的 /etc/cni/net.d，不写网络配置；Pod 网络由 01 的 Cilium 负责
+    artifacts:
+      - name: kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        package_version: 1.9.1-150500.1.1
+        source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/x86_64/kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/kubernetes-cni-1.9.1-150500.1.1.x86_64.rpm
+        sha256: a228e611f547cf3554873c383078a7ff9abf289e5b7ae315cd38c3811804e2f7
+        size_bytes: 9255068
+        requires: []
+        checksum_source: https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml
+        metadata_verified_at: '2026-10-16'
+        metadata_signature: repomd.xml.asc 由 DE15B14486CD377B9E876E1A234654DA9A296436 签名，Mac 端 gpg 验证 Good signature
+        signing_key_fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+        checksum_verified_at: null
+        signature_verified: false
+        evidence: ops/00-preparation/records/2026-10-14/assets.md
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-kube-tools-install.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-101221/matrix.md
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.02-node-readiness-20261016-102410/matrix.md
+    status: installed_unvalidated
+  registry_runtime:
+    phase: "00"
+    candidate: "docker-ce 29.9.1"
+    version: "29.9.1"
+    note: 只用于集群外服务 VM（Harbor），不进入 Kubernetes 节点；containerd.io 沿用 2.4.2-2.el10
+    artifacts:
+      - {name: docker-ce-29.9.1-1.el10.x86_64.rpm, sha256: 651711d2f9004fa22cc5cb9e26502669777b925ad48b2bf83d78410d818174e0}
+      - {name: docker-ce-cli-29.9.1-1.el10.x86_64.rpm, sha256: e0b9cfc217c06d770f0e1bb651e30158cfcd940094dcc5f320ec3cb4b9ed9a5e}
+      - {name: docker-buildx-plugin-0.38.0-1.el10.x86_64.rpm, sha256: a3bd0b25ac5ecbe673007cd94e27c06bd680d83ecfb5b0d02dbad96b6fcd603e}
+      - {name: docker-compose-plugin-5.6.0-1.el10.x86_64.rpm, sha256: 5edb62a60f8e3e5a54e40deaceac7b8c56a333072284c61f9c0eb62437d766c8}
+      - {name: iptables-nft-1.8.11-16.el10_2.x86_64.rpm, sha256: a8072c4858de87a1e10226d0eaa04a7d6bd9cd455ff75958ccfc08ee4a38dfc9, source: Rocky 10.2 AppStream}
+      - {name: iptables-libs-1.8.11-16.el10_2.x86_64.rpm, sha256: b2d94196b2adb6fc8e1dd1aa898fa6d8b9eba250000c156cb13f6f846fbe720c, source: Rocky 10.2 BaseOS}
+    checksum_source: Docker el10 stable 与 Rocky 10.2 官方 primary 元数据（2026-10-16/17）
+    local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.02-harbor-deploy.txt
+    status: installed_management_side
+  harbor:
+    phase: "00"
+    candidate: "v2.15.4"
+    version: "v2.15.4"
+    artifacts:
+      - name: harbor-offline-installer-v2.15.4.tgz
+        type: tarball
+        source: https://github.com/goharbor/harbor/releases/download/v2.15.4/harbor-offline-installer-v2.15.4.tgz
+        internal_source: null
+        local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/harbor/harbor-offline-installer-v2.15.4.tgz
+        size_bytes: 747317006
+        md5: 1dab0faabfb308d51ccd901c536ddc99  # 与发布页 md5sum 一致
+        sha256: ec4152a644cedc627c747b84e91ba0f44c1d44576b43b8d1f73e2e51b3b5ccfc  # 本地计算
+        signature: harbor-offline-installer-v2.15.4.tgz.sigstore.json（已下载，未用 cosign 验证）
+        checksum_verified_at: '2026-10-17'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.02-harbor-deploy.txt
+    status: deployed_verified  # 2026-10-17 管理端 API、浏览器、十节点 CRI 拉取与重启自恢复均已验证（执行记录第 79–90 节）  # 管理端验证尚未通过（执行记录第 75 节）
+  nexus:
+    phase: "00"
+    candidate: "3.96.4-01"
+    version: "3.96.4-01"
+    selected_by: 2026-10-17 选择发布满两周的最新补丁版本（3.97.0-13 于 2026-10-14 发布，未选）；Community Edition，自带 JDK
+    artifacts:
+      - name: nexus-3.96.4-01-linux-x86_64.tar.gz
+        type: tarball
+        architecture: x86_64
+        size_bytes: 517500940
+        sha256: b4be574def830eeef97ca13fe206c458ba0a60631af441e8b128231ad7e002d0
+        source: https://download.sonatype.com/nexus/3/nexus-3.96.4-01-linux-x86_64.tar.gz
+        checksum_source: https://download.sonatype.com/nexus/3/nexus-3.96.4-01-linux-x86_64.tar.gz.sha256（HTTPS，无签名）
+        released_at: '2026-09-30'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.04-nexus-deploy.txt
+    status: deployed_verified  # 2026-10-17 HTTPS、admin 口令核对与浏览器登录均通过；代理仓库待配置
+  gitlab:
+    phase: "00"
+    candidate: "19.4.2"
+    version: "19.4.2-ce.0.el10"
+    selected_by: 2026-10-17 上一个次版本的最新补丁（19.5.0 于 2026-10-15 发布，未选）；官方 el/10 仓库
+    artifacts:
+      - name: gitlab-ce-19.4.2-ce.0.el10.x86_64.rpm
+        type: rpm
+        architecture: x86_64
+        size_bytes: 1121060581
+        sha256: e0474b316d510a1a6040edd8b95c31af7401996f195a6080f5283bf11cdb9dcb
+        source: https://packages.gitlab.com/gitlab/gitlab-ce/el/10/x86_64/Packages/g/gitlab-ce-19.4.2-ce.0.el10.x86_64.rpm
+        checksum_source: 仓库 primary.xml（repomd 由元数据密钥签名，dnf repo_gpgcheck 验证）
+        requires: [policycoreutils-python-utils, perl-interpreter, openssh-server]
+        signing_keys:
+          - {use: repo_metadata, fingerprint: F6403F6544A38863DAA0B6E03F01618A51312F3F, expires: '2028-02'}
+          - {use: package, fingerprint: 98BFDB87FCF10076416C1E0BAD997ACC82DD593D, expires: '2028-02'}
+        released_at: '2026-10-07'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.09.01-gitlab-deploy.txt
+    status: deployed_verified  # 2026-10-17 HTTPS、root 口令核对与浏览器登录均通过（执行记录第 95–96 节）
+  backup_tool:
+    phase: "00"
+    candidate: "restic 0.19.1"
+    version: "0.19.1"
+    purpose: 00.10.03 加密备份到 backup VM（SFTP），抽样恢复
+    signing_key: {fingerprint: CF8F18F2844575973F79D4E191A6868BD3F7A907, uid: Alexander Neumann, file: ops/00-preparation/scripts/keys/restic-CF8F18F2844575973F79D4E191A6868BD3F7A907.asc}
+    artifacts:
+      - name: restic_0.19.1_linux_amd64.bz2
+        type: binary_bzip2
+        architecture: x86_64（备份客户端）
+        sha256: f415415624dcc452f2a02b8c33641791a8c6d6d3b65bbb3543fcf9a25151585c
+        source: https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_linux_amd64.bz2
+        checksum_source: SHA256SUMS，其签名 SHA256SUMS.asc 已用上方公钥验证（2026-10-17，Good signature）
+        released_at: '2026-07-05'
+      - name: restic_0.19.1_darwin_arm64.bz2
+        type: binary_bzip2
+        architecture: arm64（管理 Mac）
+        sha256: 7be0a144ccc377880f294204aa271d76e4b79554b42a751151d425ce6ebac143
+        source: https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_darwin_arm64.bz2
+        checksum_source: 同上
+        released_at: '2026-07-05'
+    compatibility_evidence: []
+    execution_evidence:
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.03-backup.txt
+      - ops/00-preparation/records/2026-10-14/evidence/00.10.03-restore-drill.txt
+    status: deployed_verified  # 2026-10-17 第一次备份、restic check 与恢复演练（DNS、CA）均通过
+  cilium:
+    phase: "01"
+    candidate: "1.20.2"
+    version: "1.20.2"
+    selected_by: 2026-10-17 1.20 系列支持 Kubernetes 1.31–1.36（docs.cilium.io v1.20 兼容性页）；1.20.3 于 2026-10-15 发布、未满两周，选 1.20.2（2026-09-16）
+    chart:
+      name: cilium-1.20.2.tgz
+      sha256: b2afd87b7f75f875f92a14559f14f59b7babbb479d968e3fd625a20bf30ec20e
+      source: https://helm.cilium.io/cilium-1.20.2.tgz
+      checksum_source: https://helm.cilium.io/index.yaml 中该版本的 digest（created 2026-09-16）
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/cilium/cilium-1.20.2.tgz
+    # Chart 默认启用的镜像：agent、operator-generic、cilium-envoy（hubble-relay/ui、clustermesh、nodeinit 等默认关闭）。
+    # index_digest 为 Chart values 中固定的值（与上游一致）；复制到 Harbor 时只取 linux/amd64，节点按平台 Digest 引用。
+    artifacts:
+      - name: cilium
+        type: oci_image
+        source: quay.io/cilium/cilium:v1.20.2
+        index_digest: sha256:2939231d0d3e3ebddcd80fffa168b7ddcc78fdf0dc864d1c8c126ff523c54f01
+        platform_manifest_digest: sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2
+      - name: operator-generic
+        type: oci_image
+        source: quay.io/cilium/operator-generic:v1.20.2
+        index_digest: sha256:64d8798350e8569b8e7622563fed6e44dce2625f311e4651b774816516c744fc
+        platform_manifest_digest: sha256:5bb0f9d871dd7b80461f8e3056896daa51e7d9b70ffe51c3e2126b4c35c02b5e
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/operator-generic:v1.20.2
+      - name: cilium-envoy
+        type: oci_image
+        source: quay.io/cilium/cilium-envoy:v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82
+        index_digest: sha256:af7382699576b9e65e9184efa52eeca0b58aea70ad6e511bf260c91d9f740463
+        platform_manifest_digest: sha256:33b00117d392f24ee5161f66242d12f58ceb62bf80a2bdd66eaf505d77933cb0
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/cilium-envoy:v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82
+    compatibility_evidence: ["https://docs.cilium.io/en/v1.20/network/kubernetes/compatibility/"]
+    execution_evidence: []
+    status: selected
+  hubble_relay:
+    phase: "02"
+    version: "1.20.2"
+    source: quay.io/cilium/hubble-relay@sha256:48d39e14cb2326c49d1903faed0508feb92ca0ceef9f3a1f1b779ca4c1e51c5d
+    index_digest: sha256:d309c977870e9dbede7122a10eee09a4c9d66685e8d52af62d9c3c113f815b0f
+    platform_manifest_digest: sha256:48d39e14cb2326c49d1903faed0508feb92ca0ceef9f3a1f1b779ca4c1e51c5d
+    architecture: linux/amd64
+    local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/hubble/relay-1.20.2
+    checksum_source: Cilium 1.20.2 Chart values 与 quay.io/cilium/hubble-relay:v1.20.2 的 linux/amd64 manifest
+    compatibility_evidence: ["https://docs.cilium.io/en/v1.20/observability/hubble/setup/"]
+    execution_evidence: ["ops/02-networking/records/02.01-20261018T142346Z/README.md"]
+    status: validated_ten_vm_hubble_relay
+  kube_vip:
+    phase: "01"
+    candidate: "v1.2.4"
+    version: "1.2.4"
+    selected_by: 2026-10-17 v1.3.0 于 2026-10-16 发布、未满两周，选 v1.2.4（2026-09-16）；ARP 模式、控制平面 VIP 192.168.9.100
+    artifacts:
+      - name: kube-vip
+        type: oci_image
+        source: ghcr.io/kube-vip/kube-vip:v1.2.4
+        index_digest: sha256:dde4c0669d9058c74c69c0bc2f0122e26900e1e4b913c03577cb6e4e28083079
+        platform_manifest_digest: sha256:26ead1e4f7ce486d1e60351181957f35ae54d30c11e8ae0a30d8e9ca1d8acb51
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/kube-vip:v1.2.4
+    compatibility_evidence: []
+    execution_evidence: []
+    status: selected
+  metrics_server:
+    phase: "01"
+    candidate: "0.9.0"
+    version: "0.9.0"
+    purpose: 01.09 资源指标与基础 HPA；不是 Phase 05 长期监控平台
+    artifacts:
+      - name: registry.k8s.io/metrics-server/metrics-server:v0.9.0
+        type: oci_image
+        architecture: linux/amd64
+        index_digest: sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0
+        platform_manifest_digest: sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f
+        config_digest: sha256:d7b01abacd67fcd2cd2f61b87cb46c850c4f090e77d3d5ae0878b9894e0fcd0f
+        source: registry.k8s.io/metrics-server/metrics-server:v0.9.0
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/metrics-server@sha256:25d291fde59974547bac6f07fa9d6cf6f5bedd1f19d60c893311c5e741e0a42f
+        metadata_verified_at: '2026-10-18'
+        evidence: ops/01-kubernetes/records/2026-10-18-core-stages-delivery/metrics-image-metadata.json
+    compatibility_evidence:
+      - https://github.com/kubernetes-sigs/metrics-server/tree/v0.9.0
+    execution_evidence:
+      - ops/01-kubernetes/records/core-07-10/runs/09-20261018T113437Z/passed.json
+      - ops/01-kubernetes/records/core-07-10/runs/09-20261018T113437Z/attempts/20261018T121140Z-99aca522/observations/metrics-after-cleanup.json
+    status: deployed_verified  # 2026-10-18 安全指标 API、十节点新鲜指标和 CPU/内存 HPA 实测通过
+  k8s_clients:
+    phase: "01"
+    runs_on: 管理 Mac（darwin/arm64），安装到 ~/.cnpl/bin（scripts/fetch-k8s-clients.sh）
+    purpose: kubectl 与集群同一次版本（Mac 自带的 1.34 超出客户端偏差范围）；helm 安装 Cilium；cilium-cli 检查状态
+    artifacts:
+      - {name: kubectl, version: v1.36.5, sha256: c5850a4a6b9469b26cce47c1ab456285f58e308283dcdf72b4ddda3db49b0ec0, source: "https://dl.k8s.io/release/v1.36.5/bin/darwin/arm64/kubectl", checksum_source: 同路径 .sha256}
+      - {name: helm, version: v4.3.0, sha256: d3870437e1e95b67f8edbde964156c84a26503f560821d40c542441658934fba, source: "https://get.helm.sh/helm-v4.3.0-darwin-arm64.tar.gz", checksum_source: 同路径 .sha256sum, released_at: '2026-09-09'}
+      - {name: cilium-cli, version: v0.20.1, sha256: 3521cb6af8f621d64dac63c7537fd9aa2ff878fb1f7a6f50e69b31bf45c02cb8, source: "https://github.com/cilium/cilium-cli/releases/download/v0.20.1/cilium-darwin-arm64.tar.gz", checksum_source: 同一发布的 .sha256sum, released_at: '2026-09-24'}
+    compatibility_evidence: []
+    execution_evidence: []
+    status: selected
+  services_diagnostics:
+    phase: "02"
+    source_sha256: ee99f3af8e0cd5c089343ff29d9fe8ae2e843c58969c8580e1c6b00a1dfc73bd
+    manifest_digest: sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa
+    internal_source: harbor.k8s.internal.egon.top/bootstrap/services-diag@sha256:65d31f033fcb59cbbe898fa7c99a4b96e6f7f8c67d290c6850efa8511ce396fa
+    architecture: linux/amd64
+    go_version: go1.27.2
+    execution_evidence: ["ops/02-networking/records/02.02-20261018T225144Z/README.md"]
+    status: built_registry_and_cluster_runtime_verified
+  metallb:
+    phase: "02"
+    candidate: "0.16.1"
+    version: "0.16.1"
+    chart:
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/metallb/metallb-0.16.1.tgz
+      source: https://github.com/metallb/metallb/releases/download/metallb-chart-0.16.1/metallb-0.16.1.tgz
+      sha256: fb06bb584fcb7856f15733b2a6a2aff5b61b5c350687e341c163ae24a5938adc
+    artifacts:
+      - name: controller
+        source: quay.io/metallb/controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/metallb-controller@sha256:5a3e101335f5ea2cfb0ddf51acdfa9538251e0623ffcd6cbfc1b274b7898790c
+      - name: speaker
+        source: quay.io/metallb/speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/metallb-speaker@sha256:37a98a9d1cd970051c5dededb6f922c1e6c3b90fdd0fc1350d1686e67675af0e
+    compatibility_evidence: ["https://metallb.io/installation/", "https://metallb.io/configuration/"]
+    execution_evidence: ["ops/02-networking/records/02.02-20261018T225144Z/README.md"]
+    failover_execution_evidence: ["ops/02-networking/records/02.03-20261019T000211Z/README.md"]
+    status: deployed_l2_pool_failover_and_lifecycle_verified
+  gateway_api:
+    phase: '02'
+    version: 1.6.1
+    channel: standard
+    served_route_versions:
+      HTTPRoute: v1
+      GRPCRoute: v1
+      TCPRoute: v1
+      UDPRoute: v1
+      ReferenceGrant: v1
+      BackendTLSPolicy: v1
+    chart:
+      version: v1.9.2
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-crds-helm-v1.9.2.tgz
+      source: oci://docker.io/envoyproxy/gateway-crds-helm
+      sha256: 8e22afc647f10b0c792ac2ee0180a66c65d9d11d3f2ac36eba8cb3c70197820f
+    oci_manifest_digest: sha256:940b88fe361cb22fb651e3075f649e9be885f35b1c8a990658c1a2acc2d2a678
+    compatibility_evidence:
+    - https://gateway.envoyproxy.io/news/releases/matrix/
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: deployed_and_full_02_04_verified
+  envoy_gateway:
+    phase: '02'
+    version: 1.9.2
+    supported_kubernetes:
+    - '1.33'
+    - '1.34'
+    - '1.35'
+    - '1.36'
+    compiled_gateway_api: 1.6.1
+    envoy_proxy_version: 1.39.1
+    chart:
+      version: v1.9.2
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-helm-v1.9.2.tgz
+      source: oci://docker.io/envoyproxy/gateway-helm
+      sha256: 1079cad009e0885f6e10e5f712257d8e5fdaf911d2ceb3fa1b78632c8f29bbf9
+    oci_manifest_digest: sha256:be034275b55deeddd6b7bc1f4da6eeb02b8efc418a4a29e2b1977851b24b1e63
+    artifacts:
+    - name: controller
+      source: docker.io/envoyproxy/gateway:v1.9.2
+      platform: linux/amd64
+      manifest_digest: sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy-gateway@sha256:bd722213a8433252efb56a3f6ef752c1c4d82b15e5dd8748b25973b9752c12b8
+    - name: proxy
+      source: docker.io/envoyproxy/envoy:distroless-v1.39.1@sha256:eb2c01c13125d1629637cb4e4cce7207009fb7cc2c8027f9742758549d15b6f4
+      platform: linux/amd64
+      manifest_digest: sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-envoy@sha256:9c9ca6bef1e4e355b00b4657cbe123baf3b4a78613cb949b6cbabaab897a6c28
+    compatibility_evidence:
+    - https://gateway.envoyproxy.io/news/releases/matrix/
+    - https://github.com/envoyproxy/gateway/releases/tag/v1.9.2
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: deployed_and_full_02_04_verified
+  ingress_compare:
+    phase: '02'
+    implementation: traefik
+    version: 3.7.14
+    minimum_kubernetes: 1.30.0
+    chart:
+      version: 42.0.0
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/traefik-42.0.0.tgz
+      source: oci://ghcr.io/traefik/helm/traefik
+      sha256: be43ad4ff4198efa255c566f1feb9589ed89319710cfe5a568295b0cdfa1ad42
+    oci_manifest_digest: sha256:779f04f7aa930daddba2aacf0f4a75c8d83cac477c00996372680b61fdf423aa
+    artifacts:
+    - name: traefik
+      source: docker.io/library/traefik:v3.7.14
+      platform: linux/amd64
+      manifest_digest: sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-traefik@sha256:5902d68e00708015736416b62faa49d23a2e1d4415649e5831d20b79ba301508
+    compatibility_evidence:
+    - https://github.com/traefik/traefik-helm-chart/releases/tag/v42.0.0
+    - https://doc.traefik.io/traefik/includes/kubernetes-requirements/
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: comparison_verified_then_uninstalled
+  gateway_validation:
+    phase: '02'
+    jsonschema_version: 4.26.0
+    requirements: ops/02-networking/tests/integration/gateway/requirements.txt
+    wheelhouse: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/python-wheels
+    artifacts:
+    - file: attrs-26.1.0-py3-none-any.whl
+      sha256: c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309
+    - file: jsonschema-4.26.0-py3-none-any.whl
+      sha256: d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
+    - file: jsonschema_specifications-2025.9.1-py3-none-any.whl
+      sha256: 98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
+    - file: referencing-0.37.0-py3-none-any.whl
+      sha256: 381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
+    - file: rpds_py-2026.9.1-cp314-cp314-macosx_11_0_arm64.whl
+      sha256: 3f0e9ac28fc067d4d34b88ae43c48e9489455c97fee9633d851f7eeed5a05d35
+    purpose: validate custom resources offline before CRDs are installed; actual server admission follows CRD installation
+    status: installed_and_source_verified
+  gateway_fixture:
+    phase: '02'
+    source_dir: ops/02-networking/examples/gateway
+    source_sha256: fe85e6a53e53b3b86a8faf34bc8afd86135e4c64c75eb3992e2dfb3b2b82749c
+    go_version: go1.27.2
+    grpc_version: 1.83.2
+    internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-gateway-fixture@sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5
+    manifest_digest: sha256:3891cd3b0d35896cad46be10f2095b34306a3ee75a2186df35f7d6e0e76134b5
+    client:
+      path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-darwin-arm64
+      sha256: 94b0600670fe03c01645e06888b43db93c5b3fa6ee03d758c3158e9e6c1ff4f6
+    linux_binary_sha256: 087820d77196d029e6f993da2908e537338e5f6fe7da0c8555ceb91b2c1b0abe
+    purpose: isolated HTTP/HTTPS/gRPC/TCP/UDP fixture and real gRPC health client
+    execution_evidence: [ops/02-networking/records/02.04-20261019T105544Z/README.md]
+    status: actual_protocols_verified_test_workloads_removed
+  cert_manager:
+    phase: '02'
+    version: 1.21.2
+    supported_kubernetes:
+    - '1.33'
+    - '1.34'
+    - '1.35'
+    - '1.36'
+    chart:
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/certificates/cert-manager-v1.21.2.tgz
+      source: oci://quay.io/jetstack/charts/cert-manager
+      version: v1.21.2
+      sha256: 73a56e1728edd6c99f1f31082618c3259d279a76b7ebd3d4bdc5475c2442d34a
+    oci_manifest_digest: sha256:634dce9c13b56677a2c05e2ab76c312d0be2664022d5dd05815da67e1fd5f610
+    artifacts:
+    - name: controller
+      source: quay.io/jetstack/cert-manager-controller:v1.21.2
+      manifest_digest: sha256:57bb397c639e0e94184ba67848e5dad04284f24645e521e764a0ee5f5002f286
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-controller@sha256:57bb397c639e0e94184ba67848e5dad04284f24645e521e764a0ee5f5002f286
+    - name: webhook
+      source: quay.io/jetstack/cert-manager-webhook:v1.21.2
+      manifest_digest: sha256:b929259301ee75270ab4651d5e6bd4ba7b6624b1ce48ba767d064295a9312101
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-webhook@sha256:b929259301ee75270ab4651d5e6bd4ba7b6624b1ce48ba767d064295a9312101
+    - name: cainjector
+      source: quay.io/jetstack/cert-manager-cainjector:v1.21.2
+      manifest_digest: sha256:aa2bc58725d92a643f5069dde58abc93b65566ded8951348873ac9ee7efef66c
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-cainjector@sha256:aa2bc58725d92a643f5069dde58abc93b65566ded8951348873ac9ee7efef66c
+    - name: startupapicheck
+      source: quay.io/jetstack/cert-manager-startupapicheck:v1.21.2
+      manifest_digest: sha256:ed347b0ab607058f139b83f41567109456b9776330b63da8086a120afb7f1729
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-startupapicheck@sha256:ed347b0ab607058f139b83f41567109456b9776330b63da8086a120afb7f1729
+    - name: acmesolver
+      source: quay.io/jetstack/cert-manager-acmesolver:v1.21.2
+      manifest_digest: sha256:dc5c5b8456d1a50af47a240987e85afce352b5c1155a8a4698b7c91eac19f407
+      platform: linux/amd64
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-cert-manager-acmesolver@sha256:dc5c5b8456d1a50af47a240987e85afce352b5c1155a8a4698b7c91eac19f407
+    client:
+      path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/certificates/tls-probe-darwin-arm64
+      sha256: 8d4b0c6f3576a5c20a9658231bd23b6e0ead4ee9473b4397bddda27bf16ffce1
+      source_sha256: 31eada68c9b219558ede598fb7a8d9bfc167f929e98663f9631b7f52afda5aa7
+      go: 1.27.2
+    public_publishing: BLOCKED_operator_has_no_public_ingress
+    compatibility_evidence:
+    - https://cert-manager.io/docs/releases/
+    - https://cert-manager.io/docs/installation/helm/
+    execution_evidence:
+    - ops/02-networking/records/02.05-20261019T125941Z/README.md
+    status: internal_deployed_verified_public_blocked
+  policy_fixture:
+    phase: "02"
+    source_sha256: dc2d5757befcb27cef166b8d4b42ccc0ad09a07420e648f414306e07e825eaff
+    manifest_digest: sha256:0646fffc53e60ad19247883d7da865a13b86651a2cb107a1b95b48fd05117007
+    binary_sha256: 2d8a6f035269342882de074454a48c61c6c04fb1b28b9d541bfd5aa0ee94fb27
+    ca_path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/policies/public-ca-bundle.crt
+    ca_sha256: 9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994
+    go_version: go1.27.2
+    internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-policy-fixture@sha256:0646fffc53e60ad19247883d7da865a13b86651a2cb107a1b95b48fd05117007
+    architecture: linux/amd64
+    ca_source: /etc/ssl/cert.pem copied to controlled seed; public trust only
+    egress_crd_path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/policies/cilium-egressgateway-v1.20.2.crd.yaml
+    egress_crd_sha256: c92dc81014168aff5d8d2f730c28c992f97ee85e5483f473555f1e5bc4a90298
+    egress_crd_source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml
+    status: built_registry_verified_not_runtime
+  resource_fixture:
+    phase: '02'
+    go_version: go1.27.2
+    platforms:
+      amd64:
+        source_sha256: 6a091219e6277b43d909cdb24b36bf0bba1f8c581cbbc45d0825d3b2d7a43c71
+        manifest_digest: sha256:862becb489afeb1bae15ce68875d506563b3de1cb8bbb8a38c9c1a6f24f769dc
+        config_digest: sha256:162a94d93170015f3b02ee3ef7219faf1802ea62089315ba58d093d5de594156
+        binary_sha256: ebd00cae2de04bae839b22a4c7e990ffe6374f4f04f5397bff3412baa1e3a964
+        oci_layout: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-resource/amd64/oci
+        architecture: amd64
+        ca_sha256: 9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-resource@sha256:862becb489afeb1bae15ce68875d506563b3de1cb8bbb8a38c9c1a6f24f769dc
+      arm64:
+        source_sha256: 6a091219e6277b43d909cdb24b36bf0bba1f8c581cbbc45d0825d3b2d7a43c71
+        manifest_digest: sha256:392e8f0b76a8f7d265e2a74627a57b3dc1284a77e289231c53a90057cfe33a3d
+        config_digest: sha256:7bd047b0d761827e96ada1037b3ad88b8c3a1c4a08c92df985552af33289afe2
+        binary_sha256: 422692babd0759a7547565e1b4ad102c19aa25b6b5a67f026eeec4ec445dffaf
+        oci_layout: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-resource/arm64/oci
+        architecture: arm64
+        ca_sha256: 9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994
+        internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-resource@sha256:392e8f0b76a8f7d265e2a74627a57b3dc1284a77e289231c53a90057cfe33a3d
+    status: built_verified_not_runtime
+
+  isolated_network:
+    kind_kubernetes_version: v1.36.4
+    tools:
+      kind:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/kind-darwin-arm64
+        sha256: 0c8c7dbe5e23594a198b786c4bc13dacc101fa6196b0cb0b23a1ca44e61f4b4f
+        version: 0.33.0
+        source: https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-darwin-arm64
+        checksum_source: https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-darwin-arm64.sha256sum
+    images:
+      kind-node:
+        source: docker.io/kindest/node@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
+        manifest_digest: sha256:10210eabcf5dc4b585756bbd3f7fbb60cc0a12a252f28aeba269d93e0070c025
+        config_digest: sha256:7ea3e6957929c3fb38ee5639c8ed47502d522a94ef2a4b41f90a3eefd001c1dd
+        runtime_image: cnpl.local/kind-node:10210eabcf5dc4b5-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/kind-node-arm64.tar
+        archive_sha256: ca52f62aa6207c87f38b5fb3b2d75db42c0c1b6ac5433c5bf855e66ed91baf87
+      frr:
+        source: quay.io/frrouting/frr:10.5.0
+        manifest_digest: sha256:8b1c9c36fbc9649235c445e6a0e12f798760aa348f4a38d49e4a256a5f6a7163
+        config_digest: sha256:1bb33cbd85195987939e4d3a8524f9431f2dca7f2edd7da99df3623dcd18b23a
+        runtime_image: cnpl.local/frr:8b1c9c36fbc96492-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/frr-arm64.tar
+        archive_sha256: ede6717e93eb77c963c25e50cf568a045684d802a59435ee70d76a0e3d3f6a97
+      cilium:
+        source: quay.io/cilium/cilium:v1.20.2
+        manifest_digest: sha256:02dd062a1f48a6ef52f50e7396117f9e7c82fbe9e6408dcaebe212257414bbeb
+        config_digest: sha256:a5ddc46d437e4a5a28d3c9e72b07cbbcb1c584c893dbcb1c02b0b6c9c25c1e5e
+        runtime_image: cnpl.local/cilium:02dd062a1f48a6ef-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/cilium-arm64.tar
+        archive_sha256: b34fc1c97444dfedf2120abd0e86d2312edddd557062774f14ddfa13025804bf
+      operator:
+        source: quay.io/cilium/operator-generic:v1.20.2
+        manifest_digest: sha256:e614f51426eb2c56d86d97e44dc880f4eb394eb894da3993c70a47cded22710c
+        config_digest: sha256:5c29c277c289653ed9a1d7dff319d7f28b7a6e4990defc94861504931ea159d4
+        runtime_image: cnpl.local/operator:e614f51426eb2c56-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/operator-arm64.tar
+        archive_sha256: 315e472997f2729b7f85d262a7da1127561a658e07df5cd48a1cc37426c95725
+      cilium-envoy:
+        source: quay.io/cilium/cilium-envoy:v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82
+        manifest_digest: sha256:3510b9d2364efe4e20ec132d46addca1510817ca1ca3b87a34e1e7447bd9fbce
+        config_digest: sha256:adc2104866f409f58946171bd125a35d461e126f83159864771800c6b2059c93
+        runtime_image: cnpl.local/cilium-envoy:3510b9d2364efe4e-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/cilium-envoy-arm64.tar
+        archive_sha256: 3db8d5452c5c0c4f49cf6d895af857781d868f5f0af99c8bd3e4f78a456efede
+      gateway:
+        source: docker.io/envoyproxy/gateway:v1.9.2
+        manifest_digest: sha256:a8d5dd3bf27282a955a9b1277742502dbd5d68d68310c4e41edcd8bc32b64ccb
+        config_digest: sha256:a25150a910b0385a4d6f029e18562766ab946b6a22f443b12defa5c937f43309
+        runtime_image: cnpl.local/gateway:a8d5dd3bf27282a9-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/gateway-arm64.tar
+        archive_sha256: 04435590a2ebd482e436ab8d71ac12443903b730f60e34028297d23476e79603
+      envoy:
+        source: docker.io/envoyproxy/envoy:distroless-v1.39.1
+        manifest_digest: sha256:62649e9cb5073a995b57d888f98382927ad15e91c53affac92a8a48a365027db
+        config_digest: sha256:370bbc1c75d7593733a11822c83fa99ce79247d3f79fb76bca210311ab12ec9a
+        runtime_image: cnpl.local/envoy:62649e9cb5073a99-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/envoy-arm64.tar
+        archive_sha256: 26d6fcf7a1678a64a9e64cedaabf168994b9670bac8ce96334247b156e61a8e1
+      resource:
+        source: harbor.k8s.internal.egon.top/bootstrap/phase02-resource@sha256:392e8f0b76a8f7d265e2a74627a57b3dc1284a77e289231c53a90057cfe33a3d
+        manifest_digest: sha256:392e8f0b76a8f7d265e2a74627a57b3dc1284a77e289231c53a90057cfe33a3d
+        config_digest: sha256:7bd047b0d761827e96ada1037b3ad88b8c3a1c4a08c92df985552af33289afe2
+        runtime_image: cnpl.local/resource:392e8f0b76a8f7d2-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/resource-arm64.tar
+        archive_sha256: af1153798b31df99ba1000a28e36e0487fb3715671323f5005e0b246bd93bed8
+    cilium_chart:
+      name: cilium-1.20.2.tgz
+      sha256: b2afd87b7f75f875f92a14559f14f59b7babbb479d968e3fd625a20bf30ec20e
+      source: https://helm.cilium.io/cilium-1.20.2.tgz
+      checksum_source: "https://helm.cilium.io/index.yaml \u4E2D\u8BE5\u7248\u672C\u7684\
+        \ digest\uFF08created 2026-09-16\uFF09"
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/cilium/cilium-1.20.2.tgz
+    gateway_chart:
+      version: v1.9.2
+      local_source: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/gateway/gateway-helm-v1.9.2.tgz
+      source: oci://docker.io/envoyproxy/gateway-helm
+      sha256: 1079cad009e0885f6e10e5f712257d8e5fdaf911d2ceb3fa1b78632c8f29bbf9
+    schemas:
+      ciliumloadbalancerippools:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumloadbalancerippools.yaml
+        sha256: 31dd3d26d987e46bc04d66ec2f9bdcf2aa2b13b7b368e515ca324961b55d65b1
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumloadbalancerippools.yaml
+      ciliuml2announcementpolicies:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliuml2announcementpolicies.yaml
+        sha256: 5a5ada1455e5169d1f95d4814302677ebff4bf477b5298483e9b827a70feee7a
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliuml2announcementpolicies.yaml
+      ciliumbgpclusterconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpclusterconfigs.yaml
+        sha256: 51206558786549a8962fa7c6e178583409a655a480f9fc5e5c277fb48969908c
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpclusterconfigs.yaml
+      ciliumbgppeerconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgppeerconfigs.yaml
+        sha256: 91ab4563c9b4a6fd4314e9fe0b128fcd77f15b50f3a5be6a32a7703dede70f60
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgppeerconfigs.yaml
+      ciliumbgpadvertisements:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpadvertisements.yaml
+        sha256: 44f04798cdfcfece42128630836086ee8c160ece8a4801dcb02eb03b1eadc5f7
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpadvertisements.yaml
+    status: prepared_runtime_pending
+  mesh:
+    version: 1.31.2
+    spire_version: 1.15.4
+    spiffe_sdk: 2.9.0
+    installer:
+      source: https://github.com/istio/istio/releases/download/1.31.2/istio-1.31.2-osx-arm64.tar.gz
+      path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/istio-1.31.2-osx-arm64.tar.gz
+      sha256: c02f9390ff8300b550c7b13230feae80adebe31aa7136f2930a1918502c626d3
+      checksum_source: https://github.com/istio/istio/releases/download/1.31.2/istio-1.31.2-osx-arm64.tar.gz.sha256
+    manifests: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/istio-1.31.2/manifests
+    tools:
+      istioctl:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/istio-1.31.2/bin/istioctl
+        sha256: 9ce9231378db4e6cb349f4da06974d97317e3ec9ddaae8fbd973d0caf6d50274
+        version: 1.31.2
+    images:
+      pilot:
+        source: docker.io/istio/pilot:1.31.2
+        manifest_digest: sha256:4be00cb0c508bb9ea683c5fb2e8cdabf96abbe2327e77a5052c7b273c2b370de
+        config_digest: sha256:95bae743cc3ce8241e8518a505d8d03a0eb2c5526ca108d181444cd0e35d9fac
+        runtime_image: cnpl.local/pilot:1.31.2-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/pilot-arm64.tar
+        archive_sha256: 08291386bb59eef6c32bfa3323704c69df835a20daf2f564cb7ec680dd47d874
+      proxyv2:
+        source: docker.io/istio/proxyv2:1.31.2
+        manifest_digest: sha256:27f8fe0fd5c2a14d25bd2017993287844c1d89eec610dc26fafacca26f2d17a5
+        config_digest: sha256:7fc3acea2d970ca0f0071367e116fb13602166544607430d0fd4fe731e428bc7
+        runtime_image: cnpl.local/proxyv2:1.31.2-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/proxyv2-arm64.tar
+        archive_sha256: 0ccc276a0e99454b214083f090c503dda64088c7610e8a9966be6ba4ec7b4042
+      install-cni:
+        source: docker.io/istio/install-cni:1.31.2
+        manifest_digest: sha256:f28c79a7e12c68392f6203ceaed93ad246b47058239ec9c0c91bed67bac9be06
+        config_digest: sha256:ed42ff3fed37f87ee8738888be388a3d991c00380b474dd7d160f9865fd65827
+        runtime_image: cnpl.local/install-cni:1.31.2-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/install-cni-arm64.tar
+        archive_sha256: dd48e89b8163256c617f7b2bd3d275322b2c0860195a3c4dc0f9066cd5baea88
+      ztunnel:
+        source: docker.io/istio/ztunnel:1.31.2
+        manifest_digest: sha256:d753b50355ac8423217caec2034784b785597c41f5389da9faefa928c95e29e0
+        config_digest: sha256:411fdf10fd004d86f6b88f4451d018ea0cedae374e4d40d3ae4e934cffe8a412
+        runtime_image: cnpl.local/ztunnel:1.31.2-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ztunnel-arm64.tar
+        archive_sha256: b62256d737672ad8e0087a33cf95018aa131a3195fdca0235cf24d4d7c5b3971
+      spire-server:
+        source: ghcr.io/spiffe/spire-server:1.15.4
+        manifest_digest: sha256:a20bbc81cb41ead660afbfc3eb1dd2e5c46c6ec3b3b820f3c32cefc1ce6f9791
+        config_digest: sha256:e5a798f54052f976aa97c79ec237d677b0cb56506878905b3cf00823757a69f2
+        runtime_image: cnpl.local/spire-server:1.15.4-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/spire-server-arm64.tar
+        archive_sha256: a2083cdb7f9db4cc13a0001c4de7be804471c9911ae625194d7cf9fa19b1b4b4
+      spire-agent:
+        source: ghcr.io/spiffe/spire-agent:1.15.4
+        manifest_digest: sha256:9fb74bd737ad2bebcb9e4a504e5da94b3ee3e211be07d8e64d3f7f1b0dba2572
+        config_digest: sha256:dc77209e77b4c4bd0f58e97359e31832bd3658dfe66c4c2de8a7007e0d9eda64
+        runtime_image: cnpl.local/spire-agent:1.15.4-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/spire-agent-arm64.tar
+        archive_sha256: b2327b9b6974badbd205013d80c79fc0012ac9df234f3e28a218dd8cac483d1e
+      identity:
+        source: cnpl.local/identity@sha256:d54742b51b0c162b58f806560e199264dadc3ba0c82852e3b2fc0b0560ceb30c
+        manifest_digest: sha256:d54742b51b0c162b58f806560e199264dadc3ba0c82852e3b2fc0b0560ceb30c
+        config_digest: sha256:eabdd36e1a56ef0d342a3c17c3288d8afe901efee720bf127eb96143a5acfd65
+        runtime_image: cnpl.local/identity:d54742b51b0c162b-arm64
+        architecture: arm64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/identity-arm64.tar
+        archive_sha256: 1b0c440c1f8a789a655f2f0e75ad5a82891fce80505494b080db943fcaab5d17
+    identity_build:
+      source_sha256: d04df556b9b208d1430367b0267cc2339d383b91b96664988119bc45587f80fd
+      manifest_digest: sha256:d54742b51b0c162b58f806560e199264dadc3ba0c82852e3b2fc0b0560ceb30c
+      config_digest: sha256:eabdd36e1a56ef0d342a3c17c3288d8afe901efee720bf127eb96143a5acfd65
+      binary_sha256: b9c6cb461a0629cc0a8177c9c5d3043d2ff725320d5de973ca50f47ef369c943
+      oci_layout: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/identity/oci
+      architecture: arm64
+      ca_sha256: 9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994
+      internal_source: cnpl.local/identity@sha256:d54742b51b0c162b58f806560e199264dadc3ba0c82852e3b2fc0b0560ceb30c
+    status: prepared_runtime_pending
+
+  ceph:
+    phase: "03"
+    candidate: "Tentacle"
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  rook:
+    phase: "03"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+  ceph_csi:
+    phase: "03"
+    candidate: null
+    version: null
+    artifacts: []
+    compatibility_evidence: []
+    execution_evidence: []
+    status: pending
+# 每个 artifact 在执行前补 name/type/architecture/source/internal_source/
+# digest 或 sha256；Chart 同时记录 Chart 版本和实际镜像；包记录完整版本及依赖。
+# 以下组件按首次使用阶段逐一提升为上方的完整锁定记录，不允许仅锁核心组件就部署扩展。
+  dataplane_vm:
+    target: existing-primary-vms
+    vip_addresses:
+    - 192.168.9.211
+    - 192.168.9.212
+    - 192.168.9.213
+    - 192.168.9.214
+    frr:
+      version: 10.5.0
+      architecture: amd64
+      source: quay.io/frrouting/frr:10.5.0
+      manifest_digest: sha256:0ee746488c1da328f6fb14e64b6be070c1fc74633e83a6581af3e446e9ebdb4f
+      config_digest: sha256:8ea58782e01b426ccf76464cb63a3f2370c25ebb7d3212dd0369bd5a592c2fc4
+      internal_source: harbor.k8s.internal.egon.top/bootstrap/phase02-frr@sha256:0ee746488c1da328f6fb14e64b6be070c1fc74633e83a6581af3e446e9ebdb4f
+    schemas:
+      ciliumloadbalancerippools:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumloadbalancerippools.yaml
+        sha256: 31dd3d26d987e46bc04d66ec2f9bdcf2aa2b13b7b368e515ca324961b55d65b1
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumloadbalancerippools.yaml
+      ciliuml2announcementpolicies:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliuml2announcementpolicies.yaml
+        sha256: 5a5ada1455e5169d1f95d4814302677ebff4bf477b5298483e9b827a70feee7a
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliuml2announcementpolicies.yaml
+      ciliumbgpclusterconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpclusterconfigs.yaml
+        sha256: 51206558786549a8962fa7c6e178583409a655a480f9fc5e5c277fb48969908c
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpclusterconfigs.yaml
+      ciliumbgppeerconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgppeerconfigs.yaml
+        sha256: 91ab4563c9b4a6fd4314e9fe0b128fcd77f15b50f3a5be6a32a7703dede70f60
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgppeerconfigs.yaml
+      ciliumbgpadvertisements:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpadvertisements.yaml
+        sha256: 44f04798cdfcfece42128630836086ee8c160ece8a4801dcb02eb03b1eadc5f7
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpadvertisements.yaml
+      ciliumbgpnodeconfigs:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpnodeconfigs.yaml
+        sha256: fcc8689b3e2985935e4badf23b545e5c4343e878e78c567fde28b035c56272b8
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigs.yaml
+      ciliumbgpnodeconfigoverrides:
+        path: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpnodeconfigoverrides.yaml
+        sha256: 8032d71df06d36600de9e6d7c6808e719537118feb5ffa528d692adbb4552238
+        source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigoverrides.yaml
+
+pending_by_phase:
+  # pause 与 cri_smoke_image 已于 2026-10-16 提升为上方 components 记录；
+  # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。
+  "00": [bind, chrony, open_vm_tools, trivy, builder_toolchains, opentofu_vsphere_provider]
+  # cni_plugins 因 kubelet RPM 依赖于 2026-10-16 提升到 00 的 components 记录。
+  "01": [etcd, coredns]
+  "02": [ingress_comparison_controller]  # Istio/SPIRE 已提升为 components.mesh 的完整物料锁
+  "03": [cloudnativepg, postgresql, redis, strimzi, kafka, rabbitmq_operator, rabbitmq, nats, mysql, eck, elasticsearch, operator_toolchain]
+  "04": [gitlab_runner, jenkins, jenkins_plugins, buildkit, argocd, argo_rollouts, helm, kustomize, cosign, kyverno, backstage, crossplane, tekton, flux, dragonfly, prometheus_minimal]
+  "05": [prometheus, grafana, alertmanager, fluent_bit, logstash, kibana, otel_collector, otel_sdks, loki, tempo, pyroscope, opencost, k6_or_locust]
+  "06": [keycloak, falco, tetragon, vpa, keda, chaos_mesh, sops, age, external_secrets, vault, knative, dapr, argo_workflows, argo_events, capi, capv, kubevirt, cdi, kueue, dra_driver, kubeflow, kserve, gpu_operator, vllm, llm_d, velero]

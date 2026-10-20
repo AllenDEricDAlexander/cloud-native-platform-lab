@@ -18,10 +18,12 @@
 | [02](plan/02-networking.md) | 服务网络、MetalLB、Gateway、网络策略 | [02.01](ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)可执行项和清理通过，Ceph/主出口模式仍阻塞；按要求暂停，02.07–10 正式实验未开始 |
 | [03](plan/03-ceph-middleware.md) | Ceph、Rook CSI、中间件 | 未开始 |
 | [04](plan/04-devops-platform.md) | CI/CD、GitOps、平台工程 | 未开始 |
-| [05](plan/05-observability.md) | 指标、日志、追踪、成本 | 未开始 |
+| [05](plan/05-observability.md) | Zabbix VM 监控、指标、日志、追踪、成本 | [Zabbix 先行方案](ops/05-observability/README.md#zabbix-design)已调整为复用 build01，部署未开始；其余未开始 |
 | [06](plan/06-advanced-security-dr.md) | 安全、多集群、Serverless、虚拟化、灾备 | 未开始 |
 
 逐项状态与证据见 [Phase 00 执行批次](ops/00-preparation/records/2026-10-14/README.md)与 [Phase 01 当前批次](ops/01-kubernetes/records/2026-10-17-restart/README.md)。阶段按顺序推进，上一阶段验收后再进入下一阶段；本阶段的问题在本阶段修复，不推到后续阶段。
+
+本轮按用户要求提前规划 05.01.04/05.03.02 的 Zabbix VM 监控，复用现有 build01 与磁盘，不新增 VM/IP，不依赖尚未实施的 Ceph/交付平台；当前仅有方案，未变更 VM。其余阶段顺序与 Phase 02 暂停状态保持不变。
 
 ## 3. 环境概况
 

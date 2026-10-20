@@ -2,6 +2,73 @@
 
 配合 [阶段正文](../../plan/05-observability.md) 按原专题执行；所有动作当前未执行，配置路径是实施交付位置。每次先确认输入和作用域，再写配置、执行、检查正常与失败路径、恢复并归档。报告放 `ops/05-observability/records/<执行批次>/`。
 
+<a id="zabbix-design"></a>
+
+## Zabbix VM 监控部署方案（2026-10-20，待实施）
+
+按本轮要求复用现有 VM，先把监控用起来。Zabbix 与构建工具共用 build01，不新增 VM、IP 或数据盘；当前仅调整方案，尚未编写部署剧本或执行安装。主机信息来自现有台账与执行记录，安装前检查实际可用内存、磁盘空间和端口即可。
+
+### 部署位置与组件
+
+| 项目 | 方案 |
+| --- | --- |
+| 部署主机 | 现有 build01，192.168.9.160，4 vCPU / 8 GiB；[台账](../inventory/hosts.yaml)已有登记，[构建客户端基线记录](../00-preparation/records/2026-10-14/evidence/00.10.04-build01-base.txt)已有初始化执行证据 |
+| 共用方式 | 保留现有构建工具和文件，增加 Zabbix Server、PostgreSQL、Nginx/PHP-FPM；使用 RPM + systemd，不重新执行服务 VM 初始化或卸载原软件 |
+| 数据 | PostgreSQL 使用现有文件系统下的专用目录，优先采用发行版默认 /var/lib/pgsql；不格式化、不重新挂盘，目录已存在时先检查并保留原数据 |
+| 页面 | 使用现有域名 https://build01.svc.internal.egon.top:8443，沿用内部 CA；不增加 DNS 记录，安装前确认端口可用 |
+| 版本 | Zabbix 7.0 LTS 的官方 Rocky 10 软件包，精确补丁版本与物料在实施时登记版本锁；数据库/PHP 使用兼容的发行版软件包 |
+| 资源起步 | 沿用现有 4 核 8 GiB，普通指标 60 秒一次，History 7 天、数值 Trends 90 天；按实际磁盘增长再调整 |
+| 阶段归属 | 05.01.04 集群外探测 + 05.03.02 基础设施监控，提前实施；其他日志、追踪、Prometheus 实验按原计划继续 |
+
+build01 是现有集群外构建/验收机，Phase 04 持续构建尚未开始，适合先共用。后续构建与监控会共享 CPU、内存和磁盘；lab 接受这种影响，资源紧张时先减少并行构建或采集量。该方案不依赖 Kubernetes/Ceph，也不要求另建监控高可用、独立探测设备或专用存储。
+
+### 首期监控范围
+
+| 主机 | 地址（192.168.9.0/24） | 采集方式 |
+| --- | --- | --- |
+| cp01–cp03 | .101–.103 | Agent 2 |
+| infra01–infra02 | .104–.105 | Agent 2 |
+| storage01–storage03 | .106–.108 | Agent 2，先采集 OS 指标 |
+| worker01–worker02 | .109–.110 | Agent 2 |
+| dns / harbor / gitlab / nexus / backup | .11 / .12 / .13 / .14 / .16 | Agent 2 |
+| build01 | .160 | Agent 2，同时承载 Zabbix Server/Web/数据库和自监控 |
+
+共 **16 台现有 Rocky VM**，build01 只登记一次。OpenWrt .10 先检查连通性和代理端口；vCenter/ESXi 的宿主机、Datastore 等指标后续有需要再接。关机模板和尚未创建的主机不纳入安装范围。
+
+首期使用官方 Linux 主动采集模板，展示 CPU、Load、可用内存、文件系统容量/inode、虚拟磁盘 I/O、网卡流量、运行时间和重启状态。过滤临时容器挂载与 veth 等接口，关键数据挂载点单独检查；按主机角色补充 kubelet/containerd、DNS、仓库和备份等实际服务状态。配上主机/Agent 无数据、磁盘不足、持续高负载和服务异常告警，先在 Zabbix 页面查看问题与恢复，外部通知按需要再接。
+
+### Ansible 怎么落地
+
+沿用项目现有的 Playbook + Role 结构，使用 Phase 00 已生成的 Inventory 和 SSH 配置；部署目标直接选 build01，Agent 目标为 `k8s_nodes:bootstrap_services:lab_clients` 中的 Rocky 主机，不另建一套主机清单。
+
+| 计划交付位置（仓库根目录起算） | 用途 |
+| --- | --- |
+| `ops/05-observability/ansible/playbooks/zabbix.yml` | 一次编排基础检查、build01 上的 Server/数据库/Web、API 主机配置和 Agent 安装 |
+| `ops/05-observability/ansible/roles/zabbix_server/` | 安装锁定版本，配置专用数据库、Web、必要的 SELinux/防火墙规则 |
+| `ops/05-observability/ansible/roles/zabbix_agent/` | 安装 Agent 2、配置主动采集和 PSK、按配置变更触发重启 |
+| `ops/05-observability/ansible/playbooks/zabbix-verify.yml` | 检查页面/API、主机覆盖和核心指标是否更新 |
+| `ops/05-observability/records/<批次>/` | 保存执行输出和验收结果 |
+
+以上文件尚未创建。API 配置直接放在主剧本的管理端任务中，用 ansible.builtin.uri 创建或更新主机组、主机、模板和宏；不再增加单独的 API 角色或额外 Ansible 集合。
+
+执行顺序：
+
+1. 检查 build01 的可用内存、磁盘、端口和已有数据库配置；只安装监控所需组件，保留构建机现有软件源、网络、防火墙和工作目录。
+2. 在 build01 部署 PostgreSQL、Zabbix Server 和 Web；仅对确认为空的新库导入初始 schema，重跑复用数据库与口令。
+3. 从现有 Inventory 生成主机组/主机，在服务端先配好主动模板与每机 PSK，再分批安装 Agent；Host 字段与 Agent Hostname 使用台账 FQDN，build01 同时接入自监控。
+4. 核对页面、16 台目标的实际接入结果和数据新鲜度，再重跑一次检查幂等；故障恢复测试由操作者在选定测试主机上进行。
+
+保留现有 SELinux Enforcing、firewalld 和内部 CA。Agent 主动连接 build01 的 10051/TCP，使用每机 PSK；不开放各主机的 10050，数据库仅本机监听，Web 8443 限制现有管理来源。秘密放管理端受控目录，敏感任务 no_log，重跑不重置秘密或覆盖原数据库。不会重启 kubelet/containerd、业务服务或清理构建机文件。
+
+### 首期验收
+
+- Zabbix 页面可访问，Server、数据库、Web 和 Agent 状态正常。
+- 16 台目标逐台核对，CPU、内存、磁盘、网络等核心指标持续更新；连接失败的主机明确列出。
+- 操作者短暂停止一台测试主机的 Agent 后能看到异常，恢复后能看到恢复事件。
+- 相同输入重复运行，不重复创建主机、不重建数据库、不无故重启服务，原构建工具与文件保留。
+
+首期先完成这些检查。外部通知、vSphere 指标、数据库备份与恢复演练作为后续补充，不作为先看 VM 指标的前置条件。当前仅完成方案调整，运行结果在实施后据实记录。
+
 ## 命令与示例的使用方式
 
 以下写明实验时大概要执行的命令、目的和预期变化，不是现在就能整段运行的一键脚本。`LAB_*`、`<...>`、版本、资源名和文件路径在开始实验时按实际环境填写；文件须先根据示例补齐，凭据通过受控配置注入。YAML 标为“片段”时应合并到完整对象，不能单独 apply；示例值不是性能或容量承诺。
@@ -14,11 +81,11 @@
 
 ## 05.01 遥测契约与资源预算
 
-输入：04 样例服务/版本标识及最小指标源。
+输入：完整遥测需 04 样例服务/版本标识及最小指标源；05.01.04 的先行 Zabbix 复用 build01、现有管理网络、DNS/CA 和文件系统，见 [部署方案](#zabbix-design)。
 
 1. 规定 service.name、namespace、environment、cluster、version 和 trace/span 关联字段；为七语言分别定义日志格式和敏感字段处理。
 2. 先为指标序列、日志量、Trace/Profile 采样、Retention、对象存储和压测制定上限，写出估算输入；不全量双写两个日志后端。
-3. 部署集群外 HTTP/DNS/API/仓库探测，确保 Kubernetes 或 Ceph 故障时仍保有可达性证据。
+3. 按先行方案在 build01 部署 HTTP/DNS/API/仓库探测，先验证单目标中断/恢复；整集群故障和独立探测按后续需要补充。
 
 ### 操作命令与目的
 
@@ -111,9 +178,9 @@ groups:
 
 ## 05.03 覆盖基础设施、Ceph 与中间件
 
-输入：各组件受限指标身份和稳定数据服务。
+输入：Rocky VM 先行监控沿用现有台账/Inventory；Ceph、中间件与 vSphere 扩展分别需要已部署服务和受限指标身份。
 
-1. 接入 Ceph 容量/PG/I/O、ESXi/Rocky/网络设备、数据库、消息和仓库/CI 指标，逐源核对权限与目标健康。
+1. 先按 [Zabbix 方案](#zabbix-design) 接入 Rocky VM 操作系统与关键服务，再接入 Ceph 容量/PG/I/O、vSphere/网络设备、数据库、消息和仓库/CI 指标，逐源核对权限与目标健康。以下 Ceph/中间件命令只在相应前置就绪后执行。
 2. 制造受控 Ceph I/O/容量趋势及 Kafka 消费积压，观察具体告警和恢复；数据库连接数、Redis 内存、RabbitMQ/NATS backlog 配同样可解释规则。
 3. 保存 Dashboard 到版本库，标注缺失 exporter、许可证限制和采集盲区；不可采集的设备不伪造曲线。
 

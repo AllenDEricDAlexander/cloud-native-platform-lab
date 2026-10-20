@@ -8,6 +8,8 @@
 
 00 → 01 → 02 主线 → 03 → 04 → 05 → 06。每阶段必须交付可复用配置/脚本、文档、测试入口和真实报告；仅有清单、安装界面或目录不算完成。
 
+2026-10-20 按用户要求，将 [Zabbix VM 监控](05-observability.md#本轮先行范围zabbix-vm-监控)作为 05.01.04/05.03.02 的提前实施项，复用现有 build01 与磁盘，不新增 VM/IP；当前只补充方案，未部署。其前置限于已有主机、管理网络与 DNS/CA，不等待 03/04；其他专题仍按原顺序与前置推进。
+
 00 必须实际部署基础服务、创建十台服务器、配置 Linux 并安装验证 CRI。01 从节点基线复验开始，只负责 kubeadm/CNI/控制平面和资源实验。发现系统问题返回 00 的角色配置修复，不能把服务器初始化留给 01。
 
 | 状态 | 判定 |
@@ -107,11 +109,11 @@
 
 [阶段正文与 42 个步骤](05-observability.md) · [具体实施](../ops/05-observability/README.md)
 
-- **建设范围**：Prometheus/Grafana/Alertmanager、ELK/Fluent Bit、OpenTelemetry Collector、Loki/Tempo/Pyroscope/OpenCost。
+- **建设范围**：集群外 Zabbix/Agent 2 的 VM 与基础服务监控；Prometheus/Grafana/Alertmanager、ELK/Fluent Bit、OpenTelemetry Collector、Loki/Tempo/Pyroscope/OpenCost。
 - **研究内容**：Metrics/Logs/Traces/Profiles、采样/高基数、日志解析与索引、Retention、SLI/SLO/错误预算、资源成本与容量。
-- **实际顺序**：统一遥测标签/预算 → 指标/告警 → Ceph/中间件/基础设施采集 → OTel → ELK 与 Loki/Trace/Profile → SLO 发布分析 → 压测/成本对照。
-- **交付物**：ops/05-observability/observability/ 配置、Dashboard、Kibana 查询、OTel 配置、告警与 SLO；ops/05-observability/examples/ 场景、ops/05-observability/tests/performance/ 用例及性能/成本报告。
-- **验收用例**：跨语言同步/异步请求串联日志、指标和 Trace；Ceph I/O、Kafka Lag、Java Profiling 与压力案例可定位；ELK/Loki 同负载比较；SLO 驱动灰度分析和资源成本核算。
+- **实际顺序**：先行 Zabbix VM 监控 → 统一遥测标签/预算 → 指标/告警 → Ceph/中间件/基础设施采集 → OTel → ELK 与 Loki/Trace/Profile → SLO 发布分析 → 压测/成本对照。
+- **交付物**：ops/05-observability/ansible/ 的 Zabbix 部署/接入/验收剧本；ops/05-observability/observability/ 配置、Dashboard、Kibana 查询、OTel 配置、告警与 SLO；ops/05-observability/examples/ 场景、ops/05-observability/tests/performance/ 用例及性能/成本报告。
+- **验收用例**：Zabbix 页面访问、VM 清单覆盖、指标新鲜度、Agent 中断/恢复与幂等，保留 build01 原构建工具和文件；跨语言同步/异步请求串联日志、指标和 Trace；Ceph I/O、Kafka Lag、Java Profiling 与压力案例可定位；ELK/Loki 同负载比较；SLO 驱动灰度分析和资源成本核算。
 
 交接要求：保留最低监控和集群外探测，向 06 提供可复用故障指标；第二集群真实观测在 06C 接入后补充实测。
 

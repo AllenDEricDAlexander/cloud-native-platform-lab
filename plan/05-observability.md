@@ -1,10 +1,10 @@
 # Phase 05｜可观测性、日志、性能、SLO 与成本治理
 
-文档版本：V3.0。状态：未执行。步骤数：42。
+文档版本：V3.0。状态：未执行；2026-10-20 调整为复用 build01 部署 Zabbix，待实施。步骤数：42。
 
 用统一的遥测契约连接指标、日志、追踪与性能剖析，保留 ELK 与 Loki 两条日志实验路线，为发布、扩缩容和故障恢复提供可验证的数据。
 
-前置条件：Phase 03 数据与存储平台、Phase 04 多语言样例和发布流水线可用；基础网关、证书与身份边界已建立。
+前置条件：完整遥测实验需要 Phase 03 数据与存储平台、Phase 04 多语言样例和发布流水线可用；基础网关、证书与身份边界已建立。Zabbix 先复用现有 build01、管理网络、DNS/CA 与现有文件系统，可按本轮要求提前实施。
 
 实施边界：全量日志不默认同时写入两套后端。观测组件按预算部署，日志和对象存储可使用 Ceph，但关键基础设施故障探测必须保留集群外的独立路径。
 
@@ -18,17 +18,29 @@
 
 | 项目 | 具体要求 |
 | --- | --- |
-| 建设范围 | Prometheus/Grafana/Alertmanager、ELK/Fluent Bit、OpenTelemetry Collector、Loki/Tempo/Pyroscope/OpenCost。 |
+| 建设范围 | 集群外 Zabbix Server/Agent 2；Prometheus/Grafana/Alertmanager、ELK/Fluent Bit、OpenTelemetry Collector、Loki/Tempo/Pyroscope/OpenCost。 |
 | 研究内容 | Metrics/Logs/Traces/Profiles、采样/高基数、日志解析与索引、Retention、SLI/SLO/错误预算、资源成本与容量。 |
-| 实际顺序 | 统一遥测标签/预算 → 指标/告警 → Ceph/中间件/基础设施采集 → OTel → ELK 与 Loki/Trace/Profile → SLO 发布分析 → 压测/成本对照。 |
-| 交付物 | ops/05-observability/observability/ 配置、Dashboard、Kibana 查询、OTel 配置、告警与 SLO；ops/05-observability/examples/ 场景、ops/05-observability/tests/performance/ 用例及性能/成本报告。 |
-| 验收用例 | 跨语言同步/异步请求串联日志、指标和 Trace；Ceph I/O、Kafka Lag、Java Profiling 与压力案例可定位；ELK/Loki 同负载比较；SLO 驱动灰度分析和资源成本核算。 |
+| 实际顺序 | 先行建设集群外 Zabbix 与 VM 基础监控 → 统一遥测标签/预算 → 指标/告警 → Ceph/中间件/基础设施采集 → OTel → ELK 与 Loki/Trace/Profile → SLO 发布分析 → 压测/成本对照。 |
+| 交付物 | ops/05-observability/ansible/ 的 Zabbix 部署、主机接入与只读验收剧本；ops/05-observability/observability/ 配置、Dashboard、Kibana 查询、OTel 配置、告警与 SLO；ops/05-observability/examples/ 场景、ops/05-observability/tests/performance/ 用例及性能/成本报告。 |
+| 验收用例 | Zabbix 页面可访问、台账内 VM 指标持续更新、Agent 中断/恢复与幂等部署，保留 build01 原构建工具和文件；跨语言同步/异步请求串联日志、指标和 Trace；Ceph I/O、Kafka Lag、Java Profiling 与压力案例可定位；ELK/Loki 同负载比较；SLO 驱动灰度分析和资源成本核算。 |
 
 实施细节：[打开具体操作、配置位置和检查方法](../ops/05-observability/README.md)。
 
 阶段交接：保留最低监控和集群外探测，向 06 提供可复用故障指标；第二集群真实观测在 06C 接入后补充实测。
 
 验收结果保存为 `ops/05-observability/records/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../ops/templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+
+## 本轮先行范围：Zabbix VM 监控
+
+本轮先交付方案，按要求与现有构建机共用，不新增 VM、IP 或数据盘；尚未编写部署剧本或执行远端变更。详细设计见 [Zabbix 部署与 Ansible 交付方案](../ops/05-observability/README.md#zabbix-design)。本项复用 05.01.04 与 05.03.02，保持原 42 个步骤编号；先行监控验收不代表 Phase 05 全阶段完成。
+
+| 决策 | 安排 |
+| --- | --- |
+| 部署位置 | 现有 build01，192.168.9.160，4 vCPU / 8 GiB；沿用现有磁盘与域名，页面使用 https://build01.svc.internal.egon.top:8443。安装前检查可用内存、磁盘与端口，不创建新 VM。 |
+| 服务组成 | Zabbix 7.0 LTS、同 VM PostgreSQL、Nginx/PHP-FPM，通过 RPM 与 systemd 管理；数据库使用现有文件系统，不依赖 K8s、Ceph 或集群入口。保留原构建工具、文件与主机配置；精确补丁版本及校验值在实施时锁定。 |
+| 主机范围 | 十台节点 .101–.110、dns/harbor/gitlab/nexus/backup 五台服务 VM、build01 .160，共 16 台现有 Rocky VM；build01 同时承担 Server 与自监控，只登记一次。 |
+| 采集与职责 | Agent 2 主动上报，使用每机独立 TLS PSK；Zabbix 负责 VM 操作系统、关键服务与外部可达性，Prometheus 保留 Kubernetes/应用指标职责。 |
+| 后续扩展 | OpenWrt 首期仅探测可达性与代理端口；vCenter/ESXi、外部通知、数据库备份与恢复演练按需要补充；Ceph、中间件与完整遥测按原阶段前置推进。 |
 
 ## 05.01 建立遥测契约和容量计划
 
@@ -60,11 +72,11 @@
 
 ### 05.01.04 部署集群外可达性探测
 
-实施内容：在管理 VM 或独立设备保留 DNS、API、Harbor、Ceph 与关键站点的轻量探测。
+实施内容：在现有集群外 build01 上共用部署 Zabbix，承担 DNS、API、Harbor 与关键站点的持续探测，Ceph 建成后补接。
 
-过程安排：探测结果和最低限度告警不依赖被监控的 K8s/Ceph；验证主集群停止时仍能记录故障。
+过程安排：沿用 build01 的资源与文件系统；先检查页面和单一测试目标中断/恢复。lab 接受构建与监控共用资源，首期不另建监控高可用或独立探测设备。
 
-完成判定：不会因整个观测平台与业务同时下线而误以为没有故障。
+完成判定：目标失联与恢复能在 Zabbix 中识别，探测服务在集群外运行；页面/API 与实际数据更新有检查记录。
 
 ## 05.02 建设 Prometheus、Grafana 与 Alertmanager
 
@@ -132,9 +144,9 @@
 
 ### 05.03.02 接入 ESXi、Rocky 与网络设备
 
-实施内容：选择与实际权限兼容的指标采集方式，记录 VM CPU、内存、Datastore、网卡和主机状态。
+实施内容：先用 Zabbix Agent 2 采集 Rocky VM 的 CPU、内存、文件系统、磁盘 I/O、网络与关键服务；再按实际权限接入 vCenter/ESXi 的 Datastore、宿主机和 VM 视角指标。
 
-过程安排：不假定所有 ESXi 版本/许可支持相同接口；网络设备缺少管理能力时记录可测范围，不编造交换机端口指标。
+过程安排：主机清单从现有台账与派生 Inventory 读取，通过 Ansible 幂等接入；不将 Guest 文件系统用量当作 Datastore 剩余量。不假定所有 ESXi 版本/许可支持相同接口；网络设备缺少管理能力时记录可测范围，不编造交换机端口指标。
 
 完成判定：能够区分物理宿主机瓶颈、VM 资源不足和容器内限制。
 

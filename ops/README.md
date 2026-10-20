@@ -13,7 +13,7 @@
 | 02 网络治理 | [02-networking](../plan/02-networking.md) | [操作流程](02-networking/README.md) | 未开始 |
 | 03 Ceph 与中间件 | [03-ceph-middleware](../plan/03-ceph-middleware.md) | [操作流程](03-ceph-middleware/README.md) | 未开始 |
 | 04 交付平台 | [04-devops-platform](../plan/04-devops-platform.md) | [操作流程](04-devops-platform/README.md) | 未开始 |
-| 05 可观测性 | [05-observability](../plan/05-observability.md) | [操作流程](05-observability/README.md) | 未开始 |
+| 05 可观测性 | [05-observability](../plan/05-observability.md) | [操作流程](05-observability/README.md) | [Zabbix VM 监控方案](05-observability/README.md#zabbix-design)复用 build01，部署未开始 |
 | 06 安全、进阶与恢复 | [06-advanced-security-dr](../plan/06-advanced-security-dr.md) | [操作流程](06-advanced-security-dr/README.md) | 未开始 |
 
 尚未开始的阶段，其操作流程仍是设计草案：命令未经运行验证，开始实施时按本节的写法改为可执行流程。
@@ -50,6 +50,7 @@
 | `ops/00-preparation/tests/smoke/` | 00 | 节点只读检查与 host-network CRI 自测 |
 | `ops/00-preparation/opentofu/` | 00/04 | VM 与虚拟硬件声明及受控 State（未开始，目前 VM 在 vCenter 手工克隆） |
 | `ops/03-ceph-middleware/cephadm/` | 03/06 | 外部 Ceph 主机、设备/OSD 与服务规格及恢复入口 |
+| `ops/05-observability/ansible/` | 05 | 计划在现有 build01 共用部署 Zabbix Server/Web/数据库并接入 Agent 2；复用 00 的 Inventory/SSH 配置 |
 
 ### Kubernetes 平台配置
 

@@ -143,6 +143,7 @@ delete_owned() {
     local kind=$1 name=$2 ns=$3 expected=$4 current api resource path
     current=$(owned "$kind" "$name" "$ns") || return 0
     [[ $(jq -r .metadata.uid <<< "$current") == "$expected" ]] || die '删除 UID 已改变'
+    kind=$(jq -r .kind <<< "$current")
     api=$(jq -r .apiVersion <<< "$current")
     if [[ $api == v1 ]]; then path=/api/v1; else path=/apis/$api; fi
     resource=$(k get --raw="$path" | jq -er --arg kind "$kind" '.resources[]|select(.kind==$kind and (.name|contains("/")|not))|.name')

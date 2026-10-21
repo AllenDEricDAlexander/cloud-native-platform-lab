@@ -1,421 +1,27 @@
+{% for ns, mode in [('lab-mesh-plain','plain'),('lab-mesh-sidecar','sidecar'),('lab-mesh-ambient','ambient')] %}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: lab-mesh-plain
+  name: '{{ ns }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio-injection: disabled
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: server
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: server
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: server
-spec:
-  serviceAccountName: server
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: allowed
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: allowed
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: allowed
-spec:
-  serviceAccountName: allowed
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: denied
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: denied
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: denied
-spec:
-  serviceAccountName: denied
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: server
-  namespace: lab-mesh-plain
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-spec:
-  selector:
-    app: server
-    cnpl.io/phase-run: '{{ run }}'
-  ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
-    appProtocol: http
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    istio.io/rev: cnpl
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: server
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: server
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: server
-  annotations:
-    sidecar.istio.io/proxyImage: cnpl.local/proxyv2:1.31.2-arm64
-spec:
-  serviceAccountName: server
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: allowed
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: allowed
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: allowed
-  annotations:
-    sidecar.istio.io/proxyImage: cnpl.local/proxyv2:1.31.2-arm64
-spec:
-  serviceAccountName: allowed
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: denied
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: denied
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: denied
-  annotations:
-    sidecar.istio.io/proxyImage: cnpl.local/proxyv2:1.31.2-arm64
-spec:
-  serviceAccountName: denied
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: server
-  namespace: lab-mesh-sidecar
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-spec:
-  selector:
-    app: server
-    cnpl.io/phase-run: '{{ run }}'
-  ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
-    appProtocol: http
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: lab-mesh-ambient
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
+    pod-security.kubernetes.io/enforce: privileged
+{% if mode == 'sidecar' %}
+    istio.io/rev: cnpl0210
+{% elif mode == 'ambient' %}
     istio.io/dataplane-mode: ambient
+    istio.io/rev: cnpl0210
     istio-injection: disabled
+{% else %}
+    istio-injection: disabled
+{% endif %}
 ---
+{% for role in ['server','allowed','denied'] %}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: server
-  namespace: lab-mesh-ambient
+  name: '{{ role }}'
+  namespace: '{{ ns }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
 automountServiceAccountToken: false
@@ -423,173 +29,48 @@ automountServiceAccountToken: false
 apiVersion: v1
 kind: Pod
 metadata:
-  name: server
-  namespace: lab-mesh-ambient
+  name: '{{ role }}'
+  namespace: '{{ ns }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    app: server
+    app: '{{ role }}'
 spec:
-  serviceAccountName: server
+  serviceAccountName: '{{ role }}'
   automountServiceAccountToken: false
   nodeSelector:
-    cnpl.io/kind-role: worker
+    kubernetes.io/hostname: '{{ workers[0] if role == "server" else workers[1] }}'
+  terminationGracePeriodSeconds: 10
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
     runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
+    seccompProfile: {type: RuntimeDefault}
   containers:
   - name: net
     image: '{{ image }}'
     imagePullPolicy: Never
-    args:
-    - serve
+    args: [serve]
     env:
     - name: POD_UID
       valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
+        fieldRef: {fieldPath: metadata.uid}
     securityContext:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
+      capabilities: {drop: [ALL]}
     resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {cpu: 500m, memory: 128Mi}
     readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
+      httpGet: {path: /healthz, port: 8080}
+      periodSeconds: 2
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: allowed
-  namespace: lab-mesh-ambient
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: allowed
-  namespace: lab-mesh-ambient
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: allowed
-spec:
-  serviceAccountName: allowed
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: denied
-  namespace: lab-mesh-ambient
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: denied
-  namespace: lab-mesh-ambient
-  labels:
-    cnpl.io/phase-run: '{{ run }}'
-    app: denied
-spec:
-  serviceAccountName: denied
-  automountServiceAccountToken: false
-  nodeSelector:
-    cnpl.io/kind-role: worker
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-  - name: net
-    image: '{{ image }}'
-    imagePullPolicy: Never
-    args:
-    - serve
-    env:
-    - name: POD_UID
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.uid
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-        - ALL
-    resources:
-      requests:
-        cpu: 20m
-        memory: 32Mi
-      limits:
-        cpu: 500m
-        memory: 128Mi
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      periodSeconds: 1
----
+{% endfor %}
 apiVersion: v1
 kind: Service
 metadata:
   name: server
-  namespace: lab-mesh-ambient
+  namespace: '{{ ns }}'
   labels:
     cnpl.io/phase-run: '{{ run }}'
 spec:
@@ -597,7 +78,6 @@ spec:
     app: server
     cnpl.io/phase-run: '{{ run }}'
   ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
-    appProtocol: http
+  - {name: http, port: 8080, targetPort: 8080, appProtocol: http}
+---
+{% endfor %}

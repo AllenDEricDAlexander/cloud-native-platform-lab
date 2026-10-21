@@ -1,3 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: waypoint-options
+  namespace: lab-mesh-ambient
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+data:
+  deployment: |
+    spec:
+      template:
+        metadata:
+          labels:
+            cnpl.io/phase-run: '{{ run }}'
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: '{{ workers[1] }}'
+          containers:
+          - name: istio-proxy
+            image: '{{ proxy_image }}'
+            imagePullPolicy: Never
+            resources:
+              requests: {cpu: 50m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 256Mi}
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -5,9 +30,17 @@ metadata:
   namespace: lab-mesh-ambient
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/rev: cnpl
+    istio.io/rev: cnpl0210
+    istio.io/waypoint-for: service
 spec:
   gatewayClassName: istio-waypoint
+  infrastructure:
+    labels:
+      cnpl.io/phase-run: '{{ run }}'
+    parametersRef:
+      group: ''
+      kind: ConfigMap
+      name: waypoint-options
   listeners:
   - name: mesh
     port: 15008

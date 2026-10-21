@@ -1,0 +1,18 @@
+---
+- name: 先退出网格应用，再卸载组件及恢复原 Cilium
+  block:
+    - name: 顺序恢复并验证原 VM 网络
+      ansible.builtin.include_tasks: phase02-case.yml
+      loop: '{{ (phase_prepare.stdout | from_json).restore_steps | rejectattr("name","in",["recover-firewall","recover-primary"]) | list }}'
+      loop_control: {loop_var: phase_case, label: '{{ phase_case.name }}'}
+  always:
+    - name: 恢复失败时也撤销本批临时访问规则
+      ansible.builtin.include_tasks: phase02-case.yml
+      loop: '{{ (phase_prepare.stdout | from_json).restore_steps | selectattr("name","equalto","recover-firewall") | list }}'
+      loop_control: {loop_var: phase_case, label: '{{ phase_case.name }}'}
+- name: 复核原主线和节点安全状态
+  ansible.builtin.include_tasks: phase02-case.yml
+  loop: '{{ (phase_prepare.stdout | from_json).restore_steps | selectattr("name","equalto","recover-primary") | list }}'
+  loop_control: {loop_var: phase_case, label: '{{ phase_case.name }}'}
+- name: 按既有资源保护基线生成清理回执
+  ansible.builtin.include_tasks: phase02-cleanup.yml

@@ -4,7 +4,6 @@ metadata:
   name: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
     pod-security.kubernetes.io/enforce: privileged
     istio-injection: disabled
 ---
@@ -15,7 +14,6 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -24,7 +22,6 @@ metadata:
   name: cnpl-spire-server
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -36,12 +33,9 @@ rules:
   - ''
   resources:
   - nodes
-  - pods
-  - serviceaccounts
+  resourceNames: {{ workers | tojson }}
   verbs:
   - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -49,11 +43,38 @@ metadata:
   name: cnpl-spire-server
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cnpl-spire-server
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spire-server-pods
+  namespace: spire-system
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+rules:
+- apiGroups: ['']
+  resources: [pods]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spire-server-pods
+  namespace: spire-system
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spire-server-pods
 subjects:
 - kind: ServiceAccount
   name: spire-server
@@ -66,7 +87,6 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 data:
   server.conf: |
 {{ spire_server_hcl | indent(4, true) }}
@@ -78,9 +98,10 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
     app: spire-server
 spec:
+  nodeSelector:
+    kubernetes.io/hostname: '{{ workers[0] }}'
   serviceAccountName: spire-server
   automountServiceAccountToken: true
   securityContext:
@@ -134,12 +155,10 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 spec:
   selector:
     app: spire-server
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
   ports:
   - port: 8081
     targetPort: 8081

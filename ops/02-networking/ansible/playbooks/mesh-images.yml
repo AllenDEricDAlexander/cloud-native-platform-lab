@@ -1,0 +1,35 @@
+---
+- name: 将本批锁定的 amd64 镜像预热到两个 VM Worker
+  hosts: worker01:worker02
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: 核对实际 VM hostname
+      ansible.builtin.command: {argv: [hostname]}
+      register: mesh_hostname
+      changed_when: false
+      failed_when: mesh_hostname.stdout != node_fqdn
+    - name: 管理端再次核对原 Node UID
+      ansible.builtin.command:
+        argv:
+          - '{{ lookup("env","HOME") }}/.cnpl/bin/kubectl'
+          - --kubeconfig
+          - '{{ lookup("env","HOME") }}/.cnpl-secrets/kubeconfig-lab-primary'
+          - --request-timeout=15s
+          - get
+          - node
+          - '{{ node_fqdn }}'
+          - -o
+          - 'jsonpath={.metadata.uid}'
+      delegate_to: localhost
+      become: false
+      register: mesh_node
+      changed_when: false
+      failed_when: mesh_node.stdout != mesh_worker_uids[node_fqdn]
+    - name: 创建只存公开镜像的内容寻址缓存
+      ansible.builtin.file: {path: /var/cache/cnpl/mesh-images, state: directory, mode: '0750'}
+    - name: 逐个传输并核验物料
+      ansible.builtin.include_tasks: ../tasks/mesh-image.yml
+      loop: '{{ mesh_images }}'
+      loop_control: {loop_var: mesh_image, label: '{{ mesh_image.runtime_image }}'}

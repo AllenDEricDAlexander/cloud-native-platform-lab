@@ -1,6 +1,6 @@
 # Phase 02｜云原生网络、调度与服务治理
 
-文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](../ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](../ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](../ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](../ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)52 个行为用例、5 组实际源与回程及清理通过，Ceph/主出口模式仍阻塞；[完整02.07](../ops/02-networking/records/02.07-20261020T132429Z/README.md)16 项调度验收与清理通过；[02.08](../ops/02-networking/records/02.08-20261020T133923Z/README.md)17 项可执行验收与清理通过，整VM压力排序仍 BLOCKED；02.09 原 Mac/kind 批次失败后已清理，现改为用户选定的 VM 主集群入口（正式切换未执行）；02.10 旧本地后端停用，VM 版待交付。步骤数：45。
+文档版本：V3.0。状态：[02.01](../ops/02-networking/records/02.01-20261018T142346Z/README.md)、[完整02.02](../ops/02-networking/records/02.02-20261018T225144Z/README.md)、[完整02.03](../ops/02-networking/records/02.03-20261019T000211Z/README.md)、[完整02.04](../ops/02-networking/records/02.04-20261019T105544Z/README.md)实际验收及清理通过；[完整02.05](../ops/02-networking/records/02.05-20261019T125941Z/README.md)内部验收与清理通过，公网项按确认 BLOCKED；[02.06](../ops/02-networking/records/02.06-20261020T004459Z-agent-r4/README.md)52 个行为用例、5 组实际源与回程及清理通过，Ceph/主出口模式仍阻塞；[完整02.07](../ops/02-networking/records/02.07-20261020T132429Z/README.md)16 项调度验收与清理通过；[02.08](../ops/02-networking/records/02.08-20261020T133923Z/README.md)17 项可执行验收与清理通过，整VM压力排序仍 BLOCKED；[02.09](../ops/02-networking/records/02.09-20261021T122923Z-agent-final/README.md)22 个可运行用例、自动回退与清理通过，外部 BGP 转发仍 BLOCKED；[02.10](../ops/02-networking/examples/mesh/README.md)完整 VM 剧本与整组入口已交付，正式验收待执行。步骤数：45。
 
 从可观测的基础通信开始，建立 Service、网关、证书、网络隔离和调度规则，再逐项比较 eBPF、负载均衡、出站治理与服务网格。
 
@@ -404,7 +404,7 @@
 
 [本专题具体操作、配置与检查](../ops/02-networking/README.md#02-10)
 
-本节基础 mTLS 可独立测试；完整 Trace、SLO 和发布联动在 Phase 04、05 完成后回访。
+本节基础 mTLS 可独立测试；完整 Trace、SLO 和发布联动在 Phase 04、05 完成后回访。[完整 Ansible、YAML、24 步统一入口与恢复](../ops/02-networking/examples/mesh/README.md)已迁移到现有 VM 主集群；Mac 只作管理端，执行前核验不等于正式验收。
 
 ### 02.10.01 部署 Sidecar 模式服务网格
 

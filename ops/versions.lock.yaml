@@ -1071,6 +1071,86 @@ components:
         sha256: 8032d71df06d36600de9e6d7c6808e719537118feb5ffa528d692adbb4552238
         source: https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigoverrides.yaml
 
+  mesh_vm:
+    target: existing-primary-vms
+    architecture: amd64
+    images:
+      pilot:
+        source: docker.io/istio/pilot:1.31.2
+        manifest_digest: sha256:ab2aa8f08fa1026e516b9659cb331eb952ea11ba44ad3066bc04eace18f07330
+        config_digest: sha256:f9099e6414f8e725a33c951b33cdfca81069f32b04da219129f413f4a4264406
+        runtime_image: cnpl.local/pilot:1.31.2-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/pilot-amd64.tar
+        archive_sha256: f810f80b7e5d165aad05a876890861582bc54e1c1e5e8ab5b3feab8b19ccc9b8
+      proxyv2:
+        source: docker.io/istio/proxyv2:1.31.2
+        manifest_digest: sha256:815494741f2eeeb70a302eae79f308338b479d6dba5a11a711e70be92ac25fa1
+        config_digest: sha256:42634830acb228541f2f5442127ccf4cec000782e50e94409d8b90c31739a692
+        runtime_image: cnpl.local/proxyv2:1.31.2-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/proxyv2-amd64.tar
+        archive_sha256: 08d2578efa86a0a30e70d06a2a8992a7faa653f34ba599670a7d6e34ab0981cf
+      install-cni:
+        source: docker.io/istio/install-cni:1.31.2
+        manifest_digest: sha256:08e99b93e3af6320570238516b6befac9bc58f8107781f72a6b6a774c68004b5
+        config_digest: sha256:5038794cfc1dee79dface627992db64868fcfb666282c8fbb01e943b59f200c1
+        runtime_image: cnpl.local/install-cni:1.31.2-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/install-cni-amd64.tar
+        archive_sha256: ce6985cec659160e7f5f0d3cc416251d0503b6c8996d44412919c9c5341d35e8
+      ztunnel:
+        source: docker.io/istio/ztunnel:1.31.2
+        manifest_digest: sha256:ef20db49ddc32925e84a60e296f6e71c0274698be59ac9d962e60d203461e16c
+        config_digest: sha256:20d4c61cdd75fd0bd88785ff28af73dede47138dcb1356f685510812c23c859c
+        runtime_image: cnpl.local/ztunnel:1.31.2-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/ztunnel-amd64.tar
+        archive_sha256: 5a237f6e9fda9f23d36e4eddcad1dec87bd0f9048b4874d13e0f26e229eb7e17
+      spire-server:
+        source: ghcr.io/spiffe/spire-server:1.15.4
+        manifest_digest: sha256:12c93a3da2498eaedb852d1f9d20158787a2d77bb48de942b96f388291b1b929
+        config_digest: sha256:a33dd92ccca0ad9513d3774203f4f06bd91b9e4447567140ab170960a1e8cf99
+        runtime_image: cnpl.local/spire-server:1.15.4-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/spire-server-amd64.tar
+        archive_sha256: 6fa5a5f053c10e1b52e003159b682b8e503bf2d79f55348a9494d3fbe8690237
+      spire-agent:
+        source: ghcr.io/spiffe/spire-agent:1.15.4
+        manifest_digest: sha256:11fa289a277c856b40aac0f2180a38ae1254d36fe7b98639ad94f8ae0a97b31f
+        config_digest: sha256:7deedfeb8905077e8d2431c245c509059cdc5cc5a55bbf5303dbc3e8886d5725
+        runtime_image: cnpl.local/spire-agent:1.15.4-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/spire-agent-amd64.tar
+        archive_sha256: 56eb2c22f73a68d23475d80aabd22cac3d72e3e3c8500910e4b5748478a757ec
+      identity:
+        source: cnpl.local/identity@sha256:9998ed71ac2ccd5aa19550a58ab6d9aa0a2b0306dfb16b7c56133a8bdbe5c967
+        manifest_digest: sha256:9998ed71ac2ccd5aa19550a58ab6d9aa0a2b0306dfb16b7c56133a8bdbe5c967
+        config_digest: sha256:554c3b41e7af5cc78e14b5d0d96fbf718410fd3ce642dc92bc8703c957bfb1b0
+        runtime_image: cnpl.local/identity:9998ed71ac2ccd5a-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/identity-amd64.tar
+        archive_sha256: b8518cd91560286e6621a867a2ee1d9b38b491c5808a058ce0ea1f245cf1777d
+      resource:
+        source: harbor.k8s.internal.egon.top/bootstrap/phase02-resource@sha256:862becb489afeb1bae15ce68875d506563b3de1cb8bbb8a38c9c1a6f24f769dc
+        manifest_digest: sha256:862becb489afeb1bae15ce68875d506563b3de1cb8bbb8a38c9c1a6f24f769dc
+        config_digest: sha256:162a94d93170015f3b02ee3ef7219faf1802ea62089315ba58d093d5de594156
+        runtime_image: cnpl.local/mesh-resource:862becb489afeb1b-amd64
+        architecture: amd64
+        archive: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/resource-amd64.tar
+        archive_sha256: ff150db1a6d93b60a17bf549a51b94e2dd33dd65d0698b12f166568fc0a56567
+    identity_build:
+      source_sha256: d04df556b9b208d1430367b0267cc2339d383b91b96664988119bc45587f80fd
+      manifest_digest: sha256:9998ed71ac2ccd5aa19550a58ab6d9aa0a2b0306dfb16b7c56133a8bdbe5c967
+      config_digest: sha256:554c3b41e7af5cc78e14b5d0d96fbf718410fd3ce642dc92bc8703c957bfb1b0
+      binary_sha256: d847c4982c42bfc8bbaf2a0a21f48a8387a999a83e83eed7e4d50a0769744c4a
+      oci_layout: /Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-mesh-vm/identity/oci
+      architecture: amd64
+      ca_sha256: 9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994
+      internal_source: cnpl.local/identity@sha256:9998ed71ac2ccd5aa19550a58ab6d9aa0a2b0306dfb16b7c56133a8bdbe5c967
+    status: prepared_runtime_pending
+
+
 pending_by_phase:
   # pause 与 cri_smoke_image 已于 2026-10-16 提升为上方 components 记录；
   # image_export_tool 已于 2026-10-16 提升为上方 components 记录（crane 0.22.1）。

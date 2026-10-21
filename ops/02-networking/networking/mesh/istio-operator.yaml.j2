@@ -1,29 +1,61 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  name: cnpl
+  name: cnpl0210
   namespace: istio-system
 spec:
   profile: ambient
-  revision: cnpl
+  revision: cnpl0210
   hub: cnpl.local
-  tag: 1.31.2-arm64
+  tag: 1.31.2-amd64
   meshConfig:
     trustDomain: internal.egon.top
+    discoverySelectors:
+    - matchLabels:
+        cnpl.io/phase-run: '{{ run }}'
     accessLogFile: /dev/stdout
     accessLogEncoding: JSON
-    accessLogFormat: '{"start": "%START_TIME%", "source_principal": "%DOWNSTREAM_PEER_URI_SAN%",
-      "method": "%REQ(:METHOD)%", "path": "%REQ(:PATH)%", "code": "%RESPONSE_CODE%",
-      "details": "%RESPONSE_CODE_DETAILS%"}
-
-      '
     defaultConfig:
       holdApplicationUntilProxyStarts: true
   components:
+    pilot:
+      k8s:
+        nodeSelector:
+          kubernetes.io/hostname: '{{ workers[0] }}'
+        overlays:
+        - kind: Deployment
+          name: istiod-cnpl0210
+          patches:
+          - path: spec.template.spec.hostNetwork
+            value: true
+          - path: spec.template.spec.dnsPolicy
+            value: ClusterFirstWithHostNet
     cni:
       enabled: true
+      k8s:
+        securityContext:
+          seLinuxOptions: {type: spc_t}
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: {{ workers | tojson }}
     ztunnel:
       enabled: true
+      k8s:
+        securityContext:
+          seLinuxOptions: {type: spc_t}
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values: {{ workers | tojson }}
     ingressGateways:
     - name: istio-ingressgateway
       enabled: false
@@ -31,40 +63,30 @@ spec:
     global:
       imagePullPolicy: Never
       proxy:
+        image: '{{ proxy_image }}'
         resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 500m
-            memory: 256Mi
-        image: cnpl.local/proxyv2:1.31.2-arm64
-      variant: ''
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
     pilot:
       autoscaleEnabled: false
+      replicaCount: 1
+      env:
+        PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER: 'false'
       resources:
-        requests:
-          cpu: 100m
-          memory: 256Mi
-        limits:
-          cpu: '1'
-          memory: 1Gi
-      image: cnpl.local/pilot:1.31.2-arm64
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: '1', memory: 1Gi}
+      image: '{{ pilot_image }}'
     cni:
+      image: '{{ cni_image }}'
+      excludeNamespaces: {{ excluded_namespaces | tojson }}
+      ambient:
+        ipv6: false
+        dnsCapture: false
       resources:
-        requests:
-          cpu: 50m
-          memory: 64Mi
-        limits:
-          cpu: 500m
-          memory: 256Mi
-      image: cnpl.local/install-cni:1.31.2-arm64
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}
     ztunnel:
+      image: '{{ ztunnel_image }}'
       resources:
-        requests:
-          cpu: 50m
-          memory: 64Mi
-        limits:
-          cpu: 500m
-          memory: 256Mi
-      image: cnpl.local/ztunnel:1.31.2-arm64
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}

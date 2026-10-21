@@ -5,7 +5,6 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -14,12 +13,13 @@ metadata:
   name: cnpl-spire-agent
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 rules:
 - apiGroups:
   - ''
   resources:
   - nodes/proxy
+  - nodes/pods
+  resourceNames: {{ workers | tojson }}
   verbs:
   - get
 ---
@@ -29,7 +29,6 @@ metadata:
   name: cnpl-spire-agent
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -46,7 +45,6 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 data:
   agent.conf: |
 {{ spire_agent_hcl | indent(4, true) }}
@@ -58,20 +56,25 @@ metadata:
   namespace: spire-system
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
 spec:
   selector:
     matchLabels:
       app: spire-agent
       cnpl.io/phase-run: '{{ run }}'
-      istio.io/use-waypoint: waypoint
   template:
     metadata:
       labels:
         app: spire-agent
         cnpl.io/phase-run: '{{ run }}'
-        istio.io/use-waypoint: waypoint
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: {{ workers | tojson }}
       hostPID: true
       serviceAccountName: spire-agent
       automountServiceAccountToken: true
@@ -127,7 +130,7 @@ spec:
         emptyDir: {}
       - name: socket
         hostPath:
-          path: /run/spire/sockets
+          path: '{{ socket_path }}'
           type: DirectoryOrCreate
       - name: psat
         projected:

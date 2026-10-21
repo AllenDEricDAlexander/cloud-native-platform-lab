@@ -1,0 +1,41 @@
+---
+- name: 上传按 SHA256 标识的公开镜像包
+  ansible.builtin.copy:
+    src: '{{ mesh_image.archive }}'
+    dest: '/var/cache/cnpl/mesh-images/{{ mesh_image.archive_sha256 }}.tar'
+    mode: '0640'
+- name: 核对 VM 文件摘要
+  ansible.builtin.stat:
+    path: '/var/cache/cnpl/mesh-images/{{ mesh_image.archive_sha256 }}.tar'
+    checksum_algorithm: sha256
+  register: mesh_remote
+- name: 拒绝传输损坏
+  ansible.builtin.assert:
+    that:
+      - mesh_remote.stat.checksum == mesh_image.archive_sha256
+      - mesh_image.architecture == 'amd64'
+- name: 查询 VM 已有别名，避免覆盖外部内容
+  ansible.builtin.command:
+    argv: [/usr/bin/ctr, -n, k8s.io, images, list, -q, 'name=={{ mesh_image.runtime_image }}']
+  register: mesh_cached
+  changed_when: false
+  failed_when: mesh_cached.rc != 0 or mesh_cached.stdout.strip() not in ['', mesh_image.runtime_image]
+- name: 通过 VM containerd 原生导入已锁定平台
+  ansible.builtin.command:
+    argv: [/usr/bin/ctr, -n, k8s.io, images, import, --local, --platform, linux/amd64, '/var/cache/cnpl/mesh-images/{{ mesh_image.archive_sha256 }}.tar']
+  changed_when: true
+  when: mesh_cached.stdout.strip() == ''
+- name: 核对 CRI 实际镜像配置摘要
+  ansible.builtin.command:
+    argv: [/usr/bin/crictl, inspecti, '{{ mesh_image.runtime_image }}']
+  register: mesh_imported
+  changed_when: false
+  retries: 10
+  delay: 1
+  until: mesh_imported.rc == 0
+  no_log: true
+- name: 拒绝实际内容不同的镜像，只报告公开摘要
+  ansible.builtin.assert:
+    that: (mesh_imported.stdout | from_json).status.id == mesh_image.config_digest
+    quiet: true
+    fail_msg: '{{ mesh_image.runtime_image }} 的实际配置摘要 {{ (mesh_imported.stdout | from_json).status.id }} 不等于锁定摘要 {{ mesh_image.config_digest }}'

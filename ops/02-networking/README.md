@@ -191,7 +191,7 @@ bash ops/02-networking/scripts/resource-governance.sh all "$LAB_RESOURCE_RECORDS
 
 ## 02.09 VM 主集群数据面、L2 与 BGP
 
-旧 Mac/Docker/kind 方案已停用，原失败批次已清理并停止 Docker。用户已明确选择现有 .101–.110 VM 主集群；Mac 只作管理端。[完整 Ansible、22步 YAML、作用/预期和恢复](examples/dataplane/README.md)覆盖 kube-proxy/eBPF、VXLAN/Native、独立测试网关、L2 Lease/ARP迁移、FRR限定RIB及撤回，再恢复原 Helm revision、控制器、路由、标签与临时规则。
+[真实 VM 整组归档](records/02.09-20261021T122923Z-agent-final/README.md)：22 个可运行用例、自动回退及清理通过，提交 `7b5dbf7`。旧 Mac/kind 方案已停用；用户已明确选择现有 .101–.110 VM 主集群，Mac 只作管理端。[完整 Ansible、22步 YAML、作用/预期和恢复](examples/dataplane/README.md)覆盖 kube-proxy/eBPF、VXLAN/Native、独立测试网关、L2 Lease/ARP迁移、FRR限定RIB及撤回，再恢复原 Helm revision、控制器、路由、标签与临时规则。
 
 ~~~bash
 cd /Users/mario/SelfProject/cloud-native-platform-lab
@@ -205,11 +205,19 @@ bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 
 ## 02.10 Istio、SPIFFE/SPIRE
 
-原本地 kind 执行方案与“Mac 不运行容器实验”的约束冲突，已停用。VM 版尚未交付，当前不提供正式 all 命令，也不能继续旧整批入口。[当前范围与迁移状态](examples/mesh/README.md)。
+[完整 VM Ansible、YAML、24 步统一命令、作用/预期与恢复](examples/mesh/README.md)已交付。前置为 02.09 实际通过并恢复的同一主集群；Sidecar、Ambient/waypoint、mTLS/授权/超时重试，以及 SPIRE 的真实签发/轮换/撤销按同一入口顺序执行。正式运行由操作者启动；源码验证与服务端预览不等于运行验收。
+
+~~~bash
+cd /Users/mario/SelfProject/cloud-native-platform-lab
+export LAB_MESH_RECORDS="$PWD/ops/02-networking/records/02.10-$(date -u +%Y%m%dT%H%M%SZ)"
+bash ops/02-networking/scripts/mesh.sh all "$LAB_MESH_RECORDS"
+~~~
+
+三行分别进入仓库、绑定新批次、执行整组与自动恢复。8 个 amd64 离线镜像只导入两个 Worker 的 containerd；保留 kube-proxy/VXLAN，临时放开 CNI 串联并限定注入空间，最后恢复原 Cilium 内容和 VM 安全/路由/防火墙。预期可运行用例及清理通过，Trace/SLO、发布联动与联合身份集成保持待回访。
 
 ## 02.06–10 分步与整批执行
 
-02.06–09 已有独立入口，按顺序执行；02.10 旧 kind 后端在 Mac 上被硬性拒绝，VM 版交付前不能整批 all。每个脚本自动查找前一步真实通过及清理回执。[总操作指南](examples/06-10/README.md)提供五条独立命令、作用、预期、失败恢复和可选顺序入口。
+02.06–10 均有 VM 独立入口，按顺序执行。每个脚本自动查找前一步真实通过及清理回执。[总操作指南](examples/06-10/README.md)提供五条独立命令、作用、预期、失败恢复和可选顺序入口。
 
 ```bash
 bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/run-06-10.sh all

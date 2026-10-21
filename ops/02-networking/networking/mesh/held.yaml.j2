@@ -5,17 +5,17 @@ metadata:
   namespace: lab-spire
   labels:
     cnpl.io/phase-run: '{{ run }}'
-    istio.io/use-waypoint: waypoint
     app: held
 spec:
   serviceAccountName: allowed
   automountServiceAccountToken: false
   nodeSelector:
-    cnpl.io/kind-role: worker
+    kubernetes.io/hostname: '{{ workers[1] }}'
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
     runAsGroup: 1000
+    seLinuxOptions: {type: spc_t}
     seccompProfile:
       type: RuntimeDefault
   containers:
@@ -51,6 +51,6 @@ spec:
   volumes:
   - name: socket
     hostPath:
-      path: /run/spire/sockets
+      path: '{{ socket_path }}'
       type: Directory
   restartPolicy: Never

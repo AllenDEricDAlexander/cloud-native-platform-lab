@@ -89,6 +89,7 @@ ceph_ok() {
 k() { kubectl --kubeconfig "$(required .kubernetes.kubeconfig)" --context "$(required .kubernetes.context)" --request-timeout=30s "$@"; }
 cluster_gate() {
     need kubectl
+    private_file "$(required .kubernetes.kubeconfig)"
     local uid nodes expected
     uid=$(k get namespace kube-system -o jsonpath='{.metadata.uid}')
     [[ $uid == "$(required .kubernetes.cluster_uid)" ]] || die 'Kubernetes 集群 UID 不符'
@@ -130,6 +131,12 @@ chart() {
     namespace "$ns"
     helm template "$release" "$path" -n "$ns" --version "$version" -f "$values" --include-crds > "$ATTEMPT/$release-rendered.yaml"
     ruby "$P03/lib/review.rb" images "$ATTEMPT/$release-rendered.yaml"
+    [[ $(helm show chart "$path" | ruby -ryaml -e 'puts YAML.load(STDIN.read).fetch("version")') == "$version" ]] || die '本地 Chart 版本与锁不符'
+    local crd live
+    while IFS= read -r crd; do
+        live=$(k get crd "$crd" --ignore-not-found -o json)
+        [[ -z $live ]] || jq -e --arg release "$release" --arg ns "$ns" '.metadata.annotations["meta.helm.sh/release-name"]==$release and .metadata.annotations["meta.helm.sh/release-namespace"]==$ns' <<< "$live" >/dev/null || die "已有 CRD 未归属本 release，先核对复用/升级：$crd"
+    done < <(yaml_json "$ATTEMPT/$release-rendered.yaml" | jq -r '.items[]|select(.kind=="CustomResourceDefinition")|.metadata.name')
     helm --kubeconfig "$(required .kubernetes.kubeconfig)" --kube-context "$(required .kubernetes.context)" upgrade --install "$release" "$path" -n "$ns" --version "$version" -f "$values" --wait --timeout 10m --history-max 5
 }
 secret_from_files() {

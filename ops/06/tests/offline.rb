@@ -27,6 +27,7 @@ Dir.mktmpdir("cnpl06-offline-") do |temp|
   input["serverless"].merge!({"broker_class"=>"MTChannelBasedBroker","stable_revision"=>"hello-stable","canary_revision"=>"hello-canary"})
   input["dapr"].merge!({"redis_host"=>"redis.example:6379","redis_secret"=>"redis-client"})
   input["workflow"].merge!({"artifact_endpoint"=>"s3.example:9000","artifact_bucket"=>"lab-artifacts","artifact_secret"=>"artifact-client","webhook_secret"=>"webhook-auth"})
+  input["workflow"].merge!({"jetstream_version"=>"2.12.0","jetstream_storage_class"=>"lab-ceph-rbd"})
   input["multicluster"].merge!({"primary_id"=>1,"secondary_id"=>2,"repository"=>"https://gitlab.svc.internal.egon.top/lab/gitops.git","revision"=>"a"*40,"path"=>"environments/lab","argocd_namespace"=>"argocd-lab","argocd_project"=>"lab"})
   input["virtualization"].merge!({"node"=>"worker01.k8s.internal.egon.top","storage_class"=>"lab-ceph-rbd","registry_image"=>input["images"]["http"]})
   input["gpu"].merge!({"node"=>"worker01.k8s.internal.egon.top","device_class"=>"lab-gpu"})

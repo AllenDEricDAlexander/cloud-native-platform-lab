@@ -53,6 +53,7 @@ finish() {
     if [[ -n ${RECOVERY_FUNCTION:-} ]]; then
         if ! "$RECOVERY_FUNCTION"; then rc=1; printf '自动恢复未完成，按当前批次 recovery.json 执行 recover。\n' >&2; fi
     fi
+    if [[ -n ${CLEANUP_DIRECTORY:-} ]]; then rm -rf -- "$CLEANUP_DIRECTORY" || rc=1; fi
     jq -n --argjson rc "$rc" --arg action "$ACTION" --arg time "$(date -u +%FT%TZ)" '{exit_code:$rc,action:$action,finished_at:$time,phase_acceptance:false}' > "$ATTEMPT/result.json"
     printf '证据：%s（exit=%s）\n' "$ATTEMPT" "$rc"
     exit "$rc"
@@ -156,6 +157,31 @@ chart() {
         [[ -z $live ]] || jq -e --arg release "$release" --arg ns "$ns" '.metadata.annotations["meta.helm.sh/release-name"]==$release and .metadata.annotations["meta.helm.sh/release-namespace"]==$ns' <<< "$live" >/dev/null || die "已有 CRD 未归属本 release，先核对复用/升级：$crd"
     done < <(yaml_json "$ATTEMPT/$release-rendered.yaml" | jq -r '.items[]|select(.kind=="CustomResourceDefinition")|.metadata.name')
     helm --kubeconfig "$(required .kubernetes.kubeconfig)" --kube-context "$(required .kubernetes.context)" upgrade --install "$release" "$path" -n "$ns" --version "$version" -f "$values" --wait --timeout 10m --history-max 5
+}
+component_chart() {
+    local info values
+    info=$(material "$2") || return 1
+    values=$(jq -er .values_file <<< "$info") || return 1
+    verify_file "$values" "$(jq -er .values_sha256 <<< "$info")"
+    chart "$1" "$2" "$3" "$values"
+}
+component_manifest() {
+    local info file
+    info=$(material "$1") || return 1
+    file=$(jq -er .file <<< "$info") || return 1
+    verify_file "$file" "$(jq -er .sha256 <<< "$info")"
+    ruby "$P03/lib/review.rb" images "$file"
+    namespace "$2"; apply "$file" "$2"
+}
+data_domains() {
+    local host domain current
+    for host in storage01 storage02 storage03; do
+        domain=$(host_value "$host" actual_hypervisor)
+        [[ $domain =~ ^esxi0[1-3]$ ]] || die '实际故障域未确认'
+        current=$(k get node "$host" -o jsonpath='{.metadata.labels.cnpl\.io/esxi}')
+        [[ -z $current || $current == "$domain" ]] || die '已有物理域标签冲突'
+        k label node "$host" "cnpl.io/esxi=$domain" cnpl.io/phase03-data=true --overwrite
+    done
 }
 secret_from_files() {
     local ns=$1 name=$2; shift 2

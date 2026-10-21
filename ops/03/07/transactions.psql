@@ -1,0 +1,6 @@
+\set ON_ERROR_STOP on
+BEGIN;
+CREATE TABLE IF NOT EXISTS probe (id integer PRIMARY KEY, payload text NOT NULL, committed_at timestamptz NOT NULL DEFAULT clock_timestamp());
+INSERT INTO probe(id,payload) SELECT i,'cnpl03-' || i FROM generate_series(1,1000) i ON CONFLICT(id) DO NOTHING;
+COMMIT;
+SELECT count(*),md5(string_agg(payload,',' ORDER BY id)) FROM probe WHERE id<=1000;

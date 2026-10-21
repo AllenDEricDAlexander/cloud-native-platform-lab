@@ -1,0 +1,24 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata: {name: cnpl03-pg}
+spec:
+  instances: 3
+  imageName: harbor.k8s.internal.egon.top/unconfigured/postgresql:pending
+  minSyncReplicas: 1
+  maxSyncReplicas: 1
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret: {name: pg-app}
+  storage: {storageClass: cnpl03-rbd, size: 2Gi}
+  walStorage: {storageClass: cnpl03-rbd, size: 1Gi}
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 1Gi}
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
+    topologyKey: cnpl.io/esxi
+    nodeSelector: {cnpl.io/phase03-data: 'true'}
+    tolerations: [{operator: Exists, effect: NoSchedule}]

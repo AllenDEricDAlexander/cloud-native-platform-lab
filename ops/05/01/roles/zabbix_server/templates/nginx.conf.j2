@@ -1,0 +1,21 @@
+server {
+    listen 8443 ssl;
+    server_name build01.svc.internal.egon.top;
+    root /usr/share/zabbix;
+    index index.php;
+    ssl_certificate /etc/zabbix/cnpl05-tls/fullchain.crt;
+    ssl_certificate_key /etc/zabbix/cnpl05-tls/server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+{% for source in zbx_web_sources %}
+    allow {{ source }};
+{% endfor %}
+    deny all;
+    location ~ /(?:conf|include|locale|vendor)/ { deny all; }
+    location / { try_files $uri $uri/ =404; }
+    location ~ \.php$ {
+        try_files $uri =404;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_pass unix:/run/php-fpm/zabbix.sock;
+    }
+}

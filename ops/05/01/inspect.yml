@@ -1,0 +1,39 @@
+---
+- name: 05.01 只读核对既有 Rocky VM
+  hosts: k8s_nodes:bootstrap_services:lab_clients
+  gather_facts: true
+  any_errors_fatal: true
+  tasks:
+    - name: 核对身份和既有安全基线
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.fqdn == node_fqdn
+          - ansible_facts.distribution == 'Rocky'
+          - ansible_facts.distribution_major_version == '10'
+          - ansible_facts.selinux.status == 'enabled'
+          - ansible_facts.selinux.mode == 'enforcing'
+        quiet: true
+    - name: 检查现有服务与端口，不做变更
+      ansible.builtin.shell: |
+        set -euo pipefail
+        systemctl is-active firewalld chronyd
+        ss -lnt
+        df -Pm / /var/lib
+        rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n' | sort
+      args: {executable: /bin/bash}
+      changed_when: false
+      register: zbx_baseline
+    - name: build01 资源门槛
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.memfree_mb | int >= zabbix.min_free_memory_mb | int
+          - (ansible_facts.mounts | selectattr('mount', 'equalto', '/') | first).size_available | int >= (zabbix.min_free_disk_mb | int * 1048576)
+        quiet: true
+      when: inventory_hostname == 'build01'
+    - name: 保存逐主机只读基线
+      ansible.builtin.copy:
+        dest: '{{ lookup("env", "ATTEMPT") }}/{{ inventory_hostname }}-baseline.txt'
+        content: '{{ zbx_baseline.stdout }}'
+        mode: '0600'
+      delegate_to: localhost
+      become: false

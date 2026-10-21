@@ -1,0 +1,93 @@
+---
+- name: 以 API 幂等接入既有 16 台 VM 与集群外探测
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    zbx_hosts: '{{ lookup("file", lookup("env", "ATTEMPT") ~ "/hosts.json") | from_json }}'
+    zbx_api_url: https://build01.svc.internal.egon.top:8443/api_jsonrpc.php
+  tasks:
+    - name: 登录受控管理账户
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        validate_certs: true
+        body_format: json
+        body: {jsonrpc: '2.0', method: user.login, params: {username: '{{ zbx_api_username }}', password: '{{ zbx_api_password }}'}, id: 1}
+      register: zbx_login
+      no_log: true
+      failed_when: zbx_login.json.result is not defined
+    - name: 查找本批专用主机组
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body: {jsonrpc: '2.0', method: hostgroup.get, params: {filter: {name: 'CNPL05-{{ run_id }}'}}, id: 2}
+      register: zbx_group
+      no_log: true
+      failed_when: zbx_group.json.result is not defined
+    - name: 首次创建主机组
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body: {jsonrpc: '2.0', method: hostgroup.create, params: {name: 'CNPL05-{{ run_id }}'}, id: 3}
+      register: zbx_group_create
+      when: zbx_group.json.result | length == 0
+      no_log: true
+      failed_when: zbx_group_create.json.result is not defined
+    - name: 主机组 ID
+      ansible.builtin.set_fact:
+        zbx_group_id: '{{ zbx_group.json.result[0].groupid if zbx_group.json.result | length > 0 else zbx_group_create.json.result.groupids[0] }}'
+    - name: 查找官方主动 Linux 模板
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body: {jsonrpc: '2.0', method: template.get, params: {filter: {host: Linux by Zabbix agent active}}, id: 4}
+      register: zbx_template
+      no_log: true
+      failed_when: zbx_template.json.result | default([]) | length != 1
+    - name: 幂等主机配置
+      ansible.builtin.include_tasks: host-api.yml
+      loop: '{{ zbx_hosts }}'
+      loop_control: {loop_var: zbx_host, label: '{{ zbx_host.id }}'}
+    - name: 导入受版本控制的外部检查（TLS 验证、DNS、API、仓库）
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body:
+          jsonrpc: '2.0'
+          method: configuration.import
+          params:
+            format: json
+            source: '{{ lookup("file", zbx_probe_export_file) }}'
+            rules:
+              hosts: {createMissing: false, updateExisting: false}
+              items: {createMissing: true, updateExisting: true, deleteMissing: false}
+              triggers: {createMissing: true, updateExisting: true, deleteMissing: false}
+          id: 8
+      no_log: true
+      register: zbx_probes
+      failed_when: not zbx_probes.json.result | default(false)
+    - name: 登出
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body: {jsonrpc: '2.0', method: user.logout, params: [], id: 9}
+      no_log: true
+      register: zbx_logout
+      failed_when: not zbx_logout.json.result | default(false)

@@ -1,0 +1,42 @@
+---
+- name: 建立本阶段专用物料目录
+  ansible.builtin.file:
+    path: /var/cache/cnpl05-zabbix
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+- name: 传输已在管理端核对的签名密钥
+  ansible.builtin.copy:
+    src: '{{ item.file }}'
+    dest: '/var/cache/cnpl05-zabbix/key-{{ item.sha256 }}.asc'
+    mode: '0600'
+  loop: '{{ zbx_package_keys }}'
+- name: 导入指定指纹的 RPM 签名公钥
+  ansible.builtin.rpm_key:
+    key: '/var/cache/cnpl05-zabbix/key-{{ item.sha256 }}.asc'
+    fingerprint: '{{ item.fingerprint }}'
+    state: present
+  loop: '{{ zbx_package_keys }}'
+- name: 传输锁定 RPM
+  ansible.builtin.copy:
+    src: '{{ item.file }}'
+    dest: '/var/cache/cnpl05-zabbix/{{ item.sha256 }}.rpm'
+    mode: '0600'
+  loop: '{{ zbx_packages }}'
+- name: 核对远端 SHA 与 RPM NEVRA
+  ansible.builtin.shell: |
+    set -euo pipefail
+    test "$(sha256sum {{ ('/var/cache/cnpl05-zabbix/' ~ item.sha256 ~ '.rpm') | quote }} | cut -d' ' -f1)" = {{ item.sha256 | quote }}
+    test "$(rpm -qp --qf '%{NAME}-%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}' {{ ('/var/cache/cnpl05-zabbix/' ~ item.sha256 ~ '.rpm') | quote }})" = {{ item.nevra | quote }}
+    rpm --checksig {{ ('/var/cache/cnpl05-zabbix/' ~ item.sha256 ~ '.rpm') | quote }}
+  args: {executable: /bin/bash}
+  loop: '{{ zbx_packages }}'
+  changed_when: false
+- name: 仅安装离线已签名锁定包，不重设系统软件源
+  ansible.builtin.dnf:
+    name: '{{ zbx_packages | map(attribute="sha256") | map("regex_replace", "^(.*)$", "/var/cache/cnpl05-zabbix/\1.rpm") | list }}'
+    state: present
+    disablerepo: '*'
+    disable_gpg_check: false
+    allow_downgrade: false

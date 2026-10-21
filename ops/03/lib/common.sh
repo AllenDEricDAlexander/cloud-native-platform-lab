@@ -45,7 +45,17 @@ start() {
     ATTEMPT="$P03/$STAGE/records/$RUN/$(basename "$ATTEMPT")"
     export P03 REPO INPUTS DEVICES MATERIALS ATTEMPT RUN STAGE ACTION
     jq -n --arg stage "$STAGE" --arg action "$ACTION" --arg run "$RUN" --arg sha "$(sha "$INPUTS")" --arg time "$(date -u +%FT%TZ)" '{stage:$stage,action:$action,run:$run,inputs_sha256:$sha,started_at:$time,validation_scope:"runtime_invocation"}' > "$ATTEMPT/context.json"
-    trap 'rc=$?; trap - EXIT; jq -n --argjson rc "$rc" --arg action "$ACTION" --arg time "$(date -u +%FT%TZ)" '\''{exit_code:$rc,action:$action,finished_at:$time,phase_acceptance:false}'\'' > "$ATTEMPT/result.json"; printf "证据：%s（exit=%s）\n" "$ATTEMPT" "$rc"; exit "$rc"' EXIT
+    trap finish EXIT
+}
+finish() {
+    local rc=$?
+    trap - EXIT
+    if [[ -n ${RECOVERY_FUNCTION:-} ]]; then
+        if ! "$RECOVERY_FUNCTION"; then rc=1; printf '自动恢复未完成，按当前批次 recovery.json 执行 recover。\n' >&2; fi
+    fi
+    jq -n --argjson rc "$rc" --arg action "$ACTION" --arg time "$(date -u +%FT%TZ)" '{exit_code:$rc,action:$action,finished_at:$time,phase_acceptance:false}' > "$ATTEMPT/result.json"
+    printf '证据：%s（exit=%s）\n' "$ATTEMPT" "$rc"
+    exit "$rc"
 }
 material() {
     local item
@@ -74,11 +84,15 @@ remote() {
         -i "${CNPL03_SSH_IDENTITY:-$HOME/.ssh/cnpl_lab_ed25519}" "root@$ip" "$command" < "$script"
 }
 ceph() {
-    remote storage01 "$P03/lib/exec-host.sh" storage01 "$(required .ceph.cephadm)" --image "$(image ceph)" shell --fsid "$(required .ceph.fsid)" -- ceph "$@"
+    local adm ref fsid
+    adm=$(required .ceph.cephadm) || return 1
+    ref=$(image ceph) || return 1
+    fsid=$(required .ceph.fsid) || return 1
+    remote storage01 "$P03/lib/exec-host.sh" storage01 "$adm" --image "$ref" shell --fsid "$fsid" -- ceph "$@"
 }
 ceph_ok() {
     local status
-    status=$(ceph status --format json)
+    status=$(ceph status --format json) || return 1
     printf '%s\n' "$status" > "$ATTEMPT/ceph-health-$(date -u +%H%M%S)-$RANDOM.json"
     jq -e --arg fsid "$(required .ceph.fsid)" '.fsid==$fsid and .health.status=="HEALTH_OK" and (.pgmap.degraded_objects // 0)==0 and (.pgmap.misplaced_objects // 0)==0' <<< "$status" >/dev/null || die 'Ceph 身份或健康基线不符'
     local used limit
@@ -87,12 +101,16 @@ ceph_ok() {
     jq -en --argjson used "$used" --argjson limit "$limit" '$used < $limit and $limit <= 75' >/dev/null || die '达到容量停止阈值'
 }
 k() { kubectl --kubeconfig "$(required .kubernetes.kubeconfig)" --context "$(required .kubernetes.context)" --request-timeout=30s "$@"; }
-cluster_gate() {
+cluster_identity_gate() {
     need kubectl
     private_file "$(required .kubernetes.kubeconfig)"
-    local uid nodes expected
+    local uid
     uid=$(k get namespace kube-system -o jsonpath='{.metadata.uid}')
     [[ $uid == "$(required .kubernetes.cluster_uid)" ]] || die 'Kubernetes 集群 UID 不符'
+}
+cluster_gate() {
+    cluster_identity_gate
+    local nodes expected
     nodes=$(k get nodes -o json)
     expected=$(ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load_file(ARGV[0]).fetch("kubernetes_nodes").map{|n|[n["id"],n["ip"]]}.sort)' "$REPO/ops/inventory/hosts.yaml")
     jq -en --argjson live "$nodes" --argjson expected "$expected" '([$live.items[] | [.metadata.name, ([.status.addresses[]|select(.type=="InternalIP")|.address][0])]]|sort)==$expected and all($live.items[]; any(.status.conditions[]; .type=="Ready" and .status=="True"))' >/dev/null || die '十节点身份、地址或 Ready 状态不符'
@@ -157,5 +175,6 @@ wait_json() {
         if jq -e "$predicate" <<< "$body" >/dev/null; then return 0; fi
         sleep 5
     done
-    die "等待超时：$predicate"
+    printf '等待超时：%s\n' "$predicate" >&2
+    return 1
 }

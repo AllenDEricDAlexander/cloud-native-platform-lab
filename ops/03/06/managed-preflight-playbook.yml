@@ -1,0 +1,26 @@
+---
+- name: 03.06 独立 Rook 对照设备检查
+  hosts: ceph_comparison
+  gather_facts: false
+  vars:
+    phase03_comparison: '{{ lookup("file", lookup("env", "CNPL03_MANAGED_DEVICES")) | from_json }}'
+    phase03_primary: '{{ lookup("file", playbook_dir ~ "/../../inventory/hosts.yaml") | from_yaml }}'
+  tasks:
+    - name: 独立目标不得使用主集群地址
+      ansible.builtin.assert:
+        that:
+          - ansible_host not in (phase03_primary.kubernetes_nodes | map(attribute='ip') | list)
+    - name: 对照主机身份与安全基线
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname -s)" = '{{ inventory_hostname }}' || exit 1
+        test "$(getenforce)" = Enforcing || exit 1
+        systemctl is-active --quiet firewalld kubelet containerd || exit 1
+      args: {executable: /bin/bash}
+      changed_when: false
+    - name: 对照盘仍须是独立空整盘
+      ansible.builtin.script:
+        cmd: '{{ playbook_dir }}/../01/device-check.sh {{ item.stable_id | quote }} {{ item.bytes | int }}'
+        executable: /bin/bash
+      loop: '{{ phase03_comparison.devices | selectattr("host", "equalto", inventory_hostname) | list }}'
+      changed_when: false

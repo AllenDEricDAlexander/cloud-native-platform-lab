@@ -1,0 +1,163 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+skipping: [localhost]
+
+TASK [顺序执行专题计划，避免全局状态并发] **************************************
+skipping: [localhost] => (item=preflight) 
+skipping: [localhost] => (item=load) 
+skipping: [localhost] => (item=access) 
+skipping: [localhost] => (item=cilium) 
+skipping: [localhost] => (item=istio-crds) 
+skipping: [localhost] => (item=istio) 
+skipping: [localhost] => (item=applications) 
+skipping: [localhost] => (item=baseline) 
+skipping: [localhost] => (item=sidecar-policy) 
+skipping: [localhost] => (item=traffic) 
+skipping: [localhost] => (item=sidecar-restart) 
+skipping: [localhost] => (item=ambient-l4) 
+skipping: [localhost] => (item=waypoint) 
+skipping: [localhost] => (item=ambient-l7) 
+skipping: [localhost] => (item=measurements) 
+skipping: [localhost] => (item=spire-server) 
+skipping: [localhost] => (item=spire-bundle) 
+skipping: [localhost] => (item=spire-agent) 
+skipping: [localhost] => (item=register) 
+skipping: [localhost] => (item=spire-workloads) 
+skipping: [localhost] => (item=rotation) 
+skipping: [localhost] => (item=held) 
+skipping: [localhost] => (item=revoke) 
+skipping: [localhost] => (item=handoff) 
+skipping: [localhost]
+
+TASK [汇总全部必需证据与已知前置缺口] ******************************************
+skipping: [localhost]
+
+TASK [成功或失败都恢复原状态并清理本批资源] ************************************
+skipping: [localhost]
+
+TASK [原批显式恢复] ************************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/mesh-cleanup.yml for localhost
+
+TASK [顺序恢复并验证原 VM 网络] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-case.yml for localhost => (item=recover-applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-case.yml for localhost => (item=recover-components)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-case.yml for localhost => (item=recover-globals)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-case.yml for localhost => (item=recover-cilium)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-case.yml for localhost => (item=recover-socket)
+
+TASK [为 recover-applications 核对原 UID 并生成命令计划] ***********************
+ok: [localhost]
+
+TASK [初始化本用例的原始命令结果] **********************************************
+ok: [localhost]
+
+TASK [执行每个经过范围校验的命令] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=kubectl recover-applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=kubectl recover-applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=kubectl recover-applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=kubectl recover-applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=kubectl recover-applications)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-command.yml for localhost => (item=kubectl recover-applications)
+
+TASK [recover-applications 命令] ***********************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [recover-applications 命令] ***********************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [recover-applications 命令] ***********************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [recover-applications 命令] ***********************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [recover-applications 命令] ***********************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [recover-applications 命令] ***********************************************
+changed: [localhost]
+
+TASK [追加本命令的原始输出] ****************************************************
+ok: [localhost]
+
+TASK [保留成功或部分失败的原始结果] ********************************************
+changed: [localhost]
+
+TASK [绑定已经实际创建的对象原 UID] ********************************************
+ok: [localhost]
+
+TASK [等待并验证 recover-applications 的真实结果] ******************************
+ok: [localhost]
+
+TASK [为 recover-components 核对原 UID 并生成命令计划] *************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml:2:3
+
+1 ---
+2 - name: 为 {{ phase_case.name }} 核对原 UID 并生成命令计划
+    ^ column 3
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/mesh/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z/attempts/20261021T151025Z-2d4c55d3-recover", "--mode", "recover", "plan", "--case", "recover-components", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z/attempts/20261021T151025Z-2d4c55d3-recover/plan-recover-components.json"], "delta": "0:00:03.277781", "end": "2026-10-21 23:11:13.889365", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-21 23:11:10.611584", "stderr": "实验空间含外来对象，停止清理：ConfigMap/istio-system/istio-ip-autoallocate", "stderr_lines": ["实验空间含外来对象，停止清理：ConfigMap/istio-system/istio-ip-autoallocate"], "stdout": "", "stdout_lines": []}
+
+TASK [恢复失败时也撤销本批临时访问规则] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/phase02-case.yml for localhost => (item=recover-firewall)
+
+TASK [为 recover-firewall 核对原 UID 并生成命令计划] ***************************
+ok: [localhost]
+
+TASK [初始化本用例的原始命令结果] **********************************************
+ok: [localhost]
+
+TASK [执行每个经过范围校验的命令] **********************************************
+skipping: [localhost]
+
+TASK [保留成功或部分失败的原始结果] ********************************************
+changed: [localhost]
+
+TASK [绑定已经实际创建的对象原 UID] ********************************************
+ok: [localhost]
+
+TASK [等待并验证 recover-firewall 的真实结果] **********************************
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=38   changed=8    unreachable=0    failed=1    skipped=5    rescued=0    ignored=0   
+
+
+执行失败汇总
+退出码：2
+首个失败步骤：recover-components
+任务：为 recover-components 核对原 UID 并生成命令计划
+原因：实验空间含外来对象，停止清理：ConfigMap/istio-system/istio-ip-autoallocate
+日志位置：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z/ansible-recover-20261021T151024Z-G5aYHF:126
+任务来源：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml:2:3
+本次回退与清理：NOT_CONFIRMED
+原批恢复入口：bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/scripts/mesh.sh recover /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z
+汇总 JSON：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z/summary-recover-20261021T151024Z-G5aYHF.json
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z/ansible-recover-20261021T151024Z-G5aYHF

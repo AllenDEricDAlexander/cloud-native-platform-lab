@@ -1,6 +1,6 @@
 # Phase 02 实验操作手册
 
-与 [阶段正文](../../plan/02-networking.md) 配合执行，下面按原专题编号展开。02.01 正式实验与清理均已通过，详见[实际验收与交接](records/02.01-20261018T142346Z/README.md)；当前进入 02.02.01 的准备。后续示例命令不表示已经具备部署实现。
+与 [阶段正文](../../plan/02-networking.md) 配合执行，下面按原专题编号展开。02.01–02.10 的可运行主线均已有实际验收与清理记录；最新 [02.10 网格与身份整组归档](records/02.10-20261021T154100Z-agent-r2/README.md)24 项通过，阶段进阶 BLOCKED 仍按各节与交接记录保留。
 
 每个专题沿“确认输入 → 编写和校验配置 → 单项执行 → 正常/失败验证 → 恢复与归档”推进。报告放 `ops/02-networking/records/<执行批次>/`，引用原步骤号、参数、版本和实际结果；修改范围只限本实验对象。
 
@@ -205,7 +205,9 @@ bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 
 ## 02.10 Istio、SPIFFE/SPIRE
 
-[完整 VM Ansible、YAML、24 步统一命令、作用/预期与恢复](examples/mesh/README.md)已交付。前置为 02.09 实际通过并恢复的同一主集群；Sidecar、Ambient/waypoint、mTLS/授权/超时重试，以及 SPIRE 的真实签发/轮换/撤销按同一入口顺序执行。正式运行由操作者启动；源码验证与服务端预览不等于运行验收。
+[真实 VM 整组验收与恢复](records/02.10-20261021T154100Z-agent-r2/README.md)：Agent 在明确授权后直接修复运行，24 项可运行结果与清理全部通过，failed=0；原 Cilium/主入口/路由/防火墙恢复，已生成 completed/02.10.json 与 Phase03 交接。Trace/SLO、发布联动和联合身份仍待回访。
+
+[完整 VM Ansible、YAML、24 步统一命令、作用/预期与恢复](examples/mesh/README.md)已交付。前置为 02.09 实际通过并恢复的同一主集群；Sidecar、Ambient/waypoint、mTLS/授权/超时重试，以及 SPIRE 的真实签发/轮换/撤销按同一入口顺序执行。以下保留完整复现入口；源码验证与服务端预览不等于运行验收。
 
 ~~~bash
 cd /Users/mario/SelfProject/cloud-native-platform-lab

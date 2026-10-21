@@ -60,7 +60,8 @@ class Mesh(unittest.TestCase):
             role=obj['metadata']['name']
             expected=m.r.WORKERS[0 if role=='server' else 1]
             self.assertEqual(obj['spec']['nodeSelector'],{'kubernetes.io/hostname':expected})
-            self.assertTrue(all(c['imagePullPolicy']=='Never' for c in obj['spec']['containers']))
+            expected_policy='IfNotPresent' if obj['metadata']['namespace'].startswith('lab-mesh-') else 'Never'
+            self.assertTrue(all(c['imagePullPolicy']==expected_policy for c in obj['spec']['containers']))
 
     def test_mesh_enrollment_is_separate_and_opt_in(self):
         spaces={o['metadata']['name']:o['metadata']['labels'] for o in self.docs('workloads') if o['kind']=='Namespace'}
@@ -114,6 +115,32 @@ class Mesh(unittest.TestCase):
         names={c['name'] for c in pod['containers']+pod.get('initContainers',[])}
         self.assertIn('istio-proxy',names)
         self.assertNotIn('istio-init',names)
+        known={v['runtime_image'] for v in self.images.values()}
+        for container in pod['containers']+pod.get('initContainers',[]):
+            if container['name'].startswith('istio-'):
+                self.assertIn(container['image'],known)
+
+    def test_generated_istio_configs_are_narrowly_recognized(self):
+        obj={'kind':'ConfigMap','metadata':{'name':'istio-ca-crl','namespace':m.AMBIENT,'labels':{'istio.io/config':'true'}},'data':{'ca-crl.pem':''}}
+        self.assertTrue(m.generated_istio_config(obj))
+        obj['data']['unexpected']='foreign'
+        self.assertFalse(m.generated_istio_config(obj))
+        obj['data']={'ca-crl.pem':''};obj['metadata']['labels']={}
+        self.assertFalse(m.generated_istio_config(obj))
+        leader={'kind':'ConfigMap','metadata':{'name':'istio-leader','namespace':m.SYSTEM}}
+        self.assertTrue(m.generated_istio_config(leader))
+        leader['data']={'foreign':'data'}
+        self.assertFalse(m.generated_istio_config(leader))
+
+    def test_host_dependency_selection_contains_only_two_rocky_rpms(self):
+        values=m.host_packages()
+        self.assertEqual({v['name'].split('-1.8')[0] for v in values},{'iptables-libs','iptables-nft'})
+
+    def test_image_smoke_requires_actual_kubelet_pods_on_each_worker(self):
+        pods=[o for o in self.docs('image-smoke') if o['kind']=='Pod']
+        self.assertEqual({o['spec']['nodeSelector']['kubernetes.io/hostname'] for o in pods},set(m.r.WORKERS))
+        self.assertEqual(len(pods),2)
+        self.assertTrue(all(o['spec']['containers'][0]['imagePullPolicy']=='IfNotPresent' for o in pods))
 
     def test_waypoint_uses_locked_proxy_on_worker(self):
         cm=next(o for o in self.generated if o['kind']=='ConfigMap' and 'values' in o.get('data',{}))

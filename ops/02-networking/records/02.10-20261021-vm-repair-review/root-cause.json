@@ -1,0 +1,25 @@
+{
+  "stage": "02.10",
+  "failed_batch": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z",
+  "first_failure": {
+    "task": "等待并验证 applications 的真实结果",
+    "case": "applications",
+    "rc": 1,
+    "line": 1295,
+    "origin": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml:25:3",
+    "error": "applications 未收敛：工作负载未 Ready：lab-mesh-sidecar/server",
+    "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021T144447Z/attempts/20261021T144448Z-6b85792b-all"
+  },
+  "causes": {
+    "sidecar_cni": "Worker has no iptables-save; bare Istio CNI fails before containers start",
+    "fixture": "Imported alias has the expected CRI ID but kubelet reports ErrImageNeverPull; use existing canonical Harbor digest with IfNotPresent and require real Pod startup",
+    "init_image": "Injected istio-validation selects an unprepared -distroless tag independently of proxy.image; explicitly pin proxy_init.image and validate every injected container",
+    "cleanup": "Istiod-generated CRL and election ConfigMaps were incorrectly treated as foreign objects"
+  },
+  "sample_cni_error": "(combined from similar events): Failed to create pod sandbox: rpc error: code = Unknown desc = failed to setup network for sandbox \"1f910709997aac2bb9cebf0e14a14ed3aa6cdc757292b983bf899c4bebf58bf0\": plugin type=\"istio-cni\" name=\"istio-cni\" failed (add): failed to execute iptables-save: exec: \"iptables-save\": executable file not found in $PATH ",
+  "old_batch_cleanup_passed": true,
+  "old_batch_original_failure_log_preserved": true,
+  "old_log_sha256": "dc357c19b7329d7737472152554cd2fce2c20956309d6cef3475bd7070e1efed",
+  "native_prerequisite_scope": "Only two pinned Rocky iptables RPMs on two VM Workers; remain as native prerequisites; no container engine installed",
+  "new_run": "02.10-20261021T152200Z-agent-r1"
+}

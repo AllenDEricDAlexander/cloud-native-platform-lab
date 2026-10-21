@@ -29,6 +29,48 @@
       failed_when: mesh_node.stdout != mesh_worker_uids[node_fqdn]
     - name: 创建只存公开镜像的内容寻址缓存
       ansible.builtin.file: {path: /var/cache/cnpl/mesh-images, state: directory, mode: '0750'}
+    - name: 上传已锁定的原 Rocky iptables 前置 RPM
+      ansible.builtin.copy:
+        src: '{{ item.path }}'
+        dest: '/var/cache/cnpl/mesh-images/{{ item.name }}'
+        mode: '0640'
+      loop: '{{ mesh_host_packages }}'
+      loop_control: {label: '{{ item.name }}'}
+    - name: 核对 RPM 传输摘要
+      ansible.builtin.stat:
+        path: '/var/cache/cnpl/mesh-images/{{ item.name }}'
+        checksum_algorithm: sha256
+      register: mesh_rpm_stat
+      loop: '{{ mesh_host_packages }}'
+      loop_control: {label: '{{ item.name }}'}
+    - name: 拒绝损坏的前置 RPM
+      ansible.builtin.assert:
+        that: item.stat.checksum == item.item.sha256
+      loop: '{{ mesh_rpm_stat.results }}'
+      loop_control: {label: '{{ item.item.name }}'}
+    - name: 使用 VM 原 Rocky 公钥检查 RPM 签名
+      ansible.builtin.command:
+        argv: [rpmkeys, --checksig, '/var/cache/cnpl/mesh-images/{{ item.name }}']
+      changed_when: false
+      loop: '{{ mesh_host_packages }}'
+      loop_control: {label: '{{ item.name }}'}
+    - name: 离线安装仅用于 Istio CNI 的 nft 兼容工具
+      ansible.builtin.command:
+        argv:
+          - dnf
+          - -y
+          - --disablerepo=*
+          - --setopt=install_weak_deps=False
+          - install
+          - /var/cache/cnpl/mesh-images/iptables-libs-1.8.11-16.el10_2.x86_64.rpm
+          - /var/cache/cnpl/mesh-images/iptables-nft-1.8.11-16.el10_2.x86_64.rpm
+      register: mesh_iptables_install
+      changed_when: '"Nothing to do" not in mesh_iptables_install.stdout'
+    - name: 核对原生 iptables-save 使用 nft 后端
+      ansible.builtin.command: {argv: [/usr/sbin/iptables-save, --version]}
+      register: mesh_iptables_version
+      changed_when: false
+      failed_when: mesh_iptables_version.rc != 0 or 'nf_tables' not in mesh_iptables_version.stdout
     - name: 逐个传输并核验物料
       ansible.builtin.include_tasks: ../tasks/mesh-image.yml
       loop: '{{ mesh_images }}'

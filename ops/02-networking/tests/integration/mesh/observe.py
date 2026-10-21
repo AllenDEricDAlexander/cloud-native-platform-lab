@@ -184,7 +184,7 @@ def observe(s,name,driver):
         return {'passed':True,'entries':s.context['spire_entries']}
     if name=='spire-workloads':
         for pod in ['server','allowed','denied','verifier']:app(c,SPIRE,pod)
-        good=native_allowed(c,'allowed');denied=native(c,'denied')
+        good=native_allowed(c,'allowed');denied=native(c,'denied','fetch')
         r.require(denied.get('class')=='identity_denied','不匹配 selector 的工作负载没有被身份API拒绝')
         return {'passed':True,'allowed':good,'unmatched_selector':denied,'control':native_allowed(c)}
     if name=='rotation':
@@ -196,7 +196,7 @@ def observe(s,name,driver):
         r.require(any(v.get('status')==200 for v in rows),'持有旧SVID的对照尚无成功样本')
         return {'passed':True,'pod_uid':pod['metadata']['uid'],'initial_samples':rows}
     if name=='revoke':
-        denied=native(c,'allowed');r.require(denied.get('class')=='identity_denied','删除注册后仍能获取新SVID')
+        denied=native(c,'allowed','fetch');r.require(denied.get('class')=='identity_denied','删除注册后仍能获取新SVID')
         raw=r.call(c.k+['logs','-n',SPIRE,'held']);(s.attempt/'held-svid.jsonl').write_text(raw)
         rows=[json.loads(line) for line in raw.splitlines() if line.startswith('{') and 'identity' in json.loads(line)]
         r.require(rows,'缺少旧SVID样本')

@@ -25,7 +25,8 @@ bash ops/02-networking/scripts/mesh.sh all "$LAB_MESH_RECORDS"
 - 自动读取 02.09 的通过及清理回执，校验同一 cluster UID/run 并记录原始摘要；允许外部 BGP 转发仍为 BLOCKED。十节点、Cilium、kube-proxy、CoreDNS、Operator 和主 `.201` 可信 TLS 必须健康。
 - 核对所有 Node UID、现有 Cilium Helm release/原值/原 manifest/ConfigMap、控制器 UID/spec、VM 路由、安全和防火墙；两个 Worker 还检查 2Gi 可用内存、缓存/解包磁盘余量、CNI 文件和 Istiod 端口占用、kubelet 服务证书。
 - 保留 `kubeProxyReplacement=false`、VXLAN、cluster-pool IPAM 和 `bpf.masquerade=false`；临时设置 `cni.exclusive=false`、`socketLB.hostNamespaceOnly=true` 和 Operator 配置滚动。恢复使用捕获的原 Helm 内容，不假定 revision 数字保持不变。
-- Istio 1.31.2 的 CNI、ztunnel 和 SPIRE 1.15.4 agent 只在 worker01/02 运行。应用服务端在 worker01、客户端在 worker02，真实跨 VM。waypoint 也限定到 Worker。8 个 amd64 镜像在本地核验后，通过 Ansible 导入 VM 原 containerd，应用 `imagePullPolicy=Never`，正式执行不依赖拉取公网镜像。
+- Istio 1.31.2 的 CNI、ztunnel 和 SPIRE 1.15.4 agent 只在 worker01/02 运行。应用服务端在 worker01、客户端在 worker02，真实跨 VM。waypoint 也限定到 Worker。8 个 amd64 镜像在本地核验后，通过 Ansible 导入 VM 原 containerd；Istio/SPIRE 使用 Never。通信应用复用已验证的 Harbor 完整 digest 与 IfNotPresent，避免本地别名和已有 RepoDigest 的查找差异；正式执行不依赖拉取公网镜像。load 阶段先在两个 Worker 创建真实 Pod 并验证 UID/nonce，不能只以 crictl inspecti 作为 kubelet 可用证明。
+- Istio CNI 需要 Worker 原生 iptables-save/restore；load 阶段离线安装已有版本锁内的 Rocky iptables-libs/iptables-nft 1.8.11-16，逐项校验归档 SHA、传输 SHA 和原 Rocky 签名，DNF 禁用所有仓库。两项原生工具依赖保留，记录实际版本；不安装容器引擎，不关闭 SELinux/firewalld。
 - Istiod 在 worker01 使用 hostNetwork，避免 Cilium Overlay 下 API server 到准入端点的路径问题；只临时允许三台控制节点到其 15017，以及 Pod 网段/两个 Worker 到 15012。规则有有效期且总在恢复流程撤销，不改永久规则，不关闭防火墙或 SELinux。
 - 六个临时 Namespace 为 `istio-system`、`spire-system`、`lab-mesh-plain`、`lab-mesh-sidecar`、`lab-mesh-ambient`、`lab-spire`，必须事先不存在。既有 Istio CRD 或同名全局对象会阻止执行，不能接管已有网格。现有 Gateway API CRD 复用；新 Istio CRD 用 server-side apply，避免 last-applied 注解上限。
 - Istio 发现范围与注入 Webhook 限定到本批 run 标签；不更改既有 Namespace 的接入标签。Sidecar、Ambient 和裸应用使用不同 Namespace；Istiod 不创建默认 GatewayClass，只使用本批明确创建的 `istio-waypoint`。
@@ -37,7 +38,7 @@ Cilium 兼容设置依据[锁定版本的集成说明](https://raw.githubusercon
 
 | 专题/步骤 | 作用与预期证据 |
 | --- | --- |
-| 前置、物料、临时入口、兼容配置、Istio CRD/组件 | 同一 VM 身份、主 TLS 与原状态快照；镜像 SHA/config/平台一致，CNI/ztunnel 各 2/2，Istiod 就绪 |
+| 前置、物料、临时入口、兼容配置、Istio CRD/组件 | 同一 VM 身份、主 TLS 与原状态快照；镜像 SHA/config/平台及真实 kubelet 启动一致，原生 iptables nft 后端就绪，CNI/ztunnel 各 2/2，Istiod 就绪 |
 | 02.10.01 applications/baseline | Sidecar 实际注入，Ambient 无 Sidecar，裸应用无代理；探针 Ready，服务端/客户端跨 VM；10 个 nonce/后端 UID 对应的裸请求与 CRI 资源计数 |
 | 02.10.03 sidecar-policy/traffic | STRICT mTLS；允许指定 SA、拒绝另一 SA 的 403/RBAC；拒绝裸明文，并有恢复后正向对照；mutual_tls 指标和证书公开元数据；故障 503 的实际后端次数必须为 3，300ms 超时配置必须产生有界 504 |
 | 02.10.01 sidecar-restart | 按原 UID 删除并重建本批客户端，确认旧 Pod 退出、新 UID、重新注入、Ready 与 mTLS；裸应用仍可通信 |
@@ -70,15 +71,15 @@ Cilium 兼容设置依据[锁定版本的集成说明](https://raw.githubusercon
 
 底层命令的作用与预期：
 
-- `istioctl manifest generate` 与 `kube-inject`：用同一已锁定安装包渲染清单和非部署注入，检查代理镜像以及无 istio-init 网络初始化。
+- `istioctl manifest generate` 与 `kube-inject`：用同一已锁定安装包渲染清单和非部署注入，检查代理和全部初始化镜像，以及无 istio-init 网络初始化。
 - `kubectl apply --dry-run=server --validate=strict`：先作完整预览；正式安装时依赖 Namespace/SA/CRD 落地后逐对象再次执行真实准入。预览阶段替换尚不存在的 SA，原引用明确记为准入延期，不冒充已验证。
 - `helm upgrade --reuse-values` / `helm rollback`：只更改兼容字段，之后还原原值、manifest 与实际 ConfigMap；不移除 kube-proxy，不换 IPAM。
 - VM `ctr images import` / `crictl inspecti`：使用既有 containerd 导入公开镜像，预期实际 config digest 与版本锁一致；同名不同内容拒绝覆盖。公开内容寻址缓存和镜像保留供复跑，不全局 prune。
 - `kubectl exec … /phase-lab probe`：请求从真实测试 Pod 发出，预期 nonce、后端 UID、HTTP/网络错误和前后对照都符合用例。
 - `kubectl port-forward --address 127.0.0.1`：只在一次读取期间访问本批代理指标，结束关闭进程；预期有对应命名空间的 mutual_tls 计数。
 - `spire-server agent list/entry create/entry delete`：确认真实 PSAT Node UID，再注册/撤销精确本批条目；只导出公开 bundle 和证书元数据。
-- `/identity-lab call/watch/hold`：实际 Workload API、轮换及 mTLS；输出身份、serial、有效期和结果，不输出私钥。
-- UID 前置条件的 `kubectl delete --raw`：只删除本批记录的对象；遇到外来对象、UID 变化或 CRD 中出现外来实例则停止，原失败证据保留。
+- `/identity-lab call/watch/hold/fetch`：实际 Workload API、轮换及 mTLS；fetch 使用单次 RPC 保留 PermissionDenied，超时/不可达不算身份拒绝。输出身份、serial、有效期和结果，不输出私钥。
+- UID 前置条件的 `kubectl delete --raw`：只删除本批记录的对象；明确识别控制器生成的公开 CA/CRL 与固定选主空 ConfigMap；遇到其他外来对象、UID 变化或 CRD 中出现外来实例则停止，原失败证据保留。
 
 ## 查看结果与恢复
 

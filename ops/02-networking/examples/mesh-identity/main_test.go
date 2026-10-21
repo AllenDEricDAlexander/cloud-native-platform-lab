@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,10 +21,56 @@ import (
 
 	"github.com/hashicorp/hcl"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+type rejectingWorkloadAPI struct {
+	workload.UnimplementedSpiffeWorkloadAPIServer
+	code codes.Code
+}
+
+func (s rejectingWorkloadAPI) FetchX509SVID(*workload.X509SVIDRequest, grpc.ServerStreamingServer[workload.X509SVIDResponse]) error {
+	return status.Error(s.code, "test workload response")
+}
+
+func TestSingleFetchPreservesDenialAndRejectsOtherFailures(t *testing.T) {
+	for _, test := range []struct {
+		code  codes.Code
+		class string
+	}{{codes.PermissionDenied, "identity_denied"}, {codes.Unavailable, "workload_api_error"}} {
+		t.Run(test.code.String(), func(t *testing.T) {
+			folder, err := os.MkdirTemp("/tmp", "cnpl-svid-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(folder)
+			path := filepath.Join(folder, "agent.sock")
+			listener, err := net.Listen("unix", path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := grpc.NewServer()
+			workload.RegisterSpiffeWorkloadAPIServer(server, rejectingWorkloadAPI{code: test.code})
+			go server.Serve(listener)
+			defer server.Stop()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			value := fetchIdentity(ctx, "unix://"+path)
+			if value["class"] != test.class {
+				t.Fatalf("unexpected result: %v", value)
+			}
+		})
+	}
+	if identityError(context.DeadlineExceeded)["class"] != "workload_api_error" {
+		t.Fatal("a timeout must not be accepted as authorization denial")
+	}
+}
 
 func testIdentity(t *testing.T, uri string, ca *x509.Certificate, caKey *ecdsa.PrivateKey) (fixedSVID, *x509.Certificate, *ecdsa.PrivateKey) {
 	t.Helper()

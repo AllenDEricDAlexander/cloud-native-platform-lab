@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
@@ -17,6 +16,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type fixedSVID struct{ svid *x509svid.SVID }
@@ -30,6 +31,28 @@ func metadata(svid *x509svid.SVID) map[string]any {
 
 func source(ctx context.Context) (*workloadapi.X509Source, error) {
 	return workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr("unix:///run/spire/sockets/agent.sock")))
+}
+
+func identityError(err error) map[string]any {
+	class := "workload_api_error"
+	if status.Code(err) == codes.PermissionDenied {
+		class = "identity_denied"
+	}
+	return map[string]any{"error": err.Error(), "class": class}
+}
+
+func fetchIdentity(ctx context.Context, address string) map[string]any {
+	client, err := workloadapi.New(ctx, workloadapi.WithAddr(address))
+	if err != nil {
+		return identityError(err)
+	}
+	defer client.Close()
+	// 单次 RPC 保留明确的拒绝码；轮换用的 X509Source 会持续重试拒绝。
+	svid, err := client.FetchX509SVID(ctx)
+	if err != nil {
+		return identityError(err)
+	}
+	return map[string]any{"identity": metadata(svid)}
 }
 
 func call(ctx context.Context, source x509svid.Source, bundles x509bundle.Source, target, serverID string) map[string]any {
@@ -70,7 +93,7 @@ func call(ctx context.Context, source x509svid.Source, bundles x509bundle.Source
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "serve|call|watch|hold")
+		fmt.Fprintln(os.Stderr, "serve|call|watch|hold|fetch")
 		os.Exit(1)
 	}
 	mode := os.Args[1]
@@ -82,19 +105,18 @@ func main() {
 	if mode == "serve" {
 		duration = 24 * time.Hour
 	}
-	if mode == "call" {
+	if mode == "call" || mode == "fetch" {
 		duration = 10 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
+	if mode == "fetch" {
+		_ = json.NewEncoder(os.Stdout).Encode(fetchIdentity(ctx, "unix:///run/spire/sockets/agent.sock"))
+		return
+	}
 	src, err := source(ctx)
 	if err != nil {
-		message := err.Error()
-		class := "workload_api_error"
-		if strings.Contains(strings.ToLower(message), "permissiondenied") || strings.Contains(strings.ToLower(message), "no identity") {
-			class = "identity_denied"
-		}
-		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"error": message, "class": class})
+		_ = json.NewEncoder(os.Stdout).Encode(identityError(err))
 		return
 	}
 	defer src.Close()

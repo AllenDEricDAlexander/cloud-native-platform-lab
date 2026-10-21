@@ -90,9 +90,11 @@ def prepare():
         saved[name] = images[name]
         catalog.write_text(json.dumps(saved, indent=2) + '\n')
         print(name + ' amd64 archive verified', flush=True)
-    identity = fixture.build('amd64', SEED / 'identity', PHASE / 'examples/mesh-identity', 'identity-lab')
+    folder = PHASE / 'examples/mesh-identity'
+    source = hashlib.sha256(b''.join((folder / name).read_bytes() for name in ['main.go', 'go.mod', 'go.sum'])).hexdigest()
+    identity = fixture.build('amd64', SEED / 'identity' / source[:16], folder, 'identity-lab')
     identity['internal_source'] = 'cnpl.local/identity@' + identity['manifest_digest']
-    images['identity'] = archive.export_fixture(identity, SEED / 'identity-amd64.tar', 'cnpl.local/identity:' + identity['manifest_digest'][7:23] + '-amd64')
+    images['identity'] = archive.export_fixture(identity, SEED / ('identity-' + source[:16] + '-amd64.tar'), 'cnpl.local/identity:' + identity['manifest_digest'][7:23] + '-amd64')
     resource = components['resource_fixture']['platforms']['amd64']
     images['resource'] = archive.export_fixture(resource, SEED / 'resource-amd64.tar', 'cnpl.local/mesh-resource:' + resource['manifest_digest'][7:23] + '-amd64')
     for name in ['identity', 'resource']:

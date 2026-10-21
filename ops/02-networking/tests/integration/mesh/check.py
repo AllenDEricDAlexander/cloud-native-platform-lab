@@ -60,6 +60,18 @@ def locks():
     return yaml.safe_load((r.ROOT / 'ops/versions.lock.yaml').read_text())['components']
 
 
+def host_packages():
+    registry = locks()['registry_runtime']
+    values = []
+    for item in registry['artifacts']:
+        if item['name'] in ['iptables-libs-1.8.11-16.el10_2.x86_64.rpm', 'iptables-nft-1.8.11-16.el10_2.x86_64.rpm']:
+            path = Path(registry['local_source']) / item['name']
+            r.require(mat.archive.file_sha(path) == item['sha256'], '原 Rocky iptables RPM 摘要不同：' + item['name'])
+            values.append({'path': str(path), 'name': item['name'], 'sha256': item['sha256']})
+    r.require(len(values) == 2, '需要锁定的两个原 Rocky iptables RPM')
+    return values
+
+
 def profile():
     return {'cni': {'exclusive': False}, 'socketLB': {'hostNamespaceOnly': True}, 'operator': {'rollOutPods': True}}
 
@@ -216,7 +228,7 @@ def generate(s):
     injected_docs = [o for o in yaml.safe_load_all(injected) if o]
     pod = injected_docs[0]['spec']['template']['spec']
     containers = pod['containers'] + pod.get('initContainers', [])
-    r.require(next(c for c in containers if c['name'] == 'istio-proxy')['image'] in known, '注入代理镜像没有锁定')
+    r.require(all(c['image'] in known for c in containers if c['name'].startswith('istio-')), '注入代理或初始化镜像没有锁定')
     r.require(not any(c['name'] == 'istio-init' for c in containers), 'CNI 模式仍注入 NET_ADMIN 网络初始化')
     (s.attempt / 'injected-example.yaml').write_text(injected)
     return docs
@@ -224,7 +236,7 @@ def generate(s):
 
 def prepare(s):
     component = locks()
-    mat.verify(component['mesh_vm']); mat.verify_charts(component['mesh'])
+    mat.verify(component['mesh_vm']); mat.verify_charts(component['mesh']); host_packages()
     original = dp.values(); release = dp.release()
     r.require(release['status'] == 'deployed', '原 Cilium release 未 deployed')
     r.require(original.get('ipam', {}).get('mode') == 'cluster-pool' and str(original.get('kubeProxyReplacement')).lower() == 'false' and original.get('routingMode') == 'tunnel', '需要 02.09 已恢复的 kube-proxy/VXLAN 基线')
@@ -262,7 +274,7 @@ def prepare(s):
     images = component['mesh_vm']['images']
     existing_ns = [o['metadata']['name'] for o in r.get('namespaces')['items']]
     s.render({'workers': r.WORKERS, 'socket_path': s.context['socket_path'], 'excluded_namespaces': sorted(set(existing_ns + [SYSTEM, SPIRE_SYSTEM, PLAIN, SPIRE])),
-        'image': images['resource']['runtime_image'], 'identity_image': images['identity']['runtime_image'],
+        'image': component['resource_fixture']['platforms']['amd64']['internal_source'], 'identity_image': images['identity']['runtime_image'],
         'spire_server': images['spire-server']['runtime_image'], 'spire_agent': images['spire-agent']['runtime_image'],
         'proxy_image': images['proxyv2']['runtime_image'], 'pilot_image': images['pilot']['runtime_image'], 'cni_image': images['install-cni']['runtime_image'], 'ztunnel_image': images['ztunnel']['runtime_image'],
         'spire_server_hcl': (r.PHASE / 'networking/mesh/spire-server.conf').read_text(), 'spire_agent_hcl': (r.PHASE / 'networking/mesh/spire-agent.conf').read_text()})
@@ -290,7 +302,7 @@ def validate(s):
             for key, value in [('apiVersion', {'type': 'string'}), ('kind', {'type': 'string'}), ('metadata', {'type': 'object'})]:
                 properties.setdefault(key, value)
     custom, builtins, deferred = [], 0, []
-    names = ['workloads', 'sidecar-policy', 'ambient-l4', 'waypoint', 'ambient-l7', 'spire-server', 'spire-agent', 'spire-workloads', 'held', 'istio-namespace', 'istio-generated', 'injected-example']
+    names = ['image-smoke', 'workloads', 'sidecar-policy', 'ambient-l4', 'waypoint', 'ambient-l7', 'spire-server', 'spire-agent', 'spire-workloads', 'held', 'istio-namespace', 'istio-generated', 'injected-example']
     for name in names:
         for obj in documents(s.attempt / (name + '.yaml')):
             if obj['apiVersion'].startswith(('security.istio.io/', 'networking.istio.io/', 'gateway.networking.k8s.io/')):
@@ -348,7 +360,41 @@ def loaded(s):
             value = json.loads(r.call(r.pol.ssh(r.pol.base.NODES[node], shlex.join(['crictl', 'inspecti', image['runtime_image']])), timeout=20))
             r.require(value['status']['id'] == image['config_digest'], 'VM CRI 镜像内容不同：' + node + '/' + name)
             values[node][name] = value['status']['id']
-    return {'passed': True, 'architecture': 'amd64', 'workers': values}
+    smoke, prerequisites = [], {}
+    for index, node in enumerate(r.WORKERS, 1):
+        ip = r.pol.base.NODES[node]
+        prerequisites[node] = {'packages': r.call(r.pol.ssh(ip, 'rpm -q iptables-nft iptables-libs')).splitlines(),
+            'backend': r.call(r.pol.ssh(ip, '/usr/sbin/iptables-save --version')).strip()}
+        r.require('nf_tables' in prerequisites[node]['backend'], 'Istio CNI 原生工具未就绪：' + node)
+        name = 'image-smoke' + str(index)
+        s.ready(name, node, PLAIN)
+        pod = s.pod(name, PLAIN)
+        payload = {'target': 'http://127.0.0.1:8080/allowed', 'nonce': uuid.uuid4().hex, 'timeout_ms': 4000}
+        reply = json.loads(r.call(r.K + ['exec', '-i', '-n', PLAIN, name, '-c', 'net', '--', '/phase-lab', 'probe'], json.dumps(payload), timeout=15))
+        r.require(reply.get('status') == 200 and json.loads(reply['body'])['uid'] == pod['metadata']['uid'] and json.loads(reply['body'])['nonce'] == payload['nonce'], 'kubelet 镜像真实启动/UID/nonce 未通过：' + node)
+        smoke.append({'node': node, 'pod_uid': pod['metadata']['uid'], 'reply': reply})
+    return {'passed': True, 'architecture': 'amd64', 'workers': values, 'host_prerequisites': prerequisites, 'kubelet_image_smoke': smoke}
+
+
+def generated_istio_config(obj):
+    if obj['kind'] != 'ConfigMap':
+        return False
+    name, data = obj['metadata']['name'], obj.get('data') or {}
+    if obj['metadata'].get('namespace') == SYSTEM and name in ['istio-ip-autoallocate', 'istio-leader', 'istio-namespace-controller-election']:
+        annotations = obj['metadata'].get('annotations') or {}
+        if data or set(annotations) - {'control-plane.alpha.kubernetes.io/leader'}:
+            return False
+        if annotations:
+            leader = json.loads(annotations['control-plane.alpha.kubernetes.io/leader'])
+            return leader.get('holderKey') == 'cnpl0210' and str(leader.get('holderIdentity', '')).startswith('istiod-cnpl0210-')
+        return True
+    if obj['metadata'].get('labels', {}).get('istio.io/config') != 'true':
+        return False
+    if name == 'istio-ca-root-cert':
+        return set(data) == {'root-cert.pem'} and 'BEGIN CERTIFICATE' in data['root-cert.pem']
+    if name == 'istio-ca-crl':
+        return set(data) == {'ca-crl.pem'} and (data['ca-crl.pem'] == '' or 'BEGIN X509 CRL' in data['ca-crl.pem'])
+    return False
 
 
 def delete_namespace(s, ns):
@@ -368,7 +414,7 @@ def delete_namespace(s, ns):
         owned.update(obj['metadata']['uid'] for obj in objects if any(owner['uid'] in owned for owner in obj['metadata'].get('ownerReferences', [])))
     for obj in objects:
         key = (obj['kind'], obj['metadata']['name'])
-        r.require(obj['metadata']['uid'] in owned or key in [('ServiceAccount', 'default'), ('ConfigMap', 'kube-root-ca.crt'), ('ConfigMap', 'istio-ca-root-cert')], '实验空间含外来对象，停止清理：' + s.key(obj))
+        r.require(obj['metadata']['uid'] in owned or key in [('ServiceAccount', 'default'), ('ConfigMap', 'kube-root-ca.crt')] or generated_istio_config(obj), '实验空间含外来对象，停止清理：' + s.key(obj))
     secrets = r.pol.gw.secret_list(ns)
     r.require(not secrets or ns == SYSTEM and all(o['metadata']['name'] == 'istio-ca-secret' for o in secrets), '实验空间出现非预期 Secret')
     return s.delete(current)
@@ -386,8 +432,8 @@ def plan(s, name):
     if name == 'preflight': return []
     if name == 'load':
         file = s.attempt / 'images.json'
-        r.save(file, {'mesh_images': list(locks()['mesh_vm']['images'].values()), 'mesh_worker_uids': {n: s.context['node_uids'][n] for n in r.WORKERS}})
-        return [s.command([Path.home() / '.venvs/cnpl-ansible/bin/ansible-playbook', r.PHASE / 'ansible/playbooks/mesh-images.yml', '-e', '@' + str(file)])]
+        r.save(file, {'mesh_images': list(locks()['mesh_vm']['images'].values()), 'mesh_host_packages': host_packages(), 'mesh_worker_uids': {n: s.context['node_uids'][n] for n in r.WORKERS}})
+        return [s.command([Path.home() / '.venvs/cnpl-ansible/bin/ansible-playbook', r.PHASE / 'ansible/playbooks/mesh-images.yml', '-e', '@' + str(file)])] + s.apply('image-smoke.yaml')
     if name == 'access':
         target = r.pol.base.NODES[r.WORKERS[0]]
         rules = ['rule priority="-100" family="ipv4" source address="' + source + '" destination address="' + target + '/32" port port="' + str(port) + '" protocol="tcp" accept'
@@ -412,7 +458,9 @@ def plan(s, name):
         file = s.attempt / 'sidecar-restart.yaml'; file.write_text(yaml.safe_dump(obj))
         return s.delete(current) + s.apply(file.name)
     files = {'applications': 'workloads', 'sidecar-policy': 'sidecar-policy', 'ambient-l4': 'ambient-l4', 'waypoint': 'waypoint', 'ambient-l7': 'ambient-l7', 'spire-server': 'spire-server', 'spire-agent': 'spire-agent', 'spire-workloads': 'spire-workloads', 'held': 'held'}
-    if name in files: return s.apply(files[name] + '.yaml')
+    if name in files:
+        commands = sum([s.delete(s.document('Pod', 'image-smoke' + str(i), PLAIN)) for i in [1, 2]], []) if name == 'applications' else []
+        return commands + s.apply(files[name] + '.yaml')
     c = Cluster(s)
     if name == 'spire-bundle':
         pem = r.call(evidence.server_exec(c, ['bundle', 'show', '-format', 'pem']))

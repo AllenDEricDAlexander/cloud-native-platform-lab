@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-mesh-plain
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+    pod-security.kubernetes.io/enforce: privileged
+    istio-injection: disabled
+---
+{% for node in workers %}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: image-smoke{{ loop.index }}
+  namespace: lab-mesh-plain
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: '{{ node }}'
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 5
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: net
+    image: '{{ image }}'
+    imagePullPolicy: IfNotPresent
+    args: [serve]
+    env:
+    - name: POD_UID
+      valueFrom:
+        fieldRef: {fieldPath: metadata.uid}
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 64Mi}
+    readinessProbe:
+      httpGet: {path: /healthz, port: 8080}
+      periodSeconds: 2
+---
+{% endfor %}

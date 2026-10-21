@@ -12,6 +12,8 @@ bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 
 三行依次进入仓库、绑定全新证据批次、完成本专题全部前检、22步实验和自动回退清理。无需 Docker 命令或新增 VM；原 Mac/kind 失败批次不能续跑，必须使用新目录。
 
+20261020T230854Z 的 VM 批次在 L2 地址分配处失败，已自动恢复；重跑同样使用上述全新目录。入口末尾现在固定显示首个失败步骤、原错误、日志行号、本次回退清理结果和完整日志路径；`summary-all-*.json` 保留相同汇总。回退成功不会把实验失败改成通过，入口保留 Ansible 原退出码。
+
 ## 前置与恢复基线
 
 - 同集群 02.08 的可运行验收与清理回执匹配；十 VM Ready、无压力；原 Cilium 1.20.2、cluster-pool IPAM、kube-proxy/VXLAN 基线保持。真实地址块来自 CiliumNode，不切换 IPAM。
@@ -28,8 +30,8 @@ bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 | CRD | 预览与实际应用均使用 server-side apply，避免 last-applied 注解的256KiB限制；只补齐缺失的版本锁定 Cilium CRD |
 | eBPF | 保留原 Cilium/IPAM，启用 kube-proxy replacement；暂停原 kube-proxy DS并等待Pod消失；十个一次性 VM Pod 用原 kube-proxy 镜像执行 --cleanup；重复矩阵 |
 | Native Routing | 同一 VM 集群切换 Native/autoDirectNodeRoutes；读取每 VM 到其余 CiliumNode PodCIDR 的内核直连路由，重复矩阵 |
-| L2 | 专属 .211–.214 地址池；核对 VIP/Lease/实际 HTTP/VM MAC；用本批标签让原宣告者退出选择范围，验证迁移后恢复。此为选择器撤出，不停止 VM |
-| BGP | FRR10.5.0 amd64 Pod 在 Worker 作软件邻居，ASN65009/65010；只接收两 Worker PodCIDR 和本批 VIP /32。验证 Established、RIB和广告撤回，不修改家庭上游 |
+| L2 | 专属 .211–.214 地址池；核对池无冲突、VIP/Lease、cp01 发起的新鲜 ARP 与 Worker MAC、Mac 实际 HTTP；用本批标签让原宣告者退出选择范围，验证迁移后恢复。撤回策略后，独立 VM 连续三次 ARP 无响应才通过；此为选择器撤出，不停止 VM |
+| BGP | 先回收本批 L2 Service，避免模式切换后的 VIP 重复归属。FRR10.5.0 amd64 Pod 在 Worker 作软件邻居，ASN65009/65010；配置默认路由的下一跳解析，bgpd 可查询才 Ready。RIB 必须恰好包含两 Worker PodCIDR 和本批 BGP VIP /32 且路径有效；撤回广告后两个会话仍须 Established、RIB 清空，不修改家庭上游 |
 | 连接 | 保留实际成功、失败和重连日志，不承诺零中断 |
 | 回退与清理 | 原 kube-proxy spec/10个Pod、原 Cilium Helm revision、原 Node 路由/标签、原模式矩阵；撤销临时入口规则，原UID删除实验对象，主 .201可信TLS正常 |
 
@@ -47,9 +49,11 @@ bash ops/02-networking/scripts/dataplane.sh all "$LAB_DATAPLANE_RECORDS"
 
 - kubectl/Helm固定原VM kubeconfig和集群UID，Node/控制器UID与非本批Helm值发生漂移时拒绝覆盖。
 - Helm upgrade使用固定Chart、reuse-values及限定网络配置；保留原revision供回退。
+- 四种模式均设置 `operator.rollOutPods=true`，由官方 Chart 的 ConfigMap 校验和触发 Operator 更新。每次切换核对 Helm 实际 manifest、ConfigMap、Deployment 校验和、全部新 Pod UID/校验和/Ready 及 L2/BGP 开关；旧 Pod 尚存时不能通过。原 Operator 其他配置仍受漂移保护，最后随原 revision 恢复。
 - CRD的apply/dry-run均为 --server-side --field-manager=cnpl-gateway-crds，不使用force-conflicts。
 - 写操作由Ansible执行，UID与原字段测试保护并发修改。
 - validate仅做VM只读前检、物料/模板/CRD严格预览和Helm渲染，不开始正式切换；all应用每份原始对象前再次严格预览。
+- 等待失败时，在 always 回收之前保存 `*-diagnostics.json`，含本批 Service/Pod、Pool/宣告配置、Lease、Operator 状态及限量日志；每次 VIP 检查另存 `*-lb-last.json`。诊断读取有短超时，采集异常保留在文件中，不覆盖原错误、不阻止回退。
 
 ## 恢复
 
@@ -61,4 +65,4 @@ bash /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/script
 
 恢复不重跑实验；先恢复kube-proxy，再恢复原Cilium release。原状态未恢复时不宣称CLEANUP PASS；回退检查异常也撤销本批临时入口规则。原Mac/kind失败批次已清理、Docker已停止，不应再启动它续跑。
 
-参考：[Cilium v1.20.2连接边界](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/kubernetes/kubeproxy-free.rst)、[Helm revision回退](https://helm.sh/docs/intro/using_helm/)、[Cilium v1.20.2 BGP](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/bgp-control-plane/bgp-control-plane-configuration.rst)。
+参考：[Cilium v1.20.2连接边界](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/kubernetes/kubeproxy-free.rst)、[Operator 配置校验和](https://github.com/cilium/cilium/blob/v1.20.2/install/kubernetes/cilium/templates/cilium-operator/deployment.yaml#L44-L50)、[LB IPAM 启动时的类型选择](https://github.com/cilium/cilium/blob/v1.20.2/operator/pkg/lbipam/cell.go#L55-L80)、[FRR 多跳邻居的默认路由解析](https://docs.frrouting.org/en/stable-10.5/bgp.html#clicmd-neighbor-PEER-ebgp-multihop)、[Cilium v1.20.2 BGP](https://github.com/cilium/cilium/blob/v1.20.2/Documentation/network/bgp-control-plane/bgp-control-plane-configuration.rst)。

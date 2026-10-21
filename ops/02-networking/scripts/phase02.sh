@@ -13,9 +13,22 @@ case "$records" in "$root"/ops/02-networking/records/"$stage"-*) ;; *) echo '证
 [[ "$records" =~ ^[a-zA-Z0-9_./-]+$ && "$records" != *'/../'* && "$records" != */.. ]]
 mkdir -p "$records"
 input=$(mktemp "$records/.invocation.XXXXXX")
-trap 'status=$?; rm -f "$input"; if [ "$status" -ne 0 ]; then printf "\n未完成；原始证据保留。如已开始变更，原批恢复：bash %s/ops/02-networking/scripts/%s.sh recover %s\n" "$root" "$topic" "$records" >&2; fi' EXIT
+log=''
+finish() {
+  status=$?
+  trap - EXIT
+  rm -f "$input"
+  if [ -n "$log" ]; then
+    "$HOME/.venvs/cnpl-ansible/bin/python" "$root/ops/02-networking/tests/integration/phase02/summary.py" \
+      --log "$log" --records "$records" --status "$status" --mode "$mode" | tee -a "$log" || {
+        printf '\n汇总生成失败，原执行退出码：%s\n完整日志：%s\n' "$status" "$log" >&2
+        if [ "$status" -eq 0 ]; then status=1; fi
+      }
+  fi
+  exit "$status"
+}
+trap finish EXIT
 printf '{"phase_mode":"%s","phase_records":"%s"}\n' "$mode" "$records" > "$input"
 export ANSIBLE_CONFIG="$root/ops/00-preparation/ansible/ansible.cfg"
 log=$(mktemp "$records/ansible-$mode-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
 "$HOME/.venvs/cnpl-ansible/bin/python" "$root/ops/02-networking/tests/integration/phase02/entry.py" "$topic" "$mode" "$records" "$input" 2>&1 | tee "$log"
-printf '\n完整日志：%s\n' "$log"

@@ -6,29 +6,40 @@ metadata:
   labels:
     cnpl.io/phase-run: '{{ run }}'
 data:
-  frr.conf: "frr defaults traditional\nhostname cnpl-vm-frr\nservice integrated-vtysh-config\n\
-    ip prefix-list LAB seq 10 permit {{ pod_cidrs[workers[0]] }}\nip prefix-list LAB\
-    \ seq 20 permit {{ pod_cidrs[workers[1]] }}\nip prefix-list LAB seq 30 permit\
-    \ 192.168.9.211/32\nip prefix-list LAB seq 40 permit 192.168.9.212/32\nip prefix-list\
-    \ LAB seq 50 permit 192.168.9.213/32\nip prefix-list LAB seq 60 permit 192.168.9.214/32\n\
-    route-map ONLY-LAB permit 10\n match ip address prefix-list LAB\nrouter bgp 65009\n\
-    \ bgp router-id 10.255.255.9\n no bgp ebgp-requires-policy\n no bgp default ipv4-unicast\n\
-    \ neighbor 192.168.9.109 remote-as 65010\n neighbor 192.168.9.109 ebgp-multihop\
-    \ 4\n neighbor 192.168.9.110 remote-as 65010\n neighbor 192.168.9.110 ebgp-multihop\
-    \ 4\n address-family ipv4 unicast\n  neighbor 192.168.9.109 activate\n  neighbor\
-    \ 192.168.9.109 route-map ONLY-LAB in\n  neighbor 192.168.9.110 activate\n  neighbor\
-    \ 192.168.9.110 route-map ONLY-LAB in\n exit-address-family\nexit\n"
-  daemons: 'zebra=yes
-
+  frr.conf: |
+    frr defaults traditional
+    hostname cnpl-vm-frr
+    service integrated-vtysh-config
+    ip nht resolve-via-default
+    ip prefix-list LAB seq 10 permit {{ pod_cidrs[workers[0]] }}
+    ip prefix-list LAB seq 20 permit {{ pod_cidrs[workers[1]] }}
+    ip prefix-list LAB seq 30 permit 192.168.9.211/32
+    ip prefix-list LAB seq 40 permit 192.168.9.212/32
+    ip prefix-list LAB seq 50 permit 192.168.9.213/32
+    ip prefix-list LAB seq 60 permit 192.168.9.214/32
+    route-map ONLY-LAB permit 10
+     match ip address prefix-list LAB
+    router bgp 65009
+     bgp router-id 10.255.255.9
+     no bgp ebgp-requires-policy
+     no bgp default ipv4-unicast
+     neighbor 192.168.9.109 remote-as 65010
+     neighbor 192.168.9.109 ebgp-multihop 4
+     neighbor 192.168.9.110 remote-as 65010
+     neighbor 192.168.9.110 ebgp-multihop 4
+     address-family ipv4 unicast
+      neighbor 192.168.9.109 activate
+      neighbor 192.168.9.109 route-map ONLY-LAB in
+      neighbor 192.168.9.110 activate
+      neighbor 192.168.9.110 route-map ONLY-LAB in
+     exit-address-family
+    exit
+  daemons: |
+    zebra=yes
     bgpd=yes
-
     vtysh_enable=yes
-
     zebra_options=" -A 127.0.0.1 -s 90000000"
-
     bgpd_options=" -A 127.0.0.1 -n"
-
-    '
 ---
 apiVersion: v1
 kind: Pod
@@ -45,6 +56,12 @@ spec:
   - name: router
     image: '{{ frr_image }}'
     imagePullPolicy: IfNotPresent
+    readinessProbe:
+      exec:
+        command: [vtysh, -d, bgpd, -c, show bgp ipv4 unicast json]
+      initialDelaySeconds: 3
+      periodSeconds: 3
+      timeoutSeconds: 2
     resources:
       requests:
         cpu: 50m

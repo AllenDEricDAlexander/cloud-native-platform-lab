@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import shlex
+import subprocess
 import sys
 import uuid
 import yaml
@@ -20,6 +21,8 @@ KC=str(Path.home()/'.cnpl-secrets/kubeconfig-lab-primary')
 WAIT_SECONDS=420
 EXCLUDE='cnpl.io/phase02-l2-exclude'
 PROXY_OFF='cnpl.io/phase02-proxy-off'
+CHECKSUM='cilium.io/cilium-configmap-checksum'
+ARP_OBSERVER='cp01.k8s.internal.egon.top'
 RESTORE_STEPS=[{'name':name} for name in ['recover-announcements','recover-proxy','recover-cilium','recover-routes','recover-labels','recover-original','recover-firewall']]
 BLOCKED={'external_bgp_forwarding':{'status':'BLOCKED','reason':'本批 FRR 是 VM 集群内的软件邻居，验证会话、限定 RIB 和撤回；没有独立上游设备，不把 Pod 内 Service 访问算作外部 BGP 转发验收。'}}
 
@@ -46,6 +49,34 @@ def controllers():
 
 
 class Session(r.Session):
+    def wait(self,name,check,seconds=90):
+        try:return super().wait(name,check,seconds)
+        except (ValueError,KeyError,OSError,subprocess.TimeoutExpired) as error:
+            # 在 always 回收现场之前留证；诊断故障不能遮住原错误或阻止回退。
+            file=self.attempt/(name+'-diagnostics.json')
+            diagnostics={'case':name,'error':str(error),'resources':{},'collection_errors':{}}
+            queries={
+                'workloads':['get','services,endpointslices,pods','-n',NS,'-l',r.LABEL+'='+self.run,'-o','json'],
+                'announcements':['get','ciliumloadbalancerippools,ciliuml2announcementpolicies,ciliumbgpclusterconfigs,ciliumbgppeerconfigs,ciliumbgpadvertisements','-l',r.LABEL+'='+self.run,'-o','json'],
+                'leases':['get','leases','-n','kube-system','-o','json'],
+                'operator':['get','deployments,replicasets,pods','-n','kube-system','-l','io.cilium/app=operator','-o','json'],
+                'frr':['get','pods','-n',ADMIN,'-l',r.LABEL+'='+self.run,'-o','json']}
+            for key,args in queries.items():
+                try:
+                    items=json.loads(r.call(self.k+args,timeout=3))['items']
+                    if key=='leases':items=[o for o in items if o['metadata']['name']=='cilium-l2announce-'+NS+'-l2']
+                    diagnostics['resources'][key]=[{'kind':o['kind'],'metadata':{k:v for k,v in o['metadata'].items() if k in ['name','namespace','uid','generation','labels','ownerReferences']},
+                        'status':o.get('status',{}),'details':o.get('spec',{}) if key in ['announcements','leases'] or o['kind']=='Service' else {}} for o in items]
+                except (ValueError,KeyError,OSError,subprocess.TimeoutExpired) as issue:diagnostics['collection_errors'][key]=str(issue)
+            logs={'operator':['logs','-n','kube-system','deployment/cilium-operator','--all-pods=true','--prefix','--tail=80','--since=15m']}
+            if name in ['frr','bgp','bgp-withdraw']:logs['frr']=['logs','-n',ADMIN,'frr','-c','router','--tail=100']
+            for key,args in logs.items():
+                try:diagnostics[key+'_logs']=r.call(self.k+args,timeout=3)
+                except (ValueError,OSError,subprocess.TimeoutExpired) as issue:diagnostics['collection_errors'][key+'_logs']=str(issue)
+            try:r.save(file,diagnostics)
+            except OSError as issue:raise ValueError(str(error)+'；诊断写入失败：'+str(issue)) from error
+            raise ValueError(str(error)+'；现场诊断：'+str(file)) from error
+
     def sources(self):
         result=super().sources()
         for file in [r.ROOT/'AGENTS.md',r.PHASE/'ansible/tasks/dataplane-cleanup.yml']:
@@ -101,14 +132,16 @@ def profile(name):
             'routingMode':'native' if name=='native' else 'tunnel','tunnelProtocol':'vxlan',
             'autoDirectNodeRoutes':name=='native','ipv4NativeRoutingCIDR':'10.244.0.0/16',
             'devices':['ens33'],'bpf':{'masquerade':True},
+            'operator':{'rollOutPods':True},
             'l2announcements':{'enabled':name=='l2','leaseDuration':'6s','leaseRenewDeadline':'2s','leaseRetryPeriod':'1s'},
             'bgpControlPlane':{'enabled':name=='bgp'}}
 
 
-def untouched(values):
+def untouched(values,operator_rollout=True):
     value=copy.deepcopy(values)
     for key in profile('ebpf'):
-        if key in ['bpf','l2announcements','bgpControlPlane']:
+        if key=='operator' and not operator_rollout:continue
+        if key in ['bpf','operator','l2announcements','bgpControlPlane']:
             for child in profile('ebpf')[key]:
                 value.get(key,{}).pop(child,None)
             if value.get(key)=={}:value.pop(key,None)
@@ -126,7 +159,7 @@ def guard(s):
     r.require(r.call(r.K+['config','view','--minify','-o','jsonpath={.clusters[0].cluster.server}']).strip()=='https://api.k8s.internal.egon.top:6443','VM kubeconfig 指向其他 API')
     current=release()
     r.require(int(current['revision']) in s.context['owned_revisions'],'Cilium Helm revision 被其他操作改变')
-    r.require(digest(untouched(values()))==s.context['untouched_values_sha256'],'本批以外的 Helm 值被改变')
+    r.require(digest(untouched(values(),s.context.get('operator_config_rollout',False)))==s.context['untouched_values_sha256'],'本批以外的 Helm 值被改变')
     for name,uid in s.context['node_uids'].items():
         r.require(r.get('node',name)['metadata']['uid']==uid,'VM Node UID 改变：'+name)
 
@@ -164,6 +197,7 @@ def prepare(s):
     facts={name:remote_facts(ip) for name,ip in r.pol.base.NODES.items()}
     r.require(all(v['hostname']==n and v['selinux']=='Enforcing' and v['firewalld']=='active' and v['forward']=='1' and v['links'][0]['mtu']>=1500 for n,v in facts.items()),'VM 原路由、安全状态或 MTU 不满足')
     arping=facts[r.WORKERS[0]]['arping'];r.require(arping,'VM 缺少原生 arping，不能核对 VIP 冲突')
+    r.require(facts[ARP_OBSERVER]['arping'],'独立 VM 缺少 arping，不能验证 L2 宣告与撤回')
     for ip in component['vip_addresses']:
         r.call(r.pol.ssh(r.pol.base.NODES[r.WORKERS[0]],shlex.join([arping,'-D','-I','ens33','-c','2','-w','2',ip])),timeout=12)
     ports={p['nodePort'] for svc in json.loads(r.call(r.K+['get','services','-A','-o','json']))['items'] for p in svc['spec'].get('ports',[]) if p.get('nodePort')}
@@ -192,7 +226,7 @@ def prepare(s):
         r.require(r.call(['/opt/homebrew/bin/crane','digest','--platform','linux/amd64',image]).strip()==expected,'amd64 实验镜像摘要不符')
     frr=component['frr']
     r.require(r.call(['/opt/homebrew/bin/crane','digest','--platform','linux/amd64',frr['internal_source']]).strip()==frr['manifest_digest'],'FRR amd64 镜像未准备')
-    s.context.update(execution_backend='vm-primary',dp_name='cnpl-dp-'+s.run[-8:],original_revision=int(row['revision']),
+    s.context.update(execution_backend='vm-primary',operator_config_rollout=True,dp_name='cnpl-dp-'+s.run[-8:],original_revision=int(row['revision']),
         owned_revisions=[int(row['revision'])],original_values_sha256=digest(original),untouched_values_sha256=digest(untouched(original)),
         original_manifest_sha256=hashlib.sha256(r.call(helm('get','manifest','cilium','-n','kube-system')).encode()).hexdigest(),
         original_cilium_config_sha256=digest(r.get('configmap','cilium-config','kube-system')['data']),
@@ -248,7 +282,11 @@ def validate(s):
         raw=r.call(helm('template','cilium',s.context['chart']['local_source'],'-n','kube-system','--kube-version','1.36.5','-f','-'),json.dumps(merged),timeout=90)
         docs=[obj for obj in yaml.safe_load_all(raw) if obj and obj['kind']!='Secret']
         r.save(s.attempt/('rendered-'+name+'.json'),docs)
-        profiles[name]={'non_secret_objects':len(docs)}
+        operator=next(o for o in docs if o['kind']=='Deployment' and o['metadata']['name']=='cilium-operator')
+        checksum=operator['spec']['template']['metadata'].get('annotations',{}).get(CHECKSUM)
+        r.require(checksum and re.fullmatch('[0-9a-f]{64}',checksum),'Operator 缺少配置滚动校验和')
+        profiles[name]={'non_secret_objects':len(docs),'operator_config_checksum':checksum}
+    r.require(len({p['operator_config_checksum'] for p in profiles.values()})==4,'模式切换没有改变 Operator 配置校验和')
     return {'passed':True,'backend':'vm-primary','builtin_server_dry_run':builtins,'custom_structure':structural,
         'crd_server_side_previews':len(definitions)+len(gateway),'profiles':profiles,'mac_container_runtime_used':False,'runtime_executed':False}
 
@@ -295,8 +333,10 @@ def plan(s,name):
         desired=profile(name.removesuffix('-enable'));file=s.attempt/(name+'.values.yaml');file.write_text(yaml.safe_dump(desired))
         revision=int(release()['revision'])+1;s.context['owned_revisions']=sorted(set(s.context['owned_revisions']+[revision]))
         if name=='native-enable':s.context['native_intent']=True
+        s.context.setdefault('operator_rollouts',{})[name]={'before_uids':[p['metadata']['uid'] for p in operator_pods()]}
         r.save(s.path,s.context)
-        return [s.command(helm('upgrade','cilium',s.context['chart']['local_source'],'-n','kube-system','--reuse-values','-f',str(file),'--history-max','20','--wait','--timeout','8m'))]
+        commands=s.delete(s.document('Service','l2',NS)) if name=='bgp-enable' else []
+        return commands+[s.command(helm('upgrade','cilium',s.context['chart']['local_source'],'-n','kube-system','--reuse-values','-f',str(file),'--history-max','20','--wait','--timeout','8m'))]
     if name=='proxy-pause':
         before=s.context['controllers']['DaemonSet/kube-proxy'];wanted=copy.deepcopy(before['spec'])
         wanted['template']['spec'].setdefault('nodeSelector',{})[PROXY_OFF]=s.run
@@ -368,6 +408,29 @@ def ready_system(s,proxy=True):
             r.require(obj['status'].get('observedGeneration')==obj['metadata']['generation'] and obj['status'].get('updatedReplicas',0)==obj['spec']['replicas'] and obj['status'].get('availableReplicas',0)>=obj['spec']['replicas'],'等待控制面 '+obj['metadata']['name'])
 
 
+def operator_pods():
+    return [p for p in r.get('pods',namespace='kube-system')['items'] if p['metadata'].get('labels',{}).get('io.cilium/app')=='operator']
+
+
+def operator_rollout(s,name,config):
+    # 使用本次 Helm 实际存储的校验和，避免 template 与集群 API capabilities 不同。
+    docs=[o for o in yaml.safe_load_all(r.call(helm('get','manifest','cilium','-n','kube-system'))) if o]
+    desired=next(o for o in docs if o['kind']=='Deployment' and o['metadata']['name']=='cilium-operator')
+    cm=next(o for o in docs if o['kind']=='ConfigMap' and o['metadata']['name']=='cilium-config')
+    expected=desired['spec']['template']['metadata'].get('annotations',{}).get(CHECKSUM)
+    current=r.get('deployment','cilium-operator','kube-system');pods=operator_pods()
+    proof={'expected_checksum':expected,'deployment_checksum':current['spec']['template']['metadata'].get('annotations',{}).get(CHECKSUM),
+        'pods':[{'name':p['metadata']['name'],'uid':p['metadata']['uid'],'checksum':p['metadata'].get('annotations',{}).get(CHECKSUM),
+            'ready':r.pol.base.ready(p),'terminating':bool(p['metadata'].get('deletionTimestamp'))} for p in pods]}
+    r.save(s.attempt/(name+'-operator-last.json'),proof)
+    r.require(expected and proof['deployment_checksum']==expected and cm['data']==config,'Operator 与本次 Helm 配置校验和不一致')
+    before=set(s.context['operator_rollouts'][name]['before_uids'])
+    r.require(len(pods)==current['spec']['replicas'] and all(p['ready'] and not p['terminating'] and p['checksum']==expected and p['uid'] not in before for p in proof['pods']),'等待 Operator 全部更新为本次配置的新 Pod')
+    r.require(config.get('enable-l2-announcements','false')==str(name=='l2-enable').lower()
+        and config.get('enable-bgp-control-plane','false')==str(name=='bgp-enable').lower(),'L2/BGP 配置开关不符')
+    return proof
+
+
 def direct_routes(s,routes):
     wanted={cidr:r.pol.base.NODES[node] for node,cidr in s.context['pod_cidrs'].items()}
     return [row for row in routes if row.get('dst') in wanted and row.get('gateway')==wanted[row['dst']] and row.get('dev')=='ens33']
@@ -416,16 +479,37 @@ def matrix(s,proxy=False):
     return {'passed':True,'requests':rows,'primary_tls_status':primary['status'],'config':r.get('configmap','cilium-config','kube-system')['data']}
 
 
+def lb_address(s,name):
+    service=r.get('service',name,NS);pool=r.get('ciliumloadbalancerippool',s.context['dp_name'])
+    r.save(s.attempt/(name+'-lb-last.json'),{'service':service,'pool':pool})
+    s.owned(service);s.owned(pool)
+    conditions=pool.get('status',{}).get('conditions') or []
+    r.require(not pool['spec'].get('disabled') and any(c['type']=='cilium.io/PoolConflict' and c['status']=='False' for c in conditions),'等待 Cilium 地址池确认无冲突')
+    ingress=service.get('status',{}).get('loadBalancer',{}).get('ingress') or []
+    r.require(len(ingress)==1 and ingress[0].get('ip') in ['192.168.9.211','192.168.9.212','192.168.9.213','192.168.9.214'],
+        name+' VIP 未就绪：实际='+json.dumps(ingress,ensure_ascii=False)+'；conditions='+json.dumps(service.get('status',{}).get('conditions') or [],ensure_ascii=False))
+    return ingress[0]['ip']
+
+
+def arp_probe(s,ip):
+    args=[s.context['vm_facts'][ARP_OBSERVER]['arping'],'-I','ens33','-c','2','-w','3',ip]
+    program='import json,os,subprocess\nr=subprocess.run('+repr(args)+',capture_output=True,text=True,timeout=5,env=dict(os.environ,LC_ALL="C"))\nprint(json.dumps({"rc":r.returncode,"stdout":r.stdout,"stderr":r.stderr}))'
+    value=json.loads(r.call(r.pol.ssh(r.pol.base.NODES[ARP_OBSERVER],shlex.join(['python3','-c',program])),timeout=10))
+    count=re.search(r'Received (\d+) response',value['stdout'])
+    r.require(value['rc'] in [0,1] and count,'独立 VM 的 ARP 探测异常：'+json.dumps(value,ensure_ascii=False))
+    value.update(observer=ARP_OBSERVER,ip=ip,responses=int(count.group(1)),macs=sorted(set(v.lower() for v in re.findall(r'\[([0-9a-fA-F:]{17})\]',value['stdout']))))
+    return value
+
+
 def l2(s):
-    service=r.get('service','l2',NS);ingress=service.get('status',{}).get('loadBalancer',{}).get('ingress') or []
-    r.require(len(ingress)==1 and ingress[0].get('ip') in ['192.168.9.211','192.168.9.212','192.168.9.213','192.168.9.214'],'L2 VIP 不符')
-    ip=ingress[0]['ip'];lease=r.get('lease','cilium-l2announce-'+NS+'-l2','kube-system');holder=lease['spec'].get('holderIdentity')
+    ip=lb_address(s,'l2');lease=r.get('lease','cilium-l2announce-'+NS+'-l2','kube-system');holder=lease['spec'].get('holderIdentity')
+    r.save(s.attempt/'l2-lease-last.json',lease)
     r.require(holder in r.WORKERS,'L2 持有者不是实验 Worker')
+    wire=arp_probe(s,ip);r.save(s.attempt/'l2-arp-last.json',wire)
+    mac=s.context['vm_facts'][holder]['links'][0]['address'].lower()
+    r.require(wire['rc']==0 and wire['responses']>0 and wire['macs']==[mac],'独立 VM 的实际 ARP 响应与 Lease VM MAC 不同')
     row=probe(s,'http://'+ip+':8080/allowed',True);arp=r.call(['/usr/sbin/arp','-n',ip])
-    mac=s.context['vm_facts'][holder]['links'][0]['address']
-    normalize=lambda v:':'.join(x.zfill(2) for x in v.lower().split(':'))
-    found=re.search(r' at ([0-9a-f:]+) ',arp,re.I);r.require(found and normalize(found.group(1))==normalize(mac),'实际 ARP 与 Lease VM MAC 不同')
-    return {'passed':True,'vip':ip,'holder':holder,'lease_uid':lease['metadata']['uid'],'arp':arp,'request':row}
+    return {'passed':True,'vip':ip,'holder':holder,'lease_uid':lease['metadata']['uid'],'arp':arp,'arp_probe':wire,'request':row}
 
 
 def observe(s,name):
@@ -458,7 +542,9 @@ def observe(s,name):
     if name in ['ebpf-enable','native-enable','l2-enable','bgp-enable']:
         ready_system(s,name=='ebpf-enable');config=r.get('configmap','cilium-config','kube-system')['data']
         r.require(config.get('kube-proxy-replacement')=='true' and config.get('routing-mode')==('native' if name=='native-enable' else 'tunnel'),'Cilium 模式未收敛')
-        return {'passed':True,'helm_revision':release()['revision'],'config':config}
+        proof=operator_rollout(s,name,config)
+        if name=='bgp-enable':r.require(r.optional('service','l2',NS) is None,'切换 BGP 前 L2 Service 未回收')
+        return {'passed':True,'helm_revision':release()['revision'],'config':config,'operator_rollout':proof}
     if name=='proxy-pause':
         owner=s.context['controllers']['DaemonSet/kube-proxy']['uid']
         r.require(not any(any(o['uid']==owner for o in p['metadata'].get('ownerReferences',[])) for p in r.get('pods',namespace='kube-system')['items']),'kube-proxy Pod 尚未停止')
@@ -474,30 +560,35 @@ def observe(s,name):
         return value
     if name in ['l2','l2-handoff','l2-resume']:
         value=l2(s)
+        if name!='l2':r.require(value['vip']==json.loads((s.attempt/'l2.json').read_text())['vip'],'L2 迁移与恢复期间 VIP 不应改变')
         if name=='l2-handoff':
             r.require(value['holder']!=s.context['l2_excluded_node'],'L2 Lease 未迁移')
             value['handoff_method']='selector withdrawal; no VM was stopped'
         return value
     if name=='l2-withdraw':
         r.require(r.optional('ciliuml2announcementpolicy',s.context['dp_name']) is None,'L2 策略未撤销')
-        return {'passed':True}
+        ip=json.loads((s.attempt/'l2.json').read_text())['vip']
+        rows=[arp_probe(s,ip) for _ in range(3)]
+        r.save(s.attempt/'l2-withdraw-arp-last.json',rows)
+        r.require(all(v['rc']==1 and v['responses']==0 for v in rows),'撤回 L2 策略后独立 VM 仍收到 ARP 响应')
+        return {'passed':True,'vip':ip,'arp_probes':rows}
     if name in ['bgp','bgp-withdraw']:
         pod=s.pod('frr',ADMIN)
         prefix=r.K+['exec','-n',ADMIN,pod['metadata']['name'],'-c','router','--','vtysh','-c']
         rib=json.loads(r.call(prefix+['show bgp ipv4 unicast json']))
         routes=rib.get('routes') or {}
         r.save(s.attempt/(name+'-rib-last.json'),rib)
-        if name=='bgp-withdraw':
-            r.require(not routes,'BGP 广告撤回后 RIB 仍有路由')
-            return {'passed':True,'routes':rib,'external_forwarding_verified':False}
         summary=json.loads(r.call(prefix+['show bgp summary json']));peers=(summary.get('ipv4Unicast') or {}).get('peers') or {}
-        r.save(s.attempt/'bgp-peers-last.json',summary)
-        r.require(all(peers.get(r.pol.base.NODES[n],{}).get('state')=='Established' for n in r.WORKERS),'BGP 会话尚未建立')
+        r.save(s.attempt/(name+'-peers-last.json'),summary)
+        r.require(all(peers.get(r.pol.base.NODES[n],{}).get('state')=='Established' for n in r.WORKERS),'BGP 会话尚未建立或在广告撤回期间断开')
+        if name=='bgp-withdraw':
+            r.require(r.optional('ciliumbgpadvertisement',s.context['dp_name']) is None,'BGP 广告对象尚未撤回')
+            r.require(not routes,'BGP 广告撤回后 RIB 仍有路由')
+            return {'passed':True,'peers':summary,'routes':rib,'external_forwarding_verified':False}
         wanted={s.context['pod_cidrs'][n] for n in r.WORKERS}
-        ingress=r.get('service','bgp',NS).get('status',{}).get('loadBalancer',{}).get('ingress') or []
-        r.require(ingress and ingress[0].get('ip') in ['192.168.9.211','192.168.9.212','192.168.9.213','192.168.9.214'],'等待 BGP VIP')
-        wanted.add(ingress[0]['ip']+'/32');allowed=wanted|{ip+'/32' for ip in ['192.168.9.211','192.168.9.212','192.168.9.213','192.168.9.214']}
-        r.require(wanted<=set(routes) and set(routes)<=allowed,'RIB 缺少允许前缀或越界')
+        wanted.add(lb_address(s,'bgp')+'/32')
+        r.require(set(routes)==wanted,'RIB 必须恰好包含两 Worker PodCIDR 和本批 BGP VIP /32')
+        r.require(all(any(path.get('valid') for path in paths) for paths in routes.values()),'BGP 路径的下一跳尚未有效解析')
         return {'passed':True,'peers':summary,'rib':rib,'external_forwarding_verified':False}
     if name=='stream-stop':
         raw=r.call(r.K+['logs','-n',NS,'stream']);(s.attempt/'persistent-stream.jsonl').write_text(raw)

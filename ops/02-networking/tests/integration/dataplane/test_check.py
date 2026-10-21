@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -24,6 +25,7 @@ class VM(unittest.TestCase):
             self.assertEqual(v['k8sServiceHost'],'192.168.9.100')
             self.assertEqual(v['devices'],['ens33'])
             self.assertEqual(v['routingMode'],'native' if name=='native' else 'tunnel')
+            self.assertEqual(v['operator'],{'rollOutPods':True})
 
     def test_non_migration_values_cannot_drift(self):
         before={'kubeProxyReplacement':'false','hubble':{'enabled':True},'bpf':{'preallocateMaps':True}}
@@ -31,6 +33,122 @@ class VM(unittest.TestCase):
         self.assertEqual(m.untouched(before),m.untouched(after))
         after['hubble']['enabled']=False
         self.assertNotEqual(m.untouched(before),m.untouched(after))
+
+    def test_operator_rollout_setting_does_not_allow_other_operator_changes(self):
+        before={'operator':{'replicas':2,'rollOutPods':False}}
+        after={'operator':{'replicas':2,'rollOutPods':True}}
+        self.assertEqual(m.untouched(before),m.untouched(after))
+        after['operator']['replicas']=1
+        self.assertNotEqual(m.untouched(before),m.untouched(after))
+
+    def test_recovery_keeps_the_previous_batches_hash_contract(self):
+        values={'operator':{'replicas':2,'rollOutPods':False},'routingMode':'tunnel'}
+        self.assertEqual(m.untouched(values,operator_rollout=False),{'operator':{'replicas':2,'rollOutPods':False}})
+        self.assertEqual(m.untouched(values),{'operator':{'replicas':2}})
+
+    def test_operator_requires_new_ready_pods_with_current_manifest_checksum(self):
+        checksum='a'*64
+        config={'enable-l2-announcements':'true','enable-bgp-control-plane':'false'}
+        deployment={'kind':'Deployment','metadata':{'name':'cilium-operator'},'spec':{'replicas':2,'template':{'metadata':{'annotations':{m.CHECKSUM:checksum}}}}}
+        cm={'kind':'ConfigMap','metadata':{'name':'cilium-config'},'data':config}
+        def pod(uid,signature=checksum):
+            return {'metadata':{'uid':uid,'name':uid,'annotations':{m.CHECKSUM:signature}},'status':{'conditions':[{'type':'Ready','status':'True'}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'operator_rollouts':{'l2-enable':{'before_uids':['old1','old2']}}})
+            for pods,ok in [([pod('old1'),pod('new2')],False),([pod('new1','b'*64),pod('new2')],False),([pod('new1'),pod('new2')],True)]:
+                with self.subTest(pods=pods),patch.object(m.r,'call',return_value=yaml.safe_dump_all([deployment,cm])),patch.object(m.r,'get',return_value=deployment),patch.object(m,'operator_pods',return_value=pods):
+                    if ok:self.assertEqual(m.operator_rollout(s,'l2-enable',config)['expected_checksum'],checksum)
+                    else:
+                        with self.assertRaisesRegex(ValueError,'新 Pod'):m.operator_rollout(s,'l2-enable',config)
+            self.assertTrue((s.attempt/'l2-enable-operator-last.json').is_file())
+
+    def test_bgp_switch_releases_l2_service_before_upgrading_operator(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            s=SimpleNamespace(attempt=root,path=root/'context.json',context={'chart':{'local_source':'chart.tgz'},'owned_revisions':[7]},
+                command=lambda a:{'argv':a},document=lambda *a:a,delete=lambda o:[{'argv':['delete-l2']}])
+            with patch.object(m,'guard'),patch.object(m,'release',return_value={'revision':'7'}),patch.object(m,'operator_pods',return_value=[{'metadata':{'uid':'old'}}]):
+                commands=m.plan(s,'bgp-enable')
+            self.assertEqual(commands[0]['argv'],['delete-l2'])
+            self.assertIn('upgrade',commands[1]['argv'])
+            self.assertEqual(s.context['operator_rollouts']['bgp-enable']['before_uids'],['old'])
+            self.assertTrue(yaml.safe_load((root/'bgp-enable.values.yaml').read_text())['operator']['rollOutPods'])
+
+    def test_vip_failure_preserves_actual_service_and_pool(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'dp_name':'pool'},owned=lambda o:None)
+            service={'status':{'loadBalancer':{},'conditions':[{'reason':'no_pool'}]}}
+            pool={'spec':{},'status':{'conditions':[{'type':'cilium.io/PoolConflict','status':'False'}]}}
+            with patch.object(m.r,'get',side_effect=[service,pool]),self.assertRaisesRegex(ValueError,'实际=\\[\\]'):
+                m.lb_address(s,'l2')
+            self.assertEqual(json.loads((s.attempt/'l2-lb-last.json').read_text())['service'],service)
+
+    def test_arp_probe_distinguishes_replies_absence_and_tool_errors(self):
+        s=SimpleNamespace(context={'vm_facts':{m.ARP_OBSERVER:{'arping':'/usr/sbin/arping'}}})
+        for rc,stdout,responses in [(0,'Unicast reply from 192.168.9.211 [00:50:56:AA:BB:CC] 0.1ms\nReceived 2 response(s)',2),(1,'Received 0 response(s)',0),(2,'bind failed',None)]:
+            with self.subTest(rc=rc),patch.object(m.r,'call',return_value=json.dumps({'rc':rc,'stdout':stdout,'stderr':''})):
+                if responses is None:
+                    with self.assertRaisesRegex(ValueError,'ARP 探测异常'):m.arp_probe(s,'192.168.9.211')
+                else:
+                    row=m.arp_probe(s,'192.168.9.211');self.assertEqual(row['responses'],responses)
+                    self.assertEqual(row['macs'],['00:50:56:aa:bb:cc'] if responses else [])
+
+    def test_l2_rejects_a_mac_that_does_not_match_the_lease(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'vm_facts':{m.r.WORKERS[0]:{'links':[{'address':'00:50:56:aa:bb:cc'}]}}})
+            lease={'spec':{'holderIdentity':m.r.WORKERS[0]}}
+            with patch.object(m,'lb_address',return_value='192.168.9.211'),patch.object(m.r,'get',return_value=lease),patch.object(m,'arp_probe',return_value={'rc':0,'responses':2,'macs':['00:50:56:dd:ee:ff']}),self.assertRaisesRegex(ValueError,'实际 ARP'):
+                m.l2(s)
+
+    def test_l2_withdraw_needs_three_actual_no_reply_probes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'dp_name':'pool'})
+            m.r.save(s.attempt/'l2.json',{'vip':'192.168.9.211'})
+            with patch.object(m.r,'optional',return_value=None),patch.object(m,'arp_probe',return_value={'rc':1,'responses':0}) as probe:
+                self.assertTrue(m.observe(s,'l2-withdraw')['passed']);self.assertEqual(probe.call_count,3)
+            with patch.object(m.r,'optional',return_value=None),patch.object(m,'arp_probe',side_effect=[{'rc':1,'responses':0},{'rc':0,'responses':1},{'rc':1,'responses':0}]),self.assertRaisesRegex(ValueError,'仍收到 ARP'):
+                m.observe(s,'l2-withdraw')
+
+    def test_l2_handoff_and_resume_cannot_pass_by_changing_the_vip(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={})
+            m.r.save(s.attempt/'l2.json',{'vip':'192.168.9.211'})
+            for name in ['l2-handoff','l2-resume']:
+                with self.subTest(name=name),patch.object(m,'l2',return_value={'vip':'192.168.9.212'}),self.assertRaisesRegex(ValueError,'VIP 不应改变'):
+                    m.observe(s,name)
+
+    def test_bgp_withdraw_does_not_pass_because_the_sessions_went_down(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'dp_name':'pool'},pod=lambda *a:{'metadata':{'name':'frr'}})
+            peers={m.r.pol.base.NODES[n]:{'state':'Established'} for n in m.r.WORKERS}
+            for state,ok in [('Established',True),('Active',False)]:
+                peers[m.r.pol.base.NODES[m.r.WORKERS[0]]]['state']=state
+                with self.subTest(state=state),patch.object(m.r,'call',side_effect=[json.dumps({'routes':{}}),json.dumps({'ipv4Unicast':{'peers':peers}})]),patch.object(m.r,'optional',return_value=None):
+                    if ok:self.assertTrue(m.observe(s,'bgp-withdraw')['passed'])
+                    else:
+                        with self.assertRaisesRegex(ValueError,'撤回期间断开'):m.observe(s,'bgp-withdraw')
+
+    def test_bgp_requires_exact_prefixes_and_valid_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cidrs=dict(zip(m.r.WORKERS,['10.244.8.0/24','10.244.9.0/24']))
+            s=SimpleNamespace(attempt=Path(folder),context={'pod_cidrs':cidrs},pod=lambda *a:{'metadata':{'name':'frr'}})
+            peers={m.r.pol.base.NODES[n]:{'state':'Established'} for n in m.r.WORKERS}
+            wanted={ip:[{'valid':True}] for ip in list(cidrs.values())+['192.168.9.211/32']}
+            for routes,ok in [(wanted,True),({**wanted,'192.168.9.212/32':[{'valid':True}]},False),({ip:[{'valid':False}] for ip in wanted},False)]:
+                with self.subTest(routes=routes),patch.object(m.r,'call',side_effect=[json.dumps({'routes':routes}),json.dumps({'ipv4Unicast':{'peers':peers}})]),patch.object(m,'lb_address',return_value='192.168.9.211'):
+                    if ok:self.assertTrue(m.observe(s,'bgp')['passed'])
+                    else:
+                        with self.assertRaises(ValueError):m.observe(s,'bgp')
+
+    def test_diagnostics_timeout_preserves_the_original_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve();records=root/'records/02.09-unit'
+            with patch.object(m.r,'PHASE',root):s=m.Session('dataplane','02.09',records,records/'attempts/unit',m.NAMESPACES)
+            s.context={'run':'test'}
+            with patch.object(m.r.Session,'wait',side_effect=ValueError('ORIGINAL_FAILURE')),patch.object(m.r,'call',side_effect=subprocess.TimeoutExpired('kubectl',3)),self.assertRaisesRegex(ValueError,'ORIGINAL_FAILURE.*现场诊断'):
+                s.wait('l2',lambda:None)
+            value=json.loads((s.attempt/'l2-diagnostics.json').read_text())
+            self.assertEqual(value['error'],'ORIGINAL_FAILURE');self.assertTrue(value['collection_errors'])
 
     def test_protection_allows_managed_pod_restart_but_preserves_other_pods(self):
         with tempfile.TemporaryDirectory() as d:
@@ -101,6 +219,28 @@ class VM(unittest.TestCase):
             self.assertNotIn('172.30.90.',text)
         self.assertEqual(m.BLOCKED['external_bgp_forwarding']['status'],'BLOCKED')
         self.assertEqual(m.RESTORE_STEPS[-1]['name'],'recover-firewall')
+
+    def test_l2_and_bgp_selectors_and_frr_neighbor_configuration_agree(self):
+        base=m.r.PHASE/'networking/dataplane';env=m.r.Environment(undefined=m.r.StrictUndefined)
+        values={'name':'cnpl-dp-test','run':'test','frr_ip':'10.244.8.20','frr_image':'registry/frr@sha256:'+'a'*64,
+            'workers':m.r.WORKERS,'pod_cidrs':dict(zip(m.r.WORKERS,['10.244.8.0/24','10.244.9.0/24']))}
+        docs={name:list(yaml.safe_load_all(env.from_string((base/(name+'.yaml.j2')).read_text()).render(**values))) for name in ['l2','bgp','frr']}
+        l2_service=docs['l2'][-1];bgp_service=docs['bgp'][-1]
+        l2_selector=docs['l2'][1]['spec']['serviceSelector']['matchLabels']
+        bgp_selector=docs['bgp'][1]['spec']['advertisements'][1]['selector']['matchLabels']
+        self.assertTrue(all(l2_service['metadata']['labels'][k]==v for k,v in l2_selector.items()))
+        self.assertFalse(all(bgp_service['metadata']['labels'].get(k)==v for k,v in l2_selector.items()))
+        self.assertTrue(all(bgp_service['metadata']['labels'][k]==v for k,v in bgp_selector.items()))
+        self.assertFalse(all(l2_service['metadata']['labels'].get(k)==v for k,v in bgp_selector.items()))
+        frr=docs['frr'][0]['data'];cluster=docs['bgp'][2]['spec']['bgpInstances'][0]
+        self.assertIn('router bgp '+str(cluster['peers'][0]['peerASN']),frr['frr.conf'])
+        self.assertIn('ip nht resolve-via-default',frr['frr.conf'])
+        for node in m.r.WORKERS:
+            ip=m.r.pol.base.NODES[node]
+            self.assertIn('neighbor '+ip+' remote-as '+str(cluster['localASN']),frr['frr.conf'])
+            self.assertIn('neighbor '+ip+' ebgp-multihop '+str(docs['bgp'][0]['spec']['ebgpMultihop']),frr['frr.conf'])
+        self.assertIn('bgpd_options=" -A 127.0.0.1 -n"',frr['daemons'])
+        self.assertEqual(docs['frr'][1]['spec']['volumes'][0]['configMap']['defaultMode'],0o644)
 
 
 if __name__=='__main__':unittest.main()

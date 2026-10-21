@@ -1,0 +1,116 @@
+normal MODEL PASS
+failure MODEL PASS
+command-failure MODEL PASS
+validation-failure MODEL PASS
+recover MODEL PASS
+rollback-failure MODEL PASS
+double-failure MODEL PASS
+{
+  "scope": "Ansible orchestration only",
+  "passed": true,
+  "results": {
+    "normal": {
+      "passed": true,
+      "exit": 0,
+      "cleanup": "PASS",
+      "first_failure": null,
+      "firewall_restored": true,
+      "recap": "*********************************************************************\nlocalhost                  : ok=281  changed=61   unreachable=0    failed=0    skipped=1    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/normal/ansible.txt"
+    },
+    "failure": {
+      "passed": true,
+      "exit": 2,
+      "cleanup": "PASS",
+      "first_failure": {
+        "task": "等待并验证 l2 的真实结果",
+        "case": "l2",
+        "rc": 1,
+        "line": 383,
+        "origin": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml:25:3",
+        "error": "EXPECTED_MODEL_OBSERVE_FAILURE",
+        "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/failure/attempts/20261021T001006Z-c6599b07-all"
+      },
+      "firewall_restored": true,
+      "recap": "*********************************************************************\nlocalhost                  : ok=206  changed=43   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/failure/ansible.txt"
+    },
+    "command-failure": {
+      "passed": true,
+      "exit": 2,
+      "cleanup": "PASS",
+      "first_failure": {
+        "task": "crds 命令",
+        "case": "crds",
+        "rc": 2,
+        "line": 84,
+        "origin": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-command.yml:4:7",
+        "error": "The command exited with a non-zero return code.",
+        "attempt": ""
+      },
+      "firewall_restored": true,
+      "recap": "*********************************************************************\nlocalhost                  : ok=110  changed=18   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/command-failure/ansible.txt"
+    },
+    "validation-failure": {
+      "passed": true,
+      "exit": 2,
+      "cleanup": "NOT_RUN",
+      "first_failure": {
+        "task": "全部执行清单严格服务端预览或锁定 schema 校验",
+        "case": "",
+        "rc": 1,
+        "line": 22,
+        "origin": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:21:7",
+        "error": "EXPECTED_MODEL_VALIDATION_FAILURE",
+        "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/validation-failure/attempts/20261021T001104Z-265237ed-all"
+      },
+      "firewall_restored": false,
+      "recap": "*********************************************************************\nlocalhost                  : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/validation-failure/ansible.txt"
+    },
+    "recover": {
+      "passed": true,
+      "exit": 0,
+      "cleanup": "PASS",
+      "first_failure": null,
+      "firewall_restored": true,
+      "recap": "*********************************************************************\nlocalhost                  : ok=72   changed=15   unreachable=0    failed=0    skipped=4    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/recover/ansible.txt"
+    },
+    "rollback-failure": {
+      "passed": true,
+      "exit": 2,
+      "cleanup": "NOT_CONFIRMED",
+      "first_failure": {
+        "task": "等待并验证 recover-cilium 的真实结果",
+        "case": "recover-cilium",
+        "rc": 1,
+        "line": 685,
+        "origin": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml:25:3",
+        "error": "EXPECTED_MODEL_OBSERVE_FAILURE",
+        "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/rollback-failure/attempts/20261021T001119Z-3c01d141-all"
+      },
+      "firewall_restored": true,
+      "recap": "*********************************************************************\nlocalhost                  : ok=251  changed=54   unreachable=0    failed=1    skipped=0    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/rollback-failure/ansible.txt"
+    },
+    "double-failure": {
+      "passed": true,
+      "exit": 2,
+      "cleanup": "NOT_CONFIRMED",
+      "first_failure": {
+        "task": "等待并验证 l2 的真实结果",
+        "case": "l2",
+        "rc": 1,
+        "line": 383,
+        "origin": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/phase02-case.yml:25:3",
+        "error": "EXPECTED_MODEL_OBSERVE_FAILURE",
+        "attempt": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/double-failure/attempts/20261021T001206Z-fd7ec8ed-all"
+      },
+      "firewall_restored": true,
+      "recap": "*********************************************************************\nlocalhost                  : ok=177  changed=36   unreachable=0    failed=2    skipped=0    rescued=0    ignored=0",
+      "log": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.09-20261020T235932Z-operator-repair-review/offline/8b36d665/double-failure/ansible.txt"
+    }
+  }
+}

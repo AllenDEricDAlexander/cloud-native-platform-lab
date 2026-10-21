@@ -25,11 +25,11 @@
 | 06E 升级与容灾 | 相邻 kubeadm 次版本升级、etcd/Ceph 恢复、Velero、独立数据备份、完整集群重建与 RTO/RPO。 |
 | 交付与验收 | 安全策略、故障注入用例、升级与恢复规程、跨集群测试、RTO/RPO 报告；完成一次安全可控升级和约定恢复测试，每个高级模块有可重复实验或明确阻塞记录。 |
 
-实施细节：[打开具体操作、配置位置和检查方法](../ops/06-advanced-security-dr/README.md)。
+实施入口：[分子阶段脚本与离线走查](../ops/06/README.md)；专题背景：[具体操作、配置位置和检查方法](../ops/06-advanced-security-dr/README.md)。
 
 阶段交接：硬件缺失不伪装成功。五个专题分别报告状态，所有要求闭环后才标记第 06 阶段完整完成。
 
-验收结果保存为 `ops/06-advanced-security-dr/records/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../ops/templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+子阶段证据保存为 `ops/06/<01–17>/records/<执行批次>/`，阶段验收结果汇总为 `ops/06/17/records/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../ops/templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
 
 ## 专题导航
 

@@ -1,0 +1,15 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: [RequestReceived]
+rules:
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: [secrets, configmaps]
+      - group: authentication.k8s.io
+        resources: [tokenreviews]
+      - group: ""
+        resources: [serviceaccounts/token]
+  - level: None
+    nonResourceURLs: [/healthz, /readyz, /livez]
+  - level: Metadata

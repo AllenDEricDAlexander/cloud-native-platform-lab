@@ -34,6 +34,7 @@ Dir.mktmpdir("cnpl06-offline-") do |temp|
   input["virtualization"].merge!({"registry_secret"=>"registry-reader","registry_ca_configmap"=>"registry-ca"})
   input["gpu"].merge!({"node"=>"worker01.k8s.internal.egon.top","device_class"=>"lab-gpu"})
   input["ai"].merge!({"storage_uri"=>"s3://models/fixture","runtime_name"=>"lab-sklearn","model_pvc"=>"lab-model","model_name"=>"lab-model"})
+  input["ai"].merge!({"deployment_mode"=>"RawDeployment","model_secret"=>"model-reader","storage_class"=>"lab-ceph-rbd"})
   input["backup"].merge!({"velero_namespace"=>"velero-lab","location"=>"independent","source_namespace"=>"cnpl06-data-offline-review","data_movement"=>"csi"})
   fixture = File.join(temp,"inputs.json"); File.write(fixture,JSON.generate(input))
   env = {"CNPL06_INPUTS"=>fixture,"PATH"=>bin+":"+ENV.fetch("PATH")}

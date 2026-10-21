@@ -45,6 +45,7 @@ material() {
     local item
     item=$(jq -ec --arg key "$1" '.components[$key] | select(.version != null and .compatibility_file != null and .compatibility_sha256 != null)' "$MATERIALS") || die "物料尚未锁定：$1"
     verify_file "$(jq -r .compatibility_file <<< "$item")" "$(jq -r .compatibility_sha256 <<< "$item")"
+    ruby -ryaml -e 'c=YAML.load_file(ARGV[0]).fetch("components",{}).fetch(ARGV[1],{}); abort "组件尚未在主版本锁确认" unless c["version"].to_s==ARGV[2] && !ARGV[2].empty?' "$REPO/ops/versions.lock.yaml" "$1" "$(jq -r .version <<< "$item")"
     printf '%s\n' "$item"
 }
 image() {
@@ -73,7 +74,7 @@ ceph_ok() {
     local status
     status=$(ceph status --format json)
     printf '%s\n' "$status" > "$ATTEMPT/ceph-health-$(date -u +%H%M%S)-$RANDOM.json"
-    jq -e '.health.status=="HEALTH_OK" and (.pgmap.degraded_objects // 0)==0 and (.pgmap.misplaced_objects // 0)==0' <<< "$status" >/dev/null || die 'Ceph 未达到健康基线'
+    jq -e --arg fsid "$(required .ceph.fsid)" '.fsid==$fsid and .health.status=="HEALTH_OK" and (.pgmap.degraded_objects // 0)==0 and (.pgmap.misplaced_objects // 0)==0' <<< "$status" >/dev/null || die 'Ceph 身份或健康基线不符'
     local used limit
     used=$(ceph df --format json | jq '.stats.total_used_raw_ratio * 100')
     limit=$(required .ceph.max_used_percent)
@@ -102,14 +103,17 @@ namespace() {
 yaml_json() { ruby -ryaml -rjson -e 'puts JSON.generate({"apiVersion"=>"v1","kind"=>"List","items"=>YAML.load_stream(File.read(ARGV[0])).compact})' "$1"; }
 apply() {
     local file=$1 ns=$2 rendered kind name scope existing
-    rendered=$(mktemp "$ATTEMPT/apply.XXXXXX")
+    rendered=$(mktemp)
     if [[ $file == *.json ]]; then cat "$file"; else yaml_json "$file"; fi |
         jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then . else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","StorageClass","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding")) then . else .metadata.namespace=$ns end)' > "$rendered"
     while IFS=$'\t' read -r kind name scope; do
         if [[ $scope == '-' ]]; then existing=$(k get "$kind" "$name" --ignore-not-found -o json); else existing=$(k -n "$scope" get "$kind" "$name" --ignore-not-found -o json); fi
         [[ -z $existing ]] || jq -e --arg run "$RUN" '.metadata.labels["cnpl.io/run"]==$run and .metadata.labels["cnpl.io/phase"]=="03"' <<< "$existing" >/dev/null || die "拒绝接管已有对象：$kind/$name"
     done < <(jq -r '.items[] | [.kind,.metadata.name,(.metadata.namespace // "-")]|@tsv' "$rendered")
-    k apply -f "$rendered"
+    local rc=0
+    k apply -f "$rendered" || rc=$?
+    rm -f "$rendered"
+    return "$rc"
 }
 chart() {
     local release=$1 key=$2 ns=$3 values=$4 info path version

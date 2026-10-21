@@ -1,0 +1,23 @@
+---
+- name: 只查询本次所需的永久规则
+  ansible.builtin.command:
+    argv: [firewall-cmd, --permanent, --zone=public, '--query-rich-rule=rule family="ipv4" source address="{{ phase03_rule.0 }}/32" port port="{{ phase03_rule.1 }}" protocol="tcp" accept']
+  register: phase03_query
+  changed_when: false
+  failed_when: phase03_query.rc not in [0, 1]
+- name: 增补缺失的永久来源规则
+  ansible.builtin.command:
+    argv: [firewall-cmd, --permanent, --zone=public, '--add-rich-rule=rule family="ipv4" source address="{{ phase03_rule.0 }}/32" port port="{{ phase03_rule.1 }}" protocol="tcp" accept']
+  when: phase03_query.rc == 1
+  changed_when: true
+- name: 查询运行时规则，不 reload 无关运行时策略
+  ansible.builtin.command:
+    argv: [firewall-cmd, --zone=public, '--query-rich-rule=rule family="ipv4" source address="{{ phase03_rule.0 }}/32" port port="{{ phase03_rule.1 }}" protocol="tcp" accept']
+  register: phase03_runtime_query
+  changed_when: false
+  failed_when: phase03_runtime_query.rc not in [0, 1]
+- name: 增补缺失的运行时来源规则
+  ansible.builtin.command:
+    argv: [firewall-cmd, --zone=public, '--add-rich-rule=rule family="ipv4" source address="{{ phase03_rule.0 }}/32" port port="{{ phase03_rule.1 }}" protocol="tcp" accept']
+  when: phase03_runtime_query.rc == 1
+  changed_when: true

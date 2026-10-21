@@ -112,7 +112,7 @@ apply() {
     local file=$1 ns=$2 rendered kind name scope existing
     rendered=$(mktemp)
     if [[ $file == *.json ]]; then cat "$file"; else yaml_json "$file"; fi |
-        jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then . else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","StorageClass","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding")) then . else .metadata.namespace=$ns end)' > "$rendered"
+        jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then . else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","PersistentVolume","StorageClass","CSIDriver","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding","PriorityClass","MutatingWebhookConfiguration","ValidatingWebhookConfiguration","APIService")) then . else .metadata.namespace=$ns end)' > "$rendered"
     while IFS=$'\t' read -r kind name scope; do
         if [[ $scope == '-' ]]; then existing=$(k get "$kind" "$name" --ignore-not-found -o json); else existing=$(k -n "$scope" get "$kind" "$name" --ignore-not-found -o json); fi
         [[ -z $existing ]] || jq -e --arg run "$RUN" '.metadata.labels["cnpl.io/run"]==$run and .metadata.labels["cnpl.io/phase"]=="03"' <<< "$existing" >/dev/null || die "拒绝接管已有对象：$kind/$name"

@@ -21,6 +21,7 @@ when "values"
   # Chart 原生采集对象也加相同选择标签，防止自监控被排除。
   values["commonLabels"] = {"cnpl.io/phase"=>"05","cnpl.io/run"=>required("run_id")}
   values["grafana"]["sidecar"]["image"] = chart_image("grafana_sidecar")
+  values["grafana"]["sidecar"]["datasources"] = {"enabled"=>true,"label"=>"grafana_datasource"}
   values["prometheus"]["prometheusSpec"]["scrapeConfigSelector"] = values["commonLabels"].then { |labels| {"matchLabels"=>labels} }
   values["prometheus"]["prometheusSpec"]["enableOTLPReceiver"] = true
   puts YAML.dump(values)

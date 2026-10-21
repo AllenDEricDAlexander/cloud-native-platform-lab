@@ -15,7 +15,7 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     out,status = Open3.capture2e({"CNPL05_INPUTS"=>path},"ruby","-e",script,File.join(root,"lib/config.rb"),File.join(root,stage,"render.rb"),mode)
     abort out unless status.success?
     count += 1
-    %w[values agent-config gateway-config].include?(mode) ? YAML.load(out) : (mode=="saved-objects" ? out.lines.map { |l| JSON.parse(l) } : JSON.parse(out))
+    %w[values agent-config gateway-config loki tempo pyroscope].include?(mode) ? YAML.load(out) : (mode=="saved-objects" ? out.lines.map { |l| JSON.parse(l) } : JSON.parse(out))
   end
   if File.file?(File.join(root,"02/render.rb"))
     values = runner.call("02","values")
@@ -49,6 +49,15 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     data = runner.call("05","resources")
     abort "direct 不得同时部署 Logstash" if data.fetch("items").any? { |i| i["kind"]=="Deployment" && i.dig("metadata","name")=="logstash" }
     abort "direct 必须按日索引" unless data.fetch("items").find { |i| i["kind"]=="ConfigMap" }.dig("data","fluent-bit.conf").include?("Logstash_Format On")
+  end
+  if File.file?(File.join(root,"06/render.rb"))
+    input["backends"].merge!({"rgw_endpoint"=>"https://rgw.svc.internal.egon.top","region"=>"lab","loki_bucket"=>"logs","tempo_bucket"=>"traces","pyroscope_bucket"=>"profiles","loki_s3_secret"=>"logs-creds","tempo_s3_secret"=>"trace-creds","pyroscope_s3_secret"=>"profile-creds","tls_secret"=>"backend-tls","storage_class"=>"fixture-rbd","gateway_namespace"=>"gateway","ca_secret"=>"rgw-ca","loki_url"=>"https://loki.k8s.internal.egon.top","tempo_url"=>"https://tempo.k8s.internal.egon.top","pyroscope_url"=>"https://pyroscope.k8s.internal.egon.top"})
+    File.write(path,JSON.generate(input))
+    data = runner.call("06","resources")
+    abort "三个独立 WAL PVC 缺项" unless data.fetch("items").count { |i| i["kind"]=="PersistentVolumeClaim" }==3
+    %w[loki tempo pyroscope].each { |mode| runner.call("06",mode) }
+    loki = runner.call("06","loki")
+    abort "高基数默认 Loki 标签未关闭" unless loki.dig("limits_config","otlp_config","resource_attributes","ignore_defaults")==true
   end
 end
 puts "PASS #{count} 组离线渲染；镜像方法仅在本地构造中替换，不代表物料已锁定"

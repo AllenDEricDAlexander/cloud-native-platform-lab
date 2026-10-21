@@ -15,6 +15,7 @@ agent = {"receivers"=>receiver,"processors"=>processors.reject { |k,_| k=="tail_
 gateway = {"receivers"=>receiver,"processors"=>processors,"exporters"=>{"otlp/tempo"=>queue.merge({"endpoint"=>required("otel","tempo_endpoint"),"tls"=>tls}),"otlphttp/loki"=>queue.merge({"endpoint"=>required("otel","loki_endpoint"),"tls"=>tls}),"otlphttp/metrics"=>queue.merge({"endpoint"=>required("otel","metrics_endpoint"),"tls"=>tls})},"service"=>{"pipelines"=>{}}}
 %w[traces metrics logs].zip(%w[otlp/tempo otlphttp/metrics otlphttp/loki]).each { |signal,exporter| gateway["service"]["pipelines"][signal]={"receivers"=>["otlp"],"processors"=>["memory_limiter","transform/privacy"]+(signal=="traces" ? ["tail_sampling"] : [])+["batch"],"exporters"=>[exporter]} }
 [agent,gateway].each { |c| c["service"]["telemetry"]={"metrics"=>{"readers"=>[{"pull"=>{"exporter"=>{"prometheus"=>{"host"=>"0.0.0.0","port"=>8888}}}}]}} }
+%w[otlp/tempo otlphttp/loki].each { |key| gateway["exporters"][key]["headers"]={"X-Scope-OrgID"=>required("run_id")} }
 if %w[agent-config gateway-config].include?(ARGV[0])
   puts YAML.dump(ARGV[0]=="agent-config" ? agent : gateway)
   exit

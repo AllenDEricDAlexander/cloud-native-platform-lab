@@ -4,7 +4,8 @@ function sanitize(tag, timestamp, record)
     local message = tostring(record.message or record.log or '')
     message = string.gsub(message, 'CNPL_TEST_SECRET_[%w_-]+', '[REDACTED]')
     for _, key in ipairs({'password', 'token', 'authorization', 'cookie'}) do
-        message = string.gsub(message, key .. '%s*[=:]%s*[^%s,;]+', '[REDACTED]')
+        local pattern = string.gsub(key, '%a', function(letter) return '[' .. string.lower(letter) .. string.upper(letter) .. ']' end)
+        message = string.gsub(message, pattern .. '%s*[=:]%s*[^%s,;]+', '[REDACTED]')
     end
     local out = {
         message = message,

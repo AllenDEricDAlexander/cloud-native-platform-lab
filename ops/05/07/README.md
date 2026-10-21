@@ -6,6 +6,7 @@
 bash ops/05/07/run.sh validate
 # 内网后先审核分母、排除项、窗口与基线：
 bash ops/05/07/run.sh render rules
+bash ops/05/07/run.sh check-rules
 bash ops/05/07/run.sh install
 bash ops/05/07/run.sh check
 bash ops/05/07/run.sh render rollout-patch

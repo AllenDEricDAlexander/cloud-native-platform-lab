@@ -16,6 +16,9 @@
     test "$(hostname -f)" = build01.svc.internal.egon.top
     test "$(getenforce)" = Enforcing
     systemctl is-active --quiet firewalld
+    if rpm -q zabbix-server-pgsql >/dev/null 2>&1; then
+      test "$(cat /etc/zabbix/.cnpl05-server-owner)" = {{ run_id | quote }}
+    fi
     test "$(findmnt -n -o FSTYPE -T /var/lib)" != ceph
     test "$(findmnt -n -o FSTYPE -T /var/lib)" != nfs4
     if test -f /var/lib/pgsql/data/PG_VERSION; then
@@ -32,6 +35,13 @@
   ansible.builtin.include_tasks: '{{ playbook_dir }}/packages.yml'
   vars:
     zbx_packages: '{{ zbx_server_packages }}'
+- name: 记录 Server 归属
+  ansible.builtin.copy:
+    dest: /etc/zabbix/.cnpl05-server-owner
+    content: '{{ run_id }}'
+    owner: root
+    group: root
+    mode: '0600'
 - name: 首次初始化专用 PostgreSQL
   ansible.builtin.command: postgresql-setup --initdb
   args: {creates: /var/lib/pgsql/data/PG_VERSION}
@@ -58,14 +68,16 @@
     set -euo pipefail
     if ! psql -XAt postgres -c "SELECT 1 FROM pg_roles WHERE rolname='zabbix'" | grep -qx 1; then
       createuser zabbix
+      echo CREATED_ROLE
     fi
     if ! psql -XAt postgres -c "SELECT 1 FROM pg_database WHERE datname='zabbix'" | grep -qx 1; then
       createdb -O zabbix zabbix
+      echo CREATED_DATABASE
     fi
   args: {executable: /bin/bash}
   become_user: postgres
   register: zbx_db_created
-  changed_when: false
+  changed_when: "'CREATED_' in zbx_db_created.stdout"
 - name: 核对数据库 schema 状态
   ansible.builtin.command: psql -XAt zabbix -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"
   become_user: postgres
@@ -88,7 +100,7 @@
     argv: [psql, -X, -v, ON_ERROR_STOP=1, postgres]
     stdin: "ALTER ROLE zabbix PASSWORD '{{ zbx_db_password }}';"
   become_user: postgres
-  changed_when: false
+  changed_when: true
   no_log: true
   when: zbx_tables.stdout | int == 0
 - name: 记录专用数据库秘密摘要，重跑不重置口令

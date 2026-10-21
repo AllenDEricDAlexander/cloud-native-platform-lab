@@ -20,10 +20,11 @@ private_file() {
 private_temp() { [[ -n $PRIVATE_TEMP ]] || PRIVATE_TEMP=$(mktemp -d); export PRIVATE_TEMP; }
 finish() {
     local rc=$?
+    local recovery_failed=false
     trap - EXIT
-    if [[ -n $RECOVERY_FUNCTION ]]; then "$RECOVERY_FUNCTION" || rc=1; fi
-    [[ -z $PRIVATE_TEMP ]] || rm -rf -- "$PRIVATE_TEMP" || rc=1
-    jq -n --arg action "$ACTION" --argjson code "$rc" --arg time "$(date -u +%FT%TZ)" '{action:$action,exit_code:$code,finished_at:$time,runtime_accepted:false,phase_complete:false}' > "$ATTEMPT/result.json"
+    if [[ -n $RECOVERY_FUNCTION ]] && ! "$RECOVERY_FUNCTION"; then recovery_failed=true; [[ $rc != 0 ]] || rc=1; fi
+    if [[ -n $PRIVATE_TEMP ]] && ! rm -rf -- "$PRIVATE_TEMP"; then [[ $rc != 0 ]] || rc=1; fi
+    jq -n --arg action "$ACTION" --argjson code "$rc" --argjson recovery_failed "$recovery_failed" --arg time "$(date -u +%FT%TZ)" '{action:$action,exit_code:$code,recovery_failed:$recovery_failed,finished_at:$time,runtime_accepted:false,phase_complete:false}' > "$ATTEMPT/result.json"
     printf '证据：%s（exit=%s，不代表阶段验收）\n' "$ATTEMPT" "$rc"
     exit "$rc"
 }
@@ -37,6 +38,8 @@ start() {
     export P05 REPO INPUTS MATERIALS RUN STAGE ACTION ATTEMPT
     export CNPL05_INPUTS="$INPUTS" CNPL05_MATERIALS="$MATERIALS"
     trap finish EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     jq -n --arg rev "$(git -C "$REPO" rev-parse HEAD)" --arg input "$(sha "$INPUTS")" --arg material "$(sha "$MATERIALS")" --arg time "$(date -u +%FT%TZ)" --arg run "$RUN" --arg stage "$STAGE" '{source_revision:$rev,inputs_sha256:$input,materials_sha256:$material,started_at:$time,run_id:$run,stage:$stage}' > "$ATTEMPT/context.json"
 }
 material() { ruby "$P05/lib/config.rb" material "$1"; }
@@ -95,9 +98,9 @@ chart() {
 http() {
     local config=$1 url=$2
     shift 2
-    private_file "$config"
+    private_file "$config" || return
     [[ $url == https://* && $url != *'@'* && $url != *'?'* && $url != *'#'* ]] || die 'API 必须使用无内嵌凭据的 HTTPS URL'
-    ruby "$P05/lib/http-config.rb" "$config" "$url"
+    ruby "$P05/lib/http-config.rb" "$config" "$url" || return
     curl --config "$config" --fail --silent --show-error --connect-timeout 5 --max-time 60 --proto '=https' "$@" "$url"
 }
 query() {

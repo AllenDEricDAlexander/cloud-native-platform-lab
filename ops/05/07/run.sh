@@ -7,10 +7,17 @@ case "$action" in
     render) exec ruby "$P05/07/render.rb" "${2:-resources}" ;;
     timeline-append) exec ruby "$P05/07/timeline.rb" append ;;
     timeline-report) exec ruby "$P05/07/timeline.rb" report ;;
-    install|check|analysis-run|rollout-check) ;;
-    *) die '用法：07/run.sh validate|render [resources|rules|rollout-patch]|install|check|analysis-run|rollout-check|timeline-append|timeline-report' ;;
+    install|check|analysis-run|rollout-check|check-rules) ;;
+    *) die '用法：07/run.sh validate|render [resources|rules|rollout-patch]|check-rules|install|check|analysis-run|rollout-check|timeline-append|timeline-report' ;;
 esac
 start 07 "$action"
+if [[ $action == check-rules ]]; then
+    info=$(material prometheus_tools); tool=$(jq -er .file <<< "$info")
+    private_temp
+    ruby "$P05/07/render.rb" rules > "$PRIVATE_TEMP/slo-rules.yaml"
+    "$tool" check rules "$P05/02/rules.yaml" "$P05/03/rules.yaml" "$PRIVATE_TEMP/slo-rules.yaml" > "$ATTEMPT/promtool.txt"
+    exit
+fi
 cluster_gate
 case "$action" in
     install)

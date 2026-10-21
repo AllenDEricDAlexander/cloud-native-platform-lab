@@ -52,5 +52,6 @@ done
 printf 'PASS Ansible syntax-check（只解析，不执行任务）\n'
 [[ ! -f $root/tests/offline.rb ]] || ruby "$root/tests/offline.rb"
 [[ ! -f $root/tests/render.rb ]] || ruby "$root/tests/render.rb"
+[[ ! -f $root/tests/guards.rb ]] || ruby "$root/tests/guards.rb"
 [[ ! -f $root/lib/coverage.rb ]] || ruby "$root/lib/coverage.rb"
 printf 'PASS Phase 05 离线检查；未联网、未部署、未执行正式实验。\n'

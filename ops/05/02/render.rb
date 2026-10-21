@@ -24,11 +24,13 @@ when "values"
   values["grafana"]["sidecar"]["datasources"] = {"enabled"=>true,"label"=>"grafana_datasource"}
   values["prometheus"]["prometheusSpec"]["scrapeConfigSelector"] = values["commonLabels"].then { |labels| {"matchLabels"=>labels} }
   values["prometheus"]["prometheusSpec"]["enableOTLPReceiver"] = true
+  values["alertmanager"]["alertmanagerSpec"]["useExistingSecret"] = true
   puts YAML.dump(values)
 when "resources"
   groups = YAML.load_file(File.join(__dir__,"rules.yaml")).fetch("groups")
   items = [object("PrometheusRule","cnpl05-platform",ns,{"spec"=>{"groups"=>groups}},"monitoring.coreos.com/v1")]
   dashboard = JSON.parse(File.read(File.join(__dir__,"dashboard.json")))
+  dashboard["tags"] << "cnpl05-#{required('run_id')}"
   cm = object("ConfigMap","cnpl05-platform-dashboard",ns,{"data"=>{"platform.json"=>JSON.generate(dashboard)}})
   cm["metadata"]["labels"] = {"grafana_dashboard"=>"1"}; items << cm
   items << object("HTTPRoute","grafana",ns,{"spec"=>{"parentRefs"=>[{"name"=>required("metrics","gateway_name"),"namespace"=>required("metrics","gateway_namespace")}],"hostnames"=>["grafana.k8s.internal.egon.top"],"rules"=>[{"backendRefs"=>[{"name"=>"cnpl05-grafana","port"=>80}]}]}},"gateway.networking.k8s.io/v1")

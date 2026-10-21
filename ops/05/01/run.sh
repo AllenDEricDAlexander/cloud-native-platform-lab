@@ -12,11 +12,16 @@ esac
 start 01 "$action"
 ansible=${CNPL05_ANSIBLE:-$HOME/.venvs/cnpl-ansible/bin/ansible-playbook}
 [[ -x $ansible ]] || die '缺少既有 Ansible，请设置 CNPL05_ANSIBLE'
-vars=$(required .zabbix.private_vars_file)
-private_file "$vars"
 ruby "$P05/lib/config.rb" hosts > "$ATTEMPT/hosts.json"
 private_temp
-ruby "$P05/01/prepare.rb" "$vars" "$action" > "$PRIVATE_TEMP/zabbix.json"
+vars_args=(--extra-vars "@$INPUTS")
+if [[ $action != inspect ]]; then
+    vars=$(required .zabbix.private_vars_file)
+    private_file "$vars"
+    ruby "$P05/01/prepare.rb" "$vars" "$action" > "$PRIVATE_TEMP/zabbix.json"
+    vars_args=(--extra-vars "@$vars" --extra-vars "@$PRIVATE_TEMP/zabbix.json" --extra-vars "@$INPUTS")
+fi
+[[ $(required .zabbix.inventory) == ops/00-preparation/ansible/inventories/lab/hosts.yml ]] || die 'Zabbix 仅复用现有派生 Inventory'
 export ANSIBLE_CONFIG="$REPO/ops/00-preparation/ansible/ansible.cfg"
 export ANSIBLE_ROLES_PATH="$P05/01/roles:$REPO/ops/00-preparation/ansible/roles"
 export ANSIBLE_DISPLAY_ARGS_TO_STDOUT=false ANSIBLE_LOG_PATH=/dev/null
@@ -26,4 +31,4 @@ case "$action" in
     configure) playbook=configure.yml ;;
     verify) playbook=verify.yml ;;
 esac
-"$ansible" -i "$REPO/$(required .zabbix.inventory)" "$P05/01/$playbook" --extra-vars "@$vars" --extra-vars "@$INPUTS" --extra-vars "@$PRIVATE_TEMP/zabbix.json" > "$ATTEMPT/ansible.txt" 2>&1
+"$ansible" -i "$REPO/$(required .zabbix.inventory)" "$P05/01/$playbook" "${vars_args[@]}" > "$ATTEMPT/ansible.txt" 2>&1

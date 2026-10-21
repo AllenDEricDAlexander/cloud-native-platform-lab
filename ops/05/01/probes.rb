@@ -1,9 +1,7 @@
 #!/usr/bin/env ruby
 require "json"
-require "digest"
 def probe_export(run)
   host = "build01.svc.internal.egon.top"
-  uuid = lambda { |s| Digest::SHA256.hexdigest("cnpl05-#{run}-#{s}")[0,32] }
   checks = [
     ["DNS resolves Harbor","net.dns[192.168.9.11,harbor.k8s.internal.egon.top,A]","ZABBIX_ACTIVE",nil],
     ["Kubernetes API TCP","net.tcp.service[tcp,192.168.9.100,6443]","SIMPLE",nil],
@@ -14,7 +12,7 @@ def probe_export(run)
   items = checks.map do |name,key,type,url|
     item = {"name"=>name,"type"=>type,"key"=>key,"delay"=>"60s","history"=>"7d","trends"=>"90d","value_type"=>(url ? "TEXT" : "UNSIGNED"),"timeout"=>"5s"}
     item.merge!({"url"=>url,"ssl_verify_peer"=>"YES","ssl_verify_host"=>"YES","follow_redirects"=>"NO"}) if url
-    item["triggers"] = [{"uuid"=>uuid.call(key),"name"=>"#{name} unavailable or stale","expression"=>(url ? "nodata(/#{host}/#{key},3m)=1" : "max(/#{host}/#{key},2m)=0 or nodata(/#{host}/#{key},3m)=1"),"priority"=>"HIGH"}]
+    item["triggers"] = [{"name"=>"#{name} unavailable or stale","expression"=>(url ? "nodata(/#{host}/#{key},3m)=1" : "max(/#{host}/#{key},2m)=0 or nodata(/#{host}/#{key},3m)=1"),"priority"=>"HIGH"}]
     item
   end
   {"zabbix_export"=>{"version"=>"7.0","hosts"=>[{"host"=>host,"items"=>items}]}}

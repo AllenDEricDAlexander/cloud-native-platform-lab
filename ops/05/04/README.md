@@ -15,6 +15,8 @@ bash ops/05/04/run.sh trace-check
 
 输入 `otel`：tls_secret/server CA、client_secret 客户证书/CA、tempo_endpoint（host:4317）、loki_endpoint（HTTPS /otlp）、metrics_endpoint（HTTPS /api/v1/otlp）、authorized_namespaces、sample_percent。各服务端证书 SAN 与 mTLS 客户授权现场验证。Collector 镜像键 otel_collector；原生 CLI 键 otel_collector_cli。Prometheus 需显式启用 OTLP receiver 并通过 TLS 代理，metrics 与 logs 各走支持该信号的后端，不发送给 Tempo。
 
+logs_backend 默认 disabled，避免与 ELK 重复全量写入。选择 loki 时才需要 loki_endpoint，并拒绝与 elk.selected_namespaces 重叠；短时同样本对比使用两个隔离命名空间回放相同数据集。Prometheus 与 Tempo 管道不受该日志开关影响。
+
 `instrumentation.json` 提供七语言接入配置。Java/.NET/Node/Python 的自动插桩包单独锁版本和摘要，挂载到既有 Phase 04 样例，不改业务镜像依赖；准确启动方式按该发行版兼容说明确认。Rust/C/C++ 使用已有业务的手动 SDK/桥接适配，按 required_hooks 编译与测试，不宣称只设环境变量就自动接入。`context.py` 提供可复用 W3C carrier 与同步 parent/异步 link 的参考语义；七语言真实 SDK 编译与接入仍需其服务仓库实现/验证。
 
 应用设置 service.name/namespace/version/instance 和 deployment.environment.name；禁止采集请求体、SQL 文本、Token 和动态 URL 标签。发送 `CNPL_TEST_SECRET_<随机值>` 到受控测试日志/属性，查询日志和 Trace 确认已过滤；同时验证用户 A 的查询身份不能读取团队 B（访问控制由既有网关/身份层承担）。不要把真实秘密当测试样本。

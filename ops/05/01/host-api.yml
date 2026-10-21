@@ -32,6 +32,10 @@
         - {macro: '{$NET.IF.IFNAME.NOT_MATCHES}', value: '(^lo$|^veth|^cali|^cilium|^docker|^br-)'}
         - {macro: '{$VFS.FS.FSTYPE.NOT_MATCHES}', value: '^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2)$'}
   no_log: true
+- name: 用配置摘要辨别 API 重跑，PSK 不回显
+  ansible.builtin.set_fact:
+    zbx_desired: '{{ zbx_desired | combine({"description": "cnpl05-" ~ run_id ~ ":" ~ (zbx_desired | to_json | hash("sha256"))}) }}'
+  no_log: true
 - name: 创建或更新本批主机
   ansible.builtin.uri:
     url: '{{ zbx_api_url }}'
@@ -46,5 +50,6 @@
       id: 6
   no_log: true
   register: zbx_host_update
-  changed_when: zbx_existing.json.result | length == 0
+  when: zbx_existing.json.result | length == 0 or zbx_existing.json.result[0].description != zbx_desired.description
+  changed_when: true
   failed_when: zbx_host_update.json.result is not defined

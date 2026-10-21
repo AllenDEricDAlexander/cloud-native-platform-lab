@@ -12,10 +12,19 @@ processors["transform/privacy"]["metric_statements"] = [{"context"=>"resource","
 processors["transform/privacy"]["trace_statements"] << {"context"=>"spanevent","statements"=>['keep_keys(attributes, ["error.type"])','replace_pattern(name, "CNPL_TEST_SECRET_[A-Za-z0-9_-]+", "[REDACTED]")']}
 agent = {"receivers"=>receiver,"processors"=>processors.reject { |k,_| k=="tail_sampling" },"exporters"=>{"otlp/gateway"=>queue.merge({"endpoint"=>"otel-gateway.#{ns}.svc:4317","tls"=>tls})},"service"=>{"pipelines"=>{}}}
 %w[traces metrics logs].each { |signal| agent["service"]["pipelines"][signal] = {"receivers"=>["otlp"],"processors"=>["memory_limiter","transform/privacy","batch"],"exporters"=>["otlp/gateway"]} }
-gateway = {"receivers"=>receiver,"processors"=>processors,"exporters"=>{"otlp/tempo"=>queue.merge({"endpoint"=>required("otel","tempo_endpoint"),"tls"=>tls}),"otlphttp/loki"=>queue.merge({"endpoint"=>required("otel","loki_endpoint"),"tls"=>tls}),"otlphttp/metrics"=>queue.merge({"endpoint"=>required("otel","metrics_endpoint"),"tls"=>tls})},"service"=>{"pipelines"=>{}}}
+gateway = {"receivers"=>receiver,"processors"=>processors,"exporters"=>{"otlp/tempo"=>queue.merge({"endpoint"=>required("otel","tempo_endpoint"),"tls"=>tls}),"otlphttp/loki"=>queue.merge({"endpoint"=>INPUT.dig("otel","loki_endpoint"),"tls"=>tls}),"otlphttp/metrics"=>queue.merge({"endpoint"=>required("otel","metrics_endpoint"),"tls"=>tls})},"service"=>{"pipelines"=>{}}}
 %w[traces metrics logs].zip(%w[otlp/tempo otlphttp/metrics otlphttp/loki]).each { |signal,exporter| gateway["service"]["pipelines"][signal]={"receivers"=>["otlp"],"processors"=>["memory_limiter","transform/privacy"]+(signal=="traces" ? ["tail_sampling"] : [])+["batch"],"exporters"=>[exporter]} }
 [agent,gateway].each { |c| c["service"]["telemetry"]={"metrics"=>{"readers"=>[{"pull"=>{"exporter"=>{"prometheus"=>{"host"=>"0.0.0.0","port"=>8888}}}}]}} }
 %w[otlp/tempo otlphttp/loki].each { |key| gateway["exporters"][key]["headers"]={"X-Scope-OrgID"=>required("run_id")} }
+logs_backend = required("otel","logs_backend")
+abort "otel.logs_backend 只能是 disabled/loki" unless %w[disabled loki].include?(logs_backend)
+if logs_backend=="disabled"
+  gateway["exporters"].delete("otlphttp/loki")
+  [agent,gateway].each { |c| c["service"]["pipelines"].delete("logs") }
+else
+  required("otel","loki_endpoint")
+  abort "ELK/Loki 不能默认同时采集相同 namespace；有限对照需用隔离命名空间" unless (required("otel","authorized_namespaces") & INPUT.dig("elk","selected_namespaces").to_a).empty?
+end
 if %w[agent-config gateway-config].include?(ARGV[0])
   puts YAML.dump(ARGV[0]=="agent-config" ? agent : gateway)
   exit

@@ -27,6 +27,7 @@ when "resources"
   config += "\n[FILTER]\n    Name grep\n    Match kube.*\n    Regex namespace ^(#{selected.join('|')})$\n"
   if route=="logstash"
     config += "\n[OUTPUT]\n    Name http\n    Match kube.*\n    Host logstash.#{ns}.svc\n    Port 8080\n    URI /\n    Format json\n    tls On\n    tls.verify On\n    tls.ca_file /tls/ca.crt\n    tls.crt_file /tls/tls.crt\n    tls.key_file /tls/tls.key\n    Retry_Limit 5\n    storage.total_limit_size 128M\n"
+    config += "    Json_Date_Key @timestamp\n    Json_Date_Format iso8601\n"
   else
     uri = URI(required("elk","url")); abort "ES URL 必须 HTTPS 无路径" unless uri.scheme=="https" && ["","/"].include?(uri.path) && !uri.userinfo
     config += "\n[OUTPUT]\n    Name es\n    Match kube.*\n    Host #{uri.host}\n    Port #{uri.port}\n    HTTP_User ${ES_USER}\n    HTTP_Passwd ${ES_PASSWORD}\n    Logstash_Format On\n    Logstash_Prefix #{prefix}-direct\n    Logstash_DateFormat %Y.%m.%d\n    Suppress_Type_Name On\n    Generate_ID On\n    tls On\n    tls.verify On\n    tls.ca_file /es-ca/ca.crt\n    Retry_Limit 5\n    storage.total_limit_size 128M\n"

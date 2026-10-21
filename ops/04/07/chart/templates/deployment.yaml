@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: 1
+  {{- end }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: {{ .Release.Name }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: {{ .Release.Name }}}
+    spec:
+      serviceAccountName: application
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: app
+          image: {{ required "image Digest is required" .Values.image | quote }}
+          ports: [{name: http, containerPort: 8080}]
+          env:
+            - {name: APP_ENV, value: {{ .Values.environment | quote }}}
+            - {name: PYTHONDONTWRITEBYTECODE, value: '1'}
+          {{- if .Values.configSecret }}
+          envFrom: [{secretRef: {name: {{ .Values.configSecret }}}}]
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          startupProbe: {httpGet: {path: /health, port: http}, failureThreshold: 30, periodSeconds: 5}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 128Mi}}]

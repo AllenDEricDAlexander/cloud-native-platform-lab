@@ -1,0 +1,12 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: {name: {{ .Release.Name }}}
+spec:
+  parentRefs:
+    - name: {{ required "Gateway name required" .Values.gateway.name }}
+      namespace: {{ required "Gateway namespace required" .Values.gateway.namespace }}
+  hostnames: [{{ required "Hostname required" .Values.gateway.hostname | quote }}]
+  rules:
+    - backendRefs: [{name: {{ .Release.Name }}, port: 8080}]
+{{- end }}

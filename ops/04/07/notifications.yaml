@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: argocd-notifications-cm, namespace: argocd}
+data:
+  trigger.on-deployed: |
+    - when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+      oncePer: app.status.sync.revision
+      send: [deployment-result]
+  trigger.on-failed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [deployment-result]
+  template.deployment-result: |
+    message: '{{.app.metadata.name}} revision={{.app.status.sync.revision}} health={{.app.status.health.status}}'
+  # 接收服务/订阅在现场锁定values中配置；令牌只引用预先管理的Secret。

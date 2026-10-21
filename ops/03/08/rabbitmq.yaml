@@ -1,0 +1,28 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata: {name: rabbitmq}
+spec:
+  replicas: 3
+  image: harbor.k8s.internal.egon.top/unconfigured/rabbitmq:pending
+  persistence: {storageClassName: cnpl03-rbd, storage: 2Gi}
+  resources: {requests: {cpu: 100m, memory: 512Mi}, limits: {memory: 1Gi}}
+  tls: {secretName: middleware-tls, caSecretName: middleware-tls, disableNonTLSListeners: true}
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: cnpl.io/esxi
+          labelSelector: {matchLabels: {app.kubernetes.io/name: rabbitmq}}
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions: [{key: cnpl.io/phase03-data, operator: In, values: ['true']}]
+  tolerations: [{operator: Exists, effect: NoSchedule}]
+  rabbitmq:
+    additionalConfig: |
+      default_queue_type = quorum
+      disk_free_limit.absolute = 512MB
+      management.tcp.port = none
+      management.ssl.port = 15671
+      management.ssl.cacertfile = /etc/rabbitmq-tls/ca.crt
+      management.ssl.certfile = /etc/rabbitmq-tls/tls.crt
+      management.ssl.keyfile = /etc/rabbitmq-tls/tls.key

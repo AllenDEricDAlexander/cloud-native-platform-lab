@@ -22,6 +22,10 @@ private_file() {
     case "$1" in "$REPO"/*) die '秘密文件必须放在仓库外' ;; esac
     ruby -e 's=File.stat(ARGV[0]); abort "秘密文件所有者或权限不符" unless s.uid==Process.uid && (s.mode & 077)==0' "$1"
 }
+hex_secret() {
+    private_file "$1"
+    ruby -e 'abort "口令须为单行 32-128 位十六进制" unless File.read(ARGV[0]).match?(/\A[a-f0-9]{32,128}\n?\z/)' "$1"
+}
 host_value() {
     ruby -ryaml -e 'h=YAML.load_file(ARGV[0]); n=(h.fetch("kubernetes_nodes")+h.fetch("lab_clients",[])).find{|v|v["id"]==ARGV[1]}; abort "未登记主机" unless n; v=n[ARGV[2]]; abort "台账字段未知" if v.nil?; puts v' "$REPO/ops/inventory/hosts.yaml" "$1" "$2"
 }
@@ -132,6 +136,7 @@ apply() {
     rendered=$(mktemp)
     if [[ $file == *.json ]]; then cat "$file"; else yaml_json "$file"; fi |
         jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then . else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","PersistentVolume","StorageClass","CSIDriver","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding","PriorityClass","MutatingWebhookConfiguration","ValidatingWebhookConfiguration","APIService")) then . else .metadata.namespace=$ns end)' > "$rendered"
+    if ! ruby "$P03/lib/review.rb" images-json "$rendered"; then rm -f "$rendered"; return 1; fi
     while IFS=$'\t' read -r kind name scope; do
         if [[ $scope == '-' ]]; then existing=$(k get "$kind" "$name" --ignore-not-found -o json); else existing=$(k -n "$scope" get "$kind" "$name" --ignore-not-found -o json); fi
         [[ -z $existing ]] || jq -e --arg run "$RUN" '.metadata.labels["cnpl.io/run"]==$run and .metadata.labels["cnpl.io/phase"]=="03"' <<< "$existing" >/dev/null || die "拒绝接管已有对象：$kind/$name"
@@ -189,7 +194,7 @@ secret_from_files() {
     for arg in "$@"; do path=${arg#*=}; private_file "$path"; done
     file=$(mktemp "$ATTEMPT/secret.XXXXXX.json")
     local args=(); for arg in "$@"; do args+=(--from-file="$arg"); done
-    k -n "$ns" create secret generic "$name" "${args[@]}" --dry-run=client -o json > "$file"
+    k -n "$ns" create secret generic "$name" "${args[@]}" --dry-run=client -o json | jq '.immutable=true' > "$file"
     apply "$file" "$ns" >/dev/null
     rm -f "$file"
 }

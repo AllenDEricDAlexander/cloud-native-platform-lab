@@ -27,11 +27,16 @@ def documents(path)
   YAML.load_stream(File.read(path)).compact
 end
 case ARGV.shift
-when "images"
-  documents(ARGV.fetch(0)).each do |doc|
+when "images", "images-json"
+  path = ARGV.fetch(0)
+  docs = File.extname(path) == ".json" ? [JSON.parse(File.read(path))] : documents(path)
+  docs.each do |doc|
     walk(doc) do |node|
-      next unless node.is_a?(Hash) && node["image"].is_a?(String)
-      reject("渲染镜像未锁内网 Digest") unless node["image"].match?(%r{\Aharbor\.k8s\.internal\.egon\.top/.+@sha256:[0-9a-f]{64}\z})
+      next unless node.is_a?(Hash)
+      %w[image imageName].each do |key|
+        next unless node[key].is_a?(String)
+        reject("渲染镜像未锁内网 Digest") unless node[key].match?(%r{\Aharbor\.k8s\.internal\.egon\.top/.+@sha256:[0-9a-f]{64}\z})
+      end
     end
   end
 when "devices"

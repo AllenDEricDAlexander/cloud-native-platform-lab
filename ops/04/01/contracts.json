@@ -1,0 +1,17 @@
+{
+  "languages": ["java", "rust", "c", "cpp", "csharp", "jsts", "python"],
+  "ci": ["gitlab", "jenkins"],
+  "platform": "linux/amd64",
+  "repositories": {
+    "source": "application source only",
+    "platform": "reviewed versioned CI templates and infrastructure",
+    "gitops": "reviewed environment declarations only; no CI pipeline trigger on bot updates"
+  },
+  "environments": ["dev", "staging", "prod-like"],
+  "release_required": ["language", "ci", "source_revision", "pipeline_url", "builder_image", "image", "native_artifact_sha256", "tests", "sbom_sha256", "provenance_sha256"],
+  "http": {"port": 8080, "health": "/health", "readiness": "/ready", "metrics": "/metrics", "termination_grace_seconds": 30},
+  "worker": {"health": "exit status and acknowledged input/output checksum", "native_artifact": true},
+  "promotion": "same immutable Digest; no rebuild across environments",
+  "migration": "new immutable version; application rollback does not roll back data schema",
+  "runtime_accepted": false
+}

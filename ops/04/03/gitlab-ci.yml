@@ -1,0 +1,79 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH || $CI_COMMIT_TAG'
+stages: [verify, package, security, propose, observe]
+default:
+  interruptible: true
+  timeout: 30m
+  retry:
+    max: 1
+    when: [runner_system_failure, stuck_or_timeout_failure]
+variables:
+  CI_FLAVOR: gitlab
+verify:
+  stage: verify
+  image: $BUILDER_IMAGE
+  tags: [cnpl-verify]
+  script:
+    - export SOURCE_REVISION="$CI_COMMIT_SHA" PIPELINE_URL="$CI_PIPELINE_URL"
+    - bash ops/04/05/build.sh "$LANGUAGE"
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths: [ops/04/05/examples/*/dist/]
+package:
+  stage: package
+  image: $RELEASE_TOOLS_IMAGE
+  tags: [cnpl-release]
+  needs: [verify]
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  script:
+    - export SOURCE_REVISION="$CI_COMMIT_SHA" PIPELINE_URL="$CI_PIPELINE_URL"
+    - bash ops/04/03/shared/package.sh
+  artifacts:
+    expire_in: 30 days
+    paths: [release/]
+security:
+  stage: security
+  image: $RELEASE_TOOLS_IMAGE
+  tags: [cnpl-release]
+  needs: [package]
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+  script: [bash ops/04/08/supply-chain.sh]
+  artifacts:
+    expire_in: 30 days
+    paths: [release/]
+propose:
+  stage: propose
+  image: $RELEASE_TOOLS_IMAGE
+  tags: [cnpl-release]
+  needs: [security]
+  interruptible: false
+  resource_group: gitops-$APP_NAME-$ENVIRONMENT
+  retry: 0
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+      when: manual
+      allow_failure: false
+  script: [bash ops/04/03/shared/gitops.sh]
+  artifacts:
+    expire_in: 30 days
+    paths: [release/]
+observe:
+  stage: observe
+  image: $RELEASE_TOOLS_IMAGE
+  tags: [cnpl-release]
+  needs: [propose]
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+      when: manual
+      allow_failure: false
+  script: [bash ops/04/03/shared/observe.sh]
+  artifacts:
+    expire_in: 30 days
+    paths: [release/]

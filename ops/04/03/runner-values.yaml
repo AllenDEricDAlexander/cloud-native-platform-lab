@@ -1,0 +1,40 @@
+# 与所选 gitlab-runner Chart 核对后合入仓库外 values_file，再锁定 SHA。
+gitlabUrl: https://gitlab.svc.internal.egon.top
+concurrent: 2
+checkInterval: 10
+rbac:
+  create: true
+  clusterWideAccess: false
+serviceAccount:
+  create: true
+  name: runner-manager
+runners:
+  secret: cnpl-runner-auth
+  config: |
+    [[runners]]
+      executor = "kubernetes"
+      [runners.kubernetes]
+        namespace = "ci-gitlab"
+        service_account = "application"
+        privileged = false
+        allow_privilege_escalation = false
+        cpu_request = "250m"
+        cpu_limit = "1"
+        memory_request = "512Mi"
+        memory_limit = "2Gi"
+        ephemeral_storage_request = "1Gi"
+        ephemeral_storage_limit = "4Gi"
+        poll_timeout = 300
+      [runners.kubernetes.node_selector]
+        "node-role.kubernetes.io/worker" = ""
+      [runners.kubernetes.pod_security_context]
+        run_as_non_root = true
+        run_as_user = 1000
+        run_as_group = 1000
+        fs_group = 1000
+      [runners.kubernetes.pod_labels]
+        "cnpl.io/trust" = "untrusted"
+        "cnpl.io/purpose" = "ci-job"
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 250m, memory: 256Mi}

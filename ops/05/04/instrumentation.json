@@ -1,0 +1,12 @@
+{
+  "languages": {
+    "java": {"mode": "auto", "launcher": "java", "environment": {"JAVA_TOOL_OPTIONS": "-javaagent:/otel/opentelemetry-javaagent.jar"}, "material": "otel_java_agent"},
+    "csharp": {"mode": "auto", "launcher": "/otel/instrument.sh dotnet app.dll", "environment": {"OTEL_DOTNET_AUTO_HOME": "/otel"}, "material": "otel_dotnet_auto"},
+    "jsts": {"mode": "auto", "launcher": "node --require @opentelemetry/auto-instrumentations-node/register app.js", "environment": {}, "material": "otel_node_auto"},
+    "python": {"mode": "auto", "launcher": "opentelemetry-instrument python app.py", "environment": {}, "material": "otel_python_auto"},
+    "rust": {"mode": "manual", "sdk": "opentelemetry + tracing-opentelemetry", "material": "otel_rust_sdk", "required_hooks": ["server/client spans", "W3C inject/extract", "producer/consumer links", "trace/span log fields"]},
+    "c": {"mode": "manual", "sdk": "OpenTelemetry C/C++ version-compatible bridge", "material": "otel_c_bridge", "required_hooks": ["request lifecycle", "W3C inject/extract", "opaque C ABI handle", "flush/shutdown"]},
+    "cpp": {"mode": "manual", "sdk": "opentelemetry-cpp", "material": "otel_cpp_sdk", "required_hooks": ["RAII spans", "W3C inject/extract", "producer/consumer links", "flush/shutdown"]}
+  },
+  "common_environment": {"OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf", "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel-agent.telemetry.svc:4318", "OTEL_EXPORTER_OTLP_CERTIFICATE": "/otel/tls/ca.crt", "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE": "/otel/tls/tls.crt", "OTEL_EXPORTER_OTLP_CLIENT_KEY": "/otel/tls/tls.key", "OTEL_PROPAGATORS": "tracecontext,baggage", "OTEL_TRACES_SAMPLER": "always_on", "OTEL_BSP_MAX_QUEUE_SIZE": "1024", "OTEL_BSP_EXPORT_TIMEOUT": "5000"}
+}

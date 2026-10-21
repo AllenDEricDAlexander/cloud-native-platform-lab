@@ -1,0 +1,28 @@
+groups:
+  - name: cnpl05.infrastructure
+    rules:
+      - alert: CNPL05CephHealth
+        expr: ceph_health_status > 0
+        for: 2m
+        labels: {severity: critical, team: storage}
+        annotations: {summary: Ceph degraded; correlate PG/OSD/Datastore and recovery traffic}
+      - alert: CNPL05CephCapacity
+        expr: ceph_cluster_total_used_bytes / ceph_cluster_total_bytes > 0.70
+        for: 5m
+        labels: {severity: warning, team: storage}
+        annotations: {summary: Ceph logical usage exceeds lab early warning threshold}
+      - alert: CNPL05KafkaLag
+        expr: sum by (consumergroup, topic) (kafka_consumergroup_lag) > 20
+        for: 2m
+        labels: {severity: warning, team: messaging}
+        annotations: {summary: Consumer lag; check paused test consumers and broker storage}
+      - alert: CNPL05RabbitBacklog
+        expr: sum by (queue) (rabbitmq_queue_messages_ready) > 20
+        for: 2m
+        labels: {severity: warning, team: messaging}
+        annotations: {summary: RabbitMQ queue backlog}
+      - alert: CNPL05SourceMissing
+        expr: up{cnpl_source!=""} == 0
+        for: 2m
+        labels: {severity: warning, team: platform}
+        annotations: {summary: Infrastructure scrape source unavailable}

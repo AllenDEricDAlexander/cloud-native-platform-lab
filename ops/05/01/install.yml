@@ -1,0 +1,18 @@
+---
+- import_playbook: inspect.yml
+- name: 05.01.04 在 build01 共用部署集群外监控
+  hosts: build01
+  gather_facts: true
+  become: true
+  any_errors_fatal: true
+  roles:
+    - zabbix_server
+- import_playbook: configure.yml
+- name: 主动采集 Agent 2
+  hosts: k8s_nodes:bootstrap_services:lab_clients
+  serial: 2
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  roles:
+    - zabbix_agent

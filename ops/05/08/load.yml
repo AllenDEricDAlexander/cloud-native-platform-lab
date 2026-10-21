@@ -1,0 +1,96 @@
+---
+- name: build01 有界 k6 压测（仅用户显式运行 load 时执行）
+  hosts: build01
+  gather_facts: true
+  any_errors_fatal: true
+  vars:
+    load_dir: '/var/tmp/cnpl05-{{ run_id }}-{{ lookup("env", "ATTEMPT") | basename }}'
+  tasks:
+    - name: 核对既有测试 VM
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.fqdn == 'build01.svc.internal.egon.top'
+          - ansible_host == '192.168.9.160'
+          - ansible_facts.selinux.mode == 'enforcing'
+        quiet: true
+    - name: 专用本次测试目录
+      ansible.builtin.file: {path: '{{ load_dir }}', state: directory, mode: '0700'}
+    - name: 传输已锁定工具与测试源
+      ansible.builtin.copy:
+        src: '{{ item.src }}'
+        dest: '{{ load_dir }}/{{ item.dest }}'
+        mode: '{{ item.mode }}'
+      loop:
+        - {src: '{{ k6_file }}', dest: k6, mode: '0700'}
+        - {src: '{{ playbook_dir }}/load.js', dest: load.js, mode: '0600'}
+        - {src: '{{ playbook_dir }}/supervise.py', dest: supervise.py, mode: '0600'}
+        - {src: '{{ performance.dataset_file }}', dest: dataset.json, mode: '0600'}
+        - {src: '{{ performance.ca_file }}', dest: ca.crt, mode: '0600'}
+    - name: 工具 SHA 检查
+      ansible.builtin.stat: {path: '{{ load_dir }}/k6', checksum_algorithm: sha256}
+      register: load_tool
+    - name: 工具必须匹配本地锁
+      ansible.builtin.assert:
+        that: load_tool.stat.checksum == k6_sha256
+        quiet: true
+    - name: 安全监测凭据与可选业务令牌
+      block:
+        - name: 传输测试专用秘密
+          ansible.builtin.copy:
+            src: '{{ item.src }}'
+            dest: '{{ load_dir }}/{{ item.dest }}'
+            mode: '0600'
+          loop:
+            - {src: '{{ performance.safety_private_file }}', dest: safety-private.json}
+          no_log: true
+        - name: 可选业务令牌
+          ansible.builtin.copy:
+            src: '{{ performance.token_file }}'
+            dest: '{{ load_dir }}/token'
+            mode: '0600'
+          when: performance.token_file is not none
+          no_log: true
+        - name: 有限安全条件
+          ansible.builtin.copy:
+            content: '{{ performance.safety_queries | to_nice_json }}'
+            dest: '{{ load_dir }}/safety.json'
+            mode: '0600'
+        - name: 通过 supervisor 执行 k6，缺信号或超阈值立即停止本次进程组
+          ansible.builtin.command:
+            argv: [python3, '{{ load_dir }}/supervise.py', '{{ load_dir }}/safety-private.json', '{{ load_dir }}/safety.json', '{{ load_dir }}/k6', run, --quiet, --summary-export, '{{ load_dir }}/summary.json', '{{ load_dir }}/load.js']
+          environment:
+            CNPL_RUN: '{{ run_id }}'
+            CNPL_TARGET: '{{ performance.target_url }}'
+            CNPL_DATASET: '{{ load_dir }}/dataset.json'
+            CNPL_TOKEN_FILE: '{{ load_dir ~ "/token" if performance.token_file is not none else "" }}'
+            CNPL_VUS: '{{ performance.vus | string }}'
+            CNPL_DURATION: '{{ performance.duration_seconds | string }}'
+            CNPL_P95_MS: '{{ performance.p95_ms | string }}'
+            CNPL_ERROR_RATE: '{{ performance.error_rate | string }}'
+            SSL_CERT_FILE: '{{ load_dir }}/ca.crt'
+          register: load_result
+          failed_when: false
+          changed_when: true
+        - name: 保存实际退出码与受控输出
+          ansible.builtin.copy:
+            content: '{{ {"rc": load_result.rc, "stdout": load_result.stdout, "stderr": load_result.stderr} | to_nice_json }}'
+            dest: '{{ lookup("env", "ATTEMPT") }}/load-result.json'
+            mode: '0600'
+          delegate_to: localhost
+        - name: 取得 summary（失败时仍保留）
+          ansible.builtin.fetch:
+            src: '{{ load_dir }}/summary.json'
+            dest: '{{ lookup("env", "ATTEMPT") }}/summary.json'
+            flat: true
+            fail_on_missing: false
+        - name: 阈值或安全监督失败必须使入口失败
+          ansible.builtin.assert:
+            that: load_result.rc == 0
+            quiet: true
+      always:
+        - name: 删除本次远端明文秘密
+          ansible.builtin.file:
+            path: '{{ load_dir }}/{{ item }}'
+            state: absent
+          loop: [safety-private.json, token]
+          no_log: true

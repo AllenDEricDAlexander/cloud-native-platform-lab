@@ -1,0 +1,39 @@
+---
+- name: 查找单个本批集群外检查
+  ansible.builtin.uri:
+    url: '{{ zbx_api_url }}'
+    method: POST
+    ca_path: '{{ zbx_ca_file }}'
+    headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+    body_format: json
+    body: {jsonrpc: '2.0', method: item.get, params: {hostids: ['{{ zbx_probe_host.json.result[0].hostid }}'], filter: {key_: '{{ zbx_probe.key_ }}'}, output: extend}, id: 10}
+  no_log: true
+  register: zbx_probe_existing
+  failed_when: zbx_probe_existing.json.result is not defined
+- name: 拒绝覆盖非本批检查
+  ansible.builtin.assert:
+    that:
+      - zbx_probe_existing.json.result | length <= 1
+      - zbx_probe_existing.json.result | length == 0 or zbx_probe_existing.json.result[0].description is match('^cnpl05-' ~ run_id ~ ':')
+    quiet: true
+- name: 声明检查参数
+  ansible.builtin.set_fact:
+    zbx_probe_desired: '{{ zbx_probe | combine({"hostid": zbx_probe_host.json.result[0].hostid}) }}'
+  no_log: true
+- name: 创建或按变更更新检查
+  ansible.builtin.uri:
+    url: '{{ zbx_api_url }}'
+    method: POST
+    ca_path: '{{ zbx_ca_file }}'
+    headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: '{{ "item.create" if zbx_probe_existing.json.result | length == 0 else "item.update" }}'
+      params: '{{ zbx_probe_desired if zbx_probe_existing.json.result | length == 0 else zbx_probe_desired | combine({"itemid": zbx_probe_existing.json.result[0].itemid}) }}'
+      id: 11
+  when: zbx_probe_existing.json.result | length == 0 or zbx_probe_existing.json.result[0].description != zbx_probe.description
+  no_log: true
+  changed_when: true
+  register: zbx_probe_update
+  failed_when: zbx_probe_update.json.result is not defined

@@ -1,0 +1,65 @@
+---
+- name: 验证逐机 PSK
+  ansible.builtin.assert:
+    that:
+      - zbx_psks[inventory_hostname] is match('^[a-fA-F0-9]{64}$')
+    quiet: true
+  no_log: true
+- name: 不接管非本批次的 Agent
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if rpm -q zabbix-agent2 >/dev/null 2>&1; then
+      test "$(cat /etc/zabbix/.cnpl05-agent-owner)" = {{ run_id | quote }}
+    fi
+  args: {executable: /bin/bash}
+  changed_when: false
+- name: 安装 Agent 物料
+  ansible.builtin.include_tasks: '{{ playbook_dir }}/packages.yml'
+  vars:
+    zbx_packages: '{{ zbx_agent_packages }}'
+- name: 记录 Agent 归属
+  ansible.builtin.copy:
+    dest: /etc/zabbix/.cnpl05-agent-owner
+    content: '{{ run_id }}'
+    owner: root
+    group: root
+    mode: '0600'
+- name: 独立 PSK
+  ansible.builtin.copy:
+    content: '{{ zbx_psks[inventory_hostname] }}'
+    dest: /etc/zabbix/agent2.psk
+    owner: zabbix
+    group: zabbix
+    mode: '0600'
+  no_log: true
+  diff: false
+  notify: 重启 Agent 2
+- name: 主动 Agent 配置，不开放 10050
+  ansible.builtin.copy:
+    dest: /etc/zabbix/zabbix_agent2.conf
+    owner: root
+    group: zabbix
+    mode: '0640'
+    backup: true
+    content: |
+      # 由 ops/05/01 管理。
+      LogType=system
+      ServerActive=192.168.9.160:10051
+      Hostname={{ node_fqdn }}
+      ListenIP=127.0.0.1
+      TLSConnect=psk
+      TLSAccept=psk
+      TLSPSKIdentity=cnpl05-{{ inventory_hostname }}
+      TLSPSKFile=/etc/zabbix/agent2.psk
+      RefreshActiveChecks=60
+      BufferSize=1000
+      Timeout=10
+      DenyKey=system.run[*]
+  notify: 重启 Agent 2
+- name: 启动 Agent
+  ansible.builtin.systemd_service:
+    name: zabbix-agent2
+    enabled: true
+    state: started
+- name: 应用 Agent 配置
+  ansible.builtin.meta: flush_handlers

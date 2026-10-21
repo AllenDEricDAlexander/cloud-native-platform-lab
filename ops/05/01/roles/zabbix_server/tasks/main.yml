@@ -1,0 +1,201 @@
+---
+- name: 输入和密钥必须来自受控文件
+  ansible.builtin.assert:
+    that:
+      - zbx_db_password is match('^[A-Za-z0-9_-]{24,128}$')
+      - zbx_tls_cert_file is defined
+      - zbx_tls_key_file is defined
+      - lab_mgmt_sources | length > 0
+      - zbx_server_packages | length > 0
+      - zbx_web_sources | length > 0
+    quiet: true
+  no_log: true
+- name: 只使用 build01 既有本地文件系统
+  ansible.builtin.shell: |
+    set -euo pipefail
+    test "$(hostname -f)" = build01.svc.internal.egon.top
+    test "$(getenforce)" = Enforcing
+    systemctl is-active --quiet firewalld
+    if rpm -q zabbix-server-pgsql >/dev/null 2>&1; then
+      test "$(cat /etc/zabbix/.cnpl05-server-owner)" = {{ run_id | quote }}
+    fi
+    test "$(findmnt -n -o FSTYPE -T /var/lib)" != ceph
+    test "$(findmnt -n -o FSTYPE -T /var/lib)" != nfs4
+    if test -f /var/lib/pgsql/data/PG_VERSION; then
+      test "$(cat /var/lib/pgsql/data/.cnpl05-owner)" = {{ run_id | quote }}
+      test "$(cat /var/lib/pgsql/data/.cnpl05-password-sha256)" = {{ zbx_db_password | hash('sha256') | quote }}
+    else
+      test -z "$(find /var/lib/pgsql/data -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)"
+      ! ss -lntH | awk '{print $4}' | grep -Eq ':(5432|8443|10051)$'
+    fi
+  args: {executable: /bin/bash}
+  changed_when: false
+  no_log: true
+- name: 安装服务端物料
+  ansible.builtin.include_tasks: '{{ playbook_dir }}/packages.yml'
+  vars:
+    zbx_packages: '{{ zbx_server_packages }}'
+- name: 记录 Server 归属
+  ansible.builtin.copy:
+    dest: /etc/zabbix/.cnpl05-server-owner
+    content: '{{ run_id }}'
+    owner: root
+    group: root
+    mode: '0600'
+- name: 首次初始化专用 PostgreSQL
+  ansible.builtin.command: postgresql-setup --initdb
+  args: {creates: /var/lib/pgsql/data/PG_VERSION}
+- name: 记录本批数据库归属
+  ansible.builtin.copy:
+    dest: /var/lib/pgsql/data/.cnpl05-owner
+    content: '{{ run_id }}'
+    owner: postgres
+    group: postgres
+    mode: '0600'
+- name: PostgreSQL 仅监听本机，沿用默认 peer 认证
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = 'localhost'"
+  notify: 重启专用 PostgreSQL
+- name: 启动专用 PostgreSQL
+  ansible.builtin.systemd_service:
+    name: postgresql
+    enabled: true
+    state: started
+- name: 建立专用数据库与角色（不覆盖已有 schema）
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ! psql -XAt postgres -c "SELECT 1 FROM pg_roles WHERE rolname='zabbix'" | grep -qx 1; then
+      createuser zabbix
+      echo CREATED_ROLE
+    fi
+    if ! psql -XAt postgres -c "SELECT 1 FROM pg_database WHERE datname='zabbix'" | grep -qx 1; then
+      createdb -O zabbix zabbix
+      echo CREATED_DATABASE
+    fi
+  args: {executable: /bin/bash}
+  become_user: postgres
+  register: zbx_db_created
+  changed_when: "'CREATED_' in zbx_db_created.stdout"
+- name: 核对数据库 schema 状态
+  ansible.builtin.command: psql -XAt zabbix -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"
+  become_user: postgres
+  register: zbx_tables
+  changed_when: false
+- name: 只为确认为空的库导入 schema，事务失败整体回滚
+  ansible.builtin.shell: |
+    set -euo pipefail
+    test "$(sha256sum {{ zbx_schema_file | quote }} | cut -d' ' -f1)" = {{ zbx_schema_sha256 | quote }}
+    gzip -dc {{ zbx_schema_file | quote }} | psql -X -v ON_ERROR_STOP=1 --single-transaction zabbix
+  args: {executable: /bin/bash}
+  become_user: zabbix
+  when: zbx_tables.stdout | int == 0
+- name: 已有 schema 必须具备 Zabbix 版本表
+  ansible.builtin.command: psql -XAt zabbix -c "SELECT mandatory,optional FROM dbversion"
+  become_user: postgres
+  changed_when: false
+- name: 数据库口令采用 stdin，不进入 argv
+  ansible.builtin.command:
+    argv: [psql, -X, -v, ON_ERROR_STOP=1, postgres]
+    stdin: "ALTER ROLE zabbix PASSWORD '{{ zbx_db_password }}';"
+  become_user: postgres
+  changed_when: true
+  no_log: true
+  when: zbx_tables.stdout | int == 0
+- name: 记录专用数据库秘密摘要，重跑不重置口令
+  ansible.builtin.copy:
+    dest: /var/lib/pgsql/data/.cnpl05-password-sha256
+    content: '{{ zbx_db_password | hash("sha256") }}'
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  no_log: true
+- name: 服务端配置
+  ansible.builtin.template:
+    src: zabbix_server.conf.j2
+    dest: /etc/zabbix/zabbix_server.conf
+    owner: root
+    group: zabbix
+    mode: '0640'
+    backup: true
+  diff: false
+  no_log: true
+  notify: 重启 Zabbix Server
+- name: 外部 HTTPS 探测使用内部 CA
+  ansible.builtin.copy:
+    src: '{{ zbx_ca_file }}'
+    dest: /etc/pki/ca-trust/source/anchors/cnpl05-ca.crt
+    mode: '0644'
+  register: zbx_ca_installed
+- name: 更新系统信任
+  ansible.builtin.command: update-ca-trust extract
+  when: zbx_ca_installed.changed
+- name: 独立 Web 证书目录
+  ansible.builtin.file:
+    path: /etc/zabbix/cnpl05-tls
+    state: directory
+    mode: '0700'
+- name: 复制专用证书
+  ansible.builtin.copy:
+    src: '{{ item.src }}'
+    dest: '/etc/zabbix/cnpl05-tls/{{ item.dest }}'
+    mode: '{{ item.mode }}'
+  loop:
+    - {src: '{{ zbx_tls_cert_file }}', dest: fullchain.crt, mode: '0644'}
+    - {src: '{{ zbx_tls_key_file }}', dest: server.key, mode: '0600'}
+  diff: false
+  no_log: true
+  notify: 重载 Zabbix Web
+- name: PHP 数据库配置
+  ansible.builtin.template:
+    src: zabbix.conf.php.j2
+    dest: /etc/zabbix/web/zabbix.conf.php
+    owner: root
+    group: apache
+    mode: '0640'
+  diff: false
+  no_log: true
+  notify: 重载 Zabbix Web
+- name: Web 仅监听 8443，替代本次安装包自带的 Zabbix vhost
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/zabbix.conf
+    mode: '0644'
+    backup: true
+  notify: 重载 Zabbix Web
+- name: 检查 Web 配置
+  ansible.builtin.command: '{{ item }}'
+  loop: [nginx -t, php-fpm -t]
+  changed_when: false
+- name: 允许 Web 连接本机数据库，保持 Enforcing
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect_db
+    state: true
+    persistent: true
+- name: 8443 属于 http_port_t（新增而非覆盖其他端口）
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ! semanage port -l | awk '$1=="http_port_t" && $2=="tcp" {print $0}' | grep -qw 8443; then
+      semanage port -a -t http_port_t -p tcp 8443
+      echo added
+    fi
+  args: {executable: /bin/bash}
+  register: zbx_selinux_port
+  changed_when: "'added' in zbx_selinux_port.stdout"
+- name: 管理来源访问 Web，16 台 VM 访问主动采集端口
+  ansible.posix.firewalld:
+    zone: '{{ node_firewall_zone | default("public") }}'
+    rich_rule: 'rule family="ipv4" source address="{{ item.source }}" port port="{{ item.port }}" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: '{{ zbx_firewall_rules }}'
+- name: 启用 Zabbix 与 Web 服务
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: [zabbix-server, php-fpm, nginx]
+- name: 应用配置变更
+  ansible.builtin.meta: flush_handlers

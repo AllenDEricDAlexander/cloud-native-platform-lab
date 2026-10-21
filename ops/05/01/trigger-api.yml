@@ -1,0 +1,35 @@
+---
+- name: 查找单个本批探测告警
+  ansible.builtin.uri:
+    url: '{{ zbx_api_url }}'
+    method: POST
+    ca_path: '{{ zbx_ca_file }}'
+    headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+    body_format: json
+    body: {jsonrpc: '2.0', method: trigger.get, params: {hostids: ['{{ zbx_probe_host.json.result[0].hostid }}'], filter: {description: '{{ zbx_trigger.description }}'}, output: extend}, id: 12}
+  no_log: true
+  register: zbx_trigger_existing
+  failed_when: zbx_trigger_existing.json.result is not defined
+- name: 拒绝覆盖非本批告警
+  ansible.builtin.assert:
+    that:
+      - zbx_trigger_existing.json.result | length <= 1
+      - zbx_trigger_existing.json.result | length == 0 or zbx_trigger_existing.json.result[0].comments is match('^cnpl05-' ~ run_id ~ ':')
+    quiet: true
+- name: 创建或按变更更新告警
+  ansible.builtin.uri:
+    url: '{{ zbx_api_url }}'
+    method: POST
+    ca_path: '{{ zbx_ca_file }}'
+    headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: '{{ "trigger.create" if zbx_trigger_existing.json.result | length == 0 else "trigger.update" }}'
+      params: '{{ zbx_trigger if zbx_trigger_existing.json.result | length == 0 else zbx_trigger | combine({"triggerid": zbx_trigger_existing.json.result[0].triggerid}) }}'
+      id: 13
+  when: zbx_trigger_existing.json.result | length == 0 or zbx_trigger_existing.json.result[0].comments != zbx_trigger.comments
+  no_log: true
+  changed_when: true
+  register: zbx_trigger_update
+  failed_when: zbx_trigger_update.json.result is not defined

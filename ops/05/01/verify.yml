@@ -1,0 +1,60 @@
+---
+- name: 只读核对 Zabbix Web 与 16 台主机数据新鲜度
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    zbx_hosts: '{{ lookup("file", lookup("env", "ATTEMPT") ~ "/hosts.json") | from_json }}'
+    zbx_api_url: https://build01.svc.internal.egon.top:8443/api_jsonrpc.php
+  tasks:
+    - name: 内部 CA 验证页面
+      ansible.builtin.uri:
+        url: https://build01.svc.internal.egon.top:8443/
+        ca_path: '{{ zbx_ca_file }}'
+        status_code: 200
+    - name: API 登录
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        body_format: json
+        body: {jsonrpc: '2.0', method: user.login, params: {username: '{{ zbx_api_username }}', password: '{{ zbx_api_password }}'}, id: 1}
+      no_log: true
+      register: zbx_login
+      failed_when: zbx_login.json.result is not defined
+    - name: 逐机取得明确 hostid
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body: {jsonrpc: '2.0', method: host.get, params: {filter: {host: '{{ item.fqdn }}'}, output: [hostid]}, id: 2}
+      loop: '{{ zbx_hosts }}'
+      loop_control: {label: '{{ item.id }}'}
+      no_log: true
+      register: zbx_vm_lookup
+      failed_when: zbx_vm_lookup.json.result | default([]) | length != 1
+    - name: 逐机读取有效指标
+      ansible.builtin.uri:
+        url: '{{ zbx_api_url }}'
+        method: POST
+        ca_path: '{{ zbx_ca_file }}'
+        headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+        body_format: json
+        body: {jsonrpc: '2.0', method: item.get, params: {hostids: ['{{ item.json.result[0].hostid }}'], monitored: true, output: [key_, lastclock, lastvalue, state]}, id: 3}
+      loop: '{{ zbx_vm_lookup.results }}'
+      loop_control: {label: '{{ item.item.id }}'}
+      no_log: true
+      register: zbx_items
+      failed_when: zbx_items.json.result is not defined
+    - name: 仅保存采集数据，不保存认证响应
+      ansible.builtin.copy:
+        content: '{{ zbx_items.results | map(attribute="json.result") | list | to_nice_json }}'
+        dest: '{{ lookup("env", "ATTEMPT") }}/items.json'
+        mode: '0600'
+      no_log: true
+    - name: 离线判定每机 CPU、内存、磁盘、网络与时间戳
+      ansible.builtin.command:
+        argv: [ruby, '{{ playbook_dir }}/verify.rb', '{{ lookup("env", "ATTEMPT") }}/items.json']
+      changed_when: false

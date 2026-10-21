@@ -1,0 +1,10 @@
+---
+- name: 重启专用 PostgreSQL
+  ansible.builtin.systemd_service: {name: postgresql, state: restarted}
+- name: 重启 Zabbix Server
+  ansible.builtin.systemd_service: {name: zabbix-server, state: restarted}
+- name: 重载 Zabbix Web
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    state: reloaded
+  loop: [php-fpm, nginx]

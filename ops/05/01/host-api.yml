@@ -1,0 +1,55 @@
+---
+- name: 查找已有主机
+  ansible.builtin.uri:
+    url: '{{ zbx_api_url }}'
+    method: POST
+    ca_path: '{{ zbx_ca_file }}'
+    headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+    body_format: json
+    body: {jsonrpc: '2.0', method: host.get, params: {filter: {host: '{{ zbx_host.fqdn }}'}, selectHostGroups: [groupid], selectParentTemplates: [templateid], selectMacros: extend, output: extend}, id: 5}
+  register: zbx_existing
+  no_log: true
+  failed_when: zbx_existing.json.result is not defined
+- name: 拒绝接管其他主机或批次
+  ansible.builtin.assert:
+    that:
+      - zbx_existing.json.result | length <= 1
+      - zbx_existing.json.result | length == 0 or zbx_group_id | string in zbx_existing.json.result[0].hostgroups | map(attribute='groupid') | list
+    quiet: true
+- name: 声明主机参数
+  ansible.builtin.set_fact:
+    zbx_desired:
+      host: '{{ zbx_host.fqdn }}'
+      groups: [{groupid: '{{ zbx_group_id }}'}]
+      templates: [{templateid: '{{ zbx_template.json.result[0].templateid }}'}]
+      tls_connect: 2
+      tls_accept: 2
+      tls_psk_identity: 'cnpl05-{{ zbx_host.id }}'
+      tls_psk: '{{ zbx_psks[zbx_host.id] }}'
+      macros:
+        - {macro: '{$HISTORY}', value: 7d}
+        - {macro: '{$TRENDS}', value: 90d}
+        - {macro: '{$NET.IF.IFNAME.NOT_MATCHES}', value: '(^lo$|^veth|^cali|^cilium|^docker|^br-)'}
+        - {macro: '{$VFS.FS.FSTYPE.NOT_MATCHES}', value: '^(tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup2)$'}
+  no_log: true
+- name: 用配置摘要辨别 API 重跑，PSK 不回显
+  ansible.builtin.set_fact:
+    zbx_desired: '{{ zbx_desired | combine({"description": "cnpl05-" ~ run_id ~ ":" ~ (zbx_desired | to_json | hash("sha256"))}) }}'
+  no_log: true
+- name: 创建或更新本批主机
+  ansible.builtin.uri:
+    url: '{{ zbx_api_url }}'
+    method: POST
+    ca_path: '{{ zbx_ca_file }}'
+    headers: {Authorization: 'Bearer {{ zbx_login.json.result }}'}
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: '{{ "host.create" if zbx_existing.json.result | length == 0 else "host.update" }}'
+      params: '{{ zbx_desired if zbx_existing.json.result | length == 0 else zbx_desired | combine({"hostid": zbx_existing.json.result[0].hostid}) }}'
+      id: 6
+  no_log: true
+  register: zbx_host_update
+  when: zbx_existing.json.result | length == 0 or zbx_existing.json.result[0].description != zbx_desired.description
+  changed_when: true
+  failed_when: zbx_host_update.json.result is not defined

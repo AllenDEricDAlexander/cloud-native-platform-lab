@@ -3,6 +3,12 @@
 set -euo pipefail
 set +x
 umask 077
+export LC_MESSAGES=C
+CLEANUP_DIRECTORY=''
+RECOVERY_FUNCTION=''
+PRIVATE_TEMP_ROOT=''
+P03_LOGGER_PID=''
+P03_BACKGROUND_PID=''
 P03=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 REPO=$(cd "$P03/../.." && pwd)
 INPUTS=${CNPL03_INPUTS:-$P03/inputs.json}
@@ -41,7 +47,9 @@ run_id() {
 }
 start() {
     STAGE=$1 ACTION=$2
-    need jq; need ruby; run_id
+    need jq; need ruby
+    CNPL03_INPUTS="$INPUTS" ruby "$P03/lib/review.rb" source >/dev/null
+    run_id
     ATTEMPT=$(mktemp -d "$P03/$STAGE/records-${RUN}-XXXXXX")
     # 证据进入忽略目录；每次调用独立保留，失败不覆盖。
     mkdir -p "$P03/$STAGE/records/$RUN"
@@ -50,23 +58,38 @@ start() {
     export P03 REPO INPUTS DEVICES MATERIALS ATTEMPT RUN STAGE ACTION
     jq -n --arg stage "$STAGE" --arg action "$ACTION" --arg run "$RUN" --arg sha "$(sha "$INPUTS")" --arg time "$(date -u +%FT%TZ)" '{stage:$stage,action:$action,run:$run,inputs_sha256:$sha,started_at:$time,validation_scope:"runtime_invocation"}' > "$ATTEMPT/context.json"
     trap finish EXIT
+    exec 3>&1 4>&2
+    mkfifo "$ATTEMPT/.output.pipe"
+    tee "$ATTEMPT/output.txt" < "$ATTEMPT/.output.pipe" &
+    P03_LOGGER_PID=$!
+    exec > "$ATTEMPT/.output.pipe" 2>&1
+    rm -f "$ATTEMPT/.output.pipe"
 }
 finish() {
     local rc=$?
     trap - EXIT
+    if [[ -n $P03_BACKGROUND_PID ]]; then
+        if jobs -pr | grep -Fxq "$P03_BACKGROUND_PID"; then kill "$P03_BACKGROUND_PID" || true; fi
+        wait "$P03_BACKGROUND_PID" 2>/dev/null || true
+    fi
     if [[ -n ${RECOVERY_FUNCTION:-} ]]; then
         if ! "$RECOVERY_FUNCTION"; then rc=1; printf '自动恢复未完成，按当前批次 recovery.json 执行 recover。\n' >&2; fi
     fi
     if [[ -n ${CLEANUP_DIRECTORY:-} ]]; then rm -rf -- "$CLEANUP_DIRECTORY" || rc=1; fi
+    if [[ -n ${PRIVATE_TEMP_ROOT:-} ]]; then rm -rf -- "$PRIVATE_TEMP_ROOT" || rc=1; fi
+    if [[ -n $P03_LOGGER_PID ]]; then exec 1>&3 2>&4 3>&- 4>&-; wait "$P03_LOGGER_PID" || rc=1; fi
     jq -n --argjson rc "$rc" --arg action "$ACTION" --arg time "$(date -u +%FT%TZ)" '{exit_code:$rc,action:$action,finished_at:$time,phase_acceptance:false}' > "$ATTEMPT/result.json"
     printf '证据：%s（exit=%s）\n' "$ATTEMPT" "$rc"
     exit "$rc"
+}
+private_temp() {
+    if [[ -z $PRIVATE_TEMP_ROOT ]]; then PRIVATE_TEMP_ROOT=$(mktemp -d); fi
 }
 material() {
     local item
     item=$(jq -ec --arg key "$1" '.components[$key] | select(.version != null and .compatibility_file != null and .compatibility_sha256 != null)' "$MATERIALS") || die "物料尚未锁定：$1"
     verify_file "$(jq -r .compatibility_file <<< "$item")" "$(jq -r .compatibility_sha256 <<< "$item")"
-    ruby -ryaml -e 'c=YAML.load_file(ARGV[0]).fetch("components",{}).fetch(ARGV[1],{}); abort "组件尚未在主版本锁确认" unless c["version"].to_s==ARGV[2] && !ARGV[2].empty?' "$REPO/ops/versions.lock.yaml" "$1" "$(jq -r .version <<< "$item")"
+    ruby -ryaml -rjson -e 'c=YAML.load_file(ARGV[0]).fetch("components",{}).fetch(ARGV[1],{});m=JSON.parse(ARGV[2]);abort "组件尚未在主版本锁确认" unless c["version"].to_s==m["version"].to_s && !m["version"].to_s.empty?;leaves=lambda{|v|case v;when Hash then v.values.flat_map{|x|leaves.call(x)};when Array then v.flat_map{|x|leaves.call(x)};else [v];end};values=leaves.call(c);%w[image sha256].each{|key|abort "物料 Digest/SHA 与主版本锁不符" if m[key] && !values.include?(m[key])}' "$REPO/ops/versions.lock.yaml" "$1" "$item"
     printf '%s\n' "$item"
 }
 image() {
@@ -130,12 +153,13 @@ namespace() {
         jq -e --arg run "$RUN" '.metadata.labels["cnpl.io/phase"]=="03" and .metadata.labels["cnpl.io/run"]==$run' <<< "$current" >/dev/null || die "命名空间归属不符：$ns"
     fi
 }
-yaml_json() { ruby -ryaml -rjson -e 'puts JSON.generate({"apiVersion"=>"v1","kind"=>"List","items"=>YAML.load_stream(File.read(ARGV[0])).compact})' "$1"; }
+yaml_json() { ruby -ryaml -rjson -e 'docs=YAML.load_stream(File.read(ARGV[0])).compact;items=docs.flat_map{|d|d["kind"]=="List" ? d.fetch("items") : [d]};puts JSON.generate({"apiVersion"=>"v1","kind"=>"List","items"=>items})' "$1"; }
 apply() {
     local file=$1 ns=$2 rendered kind name scope existing
-    rendered=$(mktemp)
+    private_temp
+    rendered=$(mktemp "$PRIVATE_TEMP_ROOT/manifest.XXXXXX")
     if [[ $file == *.json ]]; then cat "$file"; else yaml_json "$file"; fi |
-        jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then . else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","PersistentVolume","StorageClass","CSIDriver","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding","PriorityClass","MutatingWebhookConfiguration","ValidatingWebhookConfiguration","APIService")) then . else .metadata.namespace=$ns end)' > "$rendered"
+        jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then {apiVersion:"v1",kind:"List",items:.items} else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","PersistentVolume","StorageClass","CSIDriver","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding","PriorityClass","MutatingWebhookConfiguration","ValidatingWebhookConfiguration","APIService")) then . else .metadata.namespace=$ns end)' > "$rendered"
     if ! ruby "$P03/lib/review.rb" images-json "$rendered"; then rm -f "$rendered"; return 1; fi
     while IFS=$'\t' read -r kind name scope; do
         if [[ $scope == '-' ]]; then existing=$(k get "$kind" "$name" --ignore-not-found -o json); else existing=$(k -n "$scope" get "$kind" "$name" --ignore-not-found -o json); fi
@@ -153,15 +177,27 @@ chart() {
     path=$(jq -er .file <<< "$info"); version=$(jq -er .version <<< "$info")
     verify_file "$path" "$(jq -er .sha256 <<< "$info")"
     namespace "$ns"
-    helm template "$release" "$path" -n "$ns" --version "$version" -f "$values" --include-crds > "$ATTEMPT/$release-rendered.yaml"
-    ruby "$P03/lib/review.rb" images "$ATTEMPT/$release-rendered.yaml"
+    private_temp
+    local chart_render=$PRIVATE_TEMP_ROOT/$release.yaml
+    helm template "$release" "$path" -n "$ns" --version "$version" -f "$values" --include-crds > "$chart_render"
+    ruby "$P03/lib/review.rb" images "$chart_render"
+    yaml_json "$chart_render" | jq '.items|=map(if .kind=="Secret" then del(.data,.stringData) | .metadata.annotations["cnpl.io/redacted"]="true" else . end)' > "$ATTEMPT/$release-rendered-redacted.json"
     [[ $(helm show chart "$path" | ruby -ryaml -e 'puts YAML.load(STDIN.read).fetch("version")') == "$version" ]] || die '本地 Chart 版本与锁不符'
-    local crd live
+    local crd live expected_hash
+    local new_crds=()
     while IFS= read -r crd; do
         live=$(k get crd "$crd" --ignore-not-found -o json)
-        [[ -z $live ]] || jq -e --arg release "$release" --arg ns "$ns" '.metadata.annotations["meta.helm.sh/release-name"]==$release and .metadata.annotations["meta.helm.sh/release-namespace"]==$ns' <<< "$live" >/dev/null || die "已有 CRD 未归属本 release，先核对复用/升级：$crd"
-    done < <(yaml_json "$ATTEMPT/$release-rendered.yaml" | jq -r '.items[]|select(.kind=="CustomResourceDefinition")|.metadata.name')
+        expected_hash=$(yaml_json "$chart_render" | jq -Sc --arg name "$crd" '.items[]|select(.kind=="CustomResourceDefinition" and .metadata.name==$name)|.spec' | shasum -a 256 | awk '{print $1}')
+        if [[ -z $live ]]; then new_crds+=("$crd:$expected_hash")
+        else
+            jq -e --arg release "$release" --arg ns "$ns" --arg hash "$expected_hash" '.metadata.annotations["meta.helm.sh/release-name"]==$release and .metadata.annotations["meta.helm.sh/release-namespace"]==$ns and .metadata.annotations["cnpl.io/crd-source-sha256"]==$hash' <<< "$live" >/dev/null || die "CRD 归属或源码已变化，先核对复用/升级：$crd"
+        fi
+    done < <(yaml_json "$chart_render" | jq -r '.items[]|select(.kind=="CustomResourceDefinition")|.metadata.name')
     helm --kubeconfig "$(required .kubernetes.kubeconfig)" --kube-context "$(required .kubernetes.context)" upgrade --install "$release" "$path" -n "$ns" --version "$version" -f "$values" --wait --timeout 10m --history-max 5
+    if ((${#new_crds[@]})); then
+        local entry
+        for entry in "${new_crds[@]}"; do k annotate crd "${entry%%:*}" "meta.helm.sh/release-name=$release" "meta.helm.sh/release-namespace=$ns" "cnpl.io/crd-source-sha256=${entry#*:}"; done
+    fi
 }
 component_chart() {
     local info values
@@ -179,7 +215,9 @@ component_manifest() {
     namespace "$2"; apply "$file" "$2"
 }
 data_domains() {
-    local host domain current
+    local host domain current domains
+    domains=$(for host in storage01 storage02 storage03; do host_value "$host" actual_hypervisor; done)
+    [[ $(sort -u <<< "$domains" | wc -l | tr -d ' ') == 3 ]] || die '必须先确认三独立物理域'
     for host in storage01 storage02 storage03; do
         domain=$(host_value "$host" actual_hypervisor)
         [[ $domain =~ ^esxi0[1-3]$ ]] || die '实际故障域未确认'
@@ -192,7 +230,8 @@ secret_from_files() {
     local ns=$1 name=$2; shift 2
     local arg path file
     for arg in "$@"; do path=${arg#*=}; private_file "$path"; done
-    file=$(mktemp "$ATTEMPT/secret.XXXXXX.json")
+    private_temp
+    file=$(mktemp "$PRIVATE_TEMP_ROOT/secret.XXXXXX")
     local args=(); for arg in "$@"; do args+=(--from-file="$arg"); done
     k -n "$ns" create secret generic "$name" "${args[@]}" --dry-run=client -o json | jq '.immutable=true' > "$file"
     apply "$file" "$ns" >/dev/null
@@ -200,9 +239,14 @@ secret_from_files() {
 }
 wait_json() {
     local seconds=$1 predicate=$2; shift 2
-    local until_time=$((SECONDS + seconds)) body
+    local until_time=$((SECONDS + seconds)) body error_file
+    private_temp
+    error_file=$(mktemp "$PRIVATE_TEMP_ROOT/wait.XXXXXX")
     while ((SECONDS < until_time)); do
-        body=$("$@") || return 1
+        if ! body=$("$@" 2> "$error_file"); then
+            if grep -Eq '\(NotFound\)|"reason"[[:space:]]*:[[:space:]]*"NotFound"' "$error_file"; then sleep 5; continue; fi
+            cat "$error_file" >&2; return 1
+        fi
         if jq -e "$predicate" <<< "$body" >/dev/null; then return 0; fi
         sleep 5
     done

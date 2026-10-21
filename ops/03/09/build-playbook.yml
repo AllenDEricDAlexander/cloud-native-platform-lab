@@ -1,0 +1,49 @@
+---
+- name: 03.09 只在登记的 build01 VM 构建镜像
+  hosts: build01
+  gather_facts: false
+  vars:
+    phase03_config: '{{ lookup("file", lookup("env", "INPUTS")) | from_json }}'
+    phase03_directory: '/var/lib/cnpl03-build/{{ phase03_config.run_id }}'
+  tasks:
+    - name: 校验目标和明确内网非 latest 标签
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'build01'
+          - phase03_config.operator.build_image_tag is match('^harbor\.k8s\.internal\.egon\.top/[a-zA-Z0-9_./-]+:[a-zA-Z0-9_.-]+$')
+          - not phase03_config.operator.build_image_tag.endswith(':latest')
+    - name: 核对 Linux、身份与安全基线
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(uname -s)" = Linux || exit 1
+        test "$(hostname -s)" = build01 || exit 1
+        test "$(getenforce)" = Enforcing || exit 1
+        systemctl is-active --quiet firewalld || exit 1
+        command -v podman
+        test -f '{{ phase03_config.operator.build_authfile }}' || exit 1
+        test "$(stat -c %a '{{ phase03_config.operator.build_authfile }}')" = 600 || exit 1
+      args: {executable: /bin/bash}
+      changed_when: false
+    - name: 只准备当前批次构建目录
+      ansible.builtin.file: {path: '{{ phase03_directory }}', state: directory, mode: '0700'}
+    - name: 复制已本地编译二进制与 Containerfile
+      ansible.builtin.copy:
+        src: '{{ item.src }}'
+        dest: '{{ phase03_directory }}/{{ item.dest }}'
+        mode: '0600'
+      loop:
+        - {src: '{{ playbook_dir }}/bin/demoapp-operator', dest: demoapp-operator}
+        - {src: '{{ playbook_dir }}/Containerfile', dest: Containerfile}
+    - name: 让程序可执行
+      ansible.builtin.file: {path: '{{ phase03_directory }}/demoapp-operator', mode: '0755'}
+    - name: 在 VM 内构建，不拉取任何基础镜像
+      ansible.builtin.command:
+        argv: [podman, build, --pull=never, --network=none, -t, '{{ phase03_config.operator.build_image_tag }}', .]
+        chdir: '{{ phase03_directory }}'
+      changed_when: true
+    - name: 通过受控 authfile 推送并保存实际 Digest
+      ansible.builtin.command:
+        argv: [podman, push, --authfile, '{{ phase03_config.operator.build_authfile }}', --digestfile, '{{ phase03_directory }}/digest.txt', '{{ phase03_config.operator.build_image_tag }}']
+      changed_when: true
+    - name: 取回仅含公开 Digest 的文件
+      ansible.builtin.fetch: {src: '{{ phase03_directory }}/digest.txt', dest: '{{ lookup("env", "ATTEMPT") }}/operator-digest.txt', flat: true}

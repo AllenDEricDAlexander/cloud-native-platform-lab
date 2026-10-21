@@ -29,11 +29,12 @@ case "$action" in
         private_file "$(required .postgres.password_file)"; private_file "$(required .postgres.app_password_file)"
         work=$(mktemp -d); CLEANUP_DIRECTORY=$work
         printf postgres > "$work/super-username"; printf app > "$work/app-username"
-        escaped=$(sed 's/\\/\\\\/g;s/:/\\:/g' "$(required .postgres.app_password_file)")
+        ruby -e 'ARGV.each_slice(2){|s,d|p=File.read(s);abort "password must be one nonempty line of 16-256 characters" unless p.match?(/\A[^\r\n\x00]{16,256}\n?\z/);File.write(d,p.delete_suffix("\n"))}' "$(required .postgres.password_file)" "$work/super-password" "$(required .postgres.app_password_file)" "$work/app-password"
+        escaped=$(sed 's/\\/\\\\/g;s/:/\\:/g' "$work/app-password")
         [[ $escaped != *$'\n'* ]] || die 'pgpass 口令必须为单行'
         printf '*:5432:app:app:%s\n' "$escaped" > "$work/pgpass"
-        secret_from_files "$ns" pg-superuser "username=$work/super-username" "password=$(required .postgres.password_file)"
-        secret_from_files "$ns" pg-app "username=$work/app-username" "password=$(required .postgres.app_password_file)"
+        secret_from_files "$ns" pg-superuser "username=$work/super-username" "password=$work/super-password"
+        secret_from_files "$ns" pg-app "username=$work/app-username" "password=$work/app-password"
         secret_from_files "$ns" pg-client "pgpass=$work/pgpass"
         ;;
     baseline)
@@ -108,12 +109,19 @@ case "$action" in
                 sleep 1
             done
         ) > "$ATTEMPT/writes.tsv" & writer_pid=$!
-        sleep 3; started=$(date +%s)
+        P03_BACKGROUND_PID=$writer_pid
+        sleep 3
+        awk '$3=="ack" {found=1} END {exit !found}' "$ATTEMPT/writes.tsv" || die '故障前没有已确认的连续写入，停止'
+        started=$(date +%s)
         k -n "$ns" delete pod "$primary" --wait=false
         wait_json 600 ".status.currentPrimary!=\"$primary\" and .status.readyInstances>=2" k -n "$ns" get cluster cnpl03-pg -o json
-        wait "$writer_pid"
+        end=$((SECONDS+180))
+        until sql cnpl03-pg-rw -c "INSERT INTO probe(id,payload) VALUES(10031,'after-failover') ON CONFLICT DO NOTHING" >/dev/null 2>&1; do ((SECONDS<end)) || die '新主未恢复客户端写入'; sleep 1; done
+        recovered=$(date +%s)
+        wait "$writer_pid"; P03_BACKGROUND_PID=''
+        printf '%s\t10031\tack\n' "$recovered" >> "$ATTEMPT/writes.tsv"
         for id in $(awk '$3=="ack" {print $2}' "$ATTEMPT/writes.tsv"); do [[ $(sql cnpl03-pg-rw -c "SELECT count(*) FROM probe WHERE id=$id") == 1 ]] || die '丢失已确认提交事务'; done
-        jq -n --argjson seconds "$(($(date +%s)-started))" '{observation_seconds:$seconds,acknowledged_transactions_lost:0,rto:"从 writes.tsv 计算最长客户端不可用窗口；此秒数仅为总观测时间"}' > "$ATTEMPT/failover.json"
+        jq -n --argjson seconds "$(($(date +%s)-started))" --argjson recovery "$((recovered-started))" '{observation_seconds:$seconds,observed_client_recovery_seconds:$recovery,acknowledged_transactions_lost:0,rto_scope:"从删除主 Pod 到观察到新主成功提交；不是物理主机/完整平台恢复时间"}' > "$ATTEMPT/failover.json"
         ha_ready; check_pg cnpl03-pg-rw
         ;;
     dump|restore-dump|major-migrate)
@@ -136,6 +144,7 @@ case "$action" in
             target=cnpl03-dump-restore
             if [[ $action == major-migrate ]]; then
                 next=$(material postgresql_upgrade)
+                [[ $(jq -r .version <<< "$next") == "$(required .postgres.upgrade_version)" ]] || die '升级目标未与输入明确选择一致'
                 current_major=$(material postgresql_cnpg | jq -r '.version|split(".")[0]'); next_major=$(jq -r '.version|split(".")[0]' <<< "$next")
                 [[ $next_major -gt $current_major ]] || die '大版本迁移要求目标 major 更高'
                 UPGRADE_IMAGE=$(image postgresql_upgrade); render_cluster; target=cnpl03-upgrade
@@ -151,6 +160,7 @@ case "$action" in
         ;;
     minor-upgrade)
         next=$(material postgresql_upgrade)
+        [[ $(jq -r .version <<< "$next") == "$(required .postgres.upgrade_version)" ]] || die '升级目标未与输入明确选择一致'
         current_major=$(material postgresql_cnpg | jq -r '.version|split(".")[0]'); next_major=$(jq -r '.version|split(".")[0]' <<< "$next")
         [[ $next_major == "$current_major" ]] || die '此入口只允许同 major 升级'
         check_pg cnpl03-pg-rw

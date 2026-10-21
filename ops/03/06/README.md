@@ -10,6 +10,6 @@ maintenance-plan 保存原标志与节点状态，输出 drain、cephadm mainten
 
 quota 在独立 16MiB 配额池最多写 24MiB，必须观察实际 quota/full 拒绝才通过，随后删除自己已写对象，池及失败证据保留。不会填满真实 OSD/Datastore 来伪造 nearfull 测试。容量水位、重建压力与限速由只读健康/ceph df 记录，真实阈值告警与吞吐需现场测量。
 
-对照动作依次为 managed-preflight → managed-deploy → managed-services → managed-check → managed-cleanup。主输入 managed.approved=true、inputs_file 指向同 schema 的独立集群配置、devices_file 指向独立设备列表。独立配置还需 managed.inventory_file（显式 ceph_comparison 组）、rook.values_file（仅监视 cnpl03-managed、自有驱动前缀/锁定镜像）。每条盘含 host/bytes/stable_id/hypervisor/approved/contains_data/evidence_file/evidence_sha256。必须三物理域、三独立主机，拒绝主集群地址和主 OSD 稳定 ID。
+对照动作依次为 managed-preflight → managed-deploy → managed-services → managed-check → managed-cleanup。主输入 managed.approved=true、inputs_file 指向同 schema 的独立集群配置、devices_file 指向独立设备列表。独立配置还需 managed.inventory_file（显式 ceph_comparison 组，每台 ansible_user=root、ansible_host 及受控 SSH key 路径）、rook.values_file/values_sha256（仅监视 cnpl03-managed、自有驱动前缀/锁定镜像）。每条盘含 host/ip/bytes/stable_id/hypervisor/approved/contains_data/evidence_file/evidence_sha256。Inventory 主机集合和 IP 必须与盘表完全对应，避免零主机/漏盘被误判为已检查。必须三物理域、三独立主机，拒绝主集群地址和主 OSD 稳定 ID。
 
 对照 CephCluster 明确 useAllNodes/useAllDevices=false、独立 dataDirHostPath，不设默认类；创建 BlockPool/Filesystem/ObjectStore CR 观察调谐。该集合还需使用 05 的数据用例按独立 SC 再跑一轮，managed-check 的健康检查不代表数据用例通过。清理前要求 PVC 全部由数据规程释放，随后按 ObjectStore/FS/Pool → CephCluster 删除，不启用自动 wipe、不强摘 Finalizer，Operator/CRD 和磁盘残留供人工核对。资源不足时保持未执行。

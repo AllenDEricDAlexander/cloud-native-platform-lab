@@ -41,6 +41,8 @@ case "$action" in
         ;;
     osd-plan|osd-apply)
         ruby "$P03/lib/review.rb" devices "$DEVICES" > "$ATTEMPT/budget.json"
+        reserved=$(ruby -ryaml -e 'v=YAML.load_file(ARGV[0]).fetch("node_reservations").fetch("ceph_reserved_on_storage_nodes").fetch("memory");abort "无法解析 Ceph 预留" unless v.match?(/\A\d+Gi\z/);puts v.to_i*1024**3' "$REPO/ops/inventory/resources.yaml")
+        [[ $(required .ceph.service_memory_budget) -le $reserved ]] || die 'Ceph 预算超过主台账预留，先核对 kubelet/主机实际配置'
         for host in storage01 storage02 storage03; do
             count=$(jq --arg host "$host" '[.devices[]|select(.host==$host)]|length' "$DEVICES")
             jq -en --argjson count "$count" --argjson target "$(required .ceph.osd_memory_target)" --argjson budget "$(required .ceph.service_memory_budget)" '$count*$target+2147483648 <= $budget' >/dev/null || die 'Ceph 内存预算不足，先调整主机与 kubelet 预留'

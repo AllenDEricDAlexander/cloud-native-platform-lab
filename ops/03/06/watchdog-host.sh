@@ -14,16 +14,17 @@ script=$private/$unit.sh
 if [[ $mode == arm ]]; then
     if systemctl is-active --quiet "$unit.timer"; then echo '已有待恢复任务，先执行 recover' >&2; exit 1; fi
     {
-        printf '#!/usr/bin/env bash\nset -u\n'
-        printf '%q ' "$adm" --image "$image" shell --fsid "$fsid" -- ceph orch daemon start "osd.$osd"; printf '\n'
-        printf '%q ' "$adm" --image "$image" shell --fsid "$fsid" -- ceph osd in "$osd"; printf '\n'
+        printf '#!/usr/bin/env bash\nset -u\nrc=0\n'
+        printf '%q ' "$adm" --image "$image" shell --fsid "$fsid" -- ceph orch daemon start "osd.$osd"; printf ' || rc=1\n'
+        printf '%q ' "$adm" --image "$image" shell --fsid "$fsid" -- ceph osd in "$osd"; printf ' || rc=1\n'
+        printf 'exit "$rc"\n'
     } > "$script"
     chmod 0700 "$script"
     systemd-run --unit "$unit" --on-active="${seconds}s" /bin/bash "$script"
     systemctl is-active --quiet "$unit.timer" || exit 1
     printf 'PASS watchdog 已安排，期限 %ss\n' "$seconds"
 elif [[ $mode == disarm ]]; then
-    systemctl stop "$unit.timer" || exit 1
+    if [[ $(systemctl show "$unit.timer" -p LoadState --value) != not-found ]]; then systemctl stop "$unit.timer" || exit 1; fi
     systemctl reset-failed "$unit.service" 2>/dev/null || true
     rm -f "$script"
 else exit 2; fi

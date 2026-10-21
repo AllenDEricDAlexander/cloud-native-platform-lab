@@ -27,6 +27,6 @@ if rados user list | jq -e --arg uid "$uid" 'index($uid)!=null' >/dev/null; then
 else
     rados user create --uid "$uid" --display-name "$uid" --max-buckets 2 > "$private/$uid-s3.json"
 fi
-rados quota set --uid "$uid" --quota-scope user --max-size "$quota"
-rados quota enable --uid "$uid" --quota-scope user
+rados quota set --uid "$uid" --quota-scope user --max-size "$quota" >/dev/null
+rados quota enable --uid "$uid" --quota-scope user >/dev/null
 printf '受限 S3 身份已准备；凭据仅位于 storage01:%s/%s-s3.json\n' "$private" "$uid"

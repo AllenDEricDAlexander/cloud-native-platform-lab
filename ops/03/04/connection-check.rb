@@ -2,7 +2,11 @@
 # 不输出身份密钥。connection bundle 是同版本官方导入结果的结构化转存。
 require "json"
 require "base64"
-bundle = JSON.parse(File.read(ARGV.fetch(0)))
+bundle = begin
+  JSON.parse(File.read(ARGV.fetch(0)))
+rescue JSON::ParserError
+  abort "连接材料 JSON 无效；为保护密钥不回显原文"
+end
 abort "需要 Kubernetes List 结构" unless bundle["apiVersion"] == "v1" && bundle["kind"] == "List"
 abort "FSID 不匹配" unless bundle.fetch("fsid") == ARGV.fetch(1)
 items = bundle.fetch("items")

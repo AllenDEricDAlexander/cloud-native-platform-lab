@@ -1,0 +1,632 @@
+{
+  "schema_version": 1,
+  "scope": "offline_script_delivery",
+  "runtime_accepted": false,
+  "steps": [
+    {
+      "id": "03.01.01",
+      "title": "复核 OSD 设备与物理故障域",
+      "stage": "01",
+      "actions": "inspect budget",
+      "files": [
+        "01/run.sh",
+        "01/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.01.02",
+      "title": "制定容量与副本预算",
+      "stage": "01",
+      "actions": "budget",
+      "files": [
+        "01/run.sh",
+        "01/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.01.03",
+      "title": "明确三故障域的恢复限制",
+      "stage": "01",
+      "actions": "budget",
+      "files": [
+        "01/run.sh",
+        "01/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.01.04",
+      "title": "保护宿主机和 Ceph 资源",
+      "stage": "01",
+      "actions": "inspect budget",
+      "files": [
+        "01/run.sh",
+        "01/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.02.01",
+      "title": "准备宿主机容器和 Ceph 依赖",
+      "stage": "02",
+      "actions": "prepare",
+      "files": [
+        "02/run.sh",
+        "02/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.02.02",
+      "title": "引导首个 Ceph 管理节点",
+      "stage": "02",
+      "actions": "bootstrap",
+      "files": [
+        "02/run.sh",
+        "02/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.02.03",
+      "title": "扩展为三个 MON 与两个 MGR",
+      "stage": "02",
+      "actions": "hosts mgr-failover",
+      "files": [
+        "02/run.sh",
+        "02/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.02.04",
+      "title": "按明确设备清单创建 OSD",
+      "stage": "02",
+      "actions": "osd-plan osd-apply",
+      "files": [
+        "02/run.sh",
+        "02/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.02.05",
+      "title": "配置 CRUSH、池与基础监控",
+      "stage": "02",
+      "actions": "baseline",
+      "files": [
+        "02/run.sh",
+        "02/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.02.06",
+      "title": "建立 Ceph 配置与凭据备份",
+      "stage": "02",
+      "actions": "backup",
+      "files": [
+        "02/run.sh",
+        "02/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.03.01",
+      "title": "建立 RBD 块存储池",
+      "stage": "03",
+      "actions": "pools rbd-test",
+      "files": [
+        "03/run.sh",
+        "03/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.03.02",
+      "title": "建立 CephFS 与 MDS 主备",
+      "stage": "03",
+      "actions": "pools cephfs-test mds-failover",
+      "files": [
+        "03/run.sh",
+        "03/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.03.03",
+      "title": "建立 RGW 对象存储入口",
+      "stage": "03",
+      "actions": "rgw s3-test",
+      "files": [
+        "03/run.sh",
+        "03/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.03.04",
+      "title": "区分对象存储与灾备目的地",
+      "stage": "03",
+      "actions": "independent-copy",
+      "files": [
+        "03/run.sh",
+        "03/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.04.01",
+      "title": "准备外部集群最小权限连接",
+      "stage": "04",
+      "actions": "export connect",
+      "files": [
+        "04/run.sh",
+        "04/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.04.02",
+      "title": "部署 Rook External 控制与 CSI",
+      "stage": "04",
+      "actions": "operator check",
+      "files": [
+        "04/run.sh",
+        "04/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.04.03",
+      "title": "检查所有卷消费者的 Ceph 网络",
+      "stage": "04",
+      "actions": "network smoke",
+      "files": [
+        "04/run.sh",
+        "04/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.04.04",
+      "title": "建立 StorageClass 与默认策略",
+      "stage": "04",
+      "actions": "classes default",
+      "files": [
+        "04/run.sh",
+        "04/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.04.05",
+      "title": "验证 RWO、RWOP 与 RWX",
+      "stage": "04",
+      "actions": "smoke + 05/access",
+      "files": [
+        "04/run.sh",
+        "04/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.05.01",
+      "title": "比较静态 PV 与动态供应",
+      "stage": "05",
+      "actions": "deploy static",
+      "files": [
+        "05/run.sh",
+        "05/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.05.02",
+      "title": "验证卷扩容与文件系统变化",
+      "stage": "05",
+      "actions": "expand",
+      "files": [
+        "05/run.sh",
+        "05/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.05.03",
+      "title": "部署快照控制链并还原测试数据",
+      "stage": "05",
+      "actions": "snapshot",
+      "files": [
+        "05/run.sh",
+        "05/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.05.04",
+      "title": "验证克隆、回收与保留策略",
+      "stage": "05",
+      "actions": "clone reclaim snapshot-policy",
+      "files": [
+        "05/run.sh",
+        "05/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.05.05",
+      "title": "验证 Pod 迁移和卷重新挂载",
+      "stage": "05",
+      "actions": "recreate migrate",
+      "files": [
+        "05/run.sh",
+        "05/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.05.06",
+      "title": "回访 StatefulSet 持久化实验",
+      "stage": "05",
+      "actions": "stateful",
+      "files": [
+        "05/run.sh",
+        "05/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.06.01",
+      "title": "演练单 OSD 和存储 VM 故障",
+      "stage": "06",
+      "actions": "osd-stop osd-out vm-observe recover",
+      "files": [
+        "06/run.sh",
+        "06/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.06.02",
+      "title": "演练计划维护和安全下线",
+      "stage": "06",
+      "actions": "maintenance-plan",
+      "files": [
+        "06/run.sh",
+        "06/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.06.03",
+      "title": "测试容量水位和恢复限速",
+      "stage": "06",
+      "actions": "quota osd-out",
+      "files": [
+        "06/run.sh",
+        "06/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.06.04",
+      "title": "准备 Rook 自管理独立实验资源",
+      "stage": "06",
+      "actions": "managed-preflight",
+      "files": [
+        "06/run.sh",
+        "06/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.06.05",
+      "title": "实验 CephCluster 与存储 CRD",
+      "stage": "06",
+      "actions": "managed-deploy managed-services managed-check",
+      "files": [
+        "06/run.sh",
+        "06/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.06.06",
+      "title": "安全清理内部 Ceph 对比实验",
+      "stage": "06",
+      "actions": "managed-cleanup",
+      "files": [
+        "06/run.sh",
+        "06/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.07.01",
+      "title": "部署单实例 PostgreSQL 基准",
+      "stage": "07",
+      "actions": "credentials baseline baseline-test baseline-restart",
+      "files": [
+        "07/run.sh",
+        "07/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.07.02",
+      "title": "使用 CloudNativePG 建立高可用",
+      "stage": "07",
+      "actions": "operator ha ha-test",
+      "files": [
+        "07/run.sh",
+        "07/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.07.03",
+      "title": "实施 WAL 归档、备份与 PITR",
+      "stage": "07",
+      "actions": "archiving backup pitr-before pitr-after pitr dump restore-dump",
+      "files": [
+        "07/run.sh",
+        "07/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.07.04",
+      "title": "演练数据库故障切换与升级",
+      "stage": "07",
+      "actions": "failover minor-upgrade major-migrate",
+      "files": [
+        "07/run.sh",
+        "07/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.07.05",
+      "title": "增加 MySQL Operator 对照",
+      "stage": "07",
+      "actions": "mysql mysql-test",
+      "files": [
+        "07/run.sh",
+        "07/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.01",
+      "title": "部署 Redis 并验证持久化",
+      "stage": "08",
+      "actions": "credentials redis redis-test redis-restart redis-eviction",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.02",
+      "title": "比较 Sentinel、Redis Cluster 与 Valkey",
+      "stage": "08",
+      "actions": "redis-sentinel redis-sentinel-failover redis-cluster redis-cluster-test valkey valkey-test",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.03",
+      "title": "使用 Strimzi 部署 Kafka KRaft",
+      "stage": "08",
+      "actions": "kafka",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.04",
+      "title": "验证 Kafka 数据与消费者生命周期",
+      "stage": "08",
+      "actions": "kafka-test kafka-failover kafka-lag",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.05",
+      "title": "使用 RabbitMQ Operator 建立消息集群",
+      "stage": "08",
+      "actions": "rabbitmq rabbitmq-test rabbitmq-confirm",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.06",
+      "title": "测试 RabbitMQ 故障与队列积压",
+      "stage": "08",
+      "actions": "rabbitmq-failover",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.08.07",
+      "title": "部署 NATS 与 JetStream",
+      "stage": "08",
+      "actions": "nats nats-test nats-failover",
+      "files": [
+        "08/run.sh",
+        "08/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.09.01",
+      "title": "设计自定义 DemoApp API",
+      "stage": "09",
+      "actions": "deploy exercise",
+      "files": [
+        "09/run.sh",
+        "09/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.09.02",
+      "title": "实现调谐、幂等与 Finalizer",
+      "stage": "09",
+      "actions": "test exercise delete",
+      "files": [
+        "09/run.sh",
+        "09/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": false,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.09.03",
+      "title": "验证 CRD 版本与控制器权限",
+      "stage": "09",
+      "actions": "test exercise",
+      "files": [
+        "09/run.sh",
+        "09/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.09.04",
+      "title": "建立数据平台启停与恢复顺序",
+      "stage": "09",
+      "actions": "handoff",
+      "files": [
+        "09/run.sh",
+        "09/README.md",
+        "09/START-STOP.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "03.09.05",
+      "title": "完成 Phase 03 验收与交接",
+      "stage": "09",
+      "actions": "handoff",
+      "files": [
+        "09/run.sh",
+        "09/README.md"
+      ],
+      "delivery": "script_and_runbook",
+      "manual_gate": true,
+      "runtime_status": "not_run"
+    }
+  ]
+}

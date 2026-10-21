@@ -3,10 +3,11 @@ set -euo pipefail
 ns=cnpl03-mysql; namespace "$ns"
 if [[ $ACTION == mysql ]]; then
     component_chart cnpl03-mysql mysql_operator "$ns"
-    password=$(required .mysql.password_file); private_file "$password"
+    password=$(required .mysql.password_file); hex_secret "$password"
     work=$(mktemp -d)
     printf root > "$work/rootUser"; printf '%%' > "$work/rootHost"
-    secret_from_files "$ns" mysql-root "rootUser=$work/rootUser" "rootHost=$work/rootHost" "rootPassword=$password"
+    tr -d '\n' < "$password" > "$work/rootPassword"
+    secret_from_files "$ns" mysql-root "rootUser=$work/rootUser" "rootHost=$work/rootHost" "rootPassword=$work/rootPassword"
     rm -rf -- "$work"
     info=$(material mysql)
     jq -n --arg version "$(jq -r .version <<< "$info")" --arg class "$SC_RBD" --arg image "$(image mysql)" '{apiVersion:"mysql.oracle.com/v2",kind:"InnoDBCluster",metadata:{name:"mysql"},spec:{secretName:"mysql-root",instances:3,version:$version,tlsUseSelfSigned:false,tlsSecretName:"mysql-tls",tlsCASecretName:"mysql-ca",router:{instances:2},datadirVolumeClaimTemplate:{storageClassName:$class,accessModes:["ReadWriteOnce"],resources:{requests:{storage:"2Gi"}}},podSpec:{affinity:{podAntiAffinity:{requiredDuringSchedulingIgnoredDuringExecution:[{topologyKey:"cnpl.io/esxi",labelSelector:{matchLabels:{"mysql.oracle.com/cluster":"mysql"}}}]}}}}}' > "$ATTEMPT/mysql.json"

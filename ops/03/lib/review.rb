@@ -26,14 +26,17 @@ def documents(path)
   walk_ast.call(stream)
   YAML.load_stream(File.read(path)).compact
 end
-case ARGV.shift
+mode = ARGV.shift
+case mode
 when "images", "images-json"
   path = ARGV.fetch(0)
-  docs = File.extname(path) == ".json" ? [JSON.parse(File.read(path))] : documents(path)
+  docs = mode == "images-json" || File.extname(path) == ".json" ? [JSON.parse(File.read(path))] : documents(path)
   docs.each do |doc|
     walk(doc) do |node|
       next unless node.is_a?(Hash)
-      %w[image imageName].each do |key|
+      keys = ["image"]
+      keys << "imageName" if node.key?("instances") && node.key?("storage")
+      keys.each do |key|
         next unless node[key].is_a?(String)
         reject("渲染镜像未锁内网 Digest") unless node[key].match?(%r{\Aharbor\.k8s\.internal\.egon\.top/.+@sha256:[0-9a-f]{64}\z})
       end

@@ -63,7 +63,7 @@ spec:
     - name: client
       image: harbor.k8s.internal.egon.top/unconfigured/postgresql:pending
       command: [sh, -c, 'sleep 86400']
-      env: [{name: PGPASSFILE, value: /auth/pgpass}]
+      env: [{name: PGPASSFILE, value: /auth/pgpass}, {name: PGCONNECT_TIMEOUT, value: '5'}, {name: PGOPTIONS, value: '-c statement_timeout=10000'}]
       volumeMounts: [{name: auth, mountPath: /auth, readOnly: true}]
       resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
   volumes: [{name: auth, secret: {secretName: pg-client, defaultMode: 256}}]

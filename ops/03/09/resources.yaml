@@ -1,0 +1,98 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata: {name: demoapps.lab.egon.top}
+spec:
+  group: lab.egon.top
+  scope: Namespaced
+  names: {kind: DemoApp, plural: demoapps, singular: demoapp, shortNames: [demo]}
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources: {status: {}}
+      additionalPrinterColumns:
+        - {name: Ready, type: integer, jsonPath: .status.readyReplicas}
+        - {name: Generation, type: integer, jsonPath: .status.observedGeneration}
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [image, replicas, port]
+              properties:
+                image: {type: string, pattern: '^harbor\.k8s\.internal\.egon\.top/[a-zA-Z0-9_./-]+@sha256:[0-9a-f]{64}$'}
+                replicas: {type: integer, minimum: 1, maximum: 5}
+                port: {type: integer, minimum: 1024, maximum: 65535}
+                message: {type: string, maxLength: 1024, default: phase03}
+            status:
+              type: object
+              properties:
+                observedGeneration: {type: integer, format: int64}
+                readyReplicas: {type: integer, minimum: 0}
+                conditions:
+                  type: array
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys: [type]
+                  items:
+                    type: object
+                    required: [type, status, reason, message, lastTransitionTime]
+                    properties:
+                      type: {type: string}
+                      status: {type: string, enum: ['True', 'False', Unknown]}
+                      reason: {type: string}
+                      message: {type: string}
+                      lastTransitionTime: {type: string, format: date-time}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: demoapp-operator}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: demoapp-operator}
+rules:
+  - apiGroups: [lab.egon.top]
+    resources: [demoapps]
+    verbs: [get, list, patch]
+  - apiGroups: [lab.egon.top]
+    resources: [demoapps/status]
+    verbs: [patch]
+  - apiGroups: [lab.egon.top]
+    resources: [demoapps/finalizers]
+    verbs: [patch, update]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, create, update, delete]
+  - apiGroups: ['']
+    resources: [services, configmaps]
+    verbs: [get, create, update, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: demoapp-operator}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: demoapp-operator}
+subjects: [{kind: ServiceAccount, name: demoapp-operator, namespace: cnpl03-09}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: demoapp-operator}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: demoapp-operator}}
+  template:
+    metadata: {labels: {app: demoapp-operator}}
+    spec:
+      serviceAccountName: demoapp-operator
+      securityContext: {runAsNonRoot: true, runAsUser: 10001}
+      containers:
+        - name: operator
+          image: harbor.k8s.internal.egon.top/unconfigured/demoapp-operator:pending
+          env: [{name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}]
+          resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}

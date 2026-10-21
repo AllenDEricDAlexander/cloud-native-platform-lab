@@ -17,6 +17,16 @@ ruby -rjson -rdigest -e '
  abort "需要三独立物理域和主机" unless d.map{|x|x["hypervisor"]}.compact.uniq.size==3 && d.map{|x|x["host"]}.uniq.size==3;
  d.each{|x| abort "未批准/未知对照盘" unless x["approved"]==true && x["contains_data"]==false && x["bytes"].is_a?(Integer) && x["bytes"]>0 && x["stable_id"].match?(%r{\A/dev/disk/by-id/[a-zA-Z0-9_.:+-]+\z}); abort "对照盘不得复用主盘" if p.any?{|v|v["stable_id"]==x["stable_id"]}; abort "缺少对照映射证据" unless File.file?(x["evidence_file"]) && Digest::SHA256.file(x["evidence_file"]).hexdigest==x["evidence_sha256"] }
 ' "$managed_devices" "$DEVICES"
+inventory_file=$(required .managed.inventory_file)
+ansible=${CNPL03_ANSIBLE:-$HOME/.venvs/cnpl-ansible/bin/ansible-playbook}
+inventory_tool=$(dirname "$ansible")/ansible-inventory
+[[ -x $inventory_tool && -f $inventory_file ]] || die '缺少明确的独立 inventory 或现有解析工具'
+private_temp
+"$inventory_tool" -i "$inventory_file" --list > "$PRIVATE_TEMP_ROOT/comparison-inventory.json"
+ruby -rjson -e '
+ d=JSON.parse(File.read(ARGV[0])).fetch("devices"); i=JSON.parse(File.read(ARGV[1])); names=i.fetch("ceph_comparison").fetch("hosts"); abort "对照 inventory 与设备主机集合不符" unless names.sort==d.map{|x|x["host"]}.uniq.sort;
+ d.each{|x| h=i.fetch("_meta").fetch("hostvars").fetch(x["host"]); abort "对照 inventory 地址或 root 身份不符" unless h["ansible_host"]==x.fetch("ip") && h["ansible_user"]=="root"}
+' "$managed_devices" "$PRIVATE_TEMP_ROOT/comparison-inventory.json"
 namespace cnpl03-managed
 case "$ACTION" in
     managed-preflight)
@@ -68,6 +78,7 @@ SERVICES
         [[ $(k -n cnpl03-managed get cephcluster comparison -o jsonpath='{.status.ceph.fsid}') != "$main_fsid" ]] || die 'FSID 未隔离'
         ;;
     managed-cleanup)
+        k -n cnpl03-managed get cephcluster comparison -o json | jq -e --arg run "$RUN" '.metadata.labels["cnpl.io/run"]==$run' >/dev/null || die 'CephCluster 不属于本批，禁止清理'
         [[ $(k -n cnpl03-managed get pvc -o json | jq '.items|length') == 0 ]] || die '仍有持久卷，先保存数据并按 UID 释放，不自动删卷'
         k get pv -o json | jq -e 'all(.items[];(.spec.csi.volumeAttributes.clusterID // "")!="cnpl03-managed")' >/dev/null || die '仍有对照集群的 PV，先核对和保护后端数据'
         k -n cnpl03-managed delete cephobjectstore,cephfilesystem,cephblockpool -l "cnpl.io/run=$RUN" --wait=true --timeout=300s

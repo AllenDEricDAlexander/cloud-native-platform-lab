@@ -8,7 +8,7 @@ credentials 从仓库外文件制作超级用户、app 和 pgpass Secret；业�
 
 archiving 使用匹配的 Barman Cloud Plugin 完整离线安装清单，在该 namespace 预置 backup.s3_secret（ACCESS_KEY_ID/ACCESS_SECRET_KEY）、backup.s3_ca_secret（ca.crt）和独立 HTTPS 对象端点；按插件本版本核对 ObjectStore endpointCA 契约，不能关闭 TLS 验证。备份/WAL 都离开原 Ceph。backup 等待原生 Backup completed；PITR 必须使用新 Cluster，输入 pitr_time 选 pitr-before 写出的带时区目标时间，再 pitr-after，等待 WAL 归档后恢复。恢复核对前 1000 条哈希、目标前 1001 存在、目标后 1002 不存在；不能只看 Pod Ready。
 
-failover 在有限连续写入期间只删除归属验证的主 Pod，记录每个已确认/失败 ID，检查新主与所有 ack 事务；总观测时间不是 RTO，实际客户端失败窗口从 writes.tsv 计算。主 Worker 故障由 06 的 vSphere 规程另做，不把主 Pod 删除当作 Worker/物理故障通过。
+failover 在有限连续写入期间只删除归属验证的主 Pod，故障前至少有一次确认提交，换主后必须重新提交 10031，再检查所有 ack 事务。分别记录总观测时间、从删除主 Pod 到新主成功提交的实测秒数，客户端逐次成败见 writes.tsv；该时间不代表物理主机或整个数据平台的恢复。主 Worker 故障由 06 的 vSphere 规程另做，不把主 Pod 删除当作 Worker/物理故障通过。
 
 dump 写入明确独立的仓库外目录，restore-dump 仅导入新建空 Cluster。minor-upgrade 只允许同 major；major-migrate 使用独立新版本集群加逻辑 dump/restore，不原地换镜像。升级前检查官方支持路线、扩展/排序规则/编码和备份；源数据库及数据卷始终保留，客户端切换由用户在校验后操作。
 

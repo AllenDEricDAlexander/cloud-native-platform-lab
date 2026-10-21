@@ -1,0 +1,35 @@
+# 独立保护项目/集群外专用 Runner，不由应用 MR include。
+stages: [plan, apply, verify]
+default:
+  image: $IAC_TOOLS_IMAGE
+  tags: [cnpl-iac-external]
+  timeout: 30m
+  retry: 0
+  interruptible: false
+workflow:
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+plan:
+  stage: plan
+  resource_group: phase04-iac
+  script:
+    - bash ops/04/06/run.sh init
+    - bash ops/04/06/run.sh plan
+  artifacts:
+    paths: [ops/04/06/records/]
+    expire_in: 7 days
+apply:
+  stage: apply
+  resource_group: phase04-iac
+  when: manual
+  allow_failure: false
+  script:
+    - bash ops/04/06/run.sh apply
+    - bash ops/04/06/run.sh ansible-check
+    - bash ops/04/06/run.sh ansible-apply
+verify:
+  stage: verify
+  resource_group: phase04-iac
+  script:
+    - bash ops/04/06/run.sh no-op
+    - bash ops/04/06/run.sh ansible-check

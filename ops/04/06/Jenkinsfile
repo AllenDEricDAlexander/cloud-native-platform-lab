@@ -1,0 +1,20 @@
+// 独立受信管理任务；同一个远端 HTTP State 提供跨 CI 权威锁。
+pipeline {
+    agent { label 'cnpl-iac-external' }
+    options { timestamps(); disableConcurrentBuilds(); timeout(time: 60, unit: 'MINUTES') }
+    stages {
+        stage('Plan') {
+            steps { sh 'bash ops/04/06/run.sh init; bash ops/04/06/run.sh plan' }
+        }
+        stage('Approve saved plan') {
+            steps {
+                script {
+                    env.CNPL04_APPROVED_PLAN_SHA256 = input(message: 'Review the private saved plan and enter its SHA256', submitter: 'cnpl-iac-approvers', parameters: [string(name: 'SHA256')])
+                }
+            }
+        }
+        stage('Apply') { steps { sh 'bash ops/04/06/run.sh apply' } }
+        stage('Host baseline') { steps { sh 'bash ops/04/06/run.sh ansible-check; bash ops/04/06/run.sh ansible-apply' } }
+        stage('Idempotence') { steps { sh 'bash ops/04/06/run.sh no-op; bash ops/04/06/run.sh ansible-check' } }
+    }
+}

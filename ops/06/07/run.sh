@@ -18,6 +18,7 @@ case "$action" in
     check|invoke)
         check_namespace
         for language in python java; do k -n "$NS" rollout status "deployment/orders-$language" --timeout=180s; done
+        jq -e '(.items|length)>0 and all(.items[];any(.spec.containers[];.name=="daprd") and any(.spec.volumes[]?;any(.projected.sources[]?;.serviceAccountToken.audience=="dapr.io/sentry" and .serviceAccountToken.expirationSeconds<=3600)))' "$ATTEMPT/pods.json" >/dev/null || die '实际 sidecar/短期 Sentry 投影未就绪'
         if [[ $action == invoke ]]; then
             owned Deployment orders-python "$NS" >/dev/null
             k -n "$NS" exec deployment/orders-python -c app -- curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3500/v1.0/invoke/orders-java/method/health > "$ATTEMPT/invoke.txt"

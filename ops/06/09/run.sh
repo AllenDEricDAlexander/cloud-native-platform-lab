@@ -25,7 +25,7 @@ case "$action" in
     apply) apply_file "$ATTEMPT/scope.json"; apply_file "$ATTEMPT/cluster.json" ;;
     check)
         check_namespace
-        k -n "$NS" get clusters.cluster.x-k8s.io,machinedeployments,machines -o json > "$ATTEMPT/management-state.json"
+        k -n "$NS" get clusters.cluster.x-k8s.io,machinedeployments,machines -o json | redact_objects > "$ATTEMPT/management-state.json"
         TARGET=secondary; cluster_gate
         ;;
     destroy)

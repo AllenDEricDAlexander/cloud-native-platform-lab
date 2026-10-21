@@ -5,9 +5,18 @@ require "yaml"
 require "digest"
 require "ipaddr"
 require "uri"
+class UniqueKeys < Hash
+  def []=(key, value)
+    abort "JSON 重复键" if key?(key)
+    super
+  end
+end
+def parse_json(text)
+  JSON.parse(text,object_class:UniqueKeys)
+end
 P06 = File.expand_path("..", __dir__)
 REPO = File.expand_path("../..", P06)
-INPUT = JSON.parse(File.read(ENV.fetch("CNPL06_INPUTS", File.join(P06, "inputs.json"))))
+INPUT = parse_json(File.read(ENV.fetch("CNPL06_INPUTS", File.join(P06, "inputs.json"))))
 def required(*path)
   v = INPUT.dig(*path)
   abort "输入未确认：#{path.join('.')}" if v.nil? || v == "" || v == []
@@ -99,8 +108,14 @@ def base
   INPUT.fetch("network",{}).fetch("egress",[]).each do |e|
     next unless e.fetch("stage") == stage
     ip = IPAddr.new(e.fetch("cidr"))
-    abort "出口须限定内网地址与端口" unless ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"].any? { |n| IPAddr.new(n).include?(ip) } && e.fetch("ports").all? { |p| p["port"].is_a?(Integer) && (1..65535).include?(p["port"]) && ["TCP","UDP"].include?(p["protocol"]) }
+    abort "出口须限定内网地址与端口" unless ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"].any? { |n| IPAddr.new(n).include?(ip) } && e["ports"].is_a?(Array) && !e["ports"].empty? && e["ports"].all? { |p| p["port"].is_a?(Integer) && (1..65535).include?(p["port"]) && ["TCP","UDP"].include?(p["protocol"]) }
     local["spec"]["egress"] << {"to"=>[{"ipBlock"=>{"cidr"=>e["cidr"]}}],"ports"=>e["ports"]}
+  end
+  INPUT.fetch("network",{}).fetch("ingress",[]).each do |e|
+    next unless e.fetch("stage") == stage
+    ns_name = e.fetch("namespace"); pod_labels = e.fetch("pod_labels"); ports = e.fetch("ports")
+    abort "入口须限定命名空间、非空 Pod 标签和端口" unless ns_name.is_a?(String) && ns_name.match?(/\A[a-z0-9][a-z0-9-]{0,62}\z/) && pod_labels.is_a?(Hash) && !pod_labels.empty? && pod_labels.values.all? { |v| v.is_a?(String) && !v.empty? && !v.include?("*") } && ports.is_a?(Array) && !ports.empty? && ports.all? { |p| p["port"].is_a?(Integer) && (1..65535).include?(p["port"]) && %w[TCP UDP].include?(p["protocol"]) }
+    local["spec"]["ingress"] << {"from"=>[{"namespaceSelector"=>{"matchLabels"=>{"kubernetes.io/metadata.name"=>ns_name}},"podSelector"=>{"matchLabels"=>pod_labels}}],"ports"=>ports}
   end
   [ns,sa,quota,deny,local]
 end
@@ -134,7 +149,11 @@ def check_manifests(items, allowed_namespaces, allowed_cluster, locked)
         ref_image = digest_image(v["image"]); images << ref_image
         abort "镜像未在主版本锁确认" if locked && !image_locks.include?(ref_image)
       end
-      %w[password clientSecret privateKey token].each { |k| abort "清单不能内嵌凭据" if v.key?(k) && v[k].is_a?(String) && !v[k].empty? }
+      if v["url"].is_a?(String) && v["url"].start_with?("docker://")
+        ref_image = digest_image(v["url"].delete_prefix("docker://")); images << ref_image
+        abort "磁盘镜像未在主版本锁确认" if locked && !image_locks.include?(ref_image)
+      end
+      %w[password clientSecret client_secret privateKey secret secret_key access_key token].each { |k| abort "清单不能内嵌凭据" if v.key?(k) && v[k].is_a?(String) && !v[k].empty? }
     end
     m["labels"] = m.fetch("labels",{}).merge(labels)
   end
@@ -147,17 +166,19 @@ if $PROGRAM_NAME == __FILE__
     abort "输入 schema 无效" unless INPUT["schema_version"] == 1
     Dir.glob(File.join(P06,"**","*")).select { |p| File.file?(p) && !p.include?("/records/") }.each do |p|
       case File.extname(p)
-      when ".json" then JSON.parse(File.read(p))
+      when ".json" then parse_json(File.read(p))
       when ".yaml", ".yml" then documents(File.read(p))
       end
     end
     puts "PASS JSON/YAML/重复键检查（离线）"
   when "private"
     p = ARGV.fetch(0); r = File.realpath(p); s = File.stat(r)
-    abort "私有文件须在仓库外、当前用户所有且权限为 0600/0400" unless !File.symlink?(p) && !r.start_with?(REPO+"/") && s.file? && s.size>0 && s.uid == Process.uid && [0600,0400].include?(s.mode & 0777)
+    abort "私有文件须在仓库外、当前用户所有且权限为 0600/0400" unless p.start_with?("/") && !File.symlink?(p) && !r.start_with?(REPO+"/") && s.file? && s.size>0 && s.uid == Process.uid && [0600,0400].include?(s.mode & 0777)
   when "material"
     key = ARGV.fetch(0)
-    m = JSON.parse(File.read(ENV.fetch("CNPL06_MATERIALS",File.join(P06,"materials.json")))).fetch("components").fetch(key) { abort "物料未锁定：#{key}" }
+    m = parse_json(File.read(ENV.fetch("CNPL06_MATERIALS",File.join(P06,"materials.json")))).fetch("components").fetch(key) { abort "物料未锁定：#{key}" }
+    abort "物料范围/就绪检查缺失" unless m["namespaces"].is_a?(Array) && !m["namespaces"].empty? && m["namespaces"].all? { |v| v.is_a?(String) && v.match?(/\A[a-z0-9][a-z0-9-]{0,62}\z/) } && m["cluster_resources"].is_a?(Array) && m["wait"].is_a?(Array) && !m["wait"].empty?
+    abort "物料就绪条件无效" unless m["wait"].all? { |w| w.is_a?(Hash) && m["namespaces"].include?(w["namespace"]) && w["resource"].to_s.match?(%r{\A[a-zA-Z0-9.-]+/[a-z0-9][a-z0-9.-]*\z}) && w["condition"].to_s.match?(/\A[A-Za-z]+\z/) }
     verified(m["compatibility_file"],m["compatibility_sha256"])
     verified(m["manifest_file"],m["manifest_sha256"])
     lock = YAML.load_file(File.join(REPO,"ops/versions.lock.yaml")).fetch("components").fetch(key) { abort "未登记主版本锁：#{key}" }

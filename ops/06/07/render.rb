@@ -16,8 +16,7 @@ items << config
   app = deployment(name,"worker",1)
   app["spec"]["template"]["metadata"]["annotations"] = {"dapr.io/enabled"=>"true","dapr.io/app-id"=>name,"dapr.io/app-port"=>"8080","dapr.io/app-protocol"=>"http","dapr.io/config"=>"bounded-apps","dapr.io/sidecar-cpu-request"=>"100m","dapr.io/sidecar-memory-request"=>"128Mi","dapr.io/sidecar-cpu-limit"=>"500m","dapr.io/sidecar-memory-limit"=>"256Mi","dapr.io/enable-api-logging"=>"false"}
   app["spec"]["template"]["spec"]["containers"][0]["args"] = ["serve","--language",language,"--backend","dapr","--run-id",run]
-  # Dapr 身份令牌用专用投影卷；不恢复应用默认全局 Token 挂载。
-  app["spec"]["template"]["spec"]["volumes"] = [{"name"=>"dapr-token","projected"=>{"sources"=>[{"serviceAccountToken"=>{"path"=>"token","audience"=>"dapr.io/sentry","expirationSeconds"=>3600}}]}}]
+  # 短期 Sentry 身份由锁定 injector 注入；check 核对实际 sidecar 投影，应用仍不自动挂载 API Token。
   items << app
   items << service(name)
 end

@@ -11,6 +11,7 @@ if ARGV[0] == "queues"
     task["spec"]["template"]["spec"]["containers"][0]["resources"] = {"requests"=>{"cpu"=>"1","memory"=>"256Mi"},"limits"=>{"cpu"=>"1","memory"=>"256Mi"}}
     items << task
   end
+  items.find { |d| d["kind"] == "ClusterQueue" }["spec"]["namespaceSelector"] = {"matchLabels"=>{"cnpl.io/phase"=>"06","cnpl.io/run"=>run},"matchExpressions"=>[{"key"=>"cnpl.io/stage","operator"=>"In","values"=>["08","13"]}]}
   emit(items)
   exit
 end

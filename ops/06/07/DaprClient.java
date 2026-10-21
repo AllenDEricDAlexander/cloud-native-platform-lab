@@ -18,9 +18,10 @@ public final class DaprClient {
         String value = "{\"id\":\"" + id + "\",\"value\":\"cnpl06\"}";
         send(client, "state/lab-state", "[{\"key\":\"" + id + "\",\"value\":" + value + "}]", token);
         String recovered = send(client, "state/lab-state/" + id, null, token);
-        // Exact bytes are recorded for comparison by the caller; field order is not a success criterion.
-        if (recovered.isBlank()) {
-            throw new IllegalStateException("State read returned no data");
+        String compact = recovered.replaceAll("\\s+", "");
+        String reversed = "{\"value\":\"cnpl06\",\"id\":\"" + id + "\"}";
+        if (!compact.equals(value) && !compact.equals(reversed)) {
+            throw new IllegalStateException("State read-back mismatch");
         }
         send(client, "publish/lab-pubsub/orders", value, token);
         System.out.println("{\"id\":\"" + id + "\",\"publish_accepted\":true,\"effect_verified\":false}");

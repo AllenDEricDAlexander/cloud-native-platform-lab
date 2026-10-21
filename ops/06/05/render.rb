@@ -10,8 +10,10 @@ abort "Kafka 分区数须为 1-4" unless partitions.is_a?(Integer) && (1..4).inc
   dep = deployment("#{kind}-worker","worker",1)
   c = dep["spec"]["template"]["spec"]["containers"][0]
   c["args"] = ["consume","--backend",kind,"--run-id",run]
-  c["envFrom"] = [{"secretRef"=>{"name"=>required("scaling","#{kind}_auth_secret")}}]
+  dep["spec"]["template"]["spec"]["volumes"] = [{"name"=>"connection","secret"=>{"secretName"=>required("scaling","#{kind}_auth_secret")}}]
+  c["volumeMounts"] = [{"name"=>"connection","mountPath"=>"/var/run/connection","readOnly"=>true}]
   c["env"] = [{"name"=>"LAB_RUN_ID","value"=>run},{"name"=>"LAB_TOPIC_OR_QUEUE","value"=>required("scaling",kind == "kafka" ? "kafka_topic" : "rabbit_queue")}]
+  c["env"] << {"name"=>"LAB_CONNECTION_DIRECTORY","value"=>"/var/run/connection"}
   items << dep
   secret = required("scaling","#{kind}_auth_secret")
   auth = object("keda.sh/v1alpha1","TriggerAuthentication","#{kind}-auth",{"secretTargetRef"=>kind == "kafka" ? [{"parameter"=>"username","name"=>secret,"key"=>"username"},{"parameter"=>"password","name"=>secret,"key"=>"password"},{"parameter"=>"ca","name"=>secret,"key"=>"ca.crt"}] : [{"parameter"=>"host","name"=>secret,"key"=>"uri"}]})

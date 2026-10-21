@@ -35,7 +35,7 @@ case "$action" in
     check)
         check_namespace
         for ref in services.serving.knative.dev/hello brokers.eventing.knative.dev/lab-broker triggers.eventing.knative.dev/orders; do k -n "$NS" wait "$ref" --for=condition=Ready --timeout=300s; done
-        k -n "$NS" get revisions.serving.knative.dev,services.serving.knative.dev,brokers.eventing.knative.dev,triggers.eventing.knative.dev -o json > "$ATTEMPT/readiness.json"
+        k -n "$NS" get revisions.serving.knative.dev,services.serving.knative.dev,brokers.eventing.knative.dev,triggers.eventing.knative.dev -o json | redact_objects > "$ATTEMPT/readiness.json"
         ;;
     traffic)
         state=$(owned services.serving.knative.dev hello "$NS")

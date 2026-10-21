@@ -14,7 +14,7 @@
 | 03 Ceph 与中间件 | [03-ceph-middleware](../plan/03-ceph-middleware.md) | [分子阶段脚本与操作流程](03/README.md) | 01–09 脚本已编写并离线走查；内网运行未验收 |
 | 04 交付平台 | [04-devops-platform](../plan/04-devops-platform.md) | [操作流程](04-devops-platform/README.md) | 未开始 |
 | 05 可观测性 | [05-observability](../plan/05-observability.md) | [操作流程](05-observability/README.md) | [Zabbix VM 监控方案](05-observability/README.md#zabbix-design)复用 build01，部署未开始 |
-| 06 安全、进阶与恢复 | [06-advanced-security-dr](../plan/06-advanced-security-dr.md) | [操作流程](06-advanced-security-dr/README.md) | 未开始 |
+| 06 安全、进阶与恢复 | [06-advanced-security-dr](../plan/06-advanced-security-dr.md) | [分子阶段脚本与操作流程](06/README.md) | 01–17 脚本已编写并离线走查；内网运行未验收 |
 
 尚未开始的阶段，其操作流程仍是设计草案：命令未经运行验证，开始实施时按本节的写法改为可执行流程。
 

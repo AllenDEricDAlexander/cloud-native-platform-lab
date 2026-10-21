@@ -1,6 +1,6 @@
 # 06.07 Dapr、多语言与持久 Workflow
 
-覆盖 06.07.01–03。`run.sh validate|render|install|apply|check|invoke|cleanup-plan`，默认离线。先验证实际 Redis TLS/CA/ACL 和 Dapr 控制面 mTLS；state/pubsub 两个 Component 只对 orders-python/orders-java 可见。业务空间默认拒绝下，需补 Dapr sidecar 到 Sentry/placement/scheduler、控制器到 injector 及 Redis 精确连接，不开放全网。ServiceAccount 默认不向应用挂载 Token，Dapr sidecar 的专用投影卷、mountPath/audience 和 injector 配置必须按锁定版本确认；仅声明卷不能证明 sidecar 已取得身份。
+覆盖 06.07.01–03。`run.sh validate|render|install|apply|check|invoke|cleanup-plan`，默认离线。先验证实际 Redis TLS/CA/ACL 和 Dapr 控制面 mTLS；state/pubsub 两个 Component 只对 orders-python/orders-java 可见。业务空间默认拒绝下，需补 Dapr sidecar 到 Sentry/placement/scheduler、控制器到 injector 及 Redis 精确连接，不开放全网。ServiceAccount 默认不向应用挂载 Token，锁定 injector 须为 sidecar 注入适用 mountPath/audience 的短期 Sentry 投影；check 核对实际 daprd 与 audience/期限，不以手工声明未挂载卷代替身份生效。
 
 apply 的 worker 镜像须在受控构建端准备：`serve --language python|java --backend dapr --run-id <id>`、8080 `/health`、`/dapr/subscribe`、`/events`、持久化业务 ID、有限重试和取消。此处提供 [Python](client.py) 与 [JDK](DaprClient.java) 的状态/发布客户端，使用标准库，可放入两个样例镜像验证同一 API；客户端成功仅表示状态 API/发布入口接受，不能代替服务端消费幂等或 Workflow SDK。无匹配镜像时保持阻塞，不把诊断镜像当业务 Worker。
 

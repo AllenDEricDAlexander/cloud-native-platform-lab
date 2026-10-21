@@ -30,8 +30,10 @@
 
 `images.http` 必须支持非 root、只读根文件系统、8080 `/health`、HTTP/CloudEvents 回显并记录 event ID；`images.probe` 需含 sh/curl/jq/kubectl/python3；`images.worker` 用于实际 Kafka/Rabbit/Dapr 样例，契约在相关目录说明。镜像依赖和签名先在受控构建端准备；Mac 不构建运行 Docker/Podman 集群。模型/GPU 镜像另锁。render 可用虚构 Digest 做构造检查，apply 仍核对主锁。
 
-业务空间默认 Restricted、无 Token 自动挂载、有限额、默认拒绝网络，仅允许同空间和 kube-dns。按阶段登记 `network.egress`，例如 `{"stage":"07","cidr":"192.168.9.106/32","ports":[{"port":6379,"protocol":"TCP"}]}`。仅允许限定内网 CIDR/端口；网关/Knative/Argo/Dapr 控制面到业务的入口须补充精确 Namespace/PodSelector，不能为演示临时开放所有网络。存在准入或 Sidecar 约束时先观察 Audit，再确认精确例外。
+业务空间默认 Restricted、无 Token 自动挂载、有限额、默认拒绝网络，仅允许同空间和 kube-dns。按阶段登记 `network.egress`，例如 `{"stage":"07","cidr":"192.168.9.106/32","ports":[{"port":6379,"protocol":"TCP"}]}`。入口用 `network.ingress`，例如 `{"stage":"06","namespace":"实际网关空间","pod_labels":{"app.kubernetes.io/name":"实际网关标签"},"ports":[{"port":8080,"protocol":"TCP"}]}`；必须同时限制 Namespace、非空 PodSelector 和端口，拒绝通配。存在准入或 Sidecar 约束时先观察 Audit，再确认精确例外。11 的专用 VM 空间是单独评审的 PSA 例外。
 
 备份门槛要求独立于主 Ceph 和三台 ESXi 故障域的真实介质及抽样恢复证据；现有同 esxi01 的 backup VM 不满足该门槛。高风险故障、密钥淘汰、控制平面变更、升级和重建必须停在材料核实处，不能通过把 independent 改为 true 代替实际验证。
 
 `cleanup-plan` 只列本批已登记对象和 UID，保留失败证据；删除采用 UID 前置条件。Namespace、PVC/VM/DataVolume、CRD、共享控制器、备份与存储后端需要按子阶段先保护数据再回收，不提供全局 prune 或整阶段盲删。
+
+普通 Pod/事件/恢复对象记录会删除 env、命令参数、data、注解、消息等可能携带秘密的字段，保留归属、状态、原因、镜像和投影结构；需要原始诊断输出时单独保存到仓库外私有目录并人工脱敏。密钥、快照和模型预测正文不进入普通证据。

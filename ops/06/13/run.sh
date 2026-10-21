@@ -34,7 +34,7 @@ case "$action" in
     vllm|training) render "$action" > "$ATTEMPT/ai.json"; apply_file "$ATTEMPT/ai.json" ;;
     check)
         check_namespace
-        k -n "$NS" get inferenceservices -o json > "$ATTEMPT/inference.json"
+        k -n "$NS" get inferenceservices -o json | redact_objects > "$ATTEMPT/inference.json"
         k -n "$NS" wait inferenceservice/cpu-model --for=condition=Ready --timeout=300s
         ;;
 esac

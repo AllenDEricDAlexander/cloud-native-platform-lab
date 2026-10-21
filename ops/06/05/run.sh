@@ -21,11 +21,11 @@ case "$action" in
     apply) render > "$ATTEMPT/scaling.json"; apply_file "$ATTEMPT/scaling.json" ;;
     check|observe)
         check_namespace
-        k -n "$NS" get hpa,vpa,scaledobjects -o json > "$ATTEMPT/controllers.json"
+        k -n "$NS" get hpa,vpa,scaledobjects -o json | redact_objects > "$ATTEMPT/controllers.json"
         k -n "$NS" rollout status deployment/hpa-demo --timeout=180s
         if [[ $action == observe ]]; then
             for sample in 1 2 3 4 5 6; do
-                k -n "$NS" get hpa,vpa,scaledobjects,deployments -o json > "$ATTEMPT/sample-$sample.json"
+                k -n "$NS" get hpa,vpa,scaledobjects,deployments -o json | redact_objects > "$ATTEMPT/sample-$sample.json"
                 date -u +%FT%TZ > "$ATTEMPT/sample-$sample.time"
                 sleep 10
             done

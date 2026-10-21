@@ -54,7 +54,9 @@ case "$action" in
             ruby -rjson -e 'd=JSON.parse(File.read(ARGV[0]));abort "节点回归证据不全" unless d["node"]==ARGV[1] && d["uid"]==ARGV[2] && d["target_version"]==ARGV[3] && %w[api etcd cilium dns csi gateway database messaging ci security observability].all?{|k|d.fetch("checks")[k]==true} && d["ceph_health"]=="HEALTH_OK"' "$(required .upgrade.regression_file)" "$node" "$uid" "$target"
             [[ $(jq -r .status.nodeInfo.kubeletVersion "$ATTEMPT/node.json") == "$target" ]] || die 'kubelet 未达到目标版本'
             k wait "node/$node" --for=condition=Ready --timeout=180s
-            jq '[{op:"test",path:"/metadata/uid",value:.metadata.uid},{op:"test",path:"/metadata/resourceVersion",value:.metadata.resourceVersion},{op:"test",path:"/spec/unschedulable",value:true},{op:"replace",path:"/spec/unschedulable",value:false}]' "$ATTEMPT/node.json" > "$ATTEMPT/uncordon.json"
+            k get node "$node" -o json > "$ATTEMPT/node-current.json"
+            jq -e --arg uid "$uid" --arg target "$target" '.metadata.uid==$uid and .status.nodeInfo.kubeletVersion==$target and .spec.unschedulable==true' "$ATTEMPT/node-current.json" >/dev/null || die '回归后节点身份/维护状态改变'
+            jq '[{op:"test",path:"/metadata/uid",value:.metadata.uid},{op:"test",path:"/metadata/resourceVersion",value:.metadata.resourceVersion},{op:"test",path:"/spec/unschedulable",value:true},{op:"replace",path:"/spec/unschedulable",value:false}]' "$ATTEMPT/node-current.json" > "$ATTEMPT/uncordon.json"
             k patch node "$node" --type=json --patch-file "$ATTEMPT/uncordon.json"
             jq -nc --arg node "$node" --arg uid "$uid" --arg version "$target" '{node:$node,uid:$uid,version:$version}' >> "$completed"
             mv "$STATE/pending.json" "$ATTEMPT/pending-completed.json"

@@ -4,7 +4,7 @@
 
 HPA 使用 CPU+真实请求率并设稳定窗口；VPA 单独指向 vpa-demo 且为 Off，仅收集建议。Kafka、Rabbit 分别指向独立 Worker，KEDA 管理自己的 HPA，不能再手工向这些 Worker 绑定同维度 HPA。Kafka 上限不超过本实验登记的 1–4 分区；RabbitMQ 凭据 Secret 的 uri 需 AMQPS/可信 CA，Kafka 明确 TLS/SCRAM，具体 scaler 字段在版本锁定时与 CRD 核对。
 
-worker 镜像契约：`consume --backend kafka|rabbit --run-id <id>`、非 root 8080 `/health`；从受控 Secret 注入真实连接配置，业务 ID 去重后提交 effect 与 offset/ACK，Rabbit 设置有限 prefetch，关闭时先停止接新消息、完成处理再 ACK。生产器复用 03 的授权客户端，限定本批 topic/queue，发 100 条含唯一 ID 的消息；先保存发布确认清单，制造积压再开始 observe，记录处理完成和缩容。凭据/消息体不进入普通证据。
+worker 镜像契约：`consume --backend kafka|rabbit --run-id <id>`、非 root 8080 `/health`；从只读挂载的 `/var/run/connection` Secret 文件读取真实连接配置/CA，业务 ID 去重后提交 effect 与 offset/ACK，Rabbit 设置有限 prefetch，关闭时先停止接新消息、完成处理再 ACK。生产器复用 03 的授权客户端，限定本批 topic/queue，发 100 条含唯一 ID 的消息；先保存发布确认清单，制造积压再开始 observe，记录处理完成和缩容。凭据/消息体不进入普通证据。
 
 `observe` 只收集 60 秒控制器/副本时间线，不能代替吞吐与业务正确性。将真实 `published_ids`、`acknowledged_ids`、`effect_ids` 数组交给 messages.rb；允许重复投递，缺确认/业务结果、未知 ID 或重复业务效果均失败。另做消费中断、缩容中断、认证/指标源不可用实验；恢复后核对同一 ID 集合。
 

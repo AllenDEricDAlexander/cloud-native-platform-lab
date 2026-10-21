@@ -24,7 +24,7 @@ case "$action" in
     apply) render > "$ATTEMPT/vm.json"; apply_file "$ATTEMPT/vm.json" ;;
     check)
         check_namespace
-        k -n "$NS" get vm,vmi,datavolumes,pvc -o json > "$ATTEMPT/virtualization.json"
+        k -n "$NS" get vm,vmi,datavolumes,pvc -o json | redact_objects > "$ATTEMPT/virtualization.json"
         ;;
     start|stop|restart|migrate)
         owned virtualmachines.kubevirt.io vm-demo "$NS" >/dev/null

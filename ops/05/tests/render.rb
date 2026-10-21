@@ -30,5 +30,13 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     data = runner.call("03","resources")
     abort "采集类型缺项" unless data.fetch("items").map { |i| i["kind"] }.include?("ScrapeConfig") && data.fetch("items").map { |i| i["kind"] }.include?("ServiceMonitor")
   end
+  if File.file?(File.join(root,"04/render.rb"))
+    input["otel"].merge!({"tls_secret"=>"server","client_secret"=>"client","tempo_endpoint"=>"tempo.observability.svc:4317","loki_endpoint"=>"https://loki.observability.svc/otlp","metrics_endpoint"=>"https://prometheus.monitoring.svc/api/v1/otlp","authorized_namespaces"=>["apps-dev"]})
+    File.write(path,JSON.generate(input))
+    data = runner.call("04","resources")
+    abort "缺少 Agent/Gateway" unless data.fetch("items").any? { |i| i["kind"]=="DaemonSet" } && data.fetch("items").any? { |i| i["kind"]=="Deployment" && i.dig("spec","replicas")==1 }
+    configs = data.fetch("items").select { |i| i["kind"]=="ConfigMap" }.map { |i| YAML.load(i.dig("data","collector.yaml")) }
+    abort "队列无界" unless configs.all? { |c| c["exporters"].values.all? { |e| e.dig("sending_queue","queue_size")==256 && e.dig("retry_on_failure","max_elapsed_time")=="30s" } }
+  end
 end
 puts "PASS #{count} 组离线渲染；镜像方法仅在本地构造中替换，不代表物料已锁定"

@@ -22,6 +22,7 @@ when "values"
   values["commonLabels"] = {"cnpl.io/phase"=>"05","cnpl.io/run"=>required("run_id")}
   values["grafana"]["sidecar"]["image"] = chart_image("grafana_sidecar")
   values["prometheus"]["prometheusSpec"]["scrapeConfigSelector"] = values["commonLabels"].then { |labels| {"matchLabels"=>labels} }
+  values["prometheus"]["prometheusSpec"]["enableOTLPReceiver"] = true
   puts YAML.dump(values)
 when "resources"
   groups = YAML.load_file(File.join(__dir__,"rules.yaml")).fetch("groups")

@@ -6,6 +6,26 @@ stage=${1:-all}
 [[ $stage == all || $stage =~ ^0[1-9]$ ]] || exit 2
 while IFS= read -r file; do bash -n "$file"; done < <(find "$root" -type d -name records -prune -o -type f -name '*.sh' -print | sort)
 while IFS= read -r file; do ruby -c "$file" >/dev/null; done < <(find "$root" -type d -name records -prune -o -type f -name '*.rb' -print | sort)
+python3 - "$root" <<'PY'
+import ast
+import pathlib
+import sys
+for path in pathlib.Path(sys.argv[1]).rglob('*.py'):
+    if 'records' not in path.parts:
+        ast.parse(path.read_text(), filename=str(path))
+context = pathlib.Path(sys.argv[1]) / '04/context.py'
+if context.exists():
+    scope = {}
+    exec(compile(context.read_text(), str(context), 'exec'), scope)
+    assert scope['extract']({'traceparent': '00-'+'0'*32+'-'+'1'*16+'-01'}) is None
+    parent = scope['start']()['context']
+    assert scope['extract'](scope['inject'](parent)) == parent
+    sync = scope['start'](parent)
+    async_span = scope['start'](parent, asynchronous=True)
+    assert sync['context']['trace_id'] == parent['trace_id'] and sync['parent_span_id'] == parent['span_id']
+    assert async_span['context']['trace_id'] != parent['trace_id'] and async_span['parent_span_id'] is None and async_span['links'] == [parent]
+    print('PASS Python AST 与 W3C 同步/异步 carrier 正反检查')
+PY
 ruby "$root/lib/config.rb" source
 ansible=${CNPL05_ANSIBLE:-$HOME/.venvs/cnpl-ansible/bin/ansible-playbook}
 [[ -x $ansible ]] || { printf '缺少既有 Ansible，请设置 CNPL05_ANSIBLE\n' >&2; exit 1; }

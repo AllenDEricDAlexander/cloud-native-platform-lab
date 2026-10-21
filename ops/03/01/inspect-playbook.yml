@@ -1,0 +1,41 @@
+---
+- name: 03.01 只读复核存储主机、设备和资源
+  hosts: storage
+  gather_facts: false
+  vars:
+    phase03_devices: '{{ lookup("file", lookup("env", "CNPL03_DEVICES_FILE")) | from_json }}'
+  tasks:
+    - name: 保持正确主机与安全基线
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname -s)" = '{{ inventory_hostname }}' || exit 1
+        test "$(getenforce)" = Enforcing || exit 1
+        systemctl is-active --quiet firewalld || exit 1
+        chronyc tracking
+        free -b
+        systemctl is-active containerd kubelet
+        findmnt --verify --verbose
+        lsblk -e7 -b -o NAME,PATH,SIZE,TYPE,FSTYPE,UUID,MOUNTPOINTS,MODEL,SERIAL,HCTL
+        pvs --reportformat json
+      args: {executable: /bin/bash}
+      changed_when: false
+      register: phase03_inspection
+    - name: 保存逐主机只读检查
+      ansible.builtin.copy:
+        content: '{{ phase03_inspection.stdout }}'
+        dest: '{{ lookup("env", "ATTEMPT") }}/{{ inventory_hostname }}-baseline.txt'
+        mode: '0600'
+      delegate_to: localhost
+    - name: 核对每一候选整盘，任何签名均停止
+      ansible.builtin.script:
+        cmd: '{{ playbook_dir }}/device-check.sh {{ item.stable_id | quote }} {{ item.bytes | int }}'
+        executable: /bin/bash
+      loop: '{{ phase03_devices.devices | selectattr("host", "equalto", inventory_hostname) | list }}'
+      changed_when: false
+      register: phase03_disks
+    - name: 保存候选设备检查结果
+      ansible.builtin.copy:
+        content: '{{ phase03_disks | to_nice_json }}'
+        dest: '{{ lookup("env", "ATTEMPT") }}/{{ inventory_hostname }}-devices.json'
+        mode: '0600'
+      delegate_to: localhost

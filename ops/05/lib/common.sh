@@ -102,5 +102,5 @@ http() {
 }
 query() {
     http "$(required .metrics.curl_config)" "$(required .metrics.url)/api/v1/query" --get --data-urlencode "query=$1" > "$2"
-    jq -e '.status=="success" and (.data.result|length)>0' "$2" >/dev/null || die 'Prometheus 无数据或查询失败'
+    jq -e '.status=="success" and (.data.result|length)>0 and all(.data.result[]; .value[1]!="NaN" and .value[1]!="+Inf" and .value[1]!="-Inf")' "$2" >/dev/null || die 'Prometheus 无数据、非有限值或查询失败'
 }

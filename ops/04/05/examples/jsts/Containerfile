@@ -1,0 +1,7 @@
+ARG RUNTIME_IMAGE
+FROM ${RUNTIME_IMAGE}
+WORKDIR /app
+COPY --chown=1000:1000 dist/ /app/
+USER 1000:1000
+EXPOSE 8080
+ENTRYPOINT ["node","/app/server.mjs"]

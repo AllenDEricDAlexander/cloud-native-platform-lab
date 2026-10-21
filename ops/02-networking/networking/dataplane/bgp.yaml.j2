@@ -38,6 +38,21 @@ spec:
         cnpl.io/phase-run: '{{ run }}'
         cnpl.io/lb: bgp
 ---
+{% for worker in workers %}
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfigOverride
+metadata:
+  name: '{{ worker }}'
+  labels:
+    cnpl.io/phase-run: '{{ run }}'
+spec:
+  bgpInstances:
+  - name: comparison
+    peers:
+    - name: frr
+      localAddress: '{{ peer_ips[worker] }}'
+---
+{% endfor %}
 apiVersion: cilium.io/v2
 kind: CiliumBGPClusterConfig
 metadata:

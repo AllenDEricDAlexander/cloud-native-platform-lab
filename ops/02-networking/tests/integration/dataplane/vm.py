@@ -48,6 +48,11 @@ def controllers():
             or o['kind']=='DaemonSet' and o['metadata']['name']=='kube-proxy']
 
 
+def announcement_objects(s):
+    return [s.document(kind,s.context['dp_name']) for kind in ['CiliumBGPAdvertisement','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumL2AnnouncementPolicy','CiliumLoadBalancerIPPool']]+[
+        s.document('CiliumBGPNodeConfigOverride',node) for node in r.WORKERS]
+
+
 class Session(r.Session):
     def wait(self,name,check,seconds=90):
         try:return super().wait(name,check,seconds)
@@ -60,16 +65,24 @@ class Session(r.Session):
                 'announcements':['get','ciliumloadbalancerippools,ciliuml2announcementpolicies,ciliumbgpclusterconfigs,ciliumbgppeerconfigs,ciliumbgpadvertisements','-l',r.LABEL+'='+self.run,'-o','json'],
                 'leases':['get','leases','-n','kube-system','-o','json'],
                 'operator':['get','deployments,replicasets,pods','-n','kube-system','-l','io.cilium/app=operator','-o','json'],
+                'bgp_nodes':['get','ciliumbgpnodeconfigs,ciliumbgpnodeconfigoverrides','-o','json'],
+                'agents':['get','pods','-n','kube-system','-l','k8s-app=cilium','-o','json'],
                 'frr':['get','pods','-n',ADMIN,'-l',r.LABEL+'='+self.run,'-o','json']}
+            agents=[]
             for key,args in queries.items():
                 try:
                     items=json.loads(r.call(self.k+args,timeout=3))['items']
                     if key=='leases':items=[o for o in items if o['metadata']['name']=='cilium-l2announce-'+NS+'-l2']
+                    if key=='bgp_nodes':items=[o for o in items if o['metadata']['name'] in r.WORKERS]
+                    if key=='agents':
+                        items=[o for o in items if o['spec'].get('nodeName') in r.WORKERS];agents=[o['metadata']['name'] for o in items]
                     diagnostics['resources'][key]=[{'kind':o['kind'],'metadata':{k:v for k,v in o['metadata'].items() if k in ['name','namespace','uid','generation','labels','ownerReferences']},
-                        'status':o.get('status',{}),'details':o.get('spec',{}) if key in ['announcements','leases'] or o['kind']=='Service' else {}} for o in items]
+                        'status':o.get('status',{}),'details':o.get('spec',{}) if key in ['announcements','leases','bgp_nodes'] or o['kind']=='Service' else {}} for o in items]
                 except (ValueError,KeyError,OSError,subprocess.TimeoutExpired) as issue:diagnostics['collection_errors'][key]=str(issue)
             logs={'operator':['logs','-n','kube-system','deployment/cilium-operator','--all-pods=true','--prefix','--tail=80','--since=15m']}
-            if name in ['frr','bgp','bgp-withdraw']:logs['frr']=['logs','-n',ADMIN,'frr','-c','router','--tail=100']
+            if name in ['frr','bgp','bgp-withdraw']:
+                logs['frr']=['logs','-n',ADMIN,'frr','-c','router','--tail=100']
+                for pod in agents:logs[pod]=['logs','-n','kube-system',pod,'-c','cilium-agent','--tail=300','--since=15m']
             for key,args in logs.items():
                 try:diagnostics[key+'_logs']=r.call(self.k+args,timeout=3)
                 except (ValueError,OSError,subprocess.TimeoutExpired) as issue:diagnostics['collection_errors'][key+'_logs']=str(issue)
@@ -106,6 +119,9 @@ class Session(r.Session):
 
     def owned(self,obj):
         kind=obj['kind'];meta=obj['metadata']
+        if kind=='CiliumBGPNodeConfigOverride':
+            r.require(meta['name'] in r.WORKERS and meta.get('labels',{}).get(r.LABEL)==self.run,'逐 VM BGP 覆盖对象越界')
+            return
         if kind in ['CiliumLoadBalancerIPPool','CiliumL2AnnouncementPolicy','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumBGPAdvertisement']:
             r.require(meta['name']==self.context['dp_name'] and meta.get('labels',{}).get(r.LABEL)==self.run,'全局测试对象越界')
             return
@@ -116,8 +132,7 @@ class Session(r.Session):
 
     def cleanup(self):
         commands=[]
-        for kind in ['CiliumBGPAdvertisement','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumL2AnnouncementPolicy','CiliumLoadBalancerIPPool']:
-            obj=self.document(kind,self.context['dp_name'])
+        for obj in announcement_objects(self):
             if self.receipt(obj).exists():
                 commands+=self.delete(obj)
         gateway=self.document('Gateway','edge',NS)
@@ -132,15 +147,17 @@ def profile(name):
             'routingMode':'native' if name=='native' else 'tunnel','tunnelProtocol':'vxlan',
             'autoDirectNodeRoutes':name=='native','ipv4NativeRoutingCIDR':'10.244.0.0/16',
             'devices':['ens33'],'bpf':{'masquerade':True},
+            'defaultLBServiceIPAM':'none',
             'operator':{'rollOutPods':True},
             'l2announcements':{'enabled':name=='l2','leaseDuration':'6s','leaseRenewDeadline':'2s','leaseRetryPeriod':'1s'},
             'bgpControlPlane':{'enabled':name=='bgp'}}
 
 
-def untouched(values,operator_rollout=True):
+def untouched(values,operator_rollout=True,isolated_lbipam=True):
     value=copy.deepcopy(values)
     for key in profile('ebpf'):
         if key=='operator' and not operator_rollout:continue
+        if key=='defaultLBServiceIPAM' and not isolated_lbipam:continue
         if key in ['bpf','operator','l2announcements','bgpControlPlane']:
             for child in profile('ebpf')[key]:
                 value.get(key,{}).pop(child,None)
@@ -159,7 +176,7 @@ def guard(s):
     r.require(r.call(r.K+['config','view','--minify','-o','jsonpath={.clusters[0].cluster.server}']).strip()=='https://api.k8s.internal.egon.top:6443','VM kubeconfig 指向其他 API')
     current=release()
     r.require(int(current['revision']) in s.context['owned_revisions'],'Cilium Helm revision 被其他操作改变')
-    r.require(digest(untouched(values(),s.context.get('operator_config_rollout',False)))==s.context['untouched_values_sha256'],'本批以外的 Helm 值被改变')
+    r.require(digest(untouched(values(),s.context.get('operator_config_rollout',False),s.context.get('isolated_lbipam',False)))==s.context['untouched_values_sha256'],'本批以外的 Helm 值被改变')
     for name,uid in s.context['node_uids'].items():
         r.require(r.get('node',name)['metadata']['uid']==uid,'VM Node UID 改变：'+name)
 
@@ -177,6 +194,19 @@ print(json.dumps({'hostname':run('hostname'),'selinux':run('getenforce'),'firewa
     return json.loads(r.call(r.pol.ssh(ip,shlex.join(['python3','-c',program])),timeout=25))
 
 
+def bgp_addresses(nodes,cidrs):
+    # 软件邻居在 Pod 网络内；使用隧道内部地址保持双向路径对称，不放宽 ens33 的 rp_filter。
+    result={}
+    for node in nodes:
+        name=node['metadata']['name']
+        if name not in r.WORKERS:continue
+        ips=[a['ip'] for a in node['spec'].get('addresses') or [] if a['type']=='CiliumInternalIP' and ipaddress.ip_address(a['ip']).version==4]
+        r.require(len(ips)==1 and ipaddress.ip_address(ips[0]) in ipaddress.ip_network(cidrs[name]),'Worker 缺少唯一的本机 PodCIDR 内 CiliumInternalIP：'+name)
+        result[name]=ips[0]
+    r.require(set(result)==set(r.WORKERS) and len(set(result.values()))==2,'需要两个 Worker 的独立 Cilium 内部地址')
+    return result
+
+
 def prepare(s):
     row=release();r.require(row['status']=='deployed','Cilium release 不是 deployed')
     original=values()
@@ -186,12 +216,13 @@ def prepare(s):
     lock=yaml.safe_load((r.ROOT/'ops/versions.lock.yaml').read_text())['components']
     component=lock['dataplane_vm'];chart=lock['cilium']['chart']
     r.require(hashlib.sha256(Path(chart['local_source']).read_bytes()).hexdigest()==chart['sha256'],'Cilium Chart 摘要不符')
-    nodes=r.get('nodes')['items'];cidrs={}
-    for obj in r.get('ciliumnodes')['items']:
+    nodes=r.get('nodes')['items'];cidrs={};cilium_nodes=r.get('ciliumnodes')['items']
+    for obj in cilium_nodes:
         blocks=obj['spec'].get('ipam',{}).get('podCIDRs') or []
         r.require(len(blocks)==1 and ipaddress.ip_network(blocks[0]).subnet_of(ipaddress.ip_network('10.244.0.0/16')),'CiliumNode PodCIDR 不符')
         cidrs[obj['metadata']['name']]=blocks[0]
     r.require(set(cidrs)==set(r.pol.base.NODES),'需要十 VM 的真实 CiliumNode 地址块')
+    peer_ips=bgp_addresses(cilium_nodes,cidrs)
     for obj in nodes:
         r.require(EXCLUDE not in obj['metadata'].get('labels',{}) and PROXY_OFF not in obj['metadata'].get('labels',{}),'有未恢复的本专题 Node 标签')
     facts={name:remote_facts(ip) for name,ip in r.pol.base.NODES.items()}
@@ -226,11 +257,15 @@ def prepare(s):
         r.require(r.call(['/opt/homebrew/bin/crane','digest','--platform','linux/amd64',image]).strip()==expected,'amd64 实验镜像摘要不符')
     frr=component['frr']
     r.require(r.call(['/opt/homebrew/bin/crane','digest','--platform','linux/amd64',frr['internal_source']]).strip()==frr['manifest_digest'],'FRR amd64 镜像未准备')
-    s.context.update(execution_backend='vm-primary',operator_config_rollout=True,dp_name='cnpl-dp-'+s.run[-8:],original_revision=int(row['revision']),
+    main=r.get('service','cnpl-primary','envoy-gateway-system')
+    main_ips=[v.get('ip') for v in main.get('status',{}).get('loadBalancer',{}).get('ingress') or []]
+    r.require(main_ips==['192.168.9.201'],'原主入口 VIP 必须稳定为 .201')
+    s.context.update(execution_backend='vm-primary',operator_config_rollout=True,isolated_lbipam=True,
+        primary_service={'uid':main['metadata']['uid'],'ips':main_ips},dp_name='cnpl-dp-'+s.run[-8:],original_revision=int(row['revision']),
         owned_revisions=[int(row['revision'])],original_values_sha256=digest(original),untouched_values_sha256=digest(untouched(original)),
         original_manifest_sha256=hashlib.sha256(r.call(helm('get','manifest','cilium','-n','kube-system')).encode()).hexdigest(),
         original_cilium_config_sha256=digest(r.get('configmap','cilium-config','kube-system')['data']),
-        controllers=snapshots,node_uids={o['metadata']['name']:o['metadata']['uid'] for o in nodes},pod_cidrs=cidrs,
+        controllers=snapshots,node_uids={o['metadata']['name']:o['metadata']['uid'] for o in nodes},pod_cidrs=cidrs,bgp_peer_addresses=peer_ips,
         vm_facts=facts,chart=chart,crd_inputs=crd_inputs,component_crds_retained=[],original_label_values={name:None for name in r.WORKERS},
         firewall_rules={})
     r.save(s.path,s.context)
@@ -245,7 +280,7 @@ def prepare(s):
     s.render({'image':fixture['internal_source'],'envoy_image':eg['container']['image'],'gateway_image':gateway_image,
         'name':s.context['dp_name'],'frr_image':frr['internal_source'],'frr_ip':'10.244.8.254',
         'kube_proxy_image':proxy_image.split('@')[0]+'@'+proxy_digest,
-        'nodes':list(r.pol.base.NODES),'gateway_class':'cnpl-envoy','workers':r.WORKERS,'pod_cidrs':cidrs,
+        'nodes':list(r.pol.base.NODES),'node_ips':r.pol.base.NODES,'peer_ips':peer_ips,'gateway_class':'cnpl-envoy','workers':r.WORKERS,'pod_cidrs':cidrs,
         'vip_addresses':component['vip_addresses']})
 
 
@@ -265,7 +300,7 @@ def validate(s):
     for file in s.attempt.glob('*.yaml'):
         for obj in yaml.safe_load_all(file.read_text()):
             if not obj:continue
-            if obj['kind'] in ['Gateway','EnvoyProxy','HTTPRoute','CiliumLoadBalancerIPPool','CiliumL2AnnouncementPolicy','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumBGPAdvertisement']:
+            if obj['kind'] in ['Gateway','EnvoyProxy','HTTPRoute','CiliumLoadBalancerIPPool','CiliumL2AnnouncementPolicy','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumBGPAdvertisement','CiliumBGPNodeConfigOverride']:
                 custom.append(obj);continue
             clone=copy.deepcopy(obj)
             if obj['kind']!='Namespace':
@@ -285,6 +320,8 @@ def validate(s):
         operator=next(o for o in docs if o['kind']=='Deployment' and o['metadata']['name']=='cilium-operator')
         checksum=operator['spec']['template']['metadata'].get('annotations',{}).get(CHECKSUM)
         r.require(checksum and re.fullmatch('[0-9a-f]{64}',checksum),'Operator 缺少配置滚动校验和')
+        cm=next(o for o in docs if o['kind']=='ConfigMap' and o['metadata']['name']=='cilium-config')
+        r.require(cm['data'].get('default-lb-service-ipam')=='none','禁止接管 MetalLB 管理的无 class Service')
         profiles[name]={'non_secret_objects':len(docs),'operator_config_checksum':checksum}
     r.require(len({p['operator_config_checksum'] for p in profiles.values()})==4,'模式切换没有改变 Operator 配置校验和')
     return {'passed':True,'backend':'vm-primary','builtin_server_dry_run':builtins,'custom_structure':structural,
@@ -318,8 +355,7 @@ def plan(s,name):
     else:guard(s)
     if name=='recover-announcements':
         commands=[]
-        for kind in ['CiliumBGPAdvertisement','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumL2AnnouncementPolicy','CiliumLoadBalancerIPPool']:
-            obj=s.document(kind,s.context['dp_name'])
+        for obj in announcement_objects(s):
             if s.receipt(obj).exists():commands+=s.delete(obj)
         return commands
     if name=='crds':
@@ -353,6 +389,7 @@ def plan(s,name):
         s.context['firewall_rules']=rules;r.save(s.path,s.context)
         return [s.command(r.pol.ssh(r.pol.base.NODES[node],shlex.join(['firewall-cmd','--zone=public','--add-rich-rule='+rule,'--timeout=7200']))) for node,items in rules.items() for rule in items]
     if name=='bgp':
+        r.require(bgp_addresses(r.get('ciliumnodes')['items'],s.context['pod_cidrs'])==s.context['bgp_peer_addresses'],'模式切换期间 Cilium 内部对等地址发生漂移')
         pod=s.pod('frr',ADMIN)
         file=s.attempt/'bgp.yaml';docs=list(yaml.safe_load_all(file.read_text()))
         for obj in docs:
@@ -428,7 +465,38 @@ def operator_rollout(s,name,config):
     r.require(len(pods)==current['spec']['replicas'] and all(p['ready'] and not p['terminating'] and p['checksum']==expected and p['uid'] not in before for p in proof['pods']),'等待 Operator 全部更新为本次配置的新 Pod')
     r.require(config.get('enable-l2-announcements','false')==str(name=='l2-enable').lower()
         and config.get('enable-bgp-control-plane','false')==str(name=='bgp-enable').lower(),'L2/BGP 配置开关不符')
+    r.require(config.get('default-lb-service-ipam')=='none','Cilium 不得分配无 class 的 MetalLB Service')
+    primary_stable(s)
     return proof
+
+
+def primary_stable(s):
+    original=s.context.get('primary_service')
+    if not original:return  # 旧批次没有该快照，仍由原模式矩阵及最终 TLS 检查负责恢复验收。
+    current=r.get('service','cnpl-primary','envoy-gateway-system')
+    ips=[row.get('ip') for row in current.get('status',{}).get('loadBalancer',{}).get('ingress') or []]
+    r.require(current['metadata']['uid']==original['uid'] and ips==original['ips'],'主入口 Service UID/VIP 被改变')
+
+
+def bgp_nodes(s):
+    nodes={o['metadata']['name']:o for o in r.get('ciliumbgpnodeconfigs')['items'] if o['metadata']['name'] in r.WORKERS}
+    r.save(s.attempt/'bgp-node-configs-last.json',nodes)
+    for node in r.WORKERS:
+        instances=(nodes.get(node) or {}).get('spec',{}).get('bgpInstances') or []
+        instance=next((v for v in instances if v['name']=='comparison'),{})
+        peer=next((v for v in instance.get('peers') or [] if v['name']=='frr'),{})
+        r.require(peer.get('localAddress')==s.context['bgp_peer_addresses'][node],'等待 '+node+' 的 BGP 源地址与本批 Cilium 内部地址一致')
+    return nodes
+
+
+def frr_state(s):
+    pod=s.pod('frr',ADMIN)
+    args=r.K+['exec','-n',ADMIN,pod['metadata']['name'],'-c','router','--','vtysh','-c','show bgp summary json']
+    value=json.loads(r.call(args));state=value.get('ipv4Unicast') or {};peers=state.get('peers') or {}
+    r.save(s.attempt/'frr-summary-last.json',value)
+    r.require(state.get('routerId')=='10.255.255.9' and state.get('as')==65009,'FRR 实际 Router ID/ASN 尚未加载')
+    r.require(set(peers)==set(s.context['bgp_peer_addresses'].values()) and all(p.get('remoteAs')==65010 and p.get('localAs')==65009 for p in peers.values()),'FRR 实际邻居地址或 ASN 不符')
+    return value
 
 
 def direct_routes(s,routes):
@@ -502,6 +570,7 @@ def arp_probe(s,ip):
 
 
 def l2(s):
+    primary_stable(s)
     ip=lb_address(s,'l2');lease=r.get('lease','cilium-l2announce-'+NS+'-l2','kube-system');holder=lease['spec'].get('holderIdentity')
     r.save(s.attempt/'l2-lease-last.json',lease)
     r.require(holder in r.WORKERS,'L2 持有者不是实验 Worker')
@@ -514,9 +583,9 @@ def l2(s):
 
 def observe(s,name):
     if name=='recover-announcements':
-        for kind in ['CiliumBGPAdvertisement','CiliumBGPClusterConfig','CiliumBGPPeerConfig','CiliumL2AnnouncementPolicy','CiliumLoadBalancerIPPool']:
-            if s.receipt(s.document(kind,s.context['dp_name'])).exists():
-                r.require(r.optional(kind,s.context['dp_name']) is None,'本批宣告配置未回收')
+        for obj in announcement_objects(s):
+            if s.receipt(obj).exists():
+                r.require(r.optional(obj['kind'],obj['metadata']['name']) is None,'本批宣告配置未回收')
         return {'passed':True}
     if name=='crds':
         crds={n:r.get('crd',n) for n in s.context['crd_inputs']}
@@ -529,7 +598,9 @@ def observe(s,name):
             for i in range(10):
                 obj=s.pod('proxy-cleanup-'+str(i),ADMIN)
                 r.require(obj['status'].get('phase')=='Succeeded','等待 VM kube-proxy 清理成功')
-        else:s.ready(name,ns=ADMIN if name=='frr' else NS)
+        else:
+            s.ready(name,ns=ADMIN if name=='frr' else NS)
+            if name=='frr':return {'passed':True,'summary':frr_state(s)}
         return {'passed':True}
     if name=='gateway':return gateway_ready(s)
     if name=='access':
@@ -573,23 +644,24 @@ def observe(s,name):
         r.require(all(v['rc']==1 and v['responses']==0 for v in rows),'撤回 L2 策略后独立 VM 仍收到 ARP 响应')
         return {'passed':True,'vip':ip,'arp_probes':rows}
     if name in ['bgp','bgp-withdraw']:
+        primary_stable(s);nodes=bgp_nodes(s)
         pod=s.pod('frr',ADMIN)
         prefix=r.K+['exec','-n',ADMIN,pod['metadata']['name'],'-c','router','--','vtysh','-c']
         rib=json.loads(r.call(prefix+['show bgp ipv4 unicast json']))
         routes=rib.get('routes') or {}
         r.save(s.attempt/(name+'-rib-last.json'),rib)
-        summary=json.loads(r.call(prefix+['show bgp summary json']));peers=(summary.get('ipv4Unicast') or {}).get('peers') or {}
+        summary=frr_state(s);peers=(summary.get('ipv4Unicast') or {}).get('peers') or {}
         r.save(s.attempt/(name+'-peers-last.json'),summary)
-        r.require(all(peers.get(r.pol.base.NODES[n],{}).get('state')=='Established' for n in r.WORKERS),'BGP 会话尚未建立或在广告撤回期间断开')
+        r.require(all(peers.get(ip,{}).get('state')=='Established' for ip in s.context['bgp_peer_addresses'].values()),'BGP 会话尚未建立或在广告撤回期间断开')
         if name=='bgp-withdraw':
             r.require(r.optional('ciliumbgpadvertisement',s.context['dp_name']) is None,'BGP 广告对象尚未撤回')
             r.require(not routes,'BGP 广告撤回后 RIB 仍有路由')
-            return {'passed':True,'peers':summary,'routes':rib,'external_forwarding_verified':False}
+            return {'passed':True,'node_configs':nodes,'peers':summary,'routes':rib,'external_forwarding_verified':False}
         wanted={s.context['pod_cidrs'][n] for n in r.WORKERS}
         wanted.add(lb_address(s,'bgp')+'/32')
         r.require(set(routes)==wanted,'RIB 必须恰好包含两 Worker PodCIDR 和本批 BGP VIP /32')
         r.require(all(any(path.get('valid') for path in paths) for paths in routes.values()),'BGP 路径的下一跳尚未有效解析')
-        return {'passed':True,'peers':summary,'rib':rib,'external_forwarding_verified':False}
+        return {'passed':True,'node_configs':nodes,'peers':summary,'rib':rib,'external_forwarding_verified':False}
     if name=='stream-stop':
         raw=r.call(r.K+['logs','-n',NS,'stream']);(s.attempt/'persistent-stream.jsonl').write_text(raw)
         rows=[json.loads(line) for line in raw.splitlines() if line.startswith('{')]
@@ -637,7 +709,7 @@ def restore(s):
 
 
 def final(s):
-    guard(s);observe(s,'recover-proxy');observe(s,'recover-cilium');observe(s,'recover-routes');observe(s,'recover-labels');observe(s,'recover-firewall')
+    guard(s);primary_stable(s);observe(s,'recover-proxy');observe(s,'recover-cilium');observe(s,'recover-routes');observe(s,'recover-labels');observe(s,'recover-firewall')
     rollback=json.loads((s.records/'state/rollback.json').read_text())
     r.require(rollback['run']==s.run and rollback['passed'],'缺少原模式回退证据')
     def children_absent():

@@ -1,0 +1,4034 @@
+{
+  "cluster_uid": "4d3e52d7-e203-4daf-aced-9c3a666fcf5b",
+  "run": "20261021T122950Z-93998da9",
+  "nodes": [
+    {
+      "node": "cp01.k8s.internal.egon.top",
+      "ip": "192.168.9.101"
+    },
+    {
+      "node": "cp02.k8s.internal.egon.top",
+      "ip": "192.168.9.102"
+    },
+    {
+      "node": "cp03.k8s.internal.egon.top",
+      "ip": "192.168.9.103"
+    },
+    {
+      "node": "infra01.k8s.internal.egon.top",
+      "ip": "192.168.9.104"
+    },
+    {
+      "node": "infra02.k8s.internal.egon.top",
+      "ip": "192.168.9.105"
+    },
+    {
+      "node": "storage01.k8s.internal.egon.top",
+      "ip": "192.168.9.106"
+    },
+    {
+      "node": "storage02.k8s.internal.egon.top",
+      "ip": "192.168.9.107"
+    },
+    {
+      "node": "storage03.k8s.internal.egon.top",
+      "ip": "192.168.9.108"
+    },
+    {
+      "node": "worker01.k8s.internal.egon.top",
+      "ip": "192.168.9.109"
+    },
+    {
+      "node": "worker02.k8s.internal.egon.top",
+      "ip": "192.168.9.110"
+    }
+  ],
+  "network": {
+    "routing-mode": "tunnel",
+    "tunnel-protocol": "vxlan",
+    "kube-proxy-replacement": "false",
+    "enable-hubble": "true"
+  },
+  "stage": "02.09",
+  "topic": "dataplane",
+  "mac_ip": "192.168.9.200",
+  "previous": {
+    "stage": "02.08",
+    "records": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.08-20261020T133923Z",
+    "run": "20261020T133924Z-c6b62b72",
+    "passed_sha256": "ae000bcf88bdbb0e1734cbb338dcaee170fed336a4ce747fbae09a1e0abc208f",
+    "closed_sha256": "f6dac71f5d703db1540cec2ee3075381a977d25abe7cc0d36e5a08bc617a2767",
+    "phase_complete": false
+  },
+  "execution_backend": "vm-primary",
+  "operator_config_rollout": true,
+  "isolated_lbipam": true,
+  "primary_service": {
+    "uid": "00e2dee5-7511-471b-abe3-66b53f92b297",
+    "ips": [
+      "192.168.9.201"
+    ]
+  },
+  "dp_name": "cnpl-dp-93998da9",
+  "original_revision": 23,
+  "owned_revisions": [
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+  ],
+  "original_values_sha256": "5420e4774ebff9feb9e4befb5176aa5f5e22b5804f144e6d65d61da77afc1e23",
+  "untouched_values_sha256": "bf72dfef631aee704f40d361a19df38546beb4d03bd2a6080455db899cf40642",
+  "original_manifest_sha256": "ee8879ef6ba6202f79676727b4c632a2c9f979195aebedbf51a0b2f338e95454",
+  "original_cilium_config_sha256": "36e11ace0ce5c193b46297a5e9d87e2560134a502db08b3f3fe2a71c7308294b",
+  "controllers": {
+    "DaemonSet/cilium": {
+      "uid": "a9baeb7d-fe9a-4c93-a164-be16d92bc28b",
+      "spec": {
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "k8s-app": "cilium"
+          }
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "cilium.io/cilium-configmap-checksum": "eab1aff9c855c3c02f33eb6ee756e271134b50b9b01aab25ec6efe03c43a1cab",
+              "kubectl.kubernetes.io/default-container": "cilium-agent"
+            },
+            "labels": {
+              "app.kubernetes.io/name": "cilium-agent",
+              "app.kubernetes.io/part-of": "cilium",
+              "helm.sh/chart": "cilium-1.20.2",
+              "k8s-app": "cilium"
+            }
+          },
+          "spec": {
+            "affinity": {
+              "podAntiAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "k8s-app": "cilium"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              }
+            },
+            "automountServiceAccountToken": true,
+            "containers": [
+              {
+                "args": [
+                  "--config-dir=/tmp/cilium/config-map"
+                ],
+                "command": [
+                  "cilium-agent"
+                ],
+                "env": [
+                  {
+                    "name": "K8S_NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_K8S_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_CLUSTERMESH_CONFIG",
+                    "value": "/var/lib/cilium/clustermesh/"
+                  },
+                  {
+                    "name": "GOMEMLIMIT",
+                    "valueFrom": {
+                      "resourceFieldRef": {
+                        "divisor": "1",
+                        "resource": "limits.memory"
+                      }
+                    }
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_HOST",
+                    "value": "api.k8s.internal.egon.top"
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_PORT",
+                    "value": "6443"
+                  },
+                  {
+                    "name": "KUBE_CLIENT_BACKOFF_BASE",
+                    "value": "1"
+                  },
+                  {
+                    "name": "KUBE_CLIENT_BACKOFF_DURATION",
+                    "value": "120"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "lifecycle": {
+                  "postStart": {
+                    "exec": {
+                      "command": [
+                        "bash",
+                        "-c",
+                        "set -o errexit\nset -o pipefail\nset -o nounset\n\n# When running in AWS ENI mode, it's likely that 'aws-node' has\n# had a chance to install SNAT iptables rules. These can result\n# in dropped traffic, so we should attempt to remove them.\n# We do it using a 'postStart' hook since this may need to run\n# for nodes which might have already been init'ed but may still\n# have dangling rules. This is safe because there are no\n# dependencies on anything that is part of the startup script\n# itself, and can be safely run multiple times per node (e.g. in\n# case of a restart).\nif [[ \"$(iptables-save | grep -E -c 'AWS-SNAT-CHAIN|AWS-CONNMARK-CHAIN')\" != \"0\" ]];\nthen\n    echo 'Deleting iptables rules created by the AWS CNI VPC plugin'\n    iptables-save | grep -E -v 'AWS-SNAT-CHAIN|AWS-CONNMARK-CHAIN' | iptables-restore\nfi\necho 'Done!'\n"
+                      ]
+                    }
+                  },
+                  "preStop": {
+                    "exec": {
+                      "command": [
+                        "/cni-uninstall.sh"
+                      ]
+                    }
+                  }
+                },
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "httpHeaders": [
+                      {
+                        "name": "brief",
+                        "value": "true"
+                      },
+                      {
+                        "name": "require-k8s-connectivity",
+                        "value": "false"
+                      }
+                    ],
+                    "path": "/healthz",
+                    "port": "health",
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "cilium-agent",
+                "ports": [
+                  {
+                    "containerPort": 9879,
+                    "hostPort": 9879,
+                    "name": "health",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 4244,
+                    "hostPort": 4244,
+                    "name": "peer-service",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "httpHeaders": [
+                      {
+                        "name": "brief",
+                        "value": "true"
+                      }
+                    ],
+                    "path": "/healthz",
+                    "port": "health",
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "256Mi"
+                  }
+                },
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "CHOWN",
+                      "KILL",
+                      "NET_ADMIN",
+                      "NET_RAW",
+                      "IPC_LOCK",
+                      "SYS_MODULE",
+                      "SYS_ADMIN",
+                      "SYS_RESOURCE",
+                      "DAC_OVERRIDE",
+                      "FOWNER",
+                      "SETGID",
+                      "SETUID",
+                      "SYSLOG"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "seLinuxOptions": {
+                    "level": "s0",
+                    "type": "spc_t"
+                  }
+                },
+                "startupProbe": {
+                  "failureThreshold": 300,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "httpHeaders": [
+                      {
+                        "name": "brief",
+                        "value": "true"
+                      }
+                    ],
+                    "path": "/healthz",
+                    "port": "health",
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/var/run/cilium/envoy/sockets",
+                    "name": "envoy-sockets"
+                  },
+                  {
+                    "mountPath": "/host/proc/sys/net",
+                    "name": "host-proc-sys-net"
+                  },
+                  {
+                    "mountPath": "/host/proc/sys/kernel",
+                    "name": "host-proc-sys-kernel"
+                  },
+                  {
+                    "mountPath": "/sys/fs/bpf",
+                    "mountPropagation": "HostToContainer",
+                    "name": "bpf-maps"
+                  },
+                  {
+                    "mountPath": "/var/run/cilium",
+                    "name": "cilium-run"
+                  },
+                  {
+                    "mountPath": "/var/run/cilium/netns",
+                    "mountPropagation": "HostToContainer",
+                    "name": "cilium-netns"
+                  },
+                  {
+                    "mountPath": "/host/etc/cni/net.d",
+                    "name": "etc-cni-netd"
+                  },
+                  {
+                    "mountPath": "/var/lib/cilium/clustermesh",
+                    "name": "clustermesh-secrets",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/lib/modules",
+                    "name": "lib-modules",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/run/xtables.lock",
+                    "name": "xtables-lock"
+                  },
+                  {
+                    "mountPath": "/var/lib/cilium/tls/hubble",
+                    "name": "hubble-tls",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/tmp",
+                    "name": "tmp"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "hostNetwork": true,
+            "hostUsers": true,
+            "initContainers": [
+              {
+                "command": [
+                  "cilium-dbg",
+                  "build-config"
+                ],
+                "env": [
+                  {
+                    "name": "K8S_NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_K8S_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_HOST",
+                    "value": "api.k8s.internal.egon.top"
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_PORT",
+                    "value": "6443"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "config",
+                "resources": {},
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "NET_ADMIN"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/tmp",
+                    "name": "tmp"
+                  }
+                ]
+              },
+              {
+                "command": [
+                  "bash",
+                  "-ec",
+                  "cp /usr/bin/cilium-mount /hostbin/cilium-mount;\nnsenter --cgroup=/hostproc/1/ns/cgroup --mount=/hostproc/1/ns/mnt \"${BIN_PATH}/cilium-mount\" $CGROUP_ROOT;\nrm /hostbin/cilium-mount\n"
+                ],
+                "env": [
+                  {
+                    "name": "CGROUP_ROOT",
+                    "value": "/run/cilium/cgroupv2"
+                  },
+                  {
+                    "name": "BIN_PATH",
+                    "value": "/opt/cni/bin"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "mount-cgroup",
+                "resources": {},
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "SYS_ADMIN",
+                      "SYS_CHROOT",
+                      "SYS_PTRACE"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "seLinuxOptions": {
+                    "level": "s0",
+                    "type": "spc_t"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/hostproc",
+                    "name": "hostproc"
+                  },
+                  {
+                    "mountPath": "/hostbin",
+                    "name": "cni-path"
+                  }
+                ]
+              },
+              {
+                "command": [
+                  "bash",
+                  "-ec",
+                  "cp /usr/bin/cilium-sysctlfix /hostbin/cilium-sysctlfix;\nnsenter --mount=/hostproc/1/ns/mnt \"${BIN_PATH}/cilium-sysctlfix\";\nrm /hostbin/cilium-sysctlfix\n"
+                ],
+                "env": [
+                  {
+                    "name": "BIN_PATH",
+                    "value": "/opt/cni/bin"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "apply-sysctl-overwrites",
+                "resources": {},
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "SYS_ADMIN",
+                      "SYS_CHROOT",
+                      "SYS_PTRACE"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "seLinuxOptions": {
+                    "level": "s0",
+                    "type": "spc_t"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/hostproc",
+                    "name": "hostproc"
+                  },
+                  {
+                    "mountPath": "/hostbin",
+                    "name": "cni-path"
+                  }
+                ]
+              },
+              {
+                "args": [
+                  "mount | grep \"/sys/fs/bpf type bpf\" || mount -t bpf bpf /sys/fs/bpf"
+                ],
+                "command": [
+                  "/bin/bash",
+                  "-c",
+                  "--"
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "mount-bpf-fs",
+                "resources": {},
+                "securityContext": {
+                  "privileged": true
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/sys/fs/bpf",
+                    "mountPropagation": "Bidirectional",
+                    "name": "bpf-maps"
+                  }
+                ]
+              },
+              {
+                "command": [
+                  "/init-container.sh"
+                ],
+                "env": [
+                  {
+                    "name": "CILIUM_ALL_STATE",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "key": "clean-cilium-state",
+                        "name": "cilium-config",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_BPF_STATE",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "key": "clean-cilium-bpf-state",
+                        "name": "cilium-config",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "WRITE_CNI_CONF_WHEN_READY",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "key": "write-cni-conf-when-ready",
+                        "name": "cilium-config",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_HOST",
+                    "value": "api.k8s.internal.egon.top"
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_PORT",
+                    "value": "6443"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "clean-cilium-state",
+                "resources": {},
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "NET_ADMIN",
+                      "SYS_MODULE",
+                      "SYS_ADMIN",
+                      "SYS_RESOURCE"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "seLinuxOptions": {
+                    "level": "s0",
+                    "type": "spc_t"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/sys/fs/bpf",
+                    "name": "bpf-maps"
+                  },
+                  {
+                    "mountPath": "/run/cilium/cgroupv2",
+                    "mountPropagation": "HostToContainer",
+                    "name": "cilium-cgroup"
+                  },
+                  {
+                    "mountPath": "/var/run/cilium",
+                    "name": "cilium-run"
+                  }
+                ]
+              },
+              {
+                "command": [
+                  "/install-plugin.sh"
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium:v1.20.2@sha256:9d308e3f7f05972b0b0604c40d2b0f08fa2f6a55084fef1e1aaadb469e430639",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "install-cni-binaries",
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "10Mi"
+                  }
+                },
+                "securityContext": {
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "seLinuxOptions": {
+                    "level": "s0",
+                    "type": "spc_t"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/host/opt/cni/bin",
+                    "name": "cni-path"
+                  }
+                ]
+              }
+            ],
+            "nodeSelector": {
+              "kubernetes.io/os": "linux"
+            },
+            "priorityClassName": "system-node-critical",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "appArmorProfile": {
+                "type": "Unconfined"
+              },
+              "seccompProfile": {
+                "type": "Unconfined"
+              }
+            },
+            "serviceAccount": "cilium",
+            "serviceAccountName": "cilium",
+            "terminationGracePeriodSeconds": 1,
+            "tolerations": [
+              {
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {},
+                "name": "tmp"
+              },
+              {
+                "hostPath": {
+                  "path": "/var/run/cilium",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "cilium-run"
+              },
+              {
+                "hostPath": {
+                  "path": "/var/run/netns",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "cilium-netns"
+              },
+              {
+                "hostPath": {
+                  "path": "/sys/fs/bpf",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "bpf-maps"
+              },
+              {
+                "hostPath": {
+                  "path": "/proc",
+                  "type": "Directory"
+                },
+                "name": "hostproc"
+              },
+              {
+                "hostPath": {
+                  "path": "/run/cilium/cgroupv2",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "cilium-cgroup"
+              },
+              {
+                "hostPath": {
+                  "path": "/opt/cni/bin",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "cni-path"
+              },
+              {
+                "hostPath": {
+                  "path": "/etc/cni/net.d",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "etc-cni-netd"
+              },
+              {
+                "hostPath": {
+                  "path": "/lib/modules",
+                  "type": ""
+                },
+                "name": "lib-modules"
+              },
+              {
+                "hostPath": {
+                  "path": "/run/xtables.lock",
+                  "type": "FileOrCreate"
+                },
+                "name": "xtables-lock"
+              },
+              {
+                "hostPath": {
+                  "path": "/var/run/cilium/envoy/sockets",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "envoy-sockets"
+              },
+              {
+                "name": "clustermesh-secrets",
+                "projected": {
+                  "defaultMode": 256,
+                  "sources": [
+                    {
+                      "secret": {
+                        "name": "cilium-clustermesh",
+                        "optional": true
+                      }
+                    },
+                    {
+                      "secret": {
+                        "items": [
+                          {
+                            "key": "tls.key",
+                            "path": "common-etcd-client.key"
+                          },
+                          {
+                            "key": "tls.crt",
+                            "path": "common-etcd-client.crt"
+                          },
+                          {
+                            "key": "ca.crt",
+                            "path": "common-etcd-client-ca.crt"
+                          }
+                        ],
+                        "name": "clustermesh-apiserver-remote-cert",
+                        "optional": true
+                      }
+                    },
+                    {
+                      "secret": {
+                        "items": [
+                          {
+                            "key": "tls.key",
+                            "path": "local-etcd-client.key"
+                          },
+                          {
+                            "key": "tls.crt",
+                            "path": "local-etcd-client.crt"
+                          },
+                          {
+                            "key": "ca.crt",
+                            "path": "local-etcd-client-ca.crt"
+                          }
+                        ],
+                        "name": "clustermesh-apiserver-local-cert",
+                        "optional": true
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "hostPath": {
+                  "path": "/proc/sys/net",
+                  "type": "Directory"
+                },
+                "name": "host-proc-sys-net"
+              },
+              {
+                "hostPath": {
+                  "path": "/proc/sys/kernel",
+                  "type": "Directory"
+                },
+                "name": "host-proc-sys-kernel"
+              },
+              {
+                "name": "hubble-tls",
+                "projected": {
+                  "defaultMode": 256,
+                  "sources": [
+                    {
+                      "secret": {
+                        "items": [
+                          {
+                            "key": "tls.crt",
+                            "path": "server.crt"
+                          },
+                          {
+                            "key": "tls.key",
+                            "path": "server.key"
+                          },
+                          {
+                            "key": "ca.crt",
+                            "path": "client-ca.crt"
+                          }
+                        ],
+                        "name": "hubble-server-certs",
+                        "optional": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "updateStrategy": {
+          "rollingUpdate": {
+            "maxSurge": 0,
+            "maxUnavailable": 1
+          },
+          "type": "RollingUpdate"
+        }
+      }
+    },
+    "DaemonSet/cilium-envoy": {
+      "uid": "6c9c5912-3b5a-425c-8b45-908cb47f13fb",
+      "spec": {
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "k8s-app": "cilium-envoy"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/name": "cilium-envoy",
+              "app.kubernetes.io/part-of": "cilium",
+              "helm.sh/chart": "cilium-1.20.2",
+              "k8s-app": "cilium-envoy",
+              "name": "cilium-envoy"
+            }
+          },
+          "spec": {
+            "affinity": {
+              "nodeAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": {
+                  "nodeSelectorTerms": [
+                    {
+                      "matchExpressions": [
+                        {
+                          "key": "cilium.io/no-schedule",
+                          "operator": "NotIn",
+                          "values": [
+                            "true"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "podAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "k8s-app": "cilium"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              },
+              "podAntiAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "k8s-app": "cilium-envoy"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              }
+            },
+            "automountServiceAccountToken": true,
+            "containers": [
+              {
+                "args": [
+                  "--",
+                  "-c /var/run/cilium/envoy/bootstrap-config.json",
+                  "--base-id 0",
+                  "--log-level info"
+                ],
+                "command": [
+                  "/usr/bin/cilium-envoy-starter"
+                ],
+                "env": [
+                  {
+                    "name": "K8S_NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_K8S_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_HOST",
+                    "value": "api.k8s.internal.egon.top"
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_PORT",
+                    "value": "6443"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/cilium-envoy:v1.37.6-1789133542-cbec91f666af0bf742da986d43832932dbb26b82@sha256:33b00117d392f24ee5161f66242d12f58ceb62bf80a2bdd66eaf505d77933cb0",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "path": "/healthz",
+                    "port": 9878,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "cilium-envoy",
+                "ports": [
+                  {
+                    "containerPort": 9964,
+                    "hostPort": 9964,
+                    "name": "envoy-metrics",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "path": "/healthz",
+                    "port": 9878,
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                  }
+                },
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "NET_ADMIN",
+                      "SYS_ADMIN"
+                    ],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "seLinuxOptions": {
+                    "level": "s0",
+                    "type": "spc_t"
+                  }
+                },
+                "startupProbe": {
+                  "failureThreshold": 105,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "path": "/healthz",
+                    "port": 9878,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 2,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/var/run/cilium/envoy/sockets",
+                    "name": "envoy-sockets"
+                  },
+                  {
+                    "mountPath": "/var/run/cilium/envoy/artifacts",
+                    "name": "envoy-artifacts",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/var/run/cilium/envoy/",
+                    "name": "envoy-config",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/sys/fs/bpf",
+                    "mountPropagation": "HostToContainer",
+                    "name": "bpf-maps"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "hostNetwork": true,
+            "hostUsers": true,
+            "nodeSelector": {
+              "kubernetes.io/os": "linux"
+            },
+            "priorityClassName": "system-node-critical",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "appArmorProfile": {
+                "type": "Unconfined"
+              }
+            },
+            "serviceAccount": "cilium-envoy",
+            "serviceAccountName": "cilium-envoy",
+            "terminationGracePeriodSeconds": 1,
+            "tolerations": [
+              {
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "hostPath": {
+                  "path": "/var/run/cilium/envoy/sockets",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "envoy-sockets"
+              },
+              {
+                "hostPath": {
+                  "path": "/var/run/cilium/envoy/artifacts",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "envoy-artifacts"
+              },
+              {
+                "configMap": {
+                  "defaultMode": 256,
+                  "items": [
+                    {
+                      "key": "bootstrap-config.json",
+                      "path": "bootstrap-config.json"
+                    }
+                  ],
+                  "name": "cilium-envoy-config"
+                },
+                "name": "envoy-config"
+              },
+              {
+                "hostPath": {
+                  "path": "/sys/fs/bpf",
+                  "type": "DirectoryOrCreate"
+                },
+                "name": "bpf-maps"
+              }
+            ]
+          }
+        },
+        "updateStrategy": {
+          "rollingUpdate": {
+            "maxSurge": 0,
+            "maxUnavailable": 2
+          },
+          "type": "RollingUpdate"
+        }
+      }
+    },
+    "DaemonSet/kube-proxy": {
+      "uid": "49eb3eed-a323-4ff5-bd33-13652479760e",
+      "spec": {
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "k8s-app": "kube-proxy"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "k8s-app": "kube-proxy"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "command": [
+                  "/usr/local/bin/kube-proxy",
+                  "--config=/var/lib/kube-proxy/config.conf",
+                  "--hostname-override=$(NODE_NAME)"
+                ],
+                "env": [
+                  {
+                    "name": "NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/kube-proxy:v1.36.5",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "kube-proxy",
+                "resources": {},
+                "securityContext": {
+                  "privileged": true
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/var/lib/kube-proxy",
+                    "name": "kube-proxy"
+                  },
+                  {
+                    "mountPath": "/run/xtables.lock",
+                    "name": "xtables-lock"
+                  },
+                  {
+                    "mountPath": "/lib/modules",
+                    "name": "lib-modules",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "hostNetwork": true,
+            "nodeSelector": {
+              "kubernetes.io/os": "linux"
+            },
+            "priorityClassName": "system-node-critical",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "serviceAccount": "kube-proxy",
+            "serviceAccountName": "kube-proxy",
+            "terminationGracePeriodSeconds": 30,
+            "tolerations": [
+              {
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "kube-proxy"
+                },
+                "name": "kube-proxy"
+              },
+              {
+                "hostPath": {
+                  "path": "/run/xtables.lock",
+                  "type": "FileOrCreate"
+                },
+                "name": "xtables-lock"
+              },
+              {
+                "hostPath": {
+                  "path": "/lib/modules",
+                  "type": ""
+                },
+                "name": "lib-modules"
+              }
+            ]
+          }
+        },
+        "updateStrategy": {
+          "rollingUpdate": {
+            "maxSurge": 0,
+            "maxUnavailable": 1
+          },
+          "type": "RollingUpdate"
+        }
+      }
+    },
+    "Deployment/cilium-operator": {
+      "uid": "f422489d-8af0-458f-ac22-7a2c901fd961",
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 2,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "io.cilium/app": "operator",
+            "name": "cilium-operator"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "50%"
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "prometheus.io/port": "9963",
+              "prometheus.io/scrape": "true"
+            },
+            "labels": {
+              "app.kubernetes.io/name": "cilium-operator",
+              "app.kubernetes.io/part-of": "cilium",
+              "helm.sh/chart": "cilium-1.20.2",
+              "io.cilium/app": "operator",
+              "name": "cilium-operator"
+            }
+          },
+          "spec": {
+            "affinity": {
+              "podAntiAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "io.cilium/app": "operator"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              }
+            },
+            "automountServiceAccountToken": true,
+            "containers": [
+              {
+                "args": [
+                  "--config-dir=/tmp/cilium/config-map",
+                  "--debug=$(CILIUM_DEBUG)"
+                ],
+                "command": [
+                  "cilium-operator-generic"
+                ],
+                "env": [
+                  {
+                    "name": "K8S_NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_K8S_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_DEBUG",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "key": "debug",
+                        "name": "cilium-config",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_HOST",
+                    "value": "api.k8s.internal.egon.top"
+                  },
+                  {
+                    "name": "KUBERNETES_SERVICE_PORT",
+                    "value": "6443"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/operator-generic:v1.20.2@sha256:5bb0f9d871dd7b80461f8e3056896daa51e7d9b70ffe51c3e2126b4c35c02b5e",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "path": "/healthz",
+                    "port": "health",
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 60,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "name": "cilium-operator",
+                "ports": [
+                  {
+                    "containerPort": 9234,
+                    "hostPort": 9234,
+                    "name": "health",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9963,
+                    "hostPort": 9963,
+                    "name": "prometheus",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 5,
+                  "httpGet": {
+                    "host": "127.0.0.1",
+                    "path": "/healthz",
+                    "port": "health",
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "resources": {
+                  "limits": {
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/tmp/cilium/config-map",
+                    "name": "cilium-config-path",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "hostNetwork": true,
+            "hostUsers": true,
+            "nodeSelector": {
+              "kubernetes.io/os": "linux"
+            },
+            "priorityClassName": "system-cluster-critical",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "serviceAccount": "cilium-operator",
+            "serviceAccountName": "cilium-operator",
+            "terminationGracePeriodSeconds": 30,
+            "tolerations": [
+              {
+                "key": "node-role.kubernetes.io/control-plane",
+                "operator": "Exists"
+              },
+              {
+                "key": "node-role.kubernetes.io/master",
+                "operator": "Exists"
+              },
+              {
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists"
+              },
+              {
+                "key": "node.cloudprovider.kubernetes.io/uninitialized",
+                "operator": "Exists"
+              },
+              {
+                "key": "node.cilium.io/agent-not-ready",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "cilium-config"
+                },
+                "name": "cilium-config-path"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "Deployment/hubble-relay": {
+      "uid": "47aff647-9137-43e4-b401-59dea9e126ec",
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "k8s-app": "hubble-relay"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": 1
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "cilium.io/hubble-relay-configmap-checksum": "eb6be1355ab9574a1f776654831e59f21152869bfabbb3390e91ee99d0f4457e"
+            },
+            "labels": {
+              "app.kubernetes.io/name": "hubble-relay",
+              "app.kubernetes.io/part-of": "cilium",
+              "helm.sh/chart": "cilium-1.20.2",
+              "k8s-app": "hubble-relay"
+            }
+          },
+          "spec": {
+            "affinity": {
+              "podAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "k8s-app": "cilium"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              }
+            },
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "args": [
+                  "serve"
+                ],
+                "command": [
+                  "hubble-relay"
+                ],
+                "image": "quay.io/cilium/hubble-relay:v1.20.2@sha256:48d39e14cb2326c49d1903faed0508feb92ca0ceef9f3a1f1b779ca4c1e51c5d",
+                "imagePullPolicy": "Never",
+                "livenessProbe": {
+                  "failureThreshold": 12,
+                  "grpc": {
+                    "port": 4222,
+                    "service": ""
+                  },
+                  "initialDelaySeconds": 10,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 10
+                },
+                "name": "hubble-relay",
+                "ports": [
+                  {
+                    "containerPort": 4245,
+                    "name": "grpc",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "grpc": {
+                    "port": 4222,
+                    "service": ""
+                  },
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  },
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "64Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true,
+                  "runAsGroup": 65532,
+                  "runAsNonRoot": true,
+                  "runAsUser": 65532,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                },
+                "startupProbe": {
+                  "failureThreshold": 20,
+                  "grpc": {
+                    "port": 4222,
+                    "service": ""
+                  },
+                  "initialDelaySeconds": 10,
+                  "periodSeconds": 3,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/tmp",
+                    "name": "tmp-volume"
+                  },
+                  {
+                    "mountPath": "/etc/hubble-relay",
+                    "name": "config",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/var/lib/hubble-relay/tls",
+                    "name": "tls",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "nodeSelector": {
+              "kubernetes.io/hostname": "worker01.k8s.internal.egon.top",
+              "kubernetes.io/os": "linux"
+            },
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "fsGroup": 65532,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "serviceAccount": "hubble-relay",
+            "serviceAccountName": "hubble-relay",
+            "terminationGracePeriodSeconds": 1,
+            "volumes": [
+              {
+                "emptyDir": {},
+                "name": "tmp-volume"
+              },
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "items": [
+                    {
+                      "key": "config.yaml",
+                      "path": "config.yaml"
+                    }
+                  ],
+                  "name": "hubble-relay-config"
+                },
+                "name": "config"
+              },
+              {
+                "name": "tls",
+                "projected": {
+                  "defaultMode": 256,
+                  "sources": [
+                    {
+                      "secret": {
+                        "items": [
+                          {
+                            "key": "tls.crt",
+                            "path": "client.crt"
+                          },
+                          {
+                            "key": "tls.key",
+                            "path": "client.key"
+                          },
+                          {
+                            "key": "ca.crt",
+                            "path": "hubble-server-ca.crt"
+                          }
+                        ],
+                        "name": "hubble-relay-client-certs"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "Deployment/hubble-ui": {
+      "uid": "a3facb76-234b-4d4c-8f26-fea84c25bb6a",
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "k8s-app": "hubble-ui"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": 1
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "cilium.io/hubble-ui-nginx-configmap-checksum": "76283720d1bb70050debf51116121fa9a67ebc9d1cd9167c3dd9bdbfb613df37"
+            },
+            "labels": {
+              "app.kubernetes.io/name": "hubble-ui",
+              "app.kubernetes.io/part-of": "cilium",
+              "helm.sh/chart": "cilium-1.20.2",
+              "k8s-app": "hubble-ui"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": true,
+            "containers": [
+              {
+                "image": "harbor.k8s.internal.egon.top/bootstrap/console-hubble-ui:v0.13.6@sha256:baaa170c8c3012f84c3da2522a09d1e4c81dba3ec6e7aa9ef0825d6a83539b32",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": "http",
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "name": "frontend",
+                "ports": [
+                  {
+                    "containerPort": 8081,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/",
+                    "port": "http",
+                    "scheme": "HTTP"
+                  },
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "128Mi"
+                  },
+                  "requests": {
+                    "cpu": "25m",
+                    "memory": "32Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/etc/nginx/conf.d/default.conf",
+                    "name": "hubble-ui-nginx-conf",
+                    "subPath": "nginx.conf"
+                  },
+                  {
+                    "mountPath": "/tmp",
+                    "name": "tmp-dir"
+                  }
+                ]
+              },
+              {
+                "env": [
+                  {
+                    "name": "EVENTS_SERVER_PORT",
+                    "value": "8090"
+                  },
+                  {
+                    "name": "FLOWS_API_ADDR",
+                    "value": "hubble-relay:80"
+                  }
+                ],
+                "image": "harbor.k8s.internal.egon.top/bootstrap/console-hubble-ui-backend:v0.13.6@sha256:3eff36c5d7adf4c2bf1f9057f1082378fa9aece426464c793406d575215143ca",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "backend",
+                "ports": [
+                  {
+                    "containerPort": 8090,
+                    "name": "grpc",
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "300m",
+                    "memory": "256Mi"
+                  },
+                  "requests": {
+                    "cpu": "25m",
+                    "memory": "64Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "FallbackToLogsOnError"
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "nodeSelector": {
+              "kubernetes.io/hostname": "worker01.k8s.internal.egon.top",
+              "kubernetes.io/os": "linux"
+            },
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {
+              "fsGroup": 1001,
+              "runAsGroup": 1001,
+              "runAsNonRoot": true,
+              "runAsUser": 1001,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "serviceAccount": "hubble-ui",
+            "serviceAccountName": "hubble-ui",
+            "terminationGracePeriodSeconds": 30,
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "hubble-ui-nginx"
+                },
+                "name": "hubble-ui-nginx-conf"
+              },
+              {
+                "emptyDir": {
+                  "sizeLimit": "256Mi"
+                },
+                "name": "tmp-dir"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "node_uids": {
+    "cp01.k8s.internal.egon.top": "c2f78dc5-0d2f-49ff-a92a-7cdbf3c07d59",
+    "cp02.k8s.internal.egon.top": "cfbb9bb7-5c50-454b-96be-932d5f5b7204",
+    "cp03.k8s.internal.egon.top": "3f548c01-07b5-4fe4-b591-43d08dcad5fd",
+    "infra01.k8s.internal.egon.top": "2ab0f876-6d7b-4eab-93a2-569b4ebabf97",
+    "infra02.k8s.internal.egon.top": "06a35e8c-9f2e-4e71-9381-77bb324c9110",
+    "storage01.k8s.internal.egon.top": "367e396b-bbfb-4ca1-9fbb-29ef59734c78",
+    "storage02.k8s.internal.egon.top": "e7e8c809-7fbc-4d6c-87d8-e295f22ce222",
+    "storage03.k8s.internal.egon.top": "db154599-1bc4-4c6b-999f-d129fc2bac83",
+    "worker01.k8s.internal.egon.top": "c34180a5-2d7e-4f2a-be1f-07dcb76f163a",
+    "worker02.k8s.internal.egon.top": "2b9cd296-64d7-4223-86aa-d9f34c3dd7b3"
+  },
+  "pod_cidrs": {
+    "cp01.k8s.internal.egon.top": "10.244.0.0/24",
+    "cp02.k8s.internal.egon.top": "10.244.1.0/24",
+    "cp03.k8s.internal.egon.top": "10.244.2.0/24",
+    "infra01.k8s.internal.egon.top": "10.244.3.0/24",
+    "infra02.k8s.internal.egon.top": "10.244.4.0/24",
+    "storage01.k8s.internal.egon.top": "10.244.5.0/24",
+    "storage02.k8s.internal.egon.top": "10.244.6.0/24",
+    "storage03.k8s.internal.egon.top": "10.244.7.0/24",
+    "worker01.k8s.internal.egon.top": "10.244.8.0/24",
+    "worker02.k8s.internal.egon.top": "10.244.9.0/24"
+  },
+  "bgp_peer_addresses": {
+    "worker01.k8s.internal.egon.top": "10.244.8.40",
+    "worker02.k8s.internal.egon.top": "10.244.9.1"
+  },
+  "vm_facts": {
+    "cp01.k8s.internal.egon.top": {
+      "hostname": "cp01.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:56:c1",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx0050569956c1"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.0.92",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.0.92",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.101",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-control-plane\" port port=\"2379-2380\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"6443\" protocol=\"tcp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-control-plane\" port port=\"2379-2380\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"6443\" protocol=\"tcp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "cp02.k8s.internal.egon.top": {
+      "hostname": "cp02.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:41:c8",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx0050569941c8"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": []
+        },
+        {
+          "dst": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.1.70",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.1.70",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.102",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-control-plane\" port port=\"2379-2380\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"6443\" protocol=\"tcp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-control-plane\" port port=\"2379-2380\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"6443\" protocol=\"tcp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "cp03.k8s.internal.egon.top": {
+      "hostname": "cp03.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:c2:84",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx00505699c284"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": []
+        },
+        {
+          "dst": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.2.168",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.2.168",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.103",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-control-plane\" port port=\"2379-2380\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"6443\" protocol=\"tcp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-control-plane\" port port=\"2379-2380\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"6443\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"6443\" protocol=\"tcp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "infra01.k8s.internal.egon.top": {
+      "hostname": "infra01.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:96:85",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx005056999685"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": []
+        },
+        {
+          "dst": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.3.183",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.3.183",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.104",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "infra02.k8s.internal.egon.top": {
+      "hostname": "infra02.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:2b:76",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx005056992b76"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": []
+        },
+        {
+          "dst": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.4.109",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.4.109",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.105",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "storage01.k8s.internal.egon.top": {
+      "hostname": "storage01.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:39:3e",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx00505699393e"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": []
+        },
+        {
+          "dst": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.5.158",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.5.158",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.106",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "storage02.k8s.internal.egon.top": {
+      "hostname": "storage02.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:cb:ec",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx00505699cbec"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": []
+        },
+        {
+          "dst": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.6.165",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.6.165",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.107",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "storage03.k8s.internal.egon.top": {
+      "hostname": "storage03.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:a7:24",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx00505699a724"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": []
+        },
+        {
+          "dst": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.7.134",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.7.134",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.108",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "worker01.k8s.internal.egon.top": {
+      "hostname": "worker01.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:21:68",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx005056992168"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": []
+        },
+        {
+          "dst": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.8.40",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.8.40",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.109",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"31235\" protocol=\"tcp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"31235\" protocol=\"tcp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    },
+    "worker02.k8s.internal.egon.top": {
+      "hostname": "worker02.k8s.internal.egon.top",
+      "selinux": "Enforcing",
+      "firewalld": "active",
+      "links": [
+        {
+          "ifindex": 2,
+          "ifname": "ens33",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "mtu": 1500,
+          "qdisc": "mq",
+          "operstate": "UP",
+          "linkmode": "DEFAULT",
+          "group": "default",
+          "txqlen": 1000,
+          "link_type": "ether",
+          "address": "00:50:56:99:b9:98",
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "altnames": [
+            "enp2s1",
+            "enx00505699b998"
+          ]
+        }
+      ],
+      "routes": [
+        {
+          "dst": "default",
+          "gateway": "192.168.9.1",
+          "dev": "ens33",
+          "protocol": "static",
+          "metric": 100,
+          "flags": []
+        },
+        {
+          "dst": "10.244.0.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.1.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.2.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.3.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.4.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.5.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.6.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.7.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.8.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": [],
+          "metrics": [
+            {
+              "mtu": 1450
+            }
+          ]
+        },
+        {
+          "dst": "10.244.9.0/24",
+          "gateway": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "prefsrc": "10.244.9.1",
+          "flags": []
+        },
+        {
+          "dst": "10.244.9.1",
+          "dev": "cilium_host",
+          "protocol": "kernel",
+          "scope": "link",
+          "flags": []
+        },
+        {
+          "dst": "192.168.9.0/24",
+          "dev": "ens33",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.9.110",
+          "metric": 100,
+          "flags": []
+        }
+      ],
+      "forward": "1",
+      "rp_filter": "1",
+      "rich_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"30443\" protocol=\"tcp\" accept"
+      ],
+      "permanent_rules": [
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source address=\"10.244.0.0/16\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"10250\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4240\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"4244\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"tcp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"7946\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"k8s-nodes\" port port=\"8472\" protocol=\"udp\" accept",
+        "rule family=\"ipv4\" source ipset=\"lab-mgmt\" port port=\"30443\" protocol=\"tcp\" accept"
+      ],
+      "zone": "public",
+      "arping": "/usr/sbin/arping"
+    }
+  },
+  "chart": {
+    "name": "cilium-1.20.2.tgz",
+    "sha256": "b2afd87b7f75f875f92a14559f14f59b7babbb479d968e3fd625a20bf30ec20e",
+    "source": "https://helm.cilium.io/cilium-1.20.2.tgz",
+    "checksum_source": "https://helm.cilium.io/index.yaml 中该版本的 digest（created 2026-09-16）",
+    "local_source": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/cilium/cilium-1.20.2.tgz"
+  },
+  "crd_inputs": {
+    "ciliumloadbalancerippools.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumloadbalancerippools.yaml",
+      "sha256": "31dd3d26d987e46bc04d66ec2f9bdcf2aa2b13b7b368e515ca324961b55d65b1",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumloadbalancerippools.yaml"
+    },
+    "ciliuml2announcementpolicies.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliuml2announcementpolicies.yaml",
+      "sha256": "5a5ada1455e5169d1f95d4814302677ebff4bf477b5298483e9b827a70feee7a",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliuml2announcementpolicies.yaml"
+    },
+    "ciliumbgpclusterconfigs.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpclusterconfigs.yaml",
+      "sha256": "51206558786549a8962fa7c6e178583409a655a480f9fc5e5c277fb48969908c",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpclusterconfigs.yaml"
+    },
+    "ciliumbgppeerconfigs.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgppeerconfigs.yaml",
+      "sha256": "91ab4563c9b4a6fd4314e9fe0b128fcd77f15b50f3a5be6a32a7703dede70f60",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgppeerconfigs.yaml"
+    },
+    "ciliumbgpadvertisements.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpadvertisements.yaml",
+      "sha256": "44f04798cdfcfece42128630836086ee8c160ece8a4801dcb02eb03b1eadc5f7",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpadvertisements.yaml"
+    },
+    "ciliumbgpnodeconfigs.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpnodeconfigs.yaml",
+      "sha256": "fcc8689b3e2985935e4badf23b545e5c4343e878e78c567fde28b035c56272b8",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigs.yaml"
+    },
+    "ciliumbgpnodeconfigoverrides.cilium.io": {
+      "path": "/Users/mario/Downloads/cloud-native-lab-seed-2026-10-14/phase02-advanced/ciliumbgpnodeconfigoverrides.yaml",
+      "sha256": "8032d71df06d36600de9e6d7c6808e719537118feb5ffa528d692adbb4552238",
+      "source": "https://raw.githubusercontent.com/cilium/cilium/v1.20.2/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpnodeconfigoverrides.yaml"
+    }
+  },
+  "component_crds_retained": [],
+  "original_label_values": {
+    "worker01.k8s.internal.egon.top": null,
+    "worker02.k8s.internal.egon.top": null
+  },
+  "firewall_rules": {
+    "worker01.k8s.internal.egon.top": [
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.109/32\" port port=\"30145\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.109/32\" port port=\"31080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.211/32\" port port=\"8080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.212/32\" port port=\"8080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.213/32\" port port=\"8080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.214/32\" port port=\"8080\" protocol=\"tcp\" accept"
+    ],
+    "worker02.k8s.internal.egon.top": [
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.110/32\" port port=\"30145\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.110/32\" port port=\"31080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.211/32\" port port=\"8080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.212/32\" port port=\"8080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.213/32\" port port=\"8080\" protocol=\"tcp\" accept",
+      "rule priority=\"-100\" family=\"ipv4\" source address=\"192.168.9.200/32\" destination address=\"192.168.9.214/32\" port port=\"8080\" protocol=\"tcp\" accept"
+    ]
+  },
+  "initial_matrix_completed": true,
+  "operator_rollouts": {
+    "ebpf-enable": {
+      "before_uids": [
+        "577a2ab2-703b-4845-af83-6bb8d580ffba",
+        "9c75f970-a537-4253-ad48-b0a72b4a6a79"
+      ]
+    },
+    "native-enable": {
+      "before_uids": [
+        "636fcd77-e5f2-472c-ae5f-185ddf53f54a",
+        "b86e9063-5cf3-4535-b330-901227b43acd"
+      ]
+    },
+    "l2-enable": {
+      "before_uids": [
+        "c231fe52-ff6e-4f80-84ac-92eb4a5f35ec",
+        "9c8f6f87-fd8f-43b8-85b7-deb916c80f0c"
+      ]
+    },
+    "bgp-enable": {
+      "before_uids": [
+        "d8832a8c-5d48-45d5-89c1-94c68bce8c9d",
+        "951a6d94-38e7-47b2-a478-fbbdbb5f1ff5"
+      ]
+    }
+  },
+  "proxy_pause_intent": true,
+  "native_intent": true,
+  "l2_excluded_node": "worker01.k8s.internal.egon.top"
+}

@@ -37,6 +37,7 @@ RESOURCE = {'Namespace': ('v1', 'namespaces'), 'Pod': ('v1', 'pods'), 'Service':
     'CiliumL2AnnouncementPolicy': ('cilium.io/v2alpha1', 'ciliuml2announcementpolicies'),
     'CiliumBGPClusterConfig': ('cilium.io/v2', 'ciliumbgpclusterconfigs'),
     'CiliumBGPPeerConfig': ('cilium.io/v2', 'ciliumbgppeerconfigs'),
+    'CiliumBGPNodeConfigOverride': ('cilium.io/v2', 'ciliumbgpnodeconfigoverrides'),
     'CiliumBGPAdvertisement': ('cilium.io/v2', 'ciliumbgpadvertisements')}
 
 

@@ -10,6 +10,7 @@ import yaml
 
 spec=importlib.util.spec_from_file_location('dataplane_vm_test',Path(__file__).with_name('vm.py'))
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+PEER_IPS=dict(zip(m.r.WORKERS,['10.244.8.40','10.244.9.1']))
 
 
 class VM(unittest.TestCase):
@@ -26,6 +27,7 @@ class VM(unittest.TestCase):
             self.assertEqual(v['devices'],['ens33'])
             self.assertEqual(v['routingMode'],'native' if name=='native' else 'tunnel')
             self.assertEqual(v['operator'],{'rollOutPods':True})
+            self.assertEqual(v['defaultLBServiceIPAM'],'none')
 
     def test_non_migration_values_cannot_drift(self):
         before={'kubeProxyReplacement':'false','hubble':{'enabled':True},'bpf':{'preallocateMaps':True}}
@@ -45,10 +47,12 @@ class VM(unittest.TestCase):
         values={'operator':{'replicas':2,'rollOutPods':False},'routingMode':'tunnel'}
         self.assertEqual(m.untouched(values,operator_rollout=False),{'operator':{'replicas':2,'rollOutPods':False}})
         self.assertEqual(m.untouched(values),{'operator':{'replicas':2}})
+        values['defaultLBServiceIPAM']='lbipam'
+        self.assertEqual(m.untouched(values,operator_rollout=False,isolated_lbipam=False),{'operator':{'replicas':2,'rollOutPods':False},'defaultLBServiceIPAM':'lbipam'})
 
     def test_operator_requires_new_ready_pods_with_current_manifest_checksum(self):
         checksum='a'*64
-        config={'enable-l2-announcements':'true','enable-bgp-control-plane':'false'}
+        config={'enable-l2-announcements':'true','enable-bgp-control-plane':'false','default-lb-service-ipam':'none'}
         deployment={'kind':'Deployment','metadata':{'name':'cilium-operator'},'spec':{'replicas':2,'template':{'metadata':{'annotations':{m.CHECKSUM:checksum}}}}}
         cm={'kind':'ConfigMap','metadata':{'name':'cilium-config'},'data':config}
         def pod(uid,signature=checksum):
@@ -119,11 +123,11 @@ class VM(unittest.TestCase):
 
     def test_bgp_withdraw_does_not_pass_because_the_sessions_went_down(self):
         with tempfile.TemporaryDirectory() as folder:
-            s=SimpleNamespace(attempt=Path(folder),context={'dp_name':'pool'},pod=lambda *a:{'metadata':{'name':'frr'}})
-            peers={m.r.pol.base.NODES[n]:{'state':'Established'} for n in m.r.WORKERS}
+            s=SimpleNamespace(attempt=Path(folder),context={'dp_name':'pool','bgp_peer_addresses':PEER_IPS},pod=lambda *a:{'metadata':{'name':'frr'}})
+            peers={PEER_IPS[n]:{'state':'Established','remoteAs':65010,'localAs':65009} for n in m.r.WORKERS}
             for state,ok in [('Established',True),('Active',False)]:
-                peers[m.r.pol.base.NODES[m.r.WORKERS[0]]]['state']=state
-                with self.subTest(state=state),patch.object(m.r,'call',side_effect=[json.dumps({'routes':{}}),json.dumps({'ipv4Unicast':{'peers':peers}})]),patch.object(m.r,'optional',return_value=None):
+                peers[PEER_IPS[m.r.WORKERS[0]]]['state']=state
+                with self.subTest(state=state),patch.object(m,'bgp_nodes',return_value={}),patch.object(m.r,'call',side_effect=[json.dumps({'routes':{}}),json.dumps({'ipv4Unicast':{'routerId':'10.255.255.9','as':65009,'peers':peers}})]),patch.object(m.r,'optional',return_value=None):
                     if ok:self.assertTrue(m.observe(s,'bgp-withdraw')['passed'])
                     else:
                         with self.assertRaisesRegex(ValueError,'撤回期间断开'):m.observe(s,'bgp-withdraw')
@@ -131,11 +135,11 @@ class VM(unittest.TestCase):
     def test_bgp_requires_exact_prefixes_and_valid_paths(self):
         with tempfile.TemporaryDirectory() as folder:
             cidrs=dict(zip(m.r.WORKERS,['10.244.8.0/24','10.244.9.0/24']))
-            s=SimpleNamespace(attempt=Path(folder),context={'pod_cidrs':cidrs},pod=lambda *a:{'metadata':{'name':'frr'}})
-            peers={m.r.pol.base.NODES[n]:{'state':'Established'} for n in m.r.WORKERS}
+            s=SimpleNamespace(attempt=Path(folder),context={'pod_cidrs':cidrs,'bgp_peer_addresses':PEER_IPS},pod=lambda *a:{'metadata':{'name':'frr'}})
+            peers={PEER_IPS[n]:{'state':'Established','remoteAs':65010,'localAs':65009} for n in m.r.WORKERS}
             wanted={ip:[{'valid':True}] for ip in list(cidrs.values())+['192.168.9.211/32']}
             for routes,ok in [(wanted,True),({**wanted,'192.168.9.212/32':[{'valid':True}]},False),({ip:[{'valid':False}] for ip in wanted},False)]:
-                with self.subTest(routes=routes),patch.object(m.r,'call',side_effect=[json.dumps({'routes':routes}),json.dumps({'ipv4Unicast':{'peers':peers}})]),patch.object(m,'lb_address',return_value='192.168.9.211'):
+                with self.subTest(routes=routes),patch.object(m,'bgp_nodes',return_value={}),patch.object(m.r,'call',side_effect=[json.dumps({'routes':routes}),json.dumps({'ipv4Unicast':{'routerId':'10.255.255.9','as':65009,'peers':peers}})]),patch.object(m,'lb_address',return_value='192.168.9.211'):
                     if ok:self.assertTrue(m.observe(s,'bgp')['passed'])
                     else:
                         with self.assertRaises(ValueError):m.observe(s,'bgp')
@@ -149,6 +153,69 @@ class VM(unittest.TestCase):
                 s.wait('l2',lambda:None)
             value=json.loads((s.attempt/'l2-diagnostics.json').read_text())
             self.assertEqual(value['error'],'ORIGINAL_FAILURE');self.assertTrue(value['collection_errors'])
+
+    def test_bgp_requires_symmetric_overlay_source_in_the_generated_node_config(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'bgp_peer_addresses':PEER_IPS})
+            def config(node,address):
+                return {'metadata':{'name':node},'spec':{'bgpInstances':[{'name':'comparison','peers':[{'name':'frr','localAddress':address}]}]}}
+            nodes=[config(node,PEER_IPS[node]) for node in m.r.WORKERS]
+            with patch.object(m.r,'get',return_value={'items':nodes}):self.assertEqual(set(m.bgp_nodes(s)),set(m.r.WORKERS))
+            nodes[0]['spec']['bgpInstances'][0]['peers'][0]['localAddress']='192.168.9.109'
+            with patch.object(m.r,'get',return_value={'items':nodes}),self.assertRaisesRegex(ValueError,'Cilium 内部地址一致'):m.bgp_nodes(s)
+            saved=json.loads((s.attempt/'bgp-node-configs-last.json').read_text())
+            self.assertEqual(saved[m.r.WORKERS[0]]['spec']['bgpInstances'][0]['peers'][0]['localAddress'],'192.168.9.109')
+
+    def test_bgp_peer_selection_uses_real_cilium_addresses_and_rejects_wrong_cidrs(self):
+        cidrs=dict(zip(m.r.WORKERS,['10.244.8.0/24','10.244.9.0/24']))
+        nodes=[{'metadata':{'name':node},'spec':{'addresses':[{'type':'InternalIP','ip':m.r.pol.base.NODES[node]},{'type':'CiliumInternalIP','ip':PEER_IPS[node]}]}} for node in m.r.WORKERS]
+        self.assertEqual(m.bgp_addresses(nodes,cidrs),PEER_IPS)
+        nodes[1]['spec']['addresses'][1]['ip']='192.168.9.110'
+        with self.assertRaisesRegex(ValueError,'本机 PodCIDR 内 CiliumInternalIP'):m.bgp_addresses(nodes,cidrs)
+        nodes[1]['spec']['addresses']=nodes[1]['spec']['addresses'][:1]
+        with self.assertRaises(ValueError):m.bgp_addresses(nodes,cidrs)
+
+    def test_node_override_apply_and_cleanup_are_run_and_uid_scoped(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve();records=root/'records/02.09-unit'
+            with patch.object(m.r,'PHASE',root):s=m.Session('dataplane','02.09',records,records/'attempts/unit',m.NAMESPACES)
+            s.context={'run':'test','dp_name':'cnpl-dp-test'}
+            obj={'apiVersion':'cilium.io/v2','kind':'CiliumBGPNodeConfigOverride','metadata':{'name':m.r.WORKERS[0],'labels':{m.r.LABEL:'test'}},'spec':{}}
+            (s.attempt/'override.yaml').write_text(yaml.safe_dump(obj))
+            with patch.object(m.r,'optional',return_value=None):commands=s.apply('override.yaml')
+            self.assertEqual(commands[1]['key'],'CiliumBGPNodeConfigOverride//'+m.r.WORKERS[0])
+            current=json.loads(json.dumps(obj));current['metadata']['uid']='original'
+            s.record([{'phase_command':commands[1],'rc':0,'stdout':json.dumps(current)}])
+            with patch.object(m.r,'optional',return_value=current):deletes=s.delete(obj)
+            self.assertIn('/apis/cilium.io/v2/ciliumbgpnodeconfigoverrides/'+m.r.WORKERS[0],deletes[0]['argv'])
+            body=json.loads(Path(deletes[0]['argv'][-1]).read_text());self.assertEqual(body['preconditions']['uid'],'original')
+            current['metadata']['uid']='foreign'
+            with patch.object(m.r,'optional',return_value=current),self.assertRaisesRegex(ValueError,'UID 改变'):s.delete(obj)
+            obj['metadata']['name']='cp01.k8s.internal.egon.top'
+            with self.assertRaisesRegex(ValueError,'覆盖对象越界'):s.owned(obj)
+
+    def test_recovery_tracks_both_node_overrides_but_no_other_nodes(self):
+        state=SimpleNamespace(context={'dp_name':'cnpl-dp-test'},document=lambda kind,name:{'kind':kind,'metadata':{'name':name}})
+        objects=m.announcement_objects(state)
+        self.assertEqual({o['metadata']['name'] for o in objects if o['kind']=='CiliumBGPNodeConfigOverride'},set(m.r.WORKERS))
+        self.assertEqual(len(objects),7)
+
+    def test_primary_vip_must_remain_owned_by_the_original_service(self):
+        s=SimpleNamespace(context={'primary_service':{'uid':'main','ips':['192.168.9.201']}})
+        for ips,ok in [(['192.168.9.201'],True),([],False),(['192.168.9.211'],False)]:
+            current={'metadata':{'uid':'main'},'status':{'loadBalancer':{'ingress':[{'ip':ip} for ip in ips]}}}
+            with self.subTest(ips=ips),patch.object(m.r,'get',return_value=current):
+                if ok:m.primary_stable(s)
+                else:
+                    with self.assertRaisesRegex(ValueError,'主入口 Service UID/VIP'):m.primary_stable(s)
+
+    def test_frr_readiness_requires_its_real_asn_router_id_and_vm_neighbors(self):
+        with tempfile.TemporaryDirectory() as folder:
+            s=SimpleNamespace(attempt=Path(folder),context={'bgp_peer_addresses':PEER_IPS},pod=lambda *a:{'metadata':{'name':'frr'}})
+            peers={PEER_IPS[node]:{'remoteAs':65010,'localAs':65009,'state':'Idle'} for node in m.r.WORKERS}
+            value={'ipv4Unicast':{'routerId':'10.255.255.9','as':65009,'peers':peers}}
+            with patch.object(m.r,'call',return_value=json.dumps(value)):self.assertEqual(m.frr_state(s),value)
+            with patch.object(m.r,'call',return_value='{}'),self.assertRaisesRegex(ValueError,'Router ID/ASN'):m.frr_state(s)
 
     def test_protection_allows_managed_pod_restart_but_preserves_other_pods(self):
         with tempfile.TemporaryDirectory() as d:
@@ -223,7 +290,7 @@ class VM(unittest.TestCase):
     def test_l2_and_bgp_selectors_and_frr_neighbor_configuration_agree(self):
         base=m.r.PHASE/'networking/dataplane';env=m.r.Environment(undefined=m.r.StrictUndefined)
         values={'name':'cnpl-dp-test','run':'test','frr_ip':'10.244.8.20','frr_image':'registry/frr@sha256:'+'a'*64,
-            'workers':m.r.WORKERS,'pod_cidrs':dict(zip(m.r.WORKERS,['10.244.8.0/24','10.244.9.0/24']))}
+            'workers':m.r.WORKERS,'node_ips':m.r.pol.base.NODES,'peer_ips':PEER_IPS,'pod_cidrs':dict(zip(m.r.WORKERS,['10.244.8.0/24','10.244.9.0/24']))}
         docs={name:list(yaml.safe_load_all(env.from_string((base/(name+'.yaml.j2')).read_text()).render(**values))) for name in ['l2','bgp','frr']}
         l2_service=docs['l2'][-1];bgp_service=docs['bgp'][-1]
         l2_selector=docs['l2'][1]['spec']['serviceSelector']['matchLabels']
@@ -232,13 +299,18 @@ class VM(unittest.TestCase):
         self.assertFalse(all(bgp_service['metadata']['labels'].get(k)==v for k,v in l2_selector.items()))
         self.assertTrue(all(bgp_service['metadata']['labels'][k]==v for k,v in bgp_selector.items()))
         self.assertFalse(all(l2_service['metadata']['labels'].get(k)==v for k,v in bgp_selector.items()))
-        frr=docs['frr'][0]['data'];cluster=docs['bgp'][2]['spec']['bgpInstances'][0]
+        frr=docs['frr'][0]['data'];cluster=next(o for o in docs['bgp'] if o['kind']=='CiliumBGPClusterConfig')['spec']['bgpInstances'][0]
+        overrides=[o for o in docs['bgp'] if o['kind']=='CiliumBGPNodeConfigOverride']
+        self.assertEqual({o['metadata']['name'] for o in overrides},set(m.r.WORKERS))
+        for obj in overrides:self.assertEqual(obj['spec']['bgpInstances'][0]['peers'][0]['localAddress'],PEER_IPS[obj['metadata']['name']])
         self.assertIn('router bgp '+str(cluster['peers'][0]['peerASN']),frr['frr.conf'])
         self.assertIn('ip nht resolve-via-default',frr['frr.conf'])
         for node in m.r.WORKERS:
-            ip=m.r.pol.base.NODES[node]
+            ip=PEER_IPS[node]
             self.assertIn('neighbor '+ip+' remote-as '+str(cluster['localASN']),frr['frr.conf'])
             self.assertIn('neighbor '+ip+' ebgp-multihop '+str(docs['bgp'][0]['spec']['ebgpMultihop']),frr['frr.conf'])
+            self.assertIn('neighbor '+ip+' passive',frr['frr.conf'])
+        self.assertIn('service integrated-vtysh-config',frr['vtysh.conf'])
         self.assertIn('bgpd_options=" -A 127.0.0.1 -n"',frr['daemons'])
         self.assertEqual(docs['frr'][1]['spec']['volumes'][0]['configMap']['defaultMode'],0o644)
 

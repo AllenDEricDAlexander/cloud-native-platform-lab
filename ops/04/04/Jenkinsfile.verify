@@ -1,0 +1,18 @@
+pipeline {
+    agent { label 'cnpl-verify-__LANGUAGE__' }
+    options { timestamps(); disableConcurrentBuilds(); timeout(time: 30, unit: 'MINUTES') }
+    environment {
+        LANGUAGE = '__LANGUAGE__'
+        CI_FLAVOR = 'jenkins'
+    }
+    stages {
+        stage('Verify') {
+            steps {
+                container('builder') {
+                    sh 'export SOURCE_REVISION=$(git rev-parse HEAD); bash ops/04/05/build.sh "$LANGUAGE"'
+                }
+            }
+        }
+    }
+    post { always { archiveArtifacts artifacts: 'ops/04/05/examples/*/dist/**', allowEmptyArchive: true } }
+}

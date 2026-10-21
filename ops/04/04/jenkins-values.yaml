@@ -1,0 +1,51 @@
+# 根据锁定 Chart 合入仓库外 values；插件已烘焙到内部 Controller 镜像。
+controller:
+  numExecutors: 0
+  installPlugins: false
+  installLatestPlugins: false
+  installLatestSpecifiedPlugins: false
+  admin:
+    existingSecret: cnpl-jenkins-admin
+    userKey: username
+    passwordKey: password
+  serviceAccount:
+    create: true
+    name: jenkins-controller
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: '1', memory: 2Gi}
+  JCasC:
+    defaultConfig: false
+    configScripts:
+      system: |
+        jenkins:
+          numExecutors: 0
+          mode: EXCLUSIVE
+          disableRememberMe: true
+          securityRealm:
+            local:
+              allowsSignup: false
+              users:
+                - id: "${chart-admin-username}"
+                  password: "${chart-admin-password}"
+          authorizationStrategy:
+            globalMatrix:
+              entries:
+                - user:
+                    name: "${chart-admin-username}"
+                    permissions: ["Overall/Administer"]
+        security:
+          queueItemAuthenticator:
+            authenticators:
+              - global:
+                  strategy: triggeringUsersAuthorizationStrategy
+        unclassified:
+          location:
+            url: https://jenkins.k8s.internal.egon.top/
+persistence:
+  enabled: true
+  size: 10Gi
+agent:
+  enabled: false
+rbac:
+  create: true

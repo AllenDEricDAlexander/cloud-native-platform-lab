@@ -8,6 +8,7 @@ REPO=$(cd "$P04/../.." && pwd)
 INPUTS=${CNPL04_INPUTS:-$P04/inputs.json}
 MATERIALS=${CNPL04_MATERIALS:-$P04/materials.json}
 PRIVATE_TEMP=''
+RECOVERY_FUNCTION=''
 die() { printf '失败：%s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null || die "缺少命令：$1"; }
 get() { jq -er "$1 | select(. != null and . != \"\")" "$INPUTS"; }
@@ -24,6 +25,7 @@ private_temp() { [[ -n $PRIVATE_TEMP ]] || PRIVATE_TEMP=$(mktemp -d); }
 finish() {
     local rc=$?
     trap - EXIT
+    if [[ -n $RECOVERY_FUNCTION ]]; then "$RECOVERY_FUNCTION" || rc=1; fi
     [[ -z $PRIVATE_TEMP ]] || rm -rf -- "$PRIVATE_TEMP" || rc=1
     jq -n --arg action "$ACTION" --argjson rc "$rc" --arg time "$(date -u +%FT%TZ)" '{action:$action,exit_code:$rc,finished_at:$time,runtime_accepted:false,phase_complete:false}' > "$ATTEMPT/result.json"
     printf '证据：%s（exit=%s；不代表阶段验收）\n' "$ATTEMPT" "$rc"

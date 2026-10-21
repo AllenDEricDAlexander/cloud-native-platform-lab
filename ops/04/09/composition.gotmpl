@@ -1,0 +1,37 @@
+{{ $xr := .observed.composite.resource }}
+{{ $p := $xr.spec.parameters }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $p.serviceName }}-binding
+  namespace: {{ $xr.metadata.namespace }}
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: binding
+    gotemplating.fn.crossplane.io/ready: 'True'
+data:
+  service: {{ $p.serviceName | quote }}
+  language: {{ $p.language | quote }}
+  dataService: {{ $p.dataService | quote }}
+{{ if eq $p.dataService "postgresql" }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $p.serviceName }}-db
+  namespace: {{ $xr.metadata.namespace }}
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: database
+    {{ $db := get .observed.resources "database" }}
+    {{ $ready := "False" }}
+    {{ if $db }}{{ range $db.resource.status.conditions }}{{ if and (eq .type "Ready") (eq .status "True") }}{{ $ready = "True" }}{{ end }}{{ end }}{{ end }}
+    gotemplating.fn.crossplane.io/ready: {{ $ready | quote }}
+spec:
+  instances: 1
+  imageName: __POSTGRES_IMAGE__
+  storage: {size: 2Gi, storageClass: __STORAGE_CLASS__}
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: '1', memory: 1Gi}
+  bootstrap:
+    initdb: {database: app, owner: app}
+{{ end }}

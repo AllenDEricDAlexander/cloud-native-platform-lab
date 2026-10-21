@@ -1,0 +1,40 @@
+app:
+  title: CNPL 开发者平台
+  baseUrl: https://backstage.k8s.internal.egon.top
+backend:
+  baseUrl: https://backstage.k8s.internal.egon.top
+  listen: {port: 7007}
+  cors:
+    origin: https://backstage.k8s.internal.egon.top
+  database:
+    client: pg
+    connection:
+      host: ${POSTGRES_HOST}
+      port: 5432
+      user: ${POSTGRES_USER}
+      password: ${POSTGRES_PASSWORD}
+      database: ${POSTGRES_DB}
+      ssl: {rejectUnauthorized: true}
+integrations:
+  gitlab:
+    - host: gitlab.svc.internal.egon.top
+      apiBaseUrl: https://gitlab.svc.internal.egon.top/api/v4
+      token: ${GITLAB_TOKEN}
+auth:
+  environment: production
+  providers:
+    gitlab:
+      production:
+        clientId: ${AUTH_GITLAB_CLIENT_ID}
+        clientSecret: ${AUTH_GITLAB_CLIENT_SECRET}
+        audience: https://gitlab.svc.internal.egon.top
+        signIn:
+          resolvers: [{resolver: usernameMatchingUserEntityName}]
+permission: {enabled: true}
+techdocs:
+  builder: external
+  publisher:
+    type: local
+catalog:
+  rules: [{allow: [Component, System, API, Group, User, Resource, Location, Template]}]
+# 权限开启后必须安装受审policy模块；未映射目录身份不得以guest身份发布。

@@ -1,0 +1,15 @@
+# 04.09 Backstage与Crossplane自助交付
+
+覆盖04.09.01–06。Backstage仅生成源码/CI/目录/文档并提出GitOps MR，没有管理员kubeconfig。三个原生Scaffolder模块需编入固定镜像：fetch、GitLab发布/MR、catalog注册；actions schema与所选Backstage版本核对。Jenkins组织文件夹按GitLab仓库发现受限verify任务，release仍由受信平台任务执行，不允许门户创建任意高权限Pipeline。
+
+render template生成已填平台SHA/仓库的模板，与skeleton目录一同登记到目录；bootstrapImage只能从05已验收制品选择，MR审查核对语言/来源/签名，不能以用户填写的Digest等同已批准发布。服务参数限定dev、小规格和none/postgresql，不把命名空间、Provider凭据或任意模板路径开放给用户。
+
+deploy安装两个已锁Chart；Crossplane此实现明确选择2.x Namespaced XRD和原生资源Composition，1.x不能直接套用。platform-api安装v1alpha1 DevApplication、固定Digest的function-go-templating与Manual升级的Composition。必须先有03 CNPG Operator/保留型StorageClass、Function健康与足够配额，不能以CRD创建代替调谐完成。
+
+Argo只管理顶层DevApplication/Deployment/Service；Crossplane管理binding ConfigMap和CNPG Cluster；CNPG管理Pod/Secret/PVC。Crossplane在apps-dev使用受限Role/RoleBinding，只能管理这两种子资源，不能变成集群管理员或修改其他Namespace。数据库删除/备份/回收受单独审批，门户用户无delete权限；Argo无prune，控制器卸载与数据删除分离。
+
+catalog-root引导受限Project/Application读取platform/apps；自助MR同时新增该处Application及environments/dev/<name>的完整声明，因此新应用可被发现。argocd-health.yaml的数据段需合入已有argocd-cm的受审values，不用完整ConfigMap覆盖其他配置；DevApplication健康后才进入Deployment的后续sync wave。
+
+backstage-config.yaml须合入锁定values，数据库来自03受控PostgreSQL及备份、GitLabOAuth/目录身份/CA/permission policy/TechDocs外部构建按现场配置。禁止guest发布，未提供policy模块不能声称已有鉴权。所有Token/数据库密码由Secret引用，不进镜像/模板。
+
+request只调用已核对Scaffolder API并记录task ID；check读取Ready并对选定CNPG主库执行只读SELECT1。完整验收还要链上task→仓库→CI独立构建→SBOM/签名→MR审批→Argo→Crossplane→数据查询→HTTP/版本→Catalog/API/TechDocs，逐段留证。重复请求同名仓库/分支时原生发布可能报冲突，需先查task/repo/MR后从失败步骤恢复，不自动改名重复建库或覆盖旧仓库；未做这些验收不标成功。

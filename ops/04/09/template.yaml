@@ -1,0 +1,79 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata: {name: lab-service, title: 七语言服务, description: 双CI与受审GitOps交付}
+spec:
+  owner: group:default/platform
+  type: service
+  parameters:
+    - title: 服务参数
+      required: [name, language, ci, owner, bootstrapImage]
+      properties:
+        name: {type: string, pattern: '^[a-z][a-z0-9-]{2,30}$'}
+        language: {type: string, enum: [java, rust, c, cpp, csharp, jsts, python]}
+        ci: {type: string, enum: [gitlab, jenkins]}
+        owner: {type: string, enum: ['group:default/platform']}
+        environment: {type: string, enum: [dev], default: dev}
+        dataService: {type: string, enum: [none, postgresql], default: none}
+        bootstrapImage: {type: string, pattern: '^harbor\.k8s\.internal\.egon\.top/.+@sha256:[a-f0-9]{64}$'}
+  steps:
+    - id: source
+      name: 获取固定平台脚本
+      action: fetch:plain
+      input:
+        url: __PLATFORM_SOURCE_URL__
+        targetPath: source/ops/04
+    - id: metadata
+      name: 服务元数据与部署请求
+      action: fetch:template
+      input:
+        url: ./skeleton/common
+        values:
+          name: '${{ parameters.name }}'
+          language: '${{ parameters.language }}'
+          ci: '${{ parameters.ci }}'
+          owner: '${{ parameters.owner }}'
+          dataService: '${{ parameters.dataService }}'
+          bootstrapImage: '${{ parameters.bootstrapImage }}'
+          templateRevision: __TEMPLATE_REVISION__
+          gitopsUrl: __GITOPS_URL__
+    - id: gitlab-ci
+      if: '${{ parameters.ci == "gitlab" }}'
+      action: fetch:template
+      input:
+        url: ./skeleton/gitlab
+        targetPath: source
+        values: {language: '${{ parameters.language }}', platformProject: __PLATFORM_PROJECT__, templateRevision: __TEMPLATE_REVISION__}
+    - id: jenkins-ci
+      if: '${{ parameters.ci == "jenkins" }}'
+      action: fetch:template
+      input:
+        url: ./skeleton/jenkins
+        targetPath: source
+        values: {language: '${{ parameters.language }}'}
+    - id: publish
+      action: publish:gitlab
+      input:
+        repoUrl: 'gitlab.svc.internal.egon.top?owner=cnpl-apps&repo=${{ parameters.name }}'
+        sourcePath: source
+        defaultBranch: main
+        repoVisibility: private
+    - id: gitops
+      name: 提交环境与Application注册审批
+      action: publish:gitlab:merge-request
+      input:
+        repoUrl: __GITOPS_REPO_LOCATOR__
+        branchName: 'scaffold/${{ parameters.name }}'
+        title: 'Create ${{ parameters.name }}'
+        description: 'Review CI, Digest, data-service permissions and deletion policy before merging.'
+        sourcePath: gitops
+        targetPath: .
+    - id: register
+      action: catalog:register
+      input:
+        repoContentsUrl: '${{ steps.publish.output.repoContentsUrl }}'
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    links:
+      - {title: 源码, url: '${{ steps.publish.output.remoteUrl }}'}
+      - {title: GitOps审批, url: '${{ steps.gitops.output.mergeRequestUrl }}'}
+      - {title: 目录, entityRef: '${{ steps.register.output.entityRef }}'}

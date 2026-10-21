@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: argocd-cm, namespace: argocd}
+data:
+  resource.customizations.health.platform.egon.top_DevApplication: |
+    local hs = {status = "Progressing", message = "Waiting for platform dependencies"}
+    if obj.status and obj.status.conditions then
+      for _, condition in ipairs(obj.status.conditions) do
+        if condition.type == "Ready" and condition.status == "True" then
+          return {status = "Healthy", message = "Platform dependencies ready"}
+        end
+        if condition.type == "Synced" and condition.status == "False" then
+          hs = {status = "Degraded", message = condition.message or "Composition failed"}
+        end
+      end
+    end
+    return hs

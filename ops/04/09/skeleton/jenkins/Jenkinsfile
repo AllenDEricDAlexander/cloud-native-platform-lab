@@ -1,0 +1,9 @@
+pipeline {
+    agent { label 'cnpl-verify-${{ values.language }}' }
+    options { disableConcurrentBuilds(); timeout(time: 30, unit: 'MINUTES') }
+    stages {
+        stage('Verify') {
+            steps { container('builder') { sh 'export SOURCE_REVISION=$(git rev-parse HEAD); bash ops/04/05/build.sh ${{ values.language }}' } }
+        }
+    }
+}

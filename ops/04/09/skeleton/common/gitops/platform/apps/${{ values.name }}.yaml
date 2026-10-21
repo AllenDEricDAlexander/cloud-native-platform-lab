@@ -1,0 +1,8 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: {name: '${{ values.name }}-dev', namespace: argocd}
+spec:
+  project: cnpl04
+  source: {repoURL: '${{ values.gitopsUrl }}', targetRevision: main, path: 'environments/dev/${{ values.name }}'}
+  destination: {server: 'https://kubernetes.default.svc', namespace: apps-dev}
+  syncPolicy: {automated: {prune: false, selfHeal: true}}

@@ -1,0 +1,8 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER 0
+COPY lab-root-ca.crt /etc/pki/ca-trust/source/anchors/lab-root-ca.crt
+RUN update-ca-trust
+COPY config /opt/cnpl/config
+USER 1000:1000
+WORKDIR /workspace

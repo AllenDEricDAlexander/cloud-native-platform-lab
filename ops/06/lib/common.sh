@@ -65,6 +65,18 @@ backup_gate() {
     [[ $(required .backup.independent) == true ]] || die '独立备份未确认；同 ESXi 的 backup VM 不满足门槛'
     verify_file "$(required .backup.evidence_file)" "$(required .backup.evidence_sha256)"
 }
+node_ip() {
+    ruby -ryaml -e 'n=YAML.load_file(ARGV[0]).fetch("kubernetes_nodes").find{|n| n["fqdn"]==ARGV[1]};abort "节点未登记" unless n;puts n.fetch("ip")' "$REPO/ops/inventory/hosts.yaml" "$1"
+}
+remote_node() {
+    local node=$1 script=$2 ip command argument quoted
+    shift 2
+    ip=$(node_ip "$node")
+    private_file "$(required .hosts.ssh_identity)"
+    command='bash -s --'
+    for argument in "$node" "$ip" "$@"; do printf -v quoted ' %q' "$argument"; command+=$quoted; done
+    ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 -i "$(required .hosts.ssh_identity)" "root@$ip" "$command" < "$script"
+}
 evidence_gate() { verify_file "$(required ".$1.${2}_file")" "$(required ".$1.${2}_sha256")"; }
 render() { STAGE=$STAGE ruby "$P06/$STAGE/render.rb" "${@}"; }
 owned() {

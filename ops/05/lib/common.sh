@@ -68,7 +68,7 @@ namespace() {
     apply "$PRIVATE_TEMP/namespace.json"
 }
 chart() {
-    local key=$1 release=$2 ns=$3 values=$4 info path version crd
+    local key=$1 release=$2 ns=$3 values=$4 info path version crd current
     info=$(material "$key"); path=$(jq -er .file <<< "$info"); version=$(jq -er .version <<< "$info")
     private_temp
     helm template "$release" "$path" -n "$ns" --include-crds -f "$values" --post-renderer "$P05/lib/post-render.sh" > "$PRIVATE_TEMP/chart.yaml"
@@ -78,7 +78,12 @@ chart() {
     # CRD 有独立全局生命周期；已有 CRD 不在此入口隐式升级。
     jq '.items |= map(select(.kind=="CustomResourceDefinition"))' "$PRIVATE_TEMP/chart.json" > "$PRIVATE_TEMP/crds.json"
     while IFS= read -r crd; do
-        [[ -z $(k get crd "$crd" --ignore-not-found -o name) ]] || die "已有 CRD，需先完成兼容/控制权交接并使用不含 CRD 的锁定 Chart：$crd"
+        current=$(k get crd "$crd" --ignore-not-found -o json)
+        if [[ -n $current ]]; then
+            jq -S '.spec' <<< "$current" > "$PRIVATE_TEMP/current-spec.json"
+            jq -S --arg name "$crd" '.items[] | select(.metadata.name==$name) | .spec' "$PRIVATE_TEMP/crds.json" > "$PRIVATE_TEMP/expected-spec.json"
+            cmp -s "$PRIVATE_TEMP/current-spec.json" "$PRIVATE_TEMP/expected-spec.json" || die "CRD spec 有变化，需单独核对升级：$crd"
+        fi
     done < <(jq -r '.items[].metadata.name' "$PRIVATE_TEMP/crds.json")
     namespace "$ns"
     if [[ $(jq '.items|length' "$PRIVATE_TEMP/crds.json") -gt 0 ]]; then
@@ -92,6 +97,7 @@ http() {
     shift 2
     private_file "$config"
     [[ $url == https://* && $url != *'@'* && $url != *'?'* && $url != *'#'* ]] || die 'API 必须使用无内嵌凭据的 HTTPS URL'
+    ruby "$P05/lib/http-config.rb" "$config" "$url"
     curl --config "$config" --fail --silent --show-error --connect-timeout 5 --max-time 60 --proto '=https' "$@" "$url"
 }
 query() {

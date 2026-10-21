@@ -1,0 +1,20 @@
+groups:
+  - name: cnpl05.platform
+    rules:
+      - record: cnpl05:target_up:ratio
+        expr: avg by (job) (up)
+      - alert: CNPL05ScrapeTargetDown
+        expr: up == 0
+        for: 2m
+        labels: {severity: warning, team: platform}
+        annotations: {summary: 'Scrape target down: {{ $labels.job }}'}
+      - alert: CNPL05PrometheusMissing
+        expr: absent(prometheus_build_info)
+        for: 3m
+        labels: {severity: critical, team: platform}
+        annotations: {summary: Prometheus self metrics missing; check external Zabbix}
+      - alert: CNPL05CollectorDrops
+        expr: sum(rate(otelcol_exporter_send_failed_spans[5m])) > 0
+        for: 2m
+        labels: {severity: warning, team: platform}
+        annotations: {summary: Collector export errors; investigate queue and backend}

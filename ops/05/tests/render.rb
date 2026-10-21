@@ -3,6 +3,7 @@ require "json"
 require "yaml"
 require "tmpdir"
 require "open3"
+require "digest"
 root = File.expand_path("..",__dir__)
 count = 0
 Dir.mktmpdir("cnpl05-render-") do |dir|
@@ -69,6 +70,13 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     metrics = data.fetch("items").find { |i| i["kind"]=="AnalysisTemplate" }.dig("spec","metrics")
     abort "候选版本过滤/NaN 阻断缺失" unless metrics.all? { |m| m.dig("provider","prometheus","query").include?('version="{{args.version}}"') && m["failureCondition"].include?("isNaN") }
     runner.call("07","rollout-patch")
+  end
+  if File.file?(File.join(root,"08/render.rb"))
+    evidence = File.join(dir,"assumptions.txt"); File.write(evidence,"offline construction fixture; no actual pricing\n")
+    input["performance"].merge!({"cpu_hourly_cost"=>0.01,"ram_gib_hourly_cost"=>0.02,"storage_gib_hourly_cost"=>0.001,"currency"=>"CNY","assumptions_file"=>evidence,"assumptions_sha256"=>Digest::SHA256.file(evidence).hexdigest})
+    File.write(path,JSON.generate(input))
+    values = runner.call("08","values")
+    abort "成本必须显式模型" unless values.dig("opencost","customPricing","enabled")==true && values.dig("opencost","ui","enabled")==false
   end
 end
 puts "PASS #{count} 组离线渲染；镜像方法仅在本地构造中替换，不代表物料已锁定"

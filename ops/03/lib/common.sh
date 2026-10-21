@@ -28,6 +28,12 @@ host_value() {
 run_id() {
     RUN=$(required .run_id)
     [[ $RUN =~ ^[a-z][a-z0-9-]{2,19}$ ]] || die 'run_id 需为 3–20 位小写字母、数字或横线，首位字母'
+    RBD_POOL=cnpl03-$RUN-rbd
+    CEPH_FS=cnpl03-$RUN-fs
+    SC_RBD=cnpl03-$RUN-rbd
+    SC_FS=cnpl03-$RUN-cephfs
+    ROOK_NS=cnpl03-rook
+    EXTERNAL_NS=cnpl03-external
 }
 start() {
     STAGE=$1 ACTION=$2

@@ -75,7 +75,10 @@ fn main() -> std::io::Result<()> {
             body.len()
         );
         if let Err(e) = stream.write_all(response.as_bytes()) {
-            eprintln!("{{\"event\":\"client_write_failed\",\"kind\":\"{:?}\"}}", e.kind());
+            eprintln!(
+                "{{\"event\":\"client_write_failed\",\"kind\":\"{:?}\"}}",
+                e.kind()
+            );
         }
         println!("{{\"event\":\"request\",\"status\":{status}}}");
     }

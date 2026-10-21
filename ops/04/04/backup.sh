@@ -18,6 +18,6 @@ for ((i=0; i<60; i++)); do
 done
 [[ $idle == true ]] || die '现有构建未结束，停止备份并恢复接单'
 file=$(mktemp "$directory/jenkins-$RUN-XXXXXX")
-k -n ci-jenkins exec deployment/jenkins -c jenkins -- tar -C /var/jenkins_home -czf - . > "$file"
+k -n ci-jenkins exec "$(required .jenkins.workload)" -c "$(required .jenkins.container)" -- tar -C /var/jenkins_home -czf - . > "$file"
 [[ -s $file ]] || die '备份为空'
 jq -n --arg file "$file" --arg sha "$(sha "$file")" '{private_backup_file:$file,sha256:$sha,restore_tested:false}' > "$ATTEMPT/backup-reference.json"

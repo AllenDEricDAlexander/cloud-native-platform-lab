@@ -8,5 +8,14 @@ while IFS= read -r file; do bash -n "$file"; done < <(find "$root" -type d \( -n
 while IFS= read -r file; do ruby -c "$file" >/dev/null; done < <(find "$root" -type d -name records -prune -o -type f -name '*.rb' -print | sort)
 ruby "$root/lib/config.rb" source
 if [[ -f $root/tests/offline.sh ]]; then bash "$root/tests/offline.sh"; fi
+if [[ -f $root/tests/native.sh ]]; then bash "$root/tests/native.sh"; fi
+if [[ -f $root/tests/source.py ]]; then
+    python=${CNPL04_PYTHON:-python3}
+    if ! "$python" -c 'import tomllib' >/dev/null 2>&1; then
+        [[ -z ${CNPL04_PYTHON:-} && -x /opt/homebrew/bin/python3 ]] || { echo '需要既有Python3.11+解析TOML：设置CNPL04_PYTHON' >&2; exit 1; }
+        python=/opt/homebrew/bin/python3
+    fi
+    PYTHONDONTWRITEBYTECODE=1 "$python" "$root/tests/source.py"
+fi
 if [[ -f $root/coverage.json ]]; then ruby "$root/lib/coverage.rb"; fi
 printf 'PASS Phase 04 离线检查；未联网、未部署、未运行实验。\n'

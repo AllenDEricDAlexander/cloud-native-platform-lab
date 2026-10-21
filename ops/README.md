@@ -12,7 +12,7 @@
 | 01 Kubernetes | [01-kubernetes](../plan/01-kubernetes.md) | [操作流程](01-kubernetes/README.md) | 未开始 |
 | 02 网络治理 | [02-networking](../plan/02-networking.md) | [操作流程](02-networking/README.md) | 未开始 |
 | 03 Ceph 与中间件 | [03-ceph-middleware](../plan/03-ceph-middleware.md) | [分子阶段脚本与操作流程](03/README.md) | 01–09 脚本已编写并离线走查；内网运行未验收 |
-| 04 交付平台 | [04-devops-platform](../plan/04-devops-platform.md) | [操作流程](04-devops-platform/README.md) | 未开始 |
+| 04 交付平台 | [04-devops-platform](../plan/04-devops-platform.md) | [分子阶段脚本与操作流程](04/README.md) | 01–10 脚本已编写并离线走查；内网运行未验收 |
 | 05 可观测性 | [05-observability](../plan/05-observability.md) | [操作流程](05-observability/README.md) | [Zabbix VM 监控方案](05-observability/README.md#zabbix-design)复用 build01，部署未开始 |
 | 06 安全、进阶与恢复 | [06-advanced-security-dr](../plan/06-advanced-security-dr.md) | [操作流程](06-advanced-security-dr/README.md) | 未开始 |
 
@@ -61,7 +61,7 @@
 | `ops/02-networking/networking/` | 02 | Service、DNS、Cilium、MetalLB、Gateway/Ingress、TLS、策略与网格 |
 | `ops/03-ceph-middleware/storage/` | 03 | Rook External/CSI、StorageClass/PVC/Snapshot，不管理外部 OSD 生命周期 |
 | `ops/03-ceph-middleware/middleware/` | 03 | 数据库、消息 Operator 与 CR |
-| `ops/04-devops-platform/metrics/`、`ops/05-observability/observability/` | 04/05 | 04 最小真实灰度指标源；05 完整指标/日志/追踪/剖析/成本 |
+| `ops/04/08/`、`ops/05-observability/observability/` | 04/05 | 04 最小真实灰度指标源；05 完整指标/日志/追踪/剖析/成本 |
 | `ops/06-advanced-security-dr/security/` | 01/04/06 | RBAC、PSA、准入、身份、运行时与秘密声明 |
 | `ops/03-ceph-middleware/operators/` | 03 | 自研 Operator 源码/CRD/RBAC/部署与 API 说明 |
 | `ops/06-advanced-security-dr/multicluster/` | 06C | CAPI/CAPV、集群连接、Cluster Mesh 与多集群声明 |
@@ -70,29 +70,25 @@
 
 | 目录 | 阶段 | 负责内容 |
 | --- | --- | --- |
-| `ops/04-devops-platform/gitops/bootstrap/` | 04 | 主 Argo CD 的受控引导；引导后明确资源所有权移交 |
-| `ops/04-devops-platform/gitops/platform/` | 04 | 引用各阶段可复用配置与平台工程配置的 Application/ApplicationSet |
-| `ops/04-devops-platform/gitops/environments/dev/` | 04 | 开发实验的 Namespace、参数和固定制品版本 |
-| `ops/04-devops-platform/gitops/environments/staging/` | 04 | 预发布验证和晋级配置 |
-| `ops/04-devops-platform/gitops/environments/prod-like/` | 04 | 拟生产配置与受控晋级，不代表真实生产环境 |
+| `ops/04/07/` | 04 | Argo CD受控引导、AppProject/ApplicationSet，导出base与dev/staging/prod-like环境；prod-like不代表真实生产 |
 
 ### 构建与基础设施流水线
 
 | 目录 | 阶段 | 负责内容 |
 | --- | --- | --- |
-| `ops/04-devops-platform/ci/gitlab/` | 04 | GitLab CI 模板、语言流水线、Runner 与 IaC 流程 |
-| `ops/04-devops-platform/ci/jenkins/` | 04 | Shared Library、Jenkinsfile、Agent 与 IaC 流程 |
-| `ops/04-devops-platform/ci/tekton/` | 04 | 隔离的原生流水线对照 |
-| `ops/04-devops-platform/ci/builders/` | 00/04 | 七语言工具链、CA 和依赖客户端镜像定义 |
-| `ops/04-devops-platform/ci/shared/` | 04 | 两套 CI 共用的构建/测试/制品/供应链/发布契约 |
+| `ops/04/03/` | 04 | GitLab CI 模板、语言流水线、Runner 与 IaC 流程 |
+| `ops/04/04/` | 04 | Shared Library、Jenkinsfile、Agent 与 IaC 流程 |
+| `ops/04/10/` | 04 | 隔离的原生流水线对照 |
+| `ops/04/02/` | 00/04 | 七语言工具链、CA 和依赖客户端镜像定义 |
+| `ops/04/03/shared/` | 04 | 两套 CI 共用的构建/测试/制品/供应链/发布契约 |
 
 ### 开发者平台工程
 
 | 目录 | 阶段 | 负责内容 |
 | --- | --- | --- |
-| `ops/04-devops-platform/backstage/` | 04 | 门户配置、目录集成、Software Templates 与任务动作 |
-| `ops/04-devops-platform/crossplane/` | 04 | 平台 API、Composition、Provider 引用和资源权限 |
-| `ops/04-devops-platform/service-templates/` | 04 | 七类语言应用、CI、部署和文档的可复用模板 |
+| `ops/04/09/` | 04 | 门户配置、目录集成、Software Templates 与任务动作 |
+| `ops/04/09/` | 04 | 平台 API、Composition、Provider 引用和资源权限 |
+| `ops/04/09/skeleton/` | 04 | 七类语言应用、CI、部署和文档的可复用模板 |
 
 ### 可复现实验场景
 
@@ -101,7 +97,7 @@
 | `ops/01-kubernetes/examples/` | 01 | Pod、控制器、生命周期、探针、删除传播等场景 |
 | `ops/02-networking/examples/` | 02 | 数据面、Hubble、L2/BGP、策略与出口对照 |
 | `ops/03-ceph-middleware/examples/` | 03 | 外部/自管理 Ceph、卷生命周期和故障对照 |
-| `ops/04-devops-platform/examples/` | 04 | 七语言示例、双 CI、GitOps 与供应链实验 |
+| `ops/04/05/examples/` | 04 | 七语言示例、双 CI、GitOps 与供应链实验 |
 | `ops/05-observability/examples/` | 05 | 遥测关联、故障定位、性能与成本场景 |
 | `ops/06-advanced-security-dr/serverless/` | 06B | Knative、Dapr、Argo、NATS 事件场景 |
 | `ops/06-advanced-security-dr/multicluster/examples/` | 06C | 第二集群、跨集群隔离与流量故障切换 |

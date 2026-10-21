@@ -15,6 +15,6 @@ pipeline {
         }
         stage('Apply') { steps { sh 'bash ops/04/06/run.sh apply' } }
         stage('Host baseline') { steps { sh 'bash ops/04/06/run.sh ansible-check; bash ops/04/06/run.sh ansible-apply' } }
-        stage('Idempotence') { steps { sh 'bash ops/04/06/run.sh no-op; bash ops/04/06/run.sh ansible-check' } }
+        stage('Idempotence') { steps { sh 'bash ops/04/06/run.sh no-op; bash ops/04/06/run.sh ansible-idempotence' } }
     }
 }

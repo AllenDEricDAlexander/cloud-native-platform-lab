@@ -1,0 +1,1113 @@
+{
+  "scope": "source_index_only",
+  "phase_complete": false,
+  "steps": [
+    {
+      "id": "04.01.01",
+      "title": "划分应用、平台和 GitOps 仓库",
+      "files": [
+        "01/run.sh",
+        "01/README.md",
+        "01/access.rb",
+        "01/contracts.json",
+        "01/render.rb"
+      ],
+      "manual_checks": [
+        "源码提交与环境变更可分别审计，流水线不会因互相更新仓库形成无限触发。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.01.02",
+      "title": "建立环境隔离与资源预算",
+      "files": [
+        "01/run.sh",
+        "01/README.md",
+        "01/access.rb",
+        "01/contracts.json",
+        "01/render.rb"
+      ],
+      "manual_checks": [
+        "不同环境和构建任务不能任意访问彼此密钥，资源上限与实验硬件相符。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.01.03",
+      "title": "定义制品标识与发布标准",
+      "files": [
+        "01/run.sh",
+        "01/README.md",
+        "01/access.rb",
+        "01/contracts.json",
+        "01/render.rb"
+      ],
+      "manual_checks": [
+        "任何部署都能追溯来源，重新构建不会悄悄覆盖已验收的生产型制品。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.01.04",
+      "title": "定义可复用应用接口",
+      "files": [
+        "01/run.sh",
+        "01/README.md",
+        "01/access.rb",
+        "01/contracts.json",
+        "01/render.rb"
+      ],
+      "manual_checks": [
+        "不同语言能够共享平台验收，而不丢失各自真实的构建与运行需求。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.02.01",
+      "title": "制作受控 Builder 镜像",
+      "files": [
+        "02/builders/python/Containerfile",
+        "02/builders/rust/Containerfile",
+        "02/builders/java/Containerfile",
+        "02/builders/cpp/Containerfile",
+        "02/builders/jsts/Containerfile",
+        "02/builders/csharp/Containerfile",
+        "02/builders/c/Containerfile",
+        "02/config/cargo.toml",
+        "02/config/NuGet.Config",
+        "02/config/settings.xml",
+        "02/config/conan.sh",
+        "02/config/pip.conf",
+        "02/config/npmrc",
+        "02/config/gradle.init.gradle",
+        "02/cache-policy.json",
+        "02/run.sh",
+        "02/README.md",
+        "02/build.sh",
+        "02/client.sh",
+        "02/render.rb"
+      ],
+      "manual_checks": [
+        "干净 Runner 能直接从 Harbor 获取 Builder，不在每次 Job 临时下载一整套工具链。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.02.02",
+      "title": "配置各语言依赖代理",
+      "files": [
+        "02/builders/python/Containerfile",
+        "02/builders/rust/Containerfile",
+        "02/builders/java/Containerfile",
+        "02/builders/cpp/Containerfile",
+        "02/builders/jsts/Containerfile",
+        "02/builders/csharp/Containerfile",
+        "02/builders/c/Containerfile",
+        "02/config/cargo.toml",
+        "02/config/NuGet.Config",
+        "02/config/settings.xml",
+        "02/config/conan.sh",
+        "02/config/pip.conf",
+        "02/config/npmrc",
+        "02/config/gradle.init.gradle",
+        "02/cache-policy.json",
+        "02/run.sh",
+        "02/README.md",
+        "02/build.sh",
+        "02/client.sh",
+        "02/render.rb"
+      ],
+      "manual_checks": [
+        "每种语言都能从空环境恢复固定依赖，构建结果不依赖偶然缓存。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.02.03",
+      "title": "部署隔离的 BuildKit 构建能力",
+      "files": [
+        "02/builders/python/Containerfile",
+        "02/builders/rust/Containerfile",
+        "02/builders/java/Containerfile",
+        "02/builders/cpp/Containerfile",
+        "02/builders/jsts/Containerfile",
+        "02/builders/csharp/Containerfile",
+        "02/builders/c/Containerfile",
+        "02/config/cargo.toml",
+        "02/config/NuGet.Config",
+        "02/config/settings.xml",
+        "02/config/conan.sh",
+        "02/config/pip.conf",
+        "02/config/npmrc",
+        "02/config/gradle.init.gradle",
+        "02/cache-policy.json",
+        "02/run.sh",
+        "02/README.md",
+        "02/build.sh",
+        "02/client.sh",
+        "02/render.rb"
+      ],
+      "manual_checks": [
+        "应用流水线不能通过构建服务任意控制宿主机；构建失败有可诊断日志。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.02.04",
+      "title": "划分四类缓存并防止污染",
+      "files": [
+        "02/builders/python/Containerfile",
+        "02/builders/rust/Containerfile",
+        "02/builders/java/Containerfile",
+        "02/builders/cpp/Containerfile",
+        "02/builders/jsts/Containerfile",
+        "02/builders/csharp/Containerfile",
+        "02/builders/c/Containerfile",
+        "02/config/cargo.toml",
+        "02/config/NuGet.Config",
+        "02/config/settings.xml",
+        "02/config/conan.sh",
+        "02/config/pip.conf",
+        "02/config/npmrc",
+        "02/config/gradle.init.gradle",
+        "02/cache-policy.json",
+        "02/run.sh",
+        "02/README.md",
+        "02/build.sh",
+        "02/client.sh",
+        "02/render.rb"
+      ],
+      "manual_checks": [
+        "缓存命中提高效率但不改变正确性；清空缓存后仍可完成构建。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.02.05",
+      "title": "验证离线构建与制品保留",
+      "files": [
+        "02/builders/python/Containerfile",
+        "02/builders/rust/Containerfile",
+        "02/builders/java/Containerfile",
+        "02/builders/cpp/Containerfile",
+        "02/builders/jsts/Containerfile",
+        "02/builders/csharp/Containerfile",
+        "02/builders/c/Containerfile",
+        "02/config/cargo.toml",
+        "02/config/NuGet.Config",
+        "02/config/settings.xml",
+        "02/config/conan.sh",
+        "02/config/pip.conf",
+        "02/config/npmrc",
+        "02/config/gradle.init.gradle",
+        "02/cache-policy.json",
+        "02/run.sh",
+        "02/README.md",
+        "02/build.sh",
+        "02/client.sh",
+        "02/render.rb"
+      ],
+      "manual_checks": [
+        "已声明支持的离线组合全部成功，未缓存新依赖明确报错而非隐式绕过出口政策。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.03.01",
+      "title": "部署 Runner 管理器和 Kubernetes Executor",
+      "files": [
+        "03/gitlab-ci.yml",
+        "03/fault.sh",
+        "03/shared/observe.sh",
+        "03/shared/api.sh",
+        "03/shared/package.sh",
+        "03/shared/gitops.sh",
+        "03/run.sh",
+        "03/README.md",
+        "03/runner-values.yaml"
+      ],
+      "manual_checks": [
+        "任务按需创建 Pod，完成后释放；普通 MR 不会得到平台管理员凭据。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.03.02",
+      "title": "建立公共 GitLab CI 模板",
+      "files": [
+        "03/gitlab-ci.yml",
+        "03/fault.sh",
+        "03/shared/observe.sh",
+        "03/shared/api.sh",
+        "03/shared/package.sh",
+        "03/shared/gitops.sh",
+        "03/run.sh",
+        "03/README.md",
+        "03/runner-values.yaml"
+      ],
+      "manual_checks": [
+        "多个项目共用模板时行为一致，模板变更具有回归和回退方案。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.03.03",
+      "title": "实现合并请求和分支流水线",
+      "files": [
+        "03/gitlab-ci.yml",
+        "03/fault.sh",
+        "03/shared/observe.sh",
+        "03/shared/api.sh",
+        "03/shared/package.sh",
+        "03/shared/gitops.sh",
+        "03/run.sh",
+        "03/README.md",
+        "03/runner-values.yaml"
+      ],
+      "manual_checks": [
+        "代码检查失败会阻断发布，重复触发不会并行修改同一环境。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.03.04",
+      "title": "实现制品发布与 GitOps 提交",
+      "files": [
+        "03/gitlab-ci.yml",
+        "03/fault.sh",
+        "03/shared/observe.sh",
+        "03/shared/api.sh",
+        "03/shared/package.sh",
+        "03/shared/gitops.sh",
+        "03/run.sh",
+        "03/README.md",
+        "03/runner-values.yaml",
+        "03/shared/askpass.sh",
+        "03/shared/publish-native.sh"
+      ],
+      "manual_checks": [
+        "一次提交能追踪到一个可审计版本，流水线不直接用管理员权限修改业务 Deployment。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.03.05",
+      "title": "验证 GitLab CI 故障恢复",
+      "files": [
+        "03/gitlab-ci.yml",
+        "03/fault.sh",
+        "03/shared/observe.sh",
+        "03/shared/api.sh",
+        "03/shared/package.sh",
+        "03/shared/gitops.sh",
+        "03/run.sh",
+        "03/README.md",
+        "03/runner-values.yaml"
+      ],
+      "manual_checks": [
+        "失败任务可安全重试，结果与首次触发的提交和制品身份一致。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.04.01",
+      "title": "部署 Jenkins Controller 与持久化",
+      "files": [
+        "04/cli.sh",
+        "04/plugins.txt",
+        "04/Jenkinsfile.release",
+        "04/library/vars/cnplRelease.groovy",
+        "04/run.sh",
+        "04/README.md",
+        "04/backup.sh",
+        "04/jenkins-values.yaml",
+        "04/Jenkinsfile.verify",
+        "04/render.rb"
+      ],
+      "manual_checks": [
+        "重建 Controller 后能恢复配置与任务，普通用户不能安装任意高权限插件。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.04.02",
+      "title": "配置动态 Kubernetes Agent",
+      "files": [
+        "04/cli.sh",
+        "04/plugins.txt",
+        "04/Jenkinsfile.release",
+        "04/library/vars/cnplRelease.groovy",
+        "04/run.sh",
+        "04/README.md",
+        "04/backup.sh",
+        "04/jenkins-values.yaml",
+        "04/Jenkinsfile.verify",
+        "04/render.rb"
+      ],
+      "manual_checks": [
+        "Agent 按任务生成和销毁，不需要长期保留七台独立编译虚拟机。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.04.03",
+      "title": "建立 Jenkins Configuration as Code 与共享库",
+      "files": [
+        "04/cli.sh",
+        "04/plugins.txt",
+        "04/Jenkinsfile.release",
+        "04/library/vars/cnplRelease.groovy",
+        "04/run.sh",
+        "04/README.md",
+        "04/backup.sh",
+        "04/jenkins-values.yaml",
+        "04/Jenkinsfile.verify",
+        "04/render.rb"
+      ],
+      "manual_checks": [
+        "Jenkins 不是只能在管理页面手工重建的单次安装。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.04.04",
+      "title": "实现 Multibranch 与标准阶段",
+      "files": [
+        "04/cli.sh",
+        "04/plugins.txt",
+        "04/Jenkinsfile.release",
+        "04/library/vars/cnplRelease.groovy",
+        "04/run.sh",
+        "04/README.md",
+        "04/backup.sh",
+        "04/jenkins-values.yaml",
+        "04/Jenkinsfile.verify",
+        "04/render.rb"
+      ],
+      "manual_checks": [
+        "同一语言与提交在两套 CI 中得到可比较的制品和测试结果。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.04.05",
+      "title": "实现 Jenkins GitOps 发布与失败恢复",
+      "files": [
+        "04/cli.sh",
+        "04/plugins.txt",
+        "04/Jenkinsfile.release",
+        "04/library/vars/cnplRelease.groovy",
+        "04/run.sh",
+        "04/README.md",
+        "04/backup.sh",
+        "04/jenkins-values.yaml",
+        "04/Jenkinsfile.verify",
+        "04/render.rb"
+      ],
+      "manual_checks": [
+        "任务重跑不重复部署不一致版本，Controller 数据丢失后有明确恢复路径。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.01",
+      "title": "完成 Java 与 Spring Boot 服务",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/java/pom.xml",
+        "05/examples/java/Containerfile",
+        "05/examples/java/.dockerignore",
+        "05/examples/java/dependencies.lock",
+        "05/examples/java/src/test/java/top/egon/cnpl/DemoApplicationTest.java",
+        "05/examples/java/src/main/resources/application.properties",
+        "05/examples/java/src/main/java/top/egon/cnpl/DemoApplication.java"
+      ],
+      "manual_checks": [
+        "Java 服务在 K8s 可健康运行、追踪和回滚，两套 CI 都有可重复的成功记录。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.02",
+      "title": "完成 Rust 服务与原生制品",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/rust/Cargo.toml",
+        "05/examples/rust/Cargo.lock",
+        "05/examples/rust/Containerfile",
+        "05/examples/rust/.dockerignore",
+        "05/examples/rust/dependencies.lock",
+        "05/examples/rust/src/main.rs"
+      ],
+      "manual_checks": [
+        "Rust API 或 Worker 可部署，同时可以分发对应平台的原生程序，双 CI 结果可核验。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.03",
+      "title": "完成 C 服务或计算 Worker",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/c/CMakeLists.txt",
+        "05/examples/c/http.h",
+        "05/examples/c/Containerfile",
+        "05/examples/c/.dockerignore",
+        "05/examples/c/main.c",
+        "05/examples/c/dependencies.lock"
+      ],
+      "manual_checks": [
+        "不是只生成一个二进制文件，而是完成可运行、可验证、可回滚的交付链。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.04",
+      "title": "完成 C++ 服务与依赖缓存",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/cpp/CMakeLists.txt",
+        "05/examples/cpp/Containerfile",
+        "05/examples/cpp/.dockerignore",
+        "05/examples/cpp/conan.lock",
+        "05/examples/cpp/conanfile.txt",
+        "05/examples/cpp/dependencies.lock",
+        "05/examples/cpp/main.cpp"
+      ],
+      "manual_checks": [
+        "双 CI 构建结果可在目标运行镜像执行，依赖和原生制品具有准确版本。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.05",
+      "title": "完成 C# 与现代 .NET 服务",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/csharp/packages.lock.json",
+        "05/examples/csharp/Demo.csproj",
+        "05/examples/csharp/Containerfile",
+        "05/examples/csharp/.dockerignore",
+        "05/examples/csharp/dependencies.lock",
+        "05/examples/csharp/Program.cs"
+      ],
+      "manual_checks": [
+        "Linux 支持范围与 Windows 需求清楚，现代 .NET 服务完成两套 CI/CD。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.06",
+      "title": "完成 JS/TS 前后端交付",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/jsts/test.mjs",
+        "05/examples/jsts/Containerfile",
+        "05/examples/jsts/.dockerignore",
+        "05/examples/jsts/public/index.html",
+        "05/examples/jsts/package-lock.json",
+        "05/examples/jsts/package.json",
+        "05/examples/jsts/server.mjs",
+        "05/examples/jsts/calculate.ts",
+        "05/examples/jsts/tsconfig.json",
+        "05/examples/jsts/dependencies.lock"
+      ],
+      "manual_checks": [
+        "JS/TS 项目可由双 CI 发布，环境切换不会把秘密写入前端静态包。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.07",
+      "title": "完成 Python 服务和任务程序",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/build.sh",
+        "05/examples/python/service.py",
+        "05/examples/python/pyproject.toml",
+        "05/examples/python/tests/test_kernel.py",
+        "05/examples/python/Containerfile",
+        "05/examples/python/.dockerignore",
+        "05/examples/python/dependencies.lock",
+        "05/examples/python/requirements.lock"
+      ],
+      "manual_checks": [
+        "Python 制品与镜像可重现，运行环境没有依赖开发机本地路径。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.05.08",
+      "title": "执行十四种构建发布组合验收",
+      "files": [
+        "05/run.sh",
+        "05/README.md",
+        "05/matrix.rb"
+      ],
+      "manual_checks": [
+        "至少十四个语言与 CI 组合有完整记录，并形成公共模板的回归集。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.01",
+      "title": "划定 OpenTofu、Ansible 与 GitOps 管理范围",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "每层工具的实际可操作范围被验证，同一对象只有一个主状态来源。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.02",
+      "title": "建立远端 State、锁和备份",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "两套 CI 同时请求变更时能互斥，后端故障不会导致随意新建另一份状态。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.03",
+      "title": "实现 GitLab CI 的 IaC 流程",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "GitLab CI 能复现一台合格实验 VM，并保留变更前后状态与验证记录。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.04",
+      "title": "实现 Jenkins 的 IaC 流程",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "Jenkins 并非简化演示，具备与 GitLab CI 对等的基础设施创建、变更与回收能力。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.05",
+      "title": "实现 Ansible 幂等、分批和漂移修复",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "重复执行不会抹掉运行身份与数据，变更失败可隔离在当前批次。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.06",
+      "title": "建立集群外恢复执行器",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "能够在 K8s Runner 与 Jenkins 都停止时获取仓库和恢复材料并执行重建。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.06.07",
+      "title": "验证 IaC 失败补偿与销毁保护",
+      "files": [
+        "06/module.rb",
+        "06/gitlab-iac.yml",
+        "06/plan-check.rb",
+        "06/run.sh",
+        "06/README.md",
+        "06/Jenkinsfile",
+        "06/recovery.sh"
+      ],
+      "manual_checks": [
+        "对正式数据盘、Ceph 和基础仓库设置保护；销毁实验只覆盖明确允许的临时资源。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.07.01",
+      "title": "制作 Helm Chart 与多环境覆盖",
+      "files": [
+        "07/chart/Chart.yaml",
+        "07/chart/values.schema.json",
+        "07/chart/templates/deployment.yaml",
+        "07/chart/templates/service.yaml",
+        "07/chart/templates/hpa.yaml",
+        "07/chart/templates/route.yaml",
+        "07/chart/values.yaml",
+        "07/run.sh",
+        "07/README.md",
+        "07/notifications.yaml",
+        "07/render.rb"
+      ],
+      "manual_checks": [
+        "同一应用能够在 Dev、Staging、Prod-like 复用模板而不复制大量不可维护文件。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.07.02",
+      "title": "部署 Argo CD 与最小权限项目",
+      "files": [
+        "07/chart/Chart.yaml",
+        "07/chart/values.schema.json",
+        "07/chart/templates/deployment.yaml",
+        "07/chart/templates/service.yaml",
+        "07/chart/templates/hpa.yaml",
+        "07/chart/templates/route.yaml",
+        "07/chart/values.yaml",
+        "07/run.sh",
+        "07/README.md",
+        "07/notifications.yaml",
+        "07/render.rb"
+      ],
+      "manual_checks": [
+        "GitOps 只能管理授权范围，错误提交不会立即级联删除全部存储。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.07.03",
+      "title": "建立分层同步和依赖顺序",
+      "files": [
+        "07/chart/Chart.yaml",
+        "07/chart/values.schema.json",
+        "07/chart/templates/deployment.yaml",
+        "07/chart/templates/service.yaml",
+        "07/chart/templates/hpa.yaml",
+        "07/chart/templates/route.yaml",
+        "07/chart/values.yaml",
+        "07/run.sh",
+        "07/README.md",
+        "07/notifications.yaml",
+        "07/render.rb"
+      ],
+      "manual_checks": [
+        "集群从空白状态恢复时不会因为对象顺序而持续失败，也没有自举环路。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.07.04",
+      "title": "验证 HPA 与 GitOps 字段所有权",
+      "files": [
+        "07/chart/Chart.yaml",
+        "07/chart/values.schema.json",
+        "07/chart/templates/deployment.yaml",
+        "07/chart/templates/service.yaml",
+        "07/chart/templates/hpa.yaml",
+        "07/chart/templates/route.yaml",
+        "07/chart/values.yaml",
+        "07/run.sh",
+        "07/README.md",
+        "07/notifications.yaml",
+        "07/render.rb"
+      ],
+      "manual_checks": [
+        "自动扩缩容与声明式交付不发生反复抢写，其他配置漂移仍可被检测。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.07.05",
+      "title": "建立 ApplicationSet 与通知",
+      "files": [
+        "07/chart/Chart.yaml",
+        "07/chart/values.schema.json",
+        "07/chart/templates/deployment.yaml",
+        "07/chart/templates/service.yaml",
+        "07/chart/templates/hpa.yaml",
+        "07/chart/templates/route.yaml",
+        "07/chart/values.yaml",
+        "07/run.sh",
+        "07/README.md",
+        "07/notifications.yaml",
+        "07/render.rb"
+      ],
+      "manual_checks": [
+        "批量部署与通知可用，删除范围可预览且可审核。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.08.01",
+      "title": "部署 Argo Rollouts 并验证路由适配",
+      "files": [
+        "08/admission.sh",
+        "08/supply-chain.sh",
+        "08/run.sh",
+        "08/README.md",
+        "08/probe.py",
+        "08/render.rb"
+      ],
+      "manual_checks": [
+        "Rollout 状态与客户端实际流量一致，版本切换不是只改变副本数量。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.08.02",
+      "title": "实现 Canary 与 Blue/Green",
+      "files": [
+        "08/admission.sh",
+        "08/supply-chain.sh",
+        "08/run.sh",
+        "08/README.md",
+        "08/probe.py",
+        "08/render.rb"
+      ],
+      "manual_checks": [
+        "可以按流量而非猜测决定发布时间，回退应用不会破坏数据库结构。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.08.03",
+      "title": "接入发布分析与自动中止",
+      "files": [
+        "08/admission.sh",
+        "08/supply-chain.sh",
+        "08/run.sh",
+        "08/README.md",
+        "08/probe.py",
+        "08/render.rb"
+      ],
+      "manual_checks": [
+        "自动中止与回退具有明确阈值和实测依据，发布失败可解释。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.08.04",
+      "title": "建立 SBOM、扫描和来源证明",
+      "files": [
+        "08/admission.sh",
+        "08/supply-chain.sh",
+        "08/run.sh",
+        "08/README.md",
+        "08/probe.py",
+        "08/render.rb"
+      ],
+      "manual_checks": [
+        "发布审查可以查看来源、依赖和扫描时间，离线扫描注明数据库新鲜度。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.08.05",
+      "title": "使用 Cosign 签名并保留可信材料",
+      "files": [
+        "08/admission.sh",
+        "08/supply-chain.sh",
+        "08/run.sh",
+        "08/README.md",
+        "08/probe.py",
+        "08/render.rb"
+      ],
+      "manual_checks": [
+        "可验证已发布镜像来源，签名私钥不进入 Builder 镜像或不可信 MR。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.08.06",
+      "title": "接入准入校验与拒绝发布实验",
+      "files": [
+        "08/admission.sh",
+        "08/supply-chain.sh",
+        "08/run.sh",
+        "08/README.md",
+        "08/probe.py",
+        "08/render.rb"
+      ],
+      "manual_checks": [
+        "非法镜像确实被拒绝，关键恢复组件保留受控而非无限制的应急通道。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.09.01",
+      "title": "部署 Backstage 并建立服务目录",
+      "files": [
+        "09/template.yaml",
+        "09/skeleton/gitlab/.gitlab-ci.yml",
+        "09/skeleton/common/source/mkdocs.yml",
+        "09/skeleton/common/source/docs/index.md",
+        "09/skeleton/common/source/catalog-info.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/kustomization.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/service.yaml",
+        "09/skeleton/common/gitops/platform/apps/${{ values.name }}.yaml",
+        "09/skeleton/jenkins/Jenkinsfile",
+        "09/argocd-health.yaml",
+        "09/run.sh",
+        "09/backstage-config.yaml",
+        "09/README.md",
+        "09/composition.gotmpl",
+        "09/render.rb"
+      ],
+      "manual_checks": [
+        "开发者可以找到服务及其责任人，不只是打开一个空门户。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.09.02",
+      "title": "实现 Software Templates 与双 CI 选择",
+      "files": [
+        "09/template.yaml",
+        "09/skeleton/gitlab/.gitlab-ci.yml",
+        "09/skeleton/common/source/mkdocs.yml",
+        "09/skeleton/common/source/docs/index.md",
+        "09/skeleton/common/source/catalog-info.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/kustomization.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/service.yaml",
+        "09/skeleton/common/gitops/platform/apps/${{ values.name }}.yaml",
+        "09/skeleton/jenkins/Jenkinsfile",
+        "09/argocd-health.yaml",
+        "09/run.sh",
+        "09/backstage-config.yaml",
+        "09/README.md",
+        "09/composition.gotmpl",
+        "09/render.rb"
+      ],
+      "manual_checks": [
+        "选定模板能够建立一个真实可构建仓库，错误参数被清晰拒绝。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.09.03",
+      "title": "部署 Crossplane 与版本化平台 API",
+      "files": [
+        "09/template.yaml",
+        "09/skeleton/gitlab/.gitlab-ci.yml",
+        "09/skeleton/common/source/mkdocs.yml",
+        "09/skeleton/common/source/docs/index.md",
+        "09/skeleton/common/source/catalog-info.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/kustomization.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/service.yaml",
+        "09/skeleton/common/gitops/platform/apps/${{ values.name }}.yaml",
+        "09/skeleton/jenkins/Jenkinsfile",
+        "09/argocd-health.yaml",
+        "09/run.sh",
+        "09/backstage-config.yaml",
+        "09/README.md",
+        "09/composition.gotmpl",
+        "09/render.rb"
+      ],
+      "manual_checks": [
+        "平台 API 可创建、验证和观察，字段对应明确的资源交付行为。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.09.04",
+      "title": "划分 Argo CD、Crossplane 与 Operator 所有权",
+      "files": [
+        "09/template.yaml",
+        "09/skeleton/gitlab/.gitlab-ci.yml",
+        "09/skeleton/common/source/mkdocs.yml",
+        "09/skeleton/common/source/docs/index.md",
+        "09/skeleton/common/source/catalog-info.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/kustomization.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/service.yaml",
+        "09/skeleton/common/gitops/platform/apps/${{ values.name }}.yaml",
+        "09/skeleton/jenkins/Jenkinsfile",
+        "09/argocd-health.yaml",
+        "09/run.sh",
+        "09/backstage-config.yaml",
+        "09/README.md",
+        "09/composition.gotmpl",
+        "09/render.rb"
+      ],
+      "manual_checks": [
+        "持续调谐不会产生控制器冲突，删除申请后的数据保留规则明确。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.09.05",
+      "title": "完成开发者自助服务端到端交付",
+      "files": [
+        "09/template.yaml",
+        "09/skeleton/gitlab/.gitlab-ci.yml",
+        "09/skeleton/common/source/mkdocs.yml",
+        "09/skeleton/common/source/docs/index.md",
+        "09/skeleton/common/source/catalog-info.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/kustomization.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/service.yaml",
+        "09/skeleton/common/gitops/platform/apps/${{ values.name }}.yaml",
+        "09/skeleton/jenkins/Jenkinsfile",
+        "09/argocd-health.yaml",
+        "09/run.sh",
+        "09/backstage-config.yaml",
+        "09/README.md",
+        "09/composition.gotmpl",
+        "09/render.rb"
+      ],
+      "manual_checks": [
+        "开发者可看到资源申请和发布结果，失败不遗留无人管理的数据库或公网入口。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.09.06",
+      "title": "完善 TechDocs、API 目录与权限",
+      "files": [
+        "09/template.yaml",
+        "09/skeleton/gitlab/.gitlab-ci.yml",
+        "09/skeleton/common/source/mkdocs.yml",
+        "09/skeleton/common/source/docs/index.md",
+        "09/skeleton/common/source/catalog-info.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/kustomization.yaml",
+        "09/skeleton/common/gitops/environments/dev/${{ values.name }}/service.yaml",
+        "09/skeleton/common/gitops/platform/apps/${{ values.name }}.yaml",
+        "09/skeleton/jenkins/Jenkinsfile",
+        "09/argocd-health.yaml",
+        "09/run.sh",
+        "09/backstage-config.yaml",
+        "09/README.md",
+        "09/composition.gotmpl",
+        "09/render.rb",
+        "09/permission-policy.ts"
+      ],
+      "manual_checks": [
+        "门户不是绕过平台权限的超级管理员，文档与版本能够对应。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.10.01",
+      "title": "实验 Tekton 原生流水线",
+      "files": [
+        "10/tekton-smoke.sh",
+        "10/run.sh",
+        "10/README.md",
+        "10/tekton-package.sh",
+        "10/handoff.rb",
+        "10/tekton-fetch.sh",
+        "10/render.rb",
+        "10/compare-host.sh",
+        "10/cleanup.sh"
+      ],
+      "manual_checks": [
+        "能够比较 Kubernetes 原生任务编排与 GitLab/Jenkins 的执行和维护差异。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.10.02",
+      "title": "实验 Flux GitOps",
+      "files": [
+        "10/tekton-smoke.sh",
+        "10/run.sh",
+        "10/README.md",
+        "10/tekton-package.sh",
+        "10/handoff.rb",
+        "10/tekton-fetch.sh",
+        "10/render.rb",
+        "10/compare-host.sh",
+        "10/cleanup.sh"
+      ],
+      "manual_checks": [
+        "得到真实 GitOps 对照记录，主 Argo CD 配置保持稳定。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.10.03",
+      "title": "实验 Dragonfly P2P 分发",
+      "files": [
+        "10/tekton-smoke.sh",
+        "10/run.sh",
+        "10/README.md",
+        "10/tekton-package.sh",
+        "10/handoff.rb",
+        "10/tekton-fetch.sh",
+        "10/render.rb",
+        "10/compare-host.sh",
+        "10/cleanup.sh"
+      ],
+      "manual_checks": [
+        "分发方案节省何处流量有测量依据；故障时有回退到 Harbor 的可控路径。"
+      ],
+      "runtime_accepted": false
+    },
+    {
+      "id": "04.10.04",
+      "title": "完成 Phase 04 交接与清理",
+      "files": [
+        "10/tekton-smoke.sh",
+        "10/run.sh",
+        "10/README.md",
+        "10/tekton-package.sh",
+        "10/handoff.rb",
+        "10/tekton-fetch.sh",
+        "10/render.rb",
+        "10/compare-host.sh",
+        "10/cleanup.sh"
+      ],
+      "manual_checks": [
+        "应用交付可重复、权限可审计，实验对照组件没有遗留互相竞争的控制器。"
+      ],
+      "runtime_accepted": false
+    }
+  ]
+}

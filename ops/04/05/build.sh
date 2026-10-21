@@ -15,6 +15,9 @@ case "$language" in
         mvn -B -s "$root/../02/config/settings.xml" verify
         cp target/demo.jar dist/app.jar ;;
     rust)
+        export CARGO_HOME=${CARGO_HOME:-$PWD/.cargo-ci}
+        mkdir -p "$CARGO_HOME"
+        cp "$root/../02/config/cargo.toml" "$CARGO_HOME/config.toml"
         cargo fmt --check
         cargo clippy --locked --all-targets -- -D warnings
         cargo test --locked
@@ -22,6 +25,9 @@ case "$language" in
         cp target/release/cnpl-demo dist/app ;;
     c|cpp)
         if [[ $language == cpp ]]; then
+            export CONAN_HOME=${CONAN_HOME:-$PWD/.conan-ci}
+            conan profile detect --force
+            bash "$root/../02/config/conan.sh"
             conan install . --lockfile=conan.lock --output-folder=build --build=missing -s build_type=Release
             cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
         else cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release; fi
@@ -44,6 +50,7 @@ case "$language" in
         cp server.mjs dist/server.mjs
         cp -R public dist/public ;;
     python)
+        export PIP_CONFIG_FILE=$root/../02/config/pip.conf
         python -m venv --system-site-packages .venv
         .venv/bin/python -m pip install --require-hashes --no-deps -r requirements.lock
         .venv/bin/python -m ruff check . --exclude .venv

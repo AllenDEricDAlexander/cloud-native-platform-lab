@@ -11,3 +11,5 @@ verify Multibranch 文件不绑定发布凭据。release 从平台仓库固定 S
 backup.sh 先 quiet-down 并等待全部 busyExecutors=0，再将完整 JENKINS_HOME（含 credentials.xml、secrets/master.key 等敏感材料）流式写仓库外 0700 目录的 0600 文件，退出时恢复接单；只归档路径/SHA。该归档包含秘密，需加密和独立备份，不进入普通 CI artifacts。
 
 恢复演练必须在全新隔离实例进行：创建新 PVC→停止该临时 Controller→校验归档 SHA/解密→以相同 Jenkins UID 解压→同版本 Controller/插件启动→核对 JCasC/凭据引用/任务/Agent→执行验证任务→记录恢复耗时和清理。不得覆盖在用 PVC，也不在本任务自动启动临时实例。现场测试 Controller 重建、Agent 丢失、Webhook/分支过滤、仓库超时/测试凭据过期和重复发布；backup 成功不等于恢复验收。
+
+jenkins.workload/container需明确填入所选Chart真实的StatefulSet/Deployment与容器名；脚本不从release名猜工作负载。CLI JAR须与Controller对应并校验SHA，Java信任库需包含内部CA。Controller/Agent的API/8080 WebSocket网络例外来自01/access，网关TLS入口由02配置。

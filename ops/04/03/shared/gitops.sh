@@ -3,7 +3,9 @@
 set -euo pipefail
 set +x
 source "$(dirname "$0")/api.sh"
-: "${GITOPS_URL:?}" "${GITOPS_PROJECT_ID:?}" "${GITOPS_CURL_CONFIG:?}" "${GIT_ASKPASS:?}" "${APP_NAME:?}" "${ENVIRONMENT:?}"
+: "${GITOPS_URL:?}" "${GITOPS_PROJECT_ID:?}" "${GITOPS_CURL_CONFIG:?}" "${GITOPS_TOKEN_FILE:?}" "${APP_NAME:?}" "${ENVIRONMENT:?}"
+export GIT_ASKPASS=$(cd "$(dirname "$0")" && pwd)/askpass.sh LC_MESSAGES=C
+ruby -e 's=File.stat(ARGV[0]);abort "GitOps Token文件权限不符" unless s.uid==Process.uid && [0400,0600].include?(s.mode & 0777)' "$GITOPS_TOKEN_FILE"
 [[ $GITOPS_URL =~ ^https://gitlab\.svc\.internal\.egon\.top/[a-zA-Z0-9_./-]+\.git$ && $GITOPS_PROJECT_ID =~ ^[0-9]+$ && $APP_NAME =~ ^[a-z][a-z0-9-]{2,30}$ && $ENVIRONMENT =~ ^(dev|staging|prod-like)$ ]] || exit 2
 receipt=${1:-release/release.json}
 jq -e '.source_revision|test("^[a-f0-9]{40}$")' "$receipt" >/dev/null

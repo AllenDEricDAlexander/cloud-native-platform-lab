@@ -6,6 +6,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 BUCKETS = (0.1, 0.25, 0.5, 1.0, 5.0, float("inf"))
@@ -60,7 +61,8 @@ def sample(target, ca, stop, measurements):
 
 if __name__ == "__main__":
     target = os.environ["TARGET_URL"]
-    if not target.startswith("https://") or ".internal.egon.top/" not in target:
+    parsed = urlparse(target)
+    if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".internal.egon.top") or parsed.port not in (None, 443) or parsed.username or parsed.password:
         raise ValueError("Internal HTTPS target required")
     measurements = Measurements()
     stop = threading.Event()

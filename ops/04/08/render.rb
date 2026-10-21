@@ -5,6 +5,9 @@ mode=ARGV.fetch(0,"canary")
 items=[]
 case mode
 when "canary", "bluegreen"
+  if mode=="bluegreen"
+    abort "BlueGreen预览必须使用独立真实采样job" unless INPUT.dig("progressive","preview_metrics_job").to_s.match?(/\Apreview-[a-z0-9-]+\z/)
+  end
   app_image=digest_image(required("release","image"))
   selector={"app.kubernetes.io/name"=>name}
   services=%w[stable canary preview].map { |suffix| {"apiVersion"=>"v1","kind"=>"Service","metadata"=>{"name"=>"#{name}-#{suffix}","namespace"=>"apps-dev"},"spec"=>{"selector"=>selector,"ports"=>[{"name"=>"http","port"=>8080,"targetPort"=>8080}]}} }
@@ -12,6 +15,7 @@ when "canary", "bluegreen"
   error_query='sum(rate(http_requests_total{job="reference",status="500"}[1m])) / sum(rate(http_requests_total{job="reference"}[1m]))'
   latency_query='histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="reference"}[1m])))'
   metrics=[["error-rate",error_query,0.01],["p95-latency",latency_query,0.8]].map { |metric,query,limit| {"name"=>metric,"interval"=>"20s","count"=>5,"failureLimit"=>1,"consecutiveErrorLimit"=>1,"provider"=>{"prometheus"=>{"address"=>"http://prometheus.cnpl04-metrics.svc:9090","query"=>query}}}.merge(conditions.call(limit)) }
+  metrics.each { |m| m["provider"]["prometheus"]["query"].gsub!('job="reference"', 'job="'+required("progressive","preview_metrics_job")+'"') } if mode=="bluegreen"
   items << {"apiVersion"=>"argoproj.io/v1alpha1","kind"=>"AnalysisTemplate","metadata"=>{"name"=>name,"namespace"=>"apps-dev"},"spec"=>{"metrics"=>metrics}}
   strategy= if mode=="canary"
     {"canary"=>{"stableService"=>"#{name}-stable","canaryService"=>"#{name}-canary","trafficRouting"=>{"plugins"=>{"argoproj-labs/gatewayAPI"=>{"httpRoute"=>name,"namespace"=>"apps-dev"}}},"steps"=>[{"setWeight"=>10},{"pause"=>{"duration"=>"60s"}},{"analysis"=>{"templates"=>[{"templateName"=>name}]}},{"setWeight"=>50},{"pause"=>{}},{"setWeight"=>100}]}}
@@ -28,6 +32,11 @@ when "metrics"
   ns="cnpl04-metrics"
   items << {"apiVersion"=>"v1","kind"=>"Namespace","metadata"=>{"name"=>ns,"labels"=>{"pod-security.kubernetes.io/enforce"=>"restricted"}}}
   config={"global"=>{"scrape_interval"=>"10s"},"scrape_configs"=>[{"job_name"=>"reference","static_configs"=>[{"targets"=>["reference-probe:9091"]}]}]}
+  if INPUT.dig("progressive","preview_metrics_job")
+    job=required("progressive","preview_metrics_job")
+    abort "预览job/metrics target必须显式且与active不同" unless job.match?(/\Apreview-[a-z0-9-]+\z/) && required("progressive","preview_metrics_target").match?(/\A[a-z0-9.-]+:9091\z/) && required("progressive","preview_metrics_target")!="reference-probe:9091"
+    config["scrape_configs"] << {"job_name"=>job,"static_configs"=>[{"targets"=>[required("progressive","preview_metrics_target")]}]}
+  end
   items << {"apiVersion"=>"v1","kind"=>"ConfigMap","metadata"=>{"name"=>"prometheus","namespace"=>ns},"data"=>{"prometheus.yml"=>YAML.dump(config)}}
   items << {"apiVersion"=>"v1","kind"=>"ConfigMap","metadata"=>{"name"=>"reference-probe","namespace"=>ns},"data"=>{"probe.py"=>File.read(File.join(__dir__,"probe.py"))}}
   %w[prometheus reference-probe].each do |component|
@@ -49,6 +58,8 @@ when "policy"
   enforcement=required("supply_chain","enforcement")
   abort "策略必须显式Audit或Enforce" unless %w[Audit Enforce].include?(enforcement)
   items << {"apiVersion"=>"kyverno.io/v1","kind"=>"ClusterPolicy","metadata"=>{"name"=>"cnpl04-trusted-images"},"spec"=>{"validationFailureAction"=>enforcement,"background"=>false,"failurePolicy"=>"Fail","webhookTimeoutSeconds"=>20,"rules"=>[{"name"=>"verify-signature-and-digest","match"=>{"any"=>[{"resources"=>{"kinds"=>["Pod"],"namespaces"=>%w[apps-dev apps-staging apps-prod-like]}}]},"verifyImages"=>[{"imageReferences"=>["harbor.k8s.internal.egon.top/*"],"required"=>true,"mutateDigest"=>false,"verifyDigest"=>true,"attestors"=>[{"entries"=>[{"keys"=>{"publicKeys"=>public_key,"rekor"=>{"ignoreTlog"=>true}}}]}]}]}]}}
+  pattern={"image"=>"harbor.k8s.internal.egon.top/*@sha256:*","resources"=>{"requests"=>{"cpu"=>"?*","memory"=>"?*"},"limits"=>{"cpu"=>"?*","memory"=>"?*"}}}
+  items.last["spec"]["rules"].unshift({"name"=>"allowed-repository-digest-and-budget","match"=>{"any"=>[{"resources"=>{"kinds"=>["Pod"],"namespaces"=>%w[apps-dev apps-staging apps-prod-like]}}]},"validate"=>{"message"=>"必须使用Harbor Digest并声明资源预算","pattern"=>{"spec"=>{"containers"=>[pattern],"=(initContainers)"=>[pattern]}}}})
 else abort "未知渲染模式"
 end
 puts JSON.pretty_generate(label(items))

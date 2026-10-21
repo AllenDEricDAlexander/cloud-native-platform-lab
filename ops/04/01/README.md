@@ -13,4 +13,6 @@ bash ops/04/01/run.sh check
 
 apply 创建三个 apps 环境及三个 CI 空间的限额、默认拒绝、DNS/内网仓库出口和无自动挂载 Token 的应用身份。已存在且不属于本 run_id 的资源会停止，不接管旧 Namespace。预算是本批次起点，不代表全部组件可以同时按上限运行。网关入口、Metrics、BuildKit、数据服务和 API 例外由后续明确策略添加，不能临时开放全网。
 
+在部署Controller前，填写network里的实际API Service IP、Runner/Jenkins Controller Pod selector与Gateway Namespace/selector，再执行render-access预览、access安装。该例外仅允许Controller访问API、按trust分级的Job访问对应BuildKit、Gateway进入业务端口、Jenkins Agent建立WebSocket；不能用普通Job的application身份获得API权限。Cilium对Service DNAT/host-network Gateway的策略匹配需现场实测，字段不明确时不安装例外。
+
 检查保存配额/身份/策略对象；后续还需真实跨环境密钥拒绝、网络允许/拒绝及超额调度实验。优雅退出/日志/Metrics/Trace 在 05 样例与 08 真实发布验收。清理必须先退出 GitOps 管理并预览批次对象，不能直接删除有持久数据的 Namespace。

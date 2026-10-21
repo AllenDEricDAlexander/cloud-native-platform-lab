@@ -8,6 +8,10 @@ prerequisites.file/sha256 指向已确认 00–03 主线交接的记录，当前
 
 Chart values 仅引用预先建立的 Secret，显式关闭动态生成密码，固定所有镜像 Digest 与依赖，设置资源/节点/安全上下文、内部 CA、TLS 入口和网络策略。后置渲染拒绝 Secret 与浮动镜像；安装前核对资源归属，CRD spec 变化停止，升级另审。Chart 参数与所选版本的兼容性留待联网后核实。
 
+gitlab_runner还需values_file_release/values_sha256_release，分别安装verify与仅保护发布的独立Runner；两套注册材料、ServiceAccount和release资源名称不能混用。
+
 所有口令、私钥、curl config、Docker auth、kubeconfig 和 State/Plan 放仓库外受控位置。私有文件必须当前用户所有、0600/0400，不能通过目录软链落回仓库。curl config 应含 CA 与认证，不能含 insecure、verbose、trace 或输出秘密的选项。身份与签名材料按 CI 文件凭据挂载，禁止普通 MR 取得。外部认证 API 不重定向到任意主机，不在 argv 中放令牌。
+
+仓库外检查涵盖该Git仓库的全部活动worktree，不能把凭据写回原始checkout绕过隔离。private_records_directory指定现有仓库外0700诊断目录；Helm原始错误/NOTES保存在其中的0600文件，普通records只记录路径和结果，不把可能含敏感值的输出直接打印或入Git。
 
 resources、repos、Gateway、Ceph StorageClass、内部 Secret/ConfigMap 均使用显式输入。部署脚本只引导平台对象；业务部署由 Argo CD、平台子资源由 Crossplane/Operator 管理，比较控制器使用独立 Namespace/路径。同 ESXi 的备份 VM 不自动算独立恢复能力。

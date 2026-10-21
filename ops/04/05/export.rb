@@ -3,12 +3,13 @@ require "fileutils"
 require_relative "../lib/config"
 lang, destination = ARGV
 abort "用法 export.rb <language> <仓库外全新目录>" unless %w[java rust c cpp csharp jsts python].include?(lang) && destination && destination.start_with?("/")
-abort "目标已存在或在当前仓库内" if File.exist?(destination) || File.expand_path(destination).start_with?(REPO+"/")
+abort "目标已存在或在仓库worktree内" if File.exist?(destination) || !outside_repository?(destination)
 FileUtils.mkdir_p(destination)
 FileUtils.mkdir_p(File.join(destination,"ops/04"))
 Dir.glob(File.join(ROOT,"**","*"),File::FNM_DOTMATCH).each do |source|
   relative=source.sub(ROOT+"/","")
   next if relative.split("/").any? { |p| %w[. .. records build build-sanitize target node_modules dist bin obj .venv __pycache__].include?(p) }
+  abort "源码导出拒绝软链" if File.symlink?(source)
   target=File.join(destination,"ops/04",relative)
   if File.directory?(source) then FileUtils.mkdir_p(target)
   else FileUtils.cp(source,target)

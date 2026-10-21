@@ -1,6 +1,6 @@
 # Phase 04｜双 CI、GitOps、IaC 与开发者平台工程
 
-文档版本：V3.0。状态：未执行。步骤数：55。
+文档版本：V3.0。状态：01–10 脚本已编写并离线走查，内网运行未执行。步骤数：55。
 
 建设 GitLab CI 与 Jenkins 两条完整、对等的流水线，统一多语言构建、制品、安全检查和交付，再用 Backstage 与 Crossplane 提供可审计的研发自助服务。
 
@@ -21,18 +21,18 @@
 | 建设范围 | GitLab CI、Jenkins、BuildKit、Harbor/Nexus 缓存、Argo CD/Rollouts、Helm/Kustomize、双 IaC、SBOM/Trivy/Cosign/准入、Backstage/Crossplane/ApplicationSet、Tekton/Flux/Dragonfly。 |
 | 语言范围 | Java、Rust、C、C++、C#、JS/TS、Python；两个 CI 各自构建、推送、部署并验收全部七类，同一 Digest 跨环境晋级。 |
 | 实际顺序 | 应用与制品契约 → Builder/缓存 → 两套 CI → 14 组交付 → 双 IaC → GitOps → 灰度/签名/拒绝发布 → 自助平台 → 隔离对照。 |
-| 交付物 | ops/04-devops-platform/ci/gitlab/、jenkins/、builders/、shared/、tekton/；七语言 ops/04-devops-platform/examples/ 示例；ops/04-devops-platform/gitops/ 环境声明；Backstage Template、Crossplane Composition；IaC 与恢复执行器。 |
+| 交付物 | ops/04/01–10/ 分子阶段脚本；03 GitLab/shared、04 Jenkins、02 Builders、05 七语言示例、06 IaC/恢复、07 GitOps、08 灰度/供应链、09 Backstage/Crossplane、10 对照与交接。 |
 | 验收用例 | 14 组“语言 × CI”完整构建部署记录；两套 IaC 均完成 Plan/受控 Apply/幂等/失败补偿；真实指标驱动灰度中止和回退；Backstage 创建并交付一个完整服务。 |
 
-实施细节：[打开具体操作、配置位置和检查方法](../ops/04-devops-platform/README.md)。
+实施细节：[打开具体操作、配置位置和检查方法](../ops/04/README.md)。
 
 阶段交接：本阶段部署最小真实指标源完成 Rollouts 验收，不依赖 05。05 负责全面观测和 SLO 扩展。
 
-验收结果保存为 `ops/04-devops-platform/records/<执行批次>/acceptance.md`，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../ops/templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
+验收结果按子阶段保存为 `ops/04/<01–10>/records/<执行批次>/`，整阶段验收索引由 `ops/04/10/handoff.rb` 检查，逐项链接配置、测试入口和真实输出。使用 [阶段验收模板](../ops/templates/phase-acceptance.md)；没有运行证据的条目保持未执行。
 
 ## 04.01 定义代码、制品和交付契约
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-01)
+[本专题具体操作、配置与检查](../ops/04/01/README.md)
 
 ### 04.01.01 划分应用、平台和 GitOps 仓库
 
@@ -68,7 +68,7 @@
 
 ## 04.02 建设构建镜像、依赖和缓存
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-02)
+[本专题具体操作、配置与检查](../ops/04/02/README.md)
 
 ### 04.02.01 制作受控 Builder 镜像
 
@@ -112,7 +112,7 @@
 
 ## 04.03 实现 GitLab CI 完整流水线
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-03)
+[本专题具体操作、配置与检查](../ops/04/03/README.md)
 
 ### 04.03.01 部署 Runner 管理器和 Kubernetes Executor
 
@@ -158,7 +158,7 @@
 
 ## 04.04 实现 Jenkins 完整流水线
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-04)
+[本专题具体操作、配置与检查](../ops/04/04/README.md)
 
 ### 04.04.01 部署 Jenkins Controller 与持久化
 
@@ -204,7 +204,7 @@
 
 ## 04.05 完成七类语言的双流水线适配
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-05)
+[本专题具体操作、配置与检查](../ops/04/05/README.md)
 
 ### 04.05.01 完成 Java 与 Spring Boot 服务
 
@@ -272,7 +272,7 @@
 
 ## 04.06 通过两套 CI 实施 IaC
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-06)
+[本专题具体操作、配置与检查](../ops/04/06/README.md)
 
 ### 04.06.01 划定 OpenTofu、Ansible 与 GitOps 管理范围
 
@@ -332,7 +332,7 @@
 
 ## 04.07 建设 Helm、Kustomize 和 Argo CD
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-07)
+[本专题具体操作、配置与检查](../ops/04/07/README.md)
 
 ### 04.07.01 制作 Helm Chart 与多环境覆盖
 
@@ -378,7 +378,7 @@
 
 ## 04.08 实现渐进式发布和供应链安全
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-08)
+[本专题具体操作、配置与检查](../ops/04/08/README.md)
 
 ### 04.08.01 部署 Argo Rollouts 并验证路由适配
 
@@ -398,7 +398,7 @@
 
 ### 04.08.03 接入发布分析与自动中止
 
-实施内容：本阶段在 ops/04-devops-platform/metrics/ 落地最小 Prometheus 抓取与参考服务真实请求指标，为延迟、错误率和业务成功率建立 AnalysisTemplate/AnalysisRun；05 再接入完整 SLO。
+实施内容：本阶段在 ops/04/08/ 落地最小 Prometheus 抓取与参考服务真实请求指标，为延迟、错误率和业务成功率建立 AnalysisTemplate/AnalysisRun；05 再接入完整 SLO。
 
 过程安排：先用持续真实请求形成正常基线，再发布可控坏版本；分别测试阈值超限、指标无数据和监控不可用，检查暂停/中止和流量恢复。无数据不能默认当作健康通过。
 
@@ -432,7 +432,7 @@
 
 ## 04.09 建设 Backstage 与 Crossplane 平台入口
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-09)
+[本专题具体操作、配置与检查](../ops/04/09/README.md)
 
 ### 04.09.01 部署 Backstage 并建立服务目录
 
@@ -486,7 +486,7 @@
 
 ## 04.10 开展 Tekton、Flux 与镜像分发对照
 
-[本专题具体操作、配置与检查](../ops/04-devops-platform/README.md#04-10)
+[本专题具体操作、配置与检查](../ops/04/10/README.md)
 
 ### 04.10.01 实验 Tekton 原生流水线
 

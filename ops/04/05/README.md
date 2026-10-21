@@ -17,3 +17,5 @@ source依赖版本是待验证的固定样例，不能视为已预热。Java的3
 所有服务提供/health、/ready、/version、/compute、/metrics，默认8080、非root、SIGTERM退出。FAIL_REQUESTS=true制造业务500，健康探针仍成功，供08验证真实灰度中止。revision随镜像固化；正式晋级不重新构建。请求日志为JSON；实际Trace导出、数据库集成/连接池、目标环境链接库和Java25/Gradle、.NET自包含等对比必须现场单独记录，当前不声称通过。
 
 执行每格：固定同一提交→对应CI verify/package/security→合并本格GitOps MR→observe核对同一Digest/版本/真实请求→保存release/observed.json和CI原始链接。随后 matrix <14份observed.json> 检查组合完整性。分别构造编译错误、500坏版本、冷/暖/断外网任务和已知Digest回退；不能拿另一CI的镜像充数。总计14格与所有正常/失败路径均有证据后才可填写运行验收；回执完整不自动代表整个04完成。
+
+每种语言的GitLab/Jenkins对照必须使用该语言同一源码SHA和Builder Digest；分应用仓库时不同语言可有不同SHA，不能强求七个独立仓库出现同一Git提交。单仓库矩阵也支持全部使用同一SHA。

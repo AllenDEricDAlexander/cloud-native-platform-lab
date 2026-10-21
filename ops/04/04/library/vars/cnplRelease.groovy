@@ -14,7 +14,7 @@ def call(Map config) {
                     stage('Verify') { container('builder') { sh 'bash ops/04/05/build.sh "$LANGUAGE"' } }
                     container('tools') {
                         stage('Package') {
-                            withCredentials([file(credentialsId: 'buildkit-ca', variable: 'BUILDKIT_CA'), file(credentialsId: 'buildkit-client-cert', variable: 'BUILDKIT_CERT'), file(credentialsId: 'buildkit-client-key', variable: 'BUILDKIT_KEY'), file(credentialsId: 'harbor-auth', variable: 'HARBOR_AUTH')]) {
+                            withCredentials([file(credentialsId: 'buildkit-ca', variable: 'BUILDKIT_CA'), file(credentialsId: 'buildkit-client-cert', variable: 'BUILDKIT_CERT'), file(credentialsId: 'buildkit-client-key', variable: 'BUILDKIT_KEY'), file(credentialsId: 'harbor-auth', variable: 'HARBOR_AUTH'), file(credentialsId: 'nexus-release', variable: 'NEXUS_CURL_CONFIG')]) {
                                 sh 'set +x; export DOCKER_CONFIG=$(mktemp -d); trap \'rm -rf -- "$DOCKER_CONFIG"\' EXIT; cp "$HARBOR_AUTH" "$DOCKER_CONFIG/config.json"; bash ops/04/03/shared/package.sh'
                             }
                         }
@@ -24,7 +24,7 @@ def call(Map config) {
                             }
                         }
                         stage('Propose GitOps') {
-                            withCredentials([file(credentialsId: 'gitops-askpass', variable: 'GIT_ASKPASS'), file(credentialsId: 'gitops-api', variable: 'GITOPS_CURL_CONFIG')]) {
+                            withCredentials([file(credentialsId: 'gitops-token', variable: 'GITOPS_TOKEN_FILE'), file(credentialsId: 'gitops-api', variable: 'GITOPS_CURL_CONFIG')]) {
                                 sh 'bash ops/04/03/shared/gitops.sh'
                             }
                         }

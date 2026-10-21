@@ -23,3 +23,5 @@ Ansible复用00 bootstrap-nodes.yml与node_base/container_runtime，但使用仅
 故障验收依次做：两CI交替Plan/Apply/no-op；并发申请锁；初始化失败后inspect-failure；后端断连时拒绝Apply；部分创建成功时比对vCenter实际ID与State，必要Import/补偿须独立审查，保留原失败计划。禁止force-unlock、复制新State、自动destroy或覆盖正式盘。
 
 recovery.sh在登记集群外、不依赖主Ceph的管理VM运行，仅受保护任务/人工审批；仓库、内网制品、CA、Provider镜像和State备份必须在那里可读取。实测关闭集群内Runner/Jenkins后能完成Plan与批准Apply，Jenkins故障不能阻塞人工恢复通道。vSphere许可证/API写权限、克隆/回收权限、独立备份和真实锁行为仍待现场验证。
+
+首次全新State尚不存在时，先核实GitLab指定状态不存在、vCenter无同名本批资源，再填写initial_state_confirmed_empty=true及empty_state_evidence/SHA；该入口只跳过“备份不存在State”，不迁移/覆盖其他状态。第一次Apply后立即改回false，后续操作均先备份。重复Ansible用ansible-idempotence，要求目标主机recap明确changed=0/unreachable=0/failed=0；普通ansible-check仅用于预览差异。

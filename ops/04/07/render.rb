@@ -9,7 +9,7 @@ project={"apiVersion"=>"argoproj.io/v1alpha1","kind"=>"AppProject","metadata"=>{
 appset={"apiVersion"=>"argoproj.io/v1alpha1","kind"=>"ApplicationSet","metadata"=>{"name"=>name,"namespace"=>"argocd"},"spec"=>{"goTemplate"=>true,"goTemplateOptions"=>["missingkey=error"],"generators"=>[{"list"=>{"elements"=>%w[dev staging prod-like].map { |e| {"environment"=>e} }}}],"syncPolicy"=>{"applicationsSync"=>"create-update","preserveResourcesOnDeletion"=>true},"template"=>{"metadata"=>{"name"=>"#{name}-{{.environment}}"},"spec"=>{"project"=>"cnpl04","source"=>{"repoURL"=>repo,"targetRevision"=>required("gitops","revision"),"path"=>"environments/{{.environment}}/#{name}"},"destination"=>{"server"=>"https://kubernetes.default.svc","namespace"=>"apps-{{.environment}}"},"ignoreDifferences"=>[{"group"=>"apps","kind"=>"Deployment","name"=>name,"jsonPointers"=>["/spec/replicas"]}],"syncPolicy"=>{"automated"=>{"prune"=>false,"selfHeal"=>true},"syncOptions"=>["RespectIgnoreDifferences=true","CreateNamespace=false"]}}}}}
 if ARGV[0]=="export"
   destination=ARGV.fetch(1)
-  abort "目标必须为仓库外新目录" unless destination.start_with?("/") && !File.exist?(destination) && !File.expand_path(destination).start_with?(REPO+"/")
+  abort "目标必须为仓库外新目录" unless destination.start_with?("/") && !File.exist?(destination) && outside_repository?(destination)
   image=digest_image(required("release","image"))
   base=File.join(destination,"base",name);FileUtils.mkdir_p(base)
   # Chart 是独立对照；主 GitOps 仅使用 Kustomize，避免双工具争写相同字段。

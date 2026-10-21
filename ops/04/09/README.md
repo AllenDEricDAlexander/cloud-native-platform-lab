@@ -12,4 +12,6 @@ catalog-root引导受限Project/Application读取platform/apps；自助MR同时�
 
 backstage-config.yaml须合入锁定values，数据库来自03受控PostgreSQL及备份、GitLabOAuth/目录身份/CA/permission policy/TechDocs外部构建按现场配置。禁止guest发布，未提供policy模块不能声称已有鉴权。所有Token/数据库密码由Secret引用，不进镜像/模板。
 
+permission-policy.ts提供平台组允许、未认证/其他组拒绝的最小策略；在所选Backstage backend的permission模块通过policyExtensionPoint.setPolicy注册，并完成SDK类型检查与正反权限测试后再使用。仅在app-config开启permission.enabled不会自动注册该策略。扩大到其他团队时单独审查模板/动作/目录权限，不能直接全员ALLOW。
+
 request只调用已核对Scaffolder API并记录task ID；check读取Ready并对选定CNPG主库执行只读SELECT1。完整验收还要链上task→仓库→CI独立构建→SBOM/签名→MR审批→Argo→Crossplane→数据查询→HTTP/版本→Catalog/API/TechDocs，逐段留证。重复请求同名仓库/分支时原生发布可能报冲突，需先查task/repo/MR后从失败步骤恢复，不自动改名重复建库或覆盖旧仓库；未做这些验收不标成功。

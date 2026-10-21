@@ -5,12 +5,13 @@ source "$P04/03/shared/api.sh"
 action=${1:-validate}
 case "$action" in
     validate) exec bash "$P04/validate.sh" 03 ;;
-    deploy|check|trigger|lint) ;;
+    deploy|deploy-release|check|trigger|lint) ;;
     *) die '用法：03/run.sh validate|deploy|check|lint|trigger' ;;
 esac
 start 03 "$action"
 case "$action" in
     deploy) material gitlab_runner >/dev/null; worker_gate; cluster_gate; chart gitlab_runner runner ci-gitlab ;;
+    deploy-release) material gitlab_runner >/dev/null; worker_gate; cluster_gate; chart gitlab_runner runner-release ci-gitlab release ;;
     check) cluster_gate; k -n ci-gitlab get pods -o json > "$ATTEMPT/runner-pods.json" ;;
     lint|trigger)
         config=$(required .gitlab.curl_config); private_file "$config"

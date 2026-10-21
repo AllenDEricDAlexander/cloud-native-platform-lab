@@ -2,7 +2,7 @@
 # 仅生成 JSON 格式 OpenTofu 模块，不调用 Provider 或 vCenter。
 require_relative "../lib/config"
 directory=ARGV.fetch(0)
-abort "模块目标必须为仓库外新目录" unless directory.start_with?("/") && !File.exist?(directory) && !File.expand_path(directory).start_with?(REPO+"/")
+abort "模块目标必须为仓库外新目录" unless directory.start_with?("/") && !File.exist?(directory) && outside_repository?(directory)
 provider=required("iac","provider_source")
 version=required("iac","provider_version")
 abort "Provider 来源/固定版本无效" unless provider.match?(%r{\A[a-zA-Z0-9.-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+\z}) && version.match?(/\A\d+\.\d+\.\d+\z/)

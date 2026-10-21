@@ -7,7 +7,7 @@ start 08 "admission-$case_name"
 image=$(jq -er --arg key "$case_name" '.supply_chain.test_images[$key]' "$INPUTS")
 [[ $image =~ ^harbor\.k8s\.internal\.egon\.top/.+@sha256:[a-f0-9]{64}$ ]] || die '测试镜像必须固定Digest'
 cluster_gate
-jq -n --arg image "$image" --arg run "$RUN" '{apiVersion:"v1",kind:"Pod",metadata:{name:"cnpl04-admission-probe",namespace:"apps-dev",labels:{"cnpl.io/run":$run}},spec:{restartPolicy:"Never",containers:[{name:"probe",image:$image,securityContext:{runAsNonRoot:true,runAsUser:1000,allowPrivilegeEscalation:false,capabilities:{drop:["ALL"]},seccompProfile:{type:"RuntimeDefault"}}}]}}' > "$ATTEMPT/pod.json"
+jq -n --arg image "$image" --arg run "$RUN" '{apiVersion:"v1",kind:"Pod",metadata:{name:"cnpl04-admission-probe",namespace:"apps-dev",labels:{"cnpl.io/run":$run}},spec:{restartPolicy:"Never",automountServiceAccountToken:false,containers:[{name:"probe",image:$image,resources:{requests:{cpu:"100m",memory:"128Mi"},limits:{cpu:"1",memory:"512Mi"}},securityContext:{runAsNonRoot:true,runAsUser:1000,allowPrivilegeEscalation:false,capabilities:{drop:["ALL"]},seccompProfile:{type:"RuntimeDefault"}}}]}}' > "$ATTEMPT/pod.json"
 rc=0; k create --dry-run=server -f "$ATTEMPT/pod.json" > "$ATTEMPT/decision.txt" 2> "$ATTEMPT/rejection.txt" || rc=$?
 if [[ $case_name == signed ]]; then [[ $rc == 0 ]] || die '可信镜像未通过'; else
     [[ $rc != 0 ]] || die '不可信/仓库故障用例被放行'

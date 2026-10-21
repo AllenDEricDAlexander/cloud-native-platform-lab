@@ -6,6 +6,13 @@ require "digest"
 ROOT = File.expand_path("..", __dir__)
 REPO = File.expand_path("../..", ROOT)
 INPUT = JSON.parse(File.read(ENV.fetch("CNPL04_INPUTS", File.join(ROOT, "inputs.json"))))
+def repository_roots
+  IO.popen(["git","-C",REPO,"worktree","list","--porcelain","-z"], &:read).split("\0").select { |s| s.start_with?("worktree ") }.map { |s| File.realpath(s.sub("worktree ","")) }
+end
+def outside_repository?(path)
+  candidate=File.exist?(path) ? File.realpath(path) : File.join(File.realpath(File.dirname(path)),File.basename(path))
+  repository_roots.none? { |r| candidate==r || candidate.start_with?(r+"/") }
+end
 def required(*keys)
   value = INPUT.dig(*keys)
   abort "尚未确认输入：#{keys.join('.')}" if value.nil? || value == ""
@@ -43,7 +50,11 @@ def label(items)
   items.each do |d|
     d["metadata"] ||= {}
     d["metadata"]["labels"] ||= {}
-    d["metadata"]["labels"].merge!({"cnpl.io/phase"=>"04","cnpl.io/run"=>run})
+    labels={"cnpl.io/phase"=>"04","cnpl.io/run"=>run}
+    d["metadata"]["labels"].merge!(labels)
+    [d.dig("spec","template"),d.dig("spec","jobTemplate","spec","template")].compact.each do |template|
+      template["metadata"] ||= {};template["metadata"]["labels"] ||= {};template["metadata"]["labels"].merge!(labels)
+    end
   end
   list(items)
 end
@@ -55,7 +66,7 @@ if $PROGRAM_NAME == __FILE__
   case mode
   when "source"
     abort "输入 schema 不符" unless INPUT["schema_version"] == 1
-    Dir.glob(File.join(ROOT,"**","*")).select { |p| File.file?(p) && !p.include?("/records/") }.each do |path|
+    Dir.glob(File.join(ROOT,"**","*"),File::FNM_DOTMATCH).select { |p| File.file?(p) && !p.include?("/records/") }.each do |path|
       case File.extname(path)
       when ".yaml", ".yml" then documents(File.read(path)) unless path.include?("/templates/")
       when ".json" then JSON.parse(File.read(path))
@@ -68,7 +79,14 @@ if $PROGRAM_NAME == __FILE__
     data = JSON.parse(File.read(ARGV.fetch(0)))
     data.fetch("items").each do |d|
       abort "Secret 只允许引用预先建立的受控对象" if d["kind"] == "Secret"
-      walk(d) { |n| digest_image(n["image"]) if n.is_a?(Hash) && n.key?("image") }
+      walk(d) do |n|
+        next unless n.is_a?(Hash)
+        %w[image imageName package].each do |key|
+          next unless n[key].is_a?(String)
+          next if d["kind"]=="ClusterPolicy" && key=="image" && n[key]=="harbor.k8s.internal.egon.top/*@sha256:*"
+          digest_image(n[key])
+        end
+      end
     end
   when "crds"
     data = JSON.parse(File.read(ARGV.fetch(0)))

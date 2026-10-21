@@ -9,5 +9,6 @@ uid=$(required .fault.approved_uid)
 cluster_gate
 k -n ci-gitlab get pod "$pod" -o json > "$ATTEMPT/before.json"
 jq -e --arg uid "$uid" --arg run "$RUN" '.metadata.uid==$uid and .metadata.labels["cnpl.io/run"]==$run' "$ATTEMPT/before.json" >/dev/null || die 'Pod UID/批次不符'
-k -n ci-gitlab delete pod "$pod" --wait=true --timeout=90s
+jq -n --arg uid "$uid" '{apiVersion:"v1",kind:"DeleteOptions",preconditions:{uid:$uid},gracePeriodSeconds:30}' > "$ATTEMPT/delete-options.json"
+k delete --raw "/api/v1/namespaces/ci-gitlab/pods/$pod" -f "$ATTEMPT/delete-options.json" > "$ATTEMPT/deletion.json"
 k -n ci-gitlab get pods -o json > "$ATTEMPT/after.json"

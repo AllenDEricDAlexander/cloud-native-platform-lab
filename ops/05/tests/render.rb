@@ -15,7 +15,7 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     out,status = Open3.capture2e({"CNPL05_INPUTS"=>path},"ruby","-e",script,File.join(root,"lib/config.rb"),File.join(root,stage,"render.rb"),mode)
     abort out unless status.success?
     count += 1
-    %w[values agent-config gateway-config loki tempo pyroscope].include?(mode) ? YAML.load(out) : (mode=="saved-objects" ? out.lines.map { |l| JSON.parse(l) } : JSON.parse(out))
+    %w[values agent-config gateway-config loki tempo pyroscope rules].include?(mode) ? YAML.load(out) : (mode=="saved-objects" ? out.lines.map { |l| JSON.parse(l) } : JSON.parse(out))
   end
   if File.file?(File.join(root,"02/render.rb"))
     values = runner.call("02","values")
@@ -58,6 +58,17 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     %w[loki tempo pyroscope].each { |mode| runner.call("06",mode) }
     loki = runner.call("06","loki")
     abort "高基数默认 Loki 标签未关闭" unless loki.dig("limits_config","otlp_config","resource_attributes","ignore_defaults")==true
+  end
+  if File.file?(File.join(root,"07/render.rb"))
+    input["slo"].merge!({"service"=>"reference","environment"=>"lab","objective"=>0.99,"latency_seconds"=>0.5,"candidate_version"=>"fixture-v2","rollout_namespace"=>"apps-dev","prometheus_secret"=>"prom-auth"})
+    input["metrics"]["url"]="https://prometheus.k8s.internal.egon.top"
+    File.write(path,JSON.generate(input))
+    rules = runner.call("07","rules")
+    abort "SLO 无流量门槛缺失" unless rules["groups"][0]["rules"].select { |r| r["record"].to_s.include?("error_ratio") }.all? { |r| r["expr"].include?(">= 100") }
+    data = runner.call("07","resources")
+    metrics = data.fetch("items").find { |i| i["kind"]=="AnalysisTemplate" }.dig("spec","metrics")
+    abort "候选版本过滤/NaN 阻断缺失" unless metrics.all? { |m| m.dig("provider","prometheus","query").include?('version="{{args.version}}"') && m["failureCondition"].include?("isNaN") }
+    runner.call("07","rollout-patch")
   end
 end
 puts "PASS #{count} 组离线渲染；镜像方法仅在本地构造中替换，不代表物料已锁定"

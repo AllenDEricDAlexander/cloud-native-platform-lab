@@ -11,11 +11,11 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
   input["metrics"].merge!({"storage_class"=>"fixture-rbd","notification_secret"=>"notification","grafana_admin_secret"=>"grafana-admin","gateway_name"=>"internal","gateway_namespace"=>"gateway"})
   path = File.join(dir,"inputs.json"); File.write(path,JSON.generate(input))
   runner = lambda do |stage,mode|
-    script = 'require ARGV.shift; def material(key); {"image"=>"harbor.k8s.internal.egon.top/offline/#{key}@sha256:"+"a"*64}; end; load ARGV.shift'
+    script = 'require ARGV.shift; def material(key); {"version"=>"0.0.0-fixture","image"=>"harbor.k8s.internal.egon.top/offline/#{key}@sha256:"+"a"*64}; end; load ARGV.shift'
     out,status = Open3.capture2e({"CNPL05_INPUTS"=>path},"ruby","-e",script,File.join(root,"lib/config.rb"),File.join(root,stage,"render.rb"),mode)
     abort out unless status.success?
     count += 1
-    mode=="values" ? YAML.load(out) : JSON.parse(out)
+    %w[values agent-config gateway-config].include?(mode) ? YAML.load(out) : (mode=="saved-objects" ? out.lines.map { |l| JSON.parse(l) } : JSON.parse(out))
   end
   if File.file?(File.join(root,"02/render.rb"))
     values = runner.call("02","values")
@@ -37,6 +37,18 @@ Dir.mktmpdir("cnpl05-render-") do |dir|
     abort "缺少 Agent/Gateway" unless data.fetch("items").any? { |i| i["kind"]=="DaemonSet" } && data.fetch("items").any? { |i| i["kind"]=="Deployment" && i.dig("spec","replicas")==1 }
     configs = data.fetch("items").select { |i| i["kind"]=="ConfigMap" }.map { |i| YAML.load(i.dig("data","collector.yaml")) }
     abort "队列无界" unless configs.all? { |c| c["exporters"].values.all? { |e| e.dig("sending_queue","queue_size")==256 && e.dig("retry_on_failure","max_elapsed_time")=="30s" } }
+  end
+  if File.file?(File.join(root,"05/render.rb"))
+    input["elk"].merge!({"namespace"=>"data","elasticsearch_name"=>"search","url"=>"https://search.data.svc:9200","tls_secret"=>"logs-tls","ca_secret"=>"es-ca","credentials_secret"=>"es-creds","kibana_tls_secret"=>"kibana-tls","storage_class"=>"fixture-rbd","selected_namespaces"=>["apps-dev"]})
+    input["otel"]["trace_id"] = "a"*32
+    File.write(path,JSON.generate(input))
+    data = runner.call("05","resources")
+    abort "Logstash 队列未独立持久化" unless data.fetch("items").any? { |i| i["kind"]=="PersistentVolumeClaim" && i.dig("metadata","name")=="logstash-queue" }
+    %w[ilm index-template query saved-objects].each { |mode| runner.call("05",mode) }
+    input["elk"]["route"] = "direct"; File.write(path,JSON.generate(input))
+    data = runner.call("05","resources")
+    abort "direct 不得同时部署 Logstash" if data.fetch("items").any? { |i| i["kind"]=="Deployment" && i.dig("metadata","name")=="logstash" }
+    abort "direct 必须按日索引" unless data.fetch("items").find { |i| i["kind"]=="ConfigMap" }.dig("data","fluent-bit.conf").include?("Logstash_Format On")
   end
 end
 puts "PASS #{count} 组离线渲染；镜像方法仅在本地构造中替换，不代表物料已锁定"

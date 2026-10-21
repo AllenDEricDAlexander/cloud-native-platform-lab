@@ -29,6 +29,7 @@ Dir.mktmpdir("cnpl06-offline-") do |temp|
   input["workflow"].merge!({"artifact_endpoint"=>"s3.example:9000","artifact_bucket"=>"lab-artifacts","artifact_secret"=>"artifact-client","webhook_secret"=>"webhook-auth"})
   input["workflow"].merge!({"jetstream_version"=>"2.12.0","jetstream_storage_class"=>"lab-ceph-rbd"})
   input["multicluster"].merge!({"primary_id"=>1,"secondary_id"=>2,"repository"=>"https://gitlab.svc.internal.egon.top/lab/gitops.git","revision"=>"a"*40,"path"=>"environments/lab","argocd_namespace"=>"argocd-lab","argocd_project"=>"lab"})
+  input["multicluster"].merge!({"target"=>"primary","primary_name"=>"lab-primary","secondary_name"=>"lab-secondary","primary_argocd_name"=>"primary","secondary_argocd_name"=>"secondary"})
   input["virtualization"].merge!({"node"=>"worker01.k8s.internal.egon.top","storage_class"=>"lab-ceph-rbd","registry_image"=>input["images"]["http"]})
   input["gpu"].merge!({"node"=>"worker01.k8s.internal.egon.top","device_class"=>"lab-gpu"})
   input["ai"].merge!({"storage_uri"=>"s3://models/fixture","runtime_name"=>"lab-sklearn","model_pvc"=>"lab-model","model_name"=>"lab-model"})

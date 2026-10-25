@@ -1,0 +1,3300 @@
+
+PLAY [01.03–01.06 重跑输入、源码及只读前检] ************************************
+
+TASK [校验执行模式及独立记录路径] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建本批记录目录] ********************************************************
+ok: [localhost] => (item=checkpoints)
+ok: [localhost] => (item=attempts)
+ok: [localhost] => (item=artifacts)
+ok: [localhost] => (item=state)
+
+TASK [查询是否已有本批上下文] **************************************************
+ok: [localhost]
+
+TASK [恢复已有上下文] **********************************************************
+ok: [localhost]
+
+TASK [查询是否已显式清理并结束本批] ********************************************
+ok: [localhost]
+
+TASK [显式 cleanup 结束的批次不得沿用 PASS 再跑] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [recover 必须有原批上下文，不能生成一个新恢复批次] ************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成 UTC 批次时间] *******************************************************
+ok: [localhost]
+
+TASK [生成运行随机后缀] ********************************************************
+ok: [localhost]
+
+TASK [确定本批次与此次执行的身份] **********************************************
+ok: [localhost]
+
+TASK [已有运行必须明确使用 resume] *********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [拒绝不符合格式的批次身份] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建此次执行的独立目录（旧输出不覆盖）] **********************************
+changed: [localhost] => (item=manifests)
+changed: [localhost] => (item=snapshots)
+changed: [localhost] => (item=observations)
+
+TASK [核对工具链归档校验值] ****************************************************
+ok: [localhost]
+
+TASK [确认使用原锁定编译器] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询编译器版本] **********************************************************
+ok: [localhost]
+
+TASK [拒绝非管理 Mac 工具链] ***************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [记录实际来源 SHA 并确认原始执行记录未变] *********************************
+ok: [localhost]
+
+TASK [保存实际实现校验值] ******************************************************
+ok: [localhost]
+
+TASK [读取已有压力回退材料（若中断后恢复，必须先恢复再检查 worker 可调度）] ****
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/pressure-recover.yml for localhost
+
+TASK [查询本批是否需要 worker02 恢复] ******************************************
+ok: [localhost]
+
+TASK [读取公开恢复索引（不含原始 kubelet 正文）] *******************************
+skipping: [localhost]
+
+TASK [核对运行和原集群 UID] ****************************************************
+skipping: [localhost]
+
+TASK [读取当前 worker02 UID] ***************************************************
+skipping: [localhost]
+
+TASK [拒绝向重建后的同名节点写旧配置] ******************************************
+skipping: [localhost]
+
+TASK [在 worker02 执行本批独立回退（字节还原，拒绝覆盖第三方修改）] ************
+skipping: [localhost]
+
+TASK [校验还原后的 kubelet 字节 SHA] *******************************************
+skipping: [localhost]
+
+TASK [确认恢复 SHA 一致] *******************************************************
+skipping: [localhost]
+
+TASK [停止已完成用途的独立回退 timer] ******************************************
+skipping: [localhost]
+
+TASK [等 worker02 Ready 且压力消失] ********************************************
+skipping: [localhost] => (item=Ready) 
+skipping: [localhost] => (item=MemoryPressure) 
+skipping: [localhost] => (item=DiskPressure) 
+skipping: [localhost] => (item=PIDPressure) 
+skipping: [localhost]
+
+TASK [读取维护标记和可调度状态] ************************************************
+skipping: [localhost]
+
+TASK [只解除本批 cordon，不接管其他维护] ***************************************
+skipping: [localhost]
+
+TASK [恢复 worker02 可调度] ****************************************************
+skipping: [localhost]
+
+TASK [解除本批维护标记] ********************************************************
+skipping: [localhost]
+
+TASK [最后确认全局健康及无压力] ************************************************
+skipping: [localhost]
+
+TASK [原恢复索引归档为已完成，不覆盖旧记录] ************************************
+skipping: [localhost]
+
+TASK [解除本批恢复待办] ********************************************************
+skipping: [localhost]
+
+TASK [恢复核验结果] ************************************************************
+skipping: [localhost]
+
+TASK [同集群十节点及 restricted 基线只读检查] **********************************
+ok: [localhost]
+
+TASK [记录当前集群 UID] ********************************************************
+ok: [localhost]
+
+TASK [已有上下文的任何模式都必须仍是原集群] ************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [续跑核对集群和资源源文件；拒绝混用不同版本] ******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [保存完整运行上下文（不含密钥、Token 或 kubeconfig 正文）] ****************
+skipping: [localhost]
+
+TASK [运行本机有限行为测试] ****************************************************
+ok: [localhost] => (item=probes)
+ok: [localhost] => (item=controllers)
+
+TASK [验证 OCI 描述符、平台、版本与确定性打包] *********************************
+ok: [localhost]
+
+TASK [交叉编译探针实验静态二进制] **********************************************
+changed: [localhost]
+
+TASK [交叉编译控制器实验静态二进制] ********************************************
+changed: [localhost]
+
+TASK [Go 标准库打包两个实验的 OCI（不使用 Python 构造资源或镜像）] *************
+changed: [localhost] => (item={'family': 'probes', 'binary': 'probe-lab', 'output': 'probe.json'})
+changed: [localhost] => (item={'family': 'controllers', 'binary': 'controller-app', 'output': 'controllers.json'})
+
+TASK [加载精确镜像引用和应用脚本] **********************************************
+ok: [localhost]
+
+TASK [供资源模板使用的变量] ****************************************************
+ok: [localhost]
+
+TASK [逐份校验源码结构和同名对象归属（实际创建/更新前另做服务端准入）] *********
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-deployment)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-observer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-proof)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=03/ha-service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-bad-image)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-baseline)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-budget)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-crash-fixed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-crash)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-defaults)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-entry)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-failed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-init-fixed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-init)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-isolation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-native)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-oom)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-ordinary)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-pending-fixed)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-pending)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-pressure)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-shellless)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-success)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-term-app)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=04/p04-term)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-broker-pod)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-broker)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-dependency-service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-dependency)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-force)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-grpc-good)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-grpc-wrong-service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-isolation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-live-a)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-live-b)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-protocol-exec)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-protocol-http)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-protocol-tcp)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-recover)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route-a)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route-b)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route-client)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-route)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-12)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-20)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-6)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-start-over)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term-client)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term-main)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term-spare)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=05/p05-term)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-recreate)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/isolation)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/observer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rc-other)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rc-stable)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rc)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rs-other)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rs-stable)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/rs)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/service)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-v2)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-bad-business)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-bad-probe)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-capacity)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/validate-resource.yml for localhost => (item=06/deployment-scaled-three)
+
+TASK [验证 ha-deployment 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-deployment）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-deployment）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（ha-deployment；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（ha-deployment）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（ha-deployment）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-deployment）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-deployment）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-deployment）] *******************************************
+skipping: [localhost]
+
+TASK [验证 ha-observer 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-observer）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-observer）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（ha-observer；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（ha-observer）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（ha-observer）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-observer）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-observer）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-observer）] *********************************************
+skipping: [localhost]
+
+TASK [验证 ha-proof 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-proof）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-proof）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（ha-proof；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（ha-proof）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（ha-proof）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-proof）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-proof）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-proof）] ************************************************
+skipping: [localhost]
+
+TASK [验证 ha-service 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（ha-service）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；ha-service）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（ha-service；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（ha-service）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（ha-service）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（ha-service）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（ha-service）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（ha-service）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p04-app 的源资源清单] ***********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-app）] *************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-app）] ********************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-app；保留现场时也可执行）] *************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-app）] *****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-app）] *****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-app）] *****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-app）] *************************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-app）] *************************************************
+skipping: [localhost]
+
+TASK [验证 p04-bad-image 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-bad-image）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-bad-image）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-bad-image；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-bad-image）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-bad-image）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-bad-image）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-bad-image）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-bad-image）] *******************************************
+skipping: [localhost]
+
+TASK [验证 p04-baseline 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-baseline）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-baseline）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-baseline；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-baseline）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-baseline）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-baseline）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-baseline）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-baseline）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p04-budget 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-budget）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-budget）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-budget；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-budget）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-budget）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-budget）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-budget）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-budget）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p04-crash-fixed 的源资源清单] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-crash-fixed）] *****************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-crash-fixed）] ************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-crash-fixed；保留现场时也可执行）] *****************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-crash-fixed）] *********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-crash-fixed）] *********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-crash-fixed）] *********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-crash-fixed）] *****************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-crash-fixed）] *****************************************
+skipping: [localhost]
+
+TASK [验证 p04-crash 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-crash）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-crash）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-crash；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-crash）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-crash）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-crash）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-crash）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-crash）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 p04-defaults 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-defaults）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-defaults）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-defaults；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-defaults）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-defaults）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-defaults）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-defaults）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-defaults）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p04-entry 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-entry）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-entry）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-entry；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-entry）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-entry）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-entry）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-entry）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-entry）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 p04-failed 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-failed）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-failed）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-failed；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-failed）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-failed）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-failed）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-failed）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-failed）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p04-init-fixed 的源资源清单] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-init-fixed）] ******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-init-fixed）] *************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-init-fixed；保留现场时也可执行）] ******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-init-fixed）] **********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-init-fixed）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-init-fixed）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-init-fixed）] ******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-init-fixed）] ******************************************
+skipping: [localhost]
+
+TASK [验证 p04-init 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-init）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-init）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-init；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-init）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-init）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-init）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-init）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-init）] ************************************************
+skipping: [localhost]
+
+TASK [验证 p04-isolation 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-isolation）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-isolation）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-isolation；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-isolation）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-isolation）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-isolation）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-isolation）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-isolation）] *******************************************
+skipping: [localhost]
+
+TASK [验证 p04-native 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-native）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-native）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-native；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-native）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-native）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-native）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-native）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-native）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p04-oom 的源资源清单] ***********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-oom）] *************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-oom）] ********************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-oom；保留现场时也可执行）] *************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-oom）] *****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-oom）] *****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-oom）] *****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-oom）] *************************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-oom）] *************************************************
+skipping: [localhost]
+
+TASK [验证 p04-ordinary 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-ordinary）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-ordinary）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-ordinary；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-ordinary）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-ordinary）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-ordinary）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-ordinary）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-ordinary）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p04-pending-fixed 的源资源清单] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-pending-fixed）] ***************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-pending-fixed）] **********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-pending-fixed；保留现场时也可执行）] ***************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-pending-fixed）] *******************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-pending-fixed）] *******************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-pending-fixed）] *******************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-pending-fixed）] ***************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-pending-fixed）] ***************************************
+skipping: [localhost]
+
+TASK [验证 p04-pending 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-pending）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-pending）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-pending；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-pending）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-pending）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-pending）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-pending）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-pending）] *********************************************
+skipping: [localhost]
+
+TASK [验证 p04-pressure 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-pressure）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-pressure）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-pressure；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-pressure）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-pressure）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-pressure）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-pressure）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-pressure）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p04-shellless 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-shellless）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-shellless）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-shellless；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-shellless）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-shellless）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-shellless）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-shellless）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-shellless）] *******************************************
+skipping: [localhost]
+
+TASK [验证 p04-success 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-success）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-success）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-success；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-success）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-success）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-success）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-success）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-success）] *********************************************
+skipping: [localhost]
+
+TASK [验证 p04-term-app 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-term-app）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-term-app）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-term-app；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-term-app）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-term-app）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-term-app）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-term-app）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-term-app）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p04-term 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p04-term）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p04-term）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p04-term；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p04-term）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p04-term）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p04-term）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p04-term）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（p04-term）] ************************************************
+skipping: [localhost]
+
+TASK [验证 p05-broker-pod 的源资源清单] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-broker-pod）] ******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-broker-pod）] *************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-broker-pod；保留现场时也可执行）] ******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-broker-pod）] **********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-broker-pod）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-broker-pod）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-broker-pod）] ******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-broker-pod）] ******************************************
+skipping: [localhost]
+
+TASK [验证 p05-broker 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-broker）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-broker）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-broker；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-broker）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-broker）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-broker）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-broker）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-broker）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p05-dependency-service 的源资源清单] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-dependency-service）] **********************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-dependency-service）] *****************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-dependency-service；保留现场时也可执行）] **********
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-dependency-service）] **************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-dependency-service）] **************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-dependency-service）] **************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-dependency-service）] **********************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-dependency-service）] **********************************
+skipping: [localhost]
+
+TASK [验证 p05-dependency 的源资源清单] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-dependency）] ******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-dependency）] *************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-dependency；保留现场时也可执行）] ******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-dependency）] **********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-dependency）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-dependency）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-dependency）] ******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-dependency）] ******************************************
+skipping: [localhost]
+
+TASK [验证 p05-force 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-force）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-force）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-force；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-force）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-force）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-force）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-force）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-force）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 p05-grpc-good 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-grpc-good）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-grpc-good）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-grpc-good；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-grpc-good）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-grpc-good）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-grpc-good）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-grpc-good）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-grpc-good）] *******************************************
+skipping: [localhost]
+
+TASK [验证 p05-grpc-wrong-service 的源资源清单] ********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-grpc-wrong-service）] **********************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-grpc-wrong-service）] *****************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-grpc-wrong-service；保留现场时也可执行）] **********
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-grpc-wrong-service）] **************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-grpc-wrong-service）] **************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-grpc-wrong-service）] **************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-grpc-wrong-service）] **********************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-grpc-wrong-service）] **********************************
+skipping: [localhost]
+
+TASK [验证 p05-isolation 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-isolation）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-isolation）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-isolation；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-isolation）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-isolation）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-isolation）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-isolation）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-isolation）] *******************************************
+skipping: [localhost]
+
+TASK [验证 p05-live-a 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-live-a）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-live-a）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-live-a；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-live-a）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-live-a）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-live-a）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-live-a）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-live-a）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p05-live-b 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-live-b）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-live-b）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-live-b；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-live-b）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-live-b）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-live-b）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-live-b）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-live-b）] **********************************************
+skipping: [localhost]
+
+TASK [验证 p05-protocol-exec 的源资源清单] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-protocol-exec）] ***************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-protocol-exec）] **********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-protocol-exec；保留现场时也可执行）] ***************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-protocol-exec）] *******************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-protocol-exec）] *******************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-protocol-exec）] *******************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-protocol-exec）] ***************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-protocol-exec）] ***************************************
+skipping: [localhost]
+
+TASK [验证 p05-protocol-http 的源资源清单] *************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-protocol-http）] ***************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-protocol-http）] **********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-protocol-http；保留现场时也可执行）] ***************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-protocol-http）] *******************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-protocol-http）] *******************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-protocol-http）] *******************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-protocol-http）] ***************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-protocol-http）] ***************************************
+skipping: [localhost]
+
+TASK [验证 p05-protocol-tcp 的源资源清单] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-protocol-tcp）] ****************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-protocol-tcp）] ***********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-protocol-tcp；保留现场时也可执行）] ****************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-protocol-tcp）] ********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-protocol-tcp）] ********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-protocol-tcp）] ********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-protocol-tcp）] ****************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-protocol-tcp）] ****************************************
+skipping: [localhost]
+
+TASK [验证 p05-recover 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-recover）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-recover）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-recover；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-recover）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-recover）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-recover）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-recover）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-recover）] *********************************************
+skipping: [localhost]
+
+TASK [验证 p05-route-a 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-route-a）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-route-a）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-route-a；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-route-a）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-route-a）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-route-a）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-route-a）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-route-a）] *********************************************
+skipping: [localhost]
+
+TASK [验证 p05-route-b 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-route-b）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-route-b）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-route-b；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-route-b）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-route-b）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-route-b）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-route-b）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-route-b）] *********************************************
+skipping: [localhost]
+
+TASK [验证 p05-route-client 的源资源清单] **************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-route-client）] ****************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-route-client）] ***********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-route-client；保留现场时也可执行）] ****************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-route-client）] ********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-route-client）] ********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-route-client）] ********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-route-client）] ****************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-route-client）] ****************************************
+skipping: [localhost]
+
+TASK [验证 p05-route 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-route）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-route）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-route；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-route）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-route）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-route）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-route）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-route）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 p05-start-12 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-start-12）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-start-12）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-start-12；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-start-12）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-start-12）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-start-12）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-start-12）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-start-12）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p05-start-20 的源资源清单] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-start-20）] ********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-start-20）] ***************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-start-20；保留现场时也可执行）] ********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-start-20）] ************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-start-20）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-start-20）] ************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-start-20）] ********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-start-20）] ********************************************
+skipping: [localhost]
+
+TASK [验证 p05-start-6 的源资源清单] *******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-start-6）] *********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-start-6）] ****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-start-6；保留现场时也可执行）] *********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-start-6）] *************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-start-6）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-start-6）] *************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-start-6）] *********************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-start-6）] *********************************************
+skipping: [localhost]
+
+TASK [验证 p05-start-over 的源资源清单] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-start-over）] ******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-start-over）] *************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-start-over；保留现场时也可执行）] ******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-start-over）] **********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-start-over）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-start-over）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-start-over）] ******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-start-over）] ******************************************
+skipping: [localhost]
+
+TASK [验证 p05-term-client 的源资源清单] ***************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-term-client）] *****************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-term-client）] ************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-term-client；保留现场时也可执行）] *****************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-term-client）] *********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-term-client）] *********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-term-client）] *********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-term-client）] *****************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-term-client）] *****************************************
+skipping: [localhost]
+
+TASK [验证 p05-term-main 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-term-main）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-term-main）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-term-main；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-term-main）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-term-main）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-term-main）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-term-main）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-term-main）] *******************************************
+skipping: [localhost]
+
+TASK [验证 p05-term-spare 的源资源清单] ****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-term-spare）] ******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-term-spare）] *************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-term-spare；保留现场时也可执行）] ******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-term-spare）] **********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-term-spare）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-term-spare）] **********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-term-spare）] ******************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-term-spare）] ******************************************
+skipping: [localhost]
+
+TASK [验证 p05-term 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（p05-term）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；p05-term）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（p05-term；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（p05-term）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（p05-term）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（p05-term）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（p05-term）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（p05-term）] ************************************************
+skipping: [localhost]
+
+TASK [验证 deployment-recreate 的源资源清单] ***********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment-recreate）] *************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment-recreate）] ********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment-recreate；保留现场时也可执行）] *************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment-recreate）] *****************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment-recreate）] *****************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment-recreate）] *****************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment-recreate）] *************************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment-recreate）] *************************************
+skipping: [localhost]
+
+TASK [验证 deployment 的源资源清单] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment）] **********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment）] *****************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment；保留现场时也可执行）] **********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment）] **************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment）] **************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment）] **********************************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment）] **********************************************
+skipping: [localhost]
+
+TASK [验证 isolation 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（isolation）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；isolation）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（isolation；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（isolation）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（isolation）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（isolation）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（isolation）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（isolation）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 observer 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（observer）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；observer）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（observer；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（observer）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（observer）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（observer）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（observer）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（observer）] ************************************************
+skipping: [localhost]
+
+TASK [验证 rc-other 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（rc-other）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；rc-other）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（rc-other；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（rc-other）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（rc-other）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（rc-other）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（rc-other）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（rc-other）] ************************************************
+skipping: [localhost]
+
+TASK [验证 rc-stable 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（rc-stable）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；rc-stable）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（rc-stable；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（rc-stable）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（rc-stable）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（rc-stable）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（rc-stable）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（rc-stable）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 rc 的源资源清单] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（rc）] ******************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；rc）] *************************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（rc；保留现场时也可执行）] ******************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（rc）] **********************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（rc）] **********************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（rc）] **********************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（rc）] ******************************************
+skipping: [localhost]
+
+TASK [删除本批资源（rc）] ******************************************************
+skipping: [localhost]
+
+TASK [验证 rs-other 的源资源清单] **********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（rs-other）] ************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；rs-other）] *******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（rs-other；保留现场时也可执行）] ************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（rs-other）] ****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（rs-other）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（rs-other）] ****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（rs-other）] ************************************
+skipping: [localhost]
+
+TASK [删除本批资源（rs-other）] ************************************************
+skipping: [localhost]
+
+TASK [验证 rs-stable 的源资源清单] *********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（rs-stable）] ***********************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；rs-stable）] ******************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（rs-stable；保留现场时也可执行）] ***********************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（rs-stable）] ***************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（rs-stable）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（rs-stable）] ***************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（rs-stable）] ***********************************
+skipping: [localhost]
+
+TASK [删除本批资源（rs-stable）] ***********************************************
+skipping: [localhost]
+
+TASK [验证 rs 的源资源清单] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（rs）] ******************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；rs）] *************************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（rs；保留现场时也可执行）] ******************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（rs）] **********************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（rs）] **********************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（rs）] **********************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（rs）] ******************************************
+skipping: [localhost]
+
+TASK [删除本批资源（rs）] ******************************************************
+skipping: [localhost]
+
+TASK [验证 service 的源资源清单] ***********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（service）] *************************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；service）] ********************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（service；保留现场时也可执行）] *************************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（service）] *****************************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（service）] *****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（service）] *****************************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（service）] *************************************
+skipping: [localhost]
+
+TASK [删除本批资源（service）] *************************************************
+skipping: [localhost]
+
+TASK [验证 deployment-v2 的源资源清单] *****************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment-v2）] *******************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment-v2）] **************************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment-v2；保留现场时也可执行）] *******************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment-v2）] ***********************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment-v2）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment-v2）] ***********************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment-v2）] *******************************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment-v2）] *******************************************
+skipping: [localhost]
+
+TASK [验证 deployment-bad-business 的源资源清单] *******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment-bad-business）] *********************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment-bad-business）] ****************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment-bad-business；保留现场时也可执行）] *********
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment-bad-business）] *************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment-bad-business）] *************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment-bad-business）] *************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment-bad-business）] *********************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment-bad-business）] *********************************
+skipping: [localhost]
+
+TASK [验证 deployment-bad-probe 的源资源清单] **********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment-bad-probe）] ************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment-bad-probe）] *******************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment-bad-probe；保留现场时也可执行）] ************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment-bad-probe）] ****************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment-bad-probe）] ****************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment-bad-probe）] ****************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment-bad-probe）] ************************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment-bad-probe）] ************************************
+skipping: [localhost]
+
+TASK [验证 deployment-capacity 的源资源清单] ***********************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment-capacity）] *************************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment-capacity）] ********************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment-capacity；保留现场时也可执行）] *************
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment-capacity）] *****************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment-capacity）] *****************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment-capacity）] *****************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment-capacity）] *************************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment-capacity）] *************************************
+skipping: [localhost]
+
+TASK [验证 deployment-scaled-three 的源资源清单] *******************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/replay/resource.yml for localhost
+
+TASK [渲染源码 Kubernetes YAML（deployment-scaled-three）] *********************
+changed: [localhost]
+
+TASK [读取渲染后的资源身份] ****************************************************
+ok: [localhost]
+
+TASK [校验清单归属和允许范围] **************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询同名资源（部署/变更前校验；deployment-scaled-three）] ****************
+ok: [localhost]
+
+TASK [拒绝覆盖其他批次资源] ****************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [源码目录结构校验（deployment-scaled-three；保留现场时也可执行）] *********
+ok: [localhost]
+
+TASK [创建前服务端准入检查（deployment-scaled-three）] *************************
+skipping: [localhost]
+
+TASK [更新前服务端准入检查（deployment-scaled-three）] *************************
+skipping: [localhost]
+
+TASK [按源码 YAML 创建资源（deployment-scaled-three）] *************************
+skipping: [localhost]
+
+TASK [按源码 YAML 更新本批资源（deployment-scaled-three）] *********************
+skipping: [localhost]
+
+TASK [删除本批资源（deployment-scaled-three）] *********************************
+skipping: [localhost]
+
+TASK [交付/运行前检完成] *******************************************************
+ok: [localhost] => {
+    "msg": "REPLAY SOURCE SCHEMA PASS；保留现场不影响目录校验；实际 create/apply 前逐资源执行 server dry-run"
+}
+
+PLAY [在两个 worker 准备重跑的精确镜像] ****************************************
+
+TASK [复用已验证的探针镜像导入任务] ********************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [读取三个控制器镜像] ******************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [创建控制器物料目录] ******************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [逐个导入并核对控制器镜像] ************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+PLAY [01.03 DNS 分散与十节点网络验收] ******************************************
+
+TASK [查询 DNS 已通过检查点] ***************************************************
+ok: [localhost]
+
+TASK [只在显式运行 03 时执行变更] **********************************************
+skipping: [localhost]
+
+TASK [真实 API 检查 DNS 反亲和补丁] ********************************************
+ok: [localhost]
+
+TASK [渲染十节点网络测试源码 YAML] *********************************************
+changed: [localhost]
+
+TASK [校验多对象网络清单（validate 不创建其 Namespace）] ***********************
+ok: [localhost]
+
+PLAY [准备私有备份路径和恢复材料（不进入 Git）] ********************************
+
+TASK [查询完整备份检查点] ******************************************************
+ok: [localhost]
+
+TASK [绑定本批私有暂存目录] ****************************************************
+ok: [localhost]
+
+TASK [必要客户端和恢复材料前检] ************************************************
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+ok: [localhost] => (item=(censored due to no_log))
+
+TASK [必需材料均存在] **********************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [查询锁定 restic 客户端] **************************************************
+ok: [localhost]
+
+TASK [确认 restic 版本] ********************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建私有目录] ************************************************************
+skipping: [localhost] => (item=/Users/mario/.cnpl-secrets/phase01-backups/bundles/20261018T051939Z-bca4cc12-20261018T065114Z-5c3a9b9c) 
+skipping: [localhost] => (item=/Users/mario/.cnpl-secrets/phase01-backups/restore-20261018T051939Z-bca4cc12-20261018T065114Z-5c3a9b9c) 
+skipping: [localhost] => (item=/Users/mario/.cnpl-secrets/phase01-backups/receipts) 
+skipping: [localhost]
+
+PLAY [Ansible 原生收集三控制平面材料及一致性快照] ******************************
+
+TASK [控制平面只读前检（validate 也执行，无快照和配置变更）] *******************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/replay/backup-preflight.yml for cp01, cp02, cp03
+
+TASK [校验节点固定身份] ********************************************************
+ok: [cp02]
+ok: [cp03]
+ok: [cp01]
+
+TASK [核对安全基线] ************************************************************
+ok: [cp03] => (item=['getenforce'])
+ok: [cp02] => (item=['getenforce'])
+ok: [cp01] => (item=['getenforce'])
+ok: [cp03] => (item=['systemctl', 'is-active', 'firewalld'])
+ok: [cp02] => (item=['systemctl', 'is-active', 'firewalld'])
+ok: [cp01] => (item=['systemctl', 'is-active', 'firewalld'])
+
+TASK [暂存所在分区至少 5GiB 空闲] **********************************************
+ok: [cp03]
+ok: [cp01]
+ok: [cp02]
+
+TASK [对应控制平面 API 就绪] ***************************************************
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+
+TASK [核对 etcd 工具精确版本] **************************************************
+ok: [cp01] => (item=etcdctl)
+ok: [cp02] => (item=etcdctl)
+ok: [cp03] => (item=etcdctl)
+ok: [cp02] => (item=etcdutl)
+ok: [cp01] => (item=etcdutl)
+ok: [cp03] => (item=etcdutl)
+
+TASK [读取 etcd 成员关系] ******************************************************
+ok: [cp01]
+ok: [cp02]
+ok: [cp03]
+
+TASK [只接受三个正式成员] ******************************************************
+ok: [cp01] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp02] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+ok: [cp03] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [三成员健康检查] **********************************************************
+ok: [cp02]
+ok: [cp01]
+ok: [cp03]
+
+TASK [必要材料只读哈希检查] ****************************************************
+ok: [cp02]
+ok: [cp01]
+ok: [cp03]
+
+TASK [本批需要新备份时才收集] **************************************************
+skipping: [cp01]
+skipping: [cp02]
+skipping: [cp03]
+
+PLAY [Ansible 执行集群外加密备份和逐文件取回验真] ******************************
+
+TASK [私有备份与恢复验真任务] **************************************************
+skipping: [localhost]
+
+PLAY [Ansible 原生逐组执行 01.03–01.06] ****************************************
+
+TASK [完整实验执行] ************************************************************
+skipping: [localhost] => (item=03) 
+skipping: [localhost] => (item=04) 
+skipping: [localhost] => (item=05) 
+skipping: [localhost] => (item=06) 
+skipping: [localhost]
+
+TASK [最终确认全部本批资源清理] ************************************************
+skipping: [localhost]
+
+TASK [完整验收和清理通过] ******************************************************
+skipping: [localhost]
+
+TASK [只清理原批资源并保留全部失败证据] ****************************************
+skipping: [localhost]
+
+TASK [记录显式结束本批，防止沿用已清理的检查点] ********************************
+skipping: [localhost]
+
+TASK [本批资源已清理，原始证据保留] ********************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+cp01                       : ok=10   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+cp02                       : ok=10   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+cp03                       : ok=10   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+localhost                  : ok=587  changed=73   unreachable=0    failed=0    skipped=367  rescued=0    ignored=0   
+worker01                   : ok=0    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+worker02                   : ok=0    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+

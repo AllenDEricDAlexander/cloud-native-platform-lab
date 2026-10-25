@@ -12,12 +12,12 @@ backup_gate; ceph_ok
 pool() {
     local name=$1 app=$2 owner pool_id
     if ! ceph osd pool ls --format json | jq -e --arg name "$name" 'index($name)!=null' >/dev/null; then
-        ceph osd pool create "$name" 8 8 replicated cnpl03-physical
-        pool_id=$(ceph osd pool ls detail --format json | jq -er --arg name "$name" '.[]|select(.pool_name==$name)|.pool')
+        ceph osd pool create "$name" 8 8 replicated "$CRUSH_RULE"
+        pool_id=$(ceph osd pool ls detail --format json | jq -er --arg name "$name" '.[]|select(.pool_name==$name)|.pool_id // .pool')
         ceph config-key set "cnpl03/owner/$name" "$(jq -cn --arg run "$RUN" --argjson id "$pool_id" '{run:$run,id:$id}')"
     fi
     owner=$(ceph config-key get "cnpl03/owner/$name") || die '已有池缺少本批归属，停止'
-    pool_id=$(ceph osd pool ls detail --format json | jq -er --arg name "$name" '.[]|select(.pool_name==$name)|.pool')
+    pool_id=$(ceph osd pool ls detail --format json | jq -er --arg name "$name" '.[]|select(.pool_name==$name)|.pool_id // .pool')
     jq -e --arg run "$RUN" --argjson id "$pool_id" '.run==$run and .id==$id' <<< "$owner" >/dev/null || die '池归属或 ID 不符'
     ceph osd pool set "$name" size 3
     ceph osd pool set "$name" min_size 2
@@ -37,20 +37,24 @@ case "$action" in
         if ! ceph fs ls --format json | jq -e --arg fs "$CEPH_FS" 'any(.[];.name==$fs)' >/dev/null; then ceph fs new "$CEPH_FS" "$CEPH_FS-meta" "$CEPH_FS-data"; fi
         ceph fs set "$CEPH_FS" max_mds 1
         ceph fs set "$CEPH_FS" standby_count_wanted 1
-        ceph orch apply mds "$CEPH_FS" --placement='2 storage01 storage02'
+        ceph orch apply mds "$CEPH_FS" --placement="2 $(ceph_host storage01) $(ceph_host storage02)"
+        wait_json 600 "any(.filesystems[]; .mdsmap.fs_name==\"$CEPH_FS\" and any(.mdsmap.info[]; .state==\"up:active\")) and any(.standbys[]?;.name|startswith(\"$CEPH_FS.\"))" ceph fs dump --format json
         wait_json 600 '.health.status=="HEALTH_OK"' ceph status --format json
         ;;
     rgw)
-        remote storage01 "$P03/03/rgw-host.sh" "$(required .ceph.cephadm)" "$(image ceph)" "$(required .ceph.fsid)" "$RUN" "$(required .ceph.rgw_certificate_file)" "$(required .ceph.pool_quota_bytes)" | tee "$ATTEMPT/rgw.txt"
+        remote storage01 "$P03/03/rgw-host.sh" "$(required .ceph.cephadm)" "$(image ceph)" "$(required .ceph.fsid)" "$RUN" "$(required .ceph.rgw_certificate_file)" "$(get '.ceph.rgw_quota_bytes // .ceph.pool_quota_bytes')" "$(ceph_host storage01)" "$(ceph_host storage02)" "$CRUSH_RULE" | tee "$ATTEMPT/rgw.txt"
         ;;
     rbd-test|cephfs-test)
-        remote storage01 "$P03/03/client-host.sh" "$(required .ceph.cephadm)" "$(image ceph)" "$(required .ceph.fsid)" "$RUN" "$RBD_POOL" "$CEPH_FS" "$action" | tee "$ATTEMPT/$action.txt"
+        remote storage01 "$P03/03/client-host.sh" "$(required .ceph.cephadm)" "$(image ceph)" "$(required .ceph.fsid)" "$RUN" "$RBD_POOL" "$CEPH_FS" "$action" "$(get '.ceph.rbd_mounter // "krbd"')" "$(get '.ceph.cephfs_mounter // "kernel"')" | tee "$ATTEMPT/$action.txt"
         ;;
     mds-failover)
+        ceph fs dump --format json > "$ATTEMPT/mds-before.json"
         old=$(ceph fs dump --format json | jq -er --arg fs "$CEPH_FS" '.filesystems[]|select(.mdsmap.fs_name==$fs)|.mdsmap.info[]|select(.state=="up:active")|.name')
         ceph mds fail "$old"
+        wait_json 300 "any(.filesystems[];.mdsmap.fs_name==\"$CEPH_FS\" and any(.mdsmap.info[];.state==\"up:active\" and .name!=\"$old\")) and any(.standbys[]?;.name|startswith(\"$CEPH_FS.\"))" ceph fs dump --format json
         wait_json 300 '.health.status=="HEALTH_OK"' ceph status --format json
-        remote storage01 "$P03/03/client-host.sh" "$(required .ceph.cephadm)" "$(image ceph)" "$(required .ceph.fsid)" "$RUN" "$RBD_POOL" "$CEPH_FS" cephfs-test | tee "$ATTEMPT/after-mds.txt"
+        ceph fs dump --format json > "$ATTEMPT/mds-after.json"
+        remote storage01 "$P03/03/client-host.sh" "$(required .ceph.cephadm)" "$(image ceph)" "$(required .ceph.fsid)" "$RUN" "$RBD_POOL" "$CEPH_FS" cephfs-test "$(get '.ceph.rbd_mounter // "krbd"')" "$(get '.ceph.cephfs_mounter // "kernel"')" | tee "$ATTEMPT/after-mds.txt"
         ;;
     s3-test|independent-copy)
         need aws
@@ -74,7 +78,9 @@ case "$action" in
         jq -e --arg key "$RUN/payload.txt" 'any(.Contents[];.Key==$key)' "$ATTEMPT/list.json" >/dev/null
         code=$(curl --silent --show-error --cacert "$AWS_CA_BUNDLE" --output /dev/null --write-out '%{http_code}' "$endpoint/$bucket/$RUN/payload.txt")
         [[ $code == 403 ]] || die '匿名读取未按预期返回 403'
-        if [[ $action == independent-copy ]]; then
+        if [[ $action == independent-copy && $(get '.backup.mode // "remote"') == mac ]]; then
+            source "$P03/03/s3-backup-mac.sh"
+        elif [[ $action == independent-copy ]]; then
             target=$(required .backup.s3_endpoint)
             [[ $target == https://* && $target != "$endpoint" ]] || die '独立对象备份不能使用原 RGW 端点'
             aws --profile "$profile-independent" --endpoint-url "$target" s3 cp "$ATTEMPT/payload.txt" "$(required .backup.s3_destination)/$RUN/payload.txt"

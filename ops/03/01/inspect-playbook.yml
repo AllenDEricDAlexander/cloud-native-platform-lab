@@ -26,6 +26,18 @@
         dest: '{{ lookup("env", "ATTEMPT") }}/{{ inventory_hostname }}-baseline.txt'
         mode: '0600'
       delegate_to: localhost
+    - name: 列出整盘稳定 ID 与占用
+      ansible.builtin.script:
+        cmd: '{{ playbook_dir }}/disk-inventory.sh'
+        executable: /bin/bash
+      changed_when: false
+      register: phase03_inventory
+    - name: 保存整盘清单
+      ansible.builtin.copy:
+        content: '{{ phase03_inventory.stdout }}'
+        dest: '{{ lookup("env", "ATTEMPT") }}/{{ inventory_hostname }}-disk-inventory.json'
+        mode: '0600'
+      delegate_to: localhost
     - name: 核对每一候选整盘，任何签名均停止
       ansible.builtin.script:
         cmd: '{{ playbook_dir }}/device-check.sh {{ item.stable_id | quote }} {{ item.bytes | int }}'
@@ -35,7 +47,7 @@
       register: phase03_disks
     - name: 保存候选设备检查结果
       ansible.builtin.copy:
-        content: '{{ phase03_disks | to_nice_json }}'
+        content: '{{ phase03_disks.results | default([]) | selectattr("stdout", "defined") | map(attribute="stdout") | list | to_nice_json }}'
         dest: '{{ lookup("env", "ATTEMPT") }}/{{ inventory_hostname }}-devices.json'
         mode: '0600'
       delegate_to: localhost

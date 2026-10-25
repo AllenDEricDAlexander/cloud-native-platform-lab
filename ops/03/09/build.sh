@@ -10,4 +10,6 @@ cd "$root/operator"
 mkdir -p "$root/bin"
 GOOS=linux GOARCH=amd64 "$go" build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o "$root/bin/demoapp-operator" .
 shasum -a 256 "$root/bin/demoapp-operator" > "$root/bin/sha256.txt"
+GOOS=linux GOARCH=amd64 "$go" build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o "$root/bin/demo-app" "$root/demo/main.go"
+shasum -a 256 "$root/bin/demo-app" >> "$root/bin/sha256.txt"
 printf '已生成 linux/amd64 二进制；镜像仅由 build01 VM 的 build-vm 动作构建。\n'

@@ -2,6 +2,8 @@
 - name: 03.02 加入 cephadm 的受控 SSH 公钥
   hosts: storage
   gather_facts: false
+  vars:
+    phase03_key_identity: '{{ lookup("file", lookup("env", "CNPL03_CEPH_PUBLIC_KEY")).split()[:2] | join(" ") }}'
   tasks:
     - name: 验证公钥而非私钥
       ansible.builtin.assert:
@@ -17,3 +19,8 @@
         group: root
         mode: '0600'
         line: 'restrict,from="{{ groups.storage | map("extract", hostvars, "ansible_host") | join(",") }}" {{ lookup("file", lookup("env", "CNPL03_CEPH_PUBLIC_KEY")) }}'
+    - name: 移除本批公钥由 bootstrap 追加的无来源限制副本
+      ansible.builtin.lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: '^{{ phase03_key_identity | regex_escape }}(?:[ \t].*)?$'
+        state: absent

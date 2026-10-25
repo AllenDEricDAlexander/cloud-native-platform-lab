@@ -1,0 +1,36 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+ok: [localhost]
+
+TASK [全部执行清单严格服务端预览或锁定 schema 校验] ****************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:21:7
+
+19       register: phase_prepare
+20       changed_when: false
+21     - name: 全部执行清单严格服务端预览或锁定 schema 校验
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/mesh/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-03", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-03/attempts/20261021T133405Z-3ba432ce-validate", "--mode", "validate", "validate", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-03/attempts/20261021T133405Z-3ba432ce-validate/validation.json"], "delta": "0:00:15.283292", "end": "2026-10-21 21:35:09.322388", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-21 21:34:54.039096", "stderr": "Cilium 兼容 profile 错误", "stderr_lines": ["Cilium 兼容 profile 错误"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+
+
+执行失败汇总
+退出码：2
+首个失败步骤：全部执行清单严格服务端预览或锁定 schema 校验
+任务：全部执行清单严格服务端预览或锁定 schema 校验
+原因：Cilium 兼容 profile 错误
+日志位置：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-03/ansible-validate-20261021T133404Z-VF3pA7:22
+任务来源：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:21:7
+汇总 JSON：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-03/summary-validate-20261021T133404Z-VF3pA7.json
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-03/ansible-validate-20261021T133404Z-VF3pA7

@@ -1,0 +1,41 @@
+# Headlamp 社区 Chart 0.46.0；只使用用户 Token，不给服务端授予 cluster-admin。
+fullnameOverride: headlamp
+image:
+  registry: harbor.k8s.internal.egon.top
+  repository: bootstrap/console-headlamp
+  tag: v0.46.0@sha256:fcc6a6b011a8c0adbf4489384588442224c01f74b6f63739e50b089d54b98371
+  pullPolicy: IfNotPresent
+clusterRoleBinding: {create: false}
+config:
+  inCluster: true
+  inClusterContextName: lab-primary
+  unsafeUseServiceAccountToken: false
+  tlsCertPath: /headlamp-tls/tls.crt
+  tlsKeyPath: /headlamp-tls/tls.key
+  oidc:
+    secret: {create: false}
+service:
+  type: NodePort
+  port: 443
+  nodePort: 30443
+  externalTrafficPolicy: Local
+nodeSelector: {kubernetes.io/hostname: worker02.k8s.internal.egon.top}
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile: {type: RuntimeDefault}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 100
+  runAsGroup: 101
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+volumes:
+  - name: headlamp-tls
+    secret: {secretName: headlamp-tls}
+volumeMounts:
+  - {name: headlamp-tls, mountPath: /headlamp-tls, readOnly: true}
+probes: {scheme: HTTPS}
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 500m, memory: 512Mi}

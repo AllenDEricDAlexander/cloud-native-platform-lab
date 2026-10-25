@@ -20,8 +20,8 @@ elif [[ $ACTION == kafka-test || $ACTION == kafka-failover ]]; then
         k -n "$ns" delete pod "$pod" --wait=false
     fi
     for i in $(seq 1 20); do printf '%s:%06d\n' "$RUN" "$i"; done > "$ATTEMPT/expected.txt"
-    k -n "$ns" exec -i kafka-client -- /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka-kafka-bootstrap:9093 --topic "$topic" --producer.config /tmp/client.properties --producer-property acks=all --producer-property enable.idempotence=true --producer-property delivery.timeout.ms=60000 < "$ATTEMPT/expected.txt" > "$ATTEMPT/producer.txt"
-    kafka_cli kafka-console-consumer.sh --topic "$topic" --group "$group" --from-beginning --max-messages 20 --timeout-ms 60000 --consumer.config /tmp/client.properties > "$ATTEMPT/consumed.txt"
+    k -n "$ns" exec -i kafka-client -- /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka-kafka-bootstrap:9093 --topic "$topic" --command-config /tmp/client.properties --command-property acks=all --command-property enable.idempotence=true --command-property delivery.timeout.ms=60000 < "$ATTEMPT/expected.txt" > "$ATTEMPT/producer.txt"
+    kafka_cli kafka-console-consumer.sh --topic "$topic" --group "$group" --from-beginning --max-messages 20 --timeout-ms 60000 --command-config /tmp/client.properties > "$ATTEMPT/consumed.txt"
     sort "$ATTEMPT/expected.txt" > "$ATTEMPT/expected-sorted.txt"; sort "$ATTEMPT/consumed.txt" > "$ATTEMPT/consumed-sorted.txt"
     cmp "$ATTEMPT/expected-sorted.txt" "$ATTEMPT/consumed-sorted.txt"
     [[ $(sort -u "$ATTEMPT/consumed.txt" | wc -l | tr -d ' ') == 20 ]] || die '消息丢失或重复'
@@ -31,7 +31,7 @@ elif [[ $ACTION == kafka-test || $ACTION == kafka-failover ]]; then
 else
     latest=$(cat "$P03/08/records/$RUN/kafka-latest.json")
     topic=$(jq -er .topic <<< "$latest"); group=$(jq -er .group <<< "$latest")
-    for i in $(seq 21 40); do printf '%s:%06d\n' "$RUN" "$i"; done | k -n "$ns" exec -i kafka-client -- /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka-kafka-bootstrap:9093 --topic "$topic" --producer.config /tmp/client.properties --producer-property acks=all --producer-property enable.idempotence=true
+    for i in $(seq 21 40); do printf '%s:%06d\n' "$RUN" "$i"; done | k -n "$ns" exec -i kafka-client -- /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka-kafka-bootstrap:9093 --topic "$topic" --command-config /tmp/client.properties --command-property acks=all --command-property enable.idempotence=true
     kafka_cli kafka-consumer-groups.sh --command-config /tmp/client.properties --describe --group "$group" > "$ATTEMPT/lag.txt"
     awk -v topic="$topic" '$2==topic && $6~/^[0-9]+$/ {lag+=$6} END {exit !(lag>=20)}' "$ATTEMPT/lag.txt" || die '未观察到预期积压'
 fi

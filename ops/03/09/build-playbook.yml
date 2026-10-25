@@ -36,6 +36,15 @@
         - {src: '{{ playbook_dir }}/Containerfile', dest: Containerfile}
     - name: 让程序可执行
       ansible.builtin.file: {path: '{{ phase03_directory }}/demoapp-operator', mode: '0755'}
+    - name: 复制可选 DemoApp 验证程序
+      ansible.builtin.copy:
+        src: '{{ item.src }}'
+        dest: '{{ phase03_directory }}/{{ item.dest }}'
+        mode: '0755'
+      loop:
+        - {src: '{{ playbook_dir }}/bin/demo-app', dest: demo-app}
+        - {src: '{{ playbook_dir }}/Containerfile.demo', dest: Containerfile.demo}
+      when: phase03_config.operator.demo_image_tag | default('') | length > 0
     - name: 在 VM 内构建，不拉取任何基础镜像
       ansible.builtin.command:
         argv: [podman, build, --pull=never, --network=none, -t, '{{ phase03_config.operator.build_image_tag }}', .]
@@ -47,3 +56,23 @@
       changed_when: true
     - name: 取回仅含公开 Digest 的文件
       ansible.builtin.fetch: {src: '{{ phase03_directory }}/digest.txt', dest: '{{ lookup("env", "ATTEMPT") }}/operator-digest.txt', flat: true}
+    - name: 核验可选应用镜像标签
+      ansible.builtin.assert:
+        that:
+          - phase03_config.operator.demo_image_tag is match('^harbor\.k8s\.internal\.egon\.top/[a-zA-Z0-9_./-]+:[a-zA-Z0-9_.-]+$')
+          - not phase03_config.operator.demo_image_tag.endswith(':latest')
+      when: phase03_config.operator.demo_image_tag | default('') | length > 0
+    - name: 在 VM 内构建验证程序镜像
+      ansible.builtin.command:
+        argv: [podman, build, --pull=never, --network=none, -f, Containerfile.demo, -t, '{{ phase03_config.operator.demo_image_tag }}', .]
+        chdir: '{{ phase03_directory }}'
+      changed_when: true
+      when: phase03_config.operator.demo_image_tag | default('') | length > 0
+    - name: 推送验证程序并保存 Digest
+      ansible.builtin.command:
+        argv: [podman, push, --authfile, '{{ phase03_config.operator.build_authfile }}', --digestfile, '{{ phase03_directory }}/demo-digest.txt', '{{ phase03_config.operator.demo_image_tag }}']
+      changed_when: true
+      when: phase03_config.operator.demo_image_tag | default('') | length > 0
+    - name: 取回验证程序 Digest
+      ansible.builtin.fetch: {src: '{{ phase03_directory }}/demo-digest.txt', dest: '{{ lookup("env", "ATTEMPT") }}/demo-digest.txt', flat: true}
+      when: phase03_config.operator.demo_image_tag | default('') | length > 0

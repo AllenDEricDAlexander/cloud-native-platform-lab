@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require "json"
+require "yaml"
 family, image, storage, tls, run = ARGV
 abort "未知缓存模式" unless %w[redis redis-sentinel redis-cluster valkey].include?(family)
 namespace = "cnpl03-08"
@@ -51,8 +52,9 @@ groups.each_with_index do |name, index|
     volumes: [{name: "config", configMap: {name: name}}, {name: "auth", secret: {secretName: "cache-auth", defaultMode: 288}}, {name: "tls", secret: {secretName: tls, defaultMode: 288}}]
   }
   if family == "redis-cluster"
-    # 前三个为主，后三个依次放到另一物理域，bootstrap 再按明确关系加入 replica。
-    node = %w[storage01 storage02 storage03 storage02 storage03 storage01][index]
+    # 前三个为主，后三个依次放到另一 storage VM，bootstrap 再按明确关系加入 replica。
+    host = %w[storage01 storage02 storage03 storage02 storage03 storage01][index]
+    node = YAML.load_file(File.expand_path("../../inventory/hosts.yaml", __dir__)).fetch("kubernetes_nodes").find { |item| item["id"] == host }.fetch("fqdn")
     pod[:nodeSelector] = {"kubernetes.io/hostname" => node}
   else
     pod[:nodeSelector] = {"cnpl.io/phase03-data" => "true"}

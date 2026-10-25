@@ -10,6 +10,25 @@ cache_pod_delete() {
     k -n "$ns" delete pod "$pod" --wait=true --timeout=120s
 }
 case "$ACTION" in
+    redis-check|redis-sentinel-check|redis-cluster-check|valkey-check)
+        host=redis-0.redis
+        [[ $ACTION != valkey-check ]] || host=valkey-0.valkey
+        [[ $ACTION != redis-cluster-check ]] || host=redis-cluster-a-0.redis-cluster-a
+        if [[ $ACTION == redis-sentinel-check ]]; then host=$(cache sentinel -p 26379 sentinel get-master-addr-by-name lab | head -1 | tr -d '\r'); fi
+        [[ $(cache "$host" -c get "cnpl03:$RUN:durable") == "$RUN:000001" ]] || die '既有缓存标记丢失或不符；此动作不重写数据'
+        cache "$host" info persistence > "$ATTEMPT/persistence.txt"
+        ;;
+    redis-cluster-failback)
+        for family in a b c; do
+            host=redis-cluster-$family-0.redis-cluster-$family
+            if [[ $(cache "$host" role | head -1 | tr -d '\r') == slave ]]; then
+                cache "$host" cluster failover | grep -Fx OK
+                end=$((SECONDS+60))
+                until [[ $(cache "$host" role | head -1 | tr -d '\r') == master ]]; do ((SECONDS<end)) || die '首选分片主节点未正常接替'; sleep 2; done
+            fi
+        done
+        cache redis-cluster-a-0.redis-cluster-a cluster nodes > "$ATTEMPT/preferred-nodes.txt"
+        ;;
     credentials)
         password=$(required .middleware.password_file); hex_secret "$password"
         secret_from_files "$ns" cache-auth "password=$password"
@@ -38,7 +57,12 @@ case "$ACTION" in
         ;;
     redis-test|valkey-test|redis-restart|redis-sentinel-failover|redis-cluster-test)
         host=redis-0.redis; [[ $ACTION != valkey-test ]] || host=valkey-0.valkey
-        if [[ $ACTION == redis-cluster-test ]]; then host=redis-cluster-a-0.redis-cluster-a; fi
+        if [[ $ACTION == redis-cluster-test ]]; then
+            host=redis-cluster-a-0.redis-cluster-a
+            slot=$(cache "$host" cluster keyslot "cnpl03:$RUN:durable")
+            cache "$host" --json cluster slots > "$ATTEMPT/shards.json"
+            host=$(jq -er --argjson slot "$slot" '.[]|select(.[0]<=$slot and .[1]>=$slot)|.[2][0]' "$ATTEMPT/shards.json")
+        fi
         if [[ $ACTION == redis-sentinel-failover ]]; then
             host=$(cache sentinel -p 26379 sentinel get-master-addr-by-name lab | head -1 | tr -d '\r')
         fi
@@ -60,8 +84,9 @@ case "$ACTION" in
         if [[ $ACTION == redis-cluster-test ]]; then
             for pair in a:d b:e c:f; do
                 master=redis-cluster-${pair%:*}-0.redis-cluster-${pair%:*}; replica=redis-cluster-${pair#*:}-0.redis-cluster-${pair#*:}
-                master_id=$(cache "$master" cluster myid)
-                cache "$replica" cluster nodes | awk -v id="$master_id" '$3 ~ /myself/ && $4==id {found=1} END {exit !found}' || die '分片副本关系不符'
+                master_id=$(cache "$master" cluster myid); replica_id=$(cache "$replica" cluster myid)
+                # 已发生切换时角色可以对调，但每个明确配对仍须一主一从且关联正确。
+                cache "$master" cluster nodes | awk -v a="$master_id" -v b="$replica_id" '$1==a {af=$3;ap=$4} $1==b {bf=$3;bp=$4} END {exit !((af~/master/ && bf~/slave/ && bp==a)||(bf~/master/ && af~/slave/ && ap==b))}' || die '分片副本关系不符'
             done
             cache "$host" --cluster check "$host:6379" > "$ATTEMPT/slots.txt"
         fi

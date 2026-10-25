@@ -15,4 +15,8 @@ if pvs --noheadings -o pv_name | awk '{$1=$1; print}' | grep -Fxq "$target"; the
 # device-mapper、挂载和 holder 不能只靠 FSTYPE 判定。
 [[ -z $(find "/sys/class/block/$(basename "$target")/holders" -mindepth 1 -maxdepth 1 -print) ]] || exit 1
 if findmnt -rn -S "$target" >/dev/null; then exit 1; fi
-printf 'PASS 空整盘 %s bytes=%s\n' "$device" "$bytes"
+if [[ ${3:-text} == json ]]; then
+    jq -n --arg device "$device" --arg target "$target" --argjson bytes "$bytes" '{device:$device,target:$target,bytes:$bytes}'
+else
+    printf 'PASS 空整盘 %s bytes=%s\n' "$device" "$bytes"
+fi

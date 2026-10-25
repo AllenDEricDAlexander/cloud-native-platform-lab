@@ -12,6 +12,7 @@ abort "FSID 不匹配" unless bundle.fetch("fsid") == ARGV.fetch(1)
 items = bundle.fetch("items")
 names = %w[rook-ceph-mon rook-ceph-mon-endpoints rook-ceph-csi-config csi-rbd-node csi-rbd-provisioner csi-cephfs-node csi-cephfs-provisioner]
 required = names - %w[rook-ceph-csi-config]
+names += %w[rook-csi-rbd-node rook-csi-rbd-provisioner rook-csi-cephfs-node rook-csi-cephfs-provisioner]
 abort "连接材料缺少必需对象" unless (required - items.map { |x| x.dig("metadata", "name") }).empty?
 abort "重复连接对象" unless items.map { |x| [x["kind"],x.dig("metadata","name")] }.uniq.size == items.size
 items.each do |item|

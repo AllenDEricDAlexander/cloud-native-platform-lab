@@ -11,7 +11,10 @@
         systemctl is-active --quiet firewalld containerd kubelet || exit 1
         modinfo rbd >/dev/null
         modinfo ceph >/dev/null
-        command -v mount.ceph
+        modinfo nbd >/dev/null
+        modinfo fuse >/dev/null
+        # mount.ceph/rbd 用户态工具由锁定的 CSI 镜像提供，不要求宿主机安装 ceph-common。
+        printf 'PASS kernel RBD/CephFS modules; userspace helpers supplied by CSI image\n'
       args: {executable: /bin/bash}
       changed_when: false
     - name: 三 MON messenger v2/v1 端口

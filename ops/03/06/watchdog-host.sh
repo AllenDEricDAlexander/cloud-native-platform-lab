@@ -20,7 +20,7 @@ if [[ $mode == arm ]]; then
         printf 'exit "$rc"\n'
     } > "$script"
     chmod 0700 "$script"
-    systemd-run --unit "$unit" --on-active="${seconds}s" /bin/bash "$script"
+    systemd-run --unit "$unit" --on-active="${seconds}s" --timer-property=AccuracySec=1s --timer-property=RandomizedDelaySec=0 /bin/bash "$script"
     systemctl is-active --quiet "$unit.timer" || exit 1
     printf 'PASS watchdog 已安排，期限 %ss\n' "$seconds"
 elif [[ $mode == disarm ]]; then

@@ -4,8 +4,10 @@ source "$(dirname "$0")/../lib/common.sh"
 action=${1:-validate}
 case "$action" in
     validate) exec bash "$P03/validate.sh" 07 ;;
-    credentials|baseline|baseline-test|baseline-restart|operator|ha|ha-test|archiving|backup|pitr-before|pitr-after|pitr|failover|dump|restore-dump|minor-upgrade|major-migrate|mysql|mysql-test|check) ;;
-    *) die '用法：07/run.sh validate|credentials|baseline|baseline-test|baseline-restart|operator|ha|ha-test|archiving|backup|pitr-before|pitr-after|pitr|failover|dump|restore-dump|minor-upgrade|major-migrate|mysql|mysql-test|check' ;;
+    backup-target) exec bash "$P03/07/backup-s3.sh" prepare ;;
+    backup-target-check) exec bash "$P03/07/backup-s3.sh" check ;;
+    credentials|backup-credentials|baseline|baseline-test|baseline-restart|operator|ha|ha-test|archiving|backup|pitr-before|pitr-after|pitr|failover|dump|restore-dump|minor-upgrade|major-migrate|mysql|mysql-test|mysql-check|check) ;;
+    *) die '用法：07/run.sh validate|backup-target|backup-target-check|credentials|backup-credentials|baseline|baseline-test|baseline-restart|operator|ha|ha-test|archiving|backup|pitr-before|pitr-after|pitr|failover|dump|restore-dump|minor-upgrade|major-migrate|mysql|mysql-test|mysql-check|check' ;;
 esac
 start 07 "$action"
 cluster_gate; ceph_ok; backup_gate
@@ -37,6 +39,10 @@ case "$action" in
         secret_from_files "$ns" pg-app "username=$work/app-username" "password=$work/app-password"
         secret_from_files "$ns" pg-client "pgpass=$work/pgpass"
         ;;
+    backup-credentials)
+        secret_from_files "$ns" "$(required .backup.s3_secret)" "ACCESS_KEY_ID=$(required .backup.s3_access_key_file)" "ACCESS_SECRET_KEY=$(required .backup.s3_secret_key_file)"
+        secret_from_files "$ns" "$(required .backup.s3_ca_secret)" "ca.crt=$(required .backup.s3_ca_file)"
+        ;;
     baseline)
         yaml_json "$P03/07/postgresql.yaml" | jq --arg image "$pg_image" --arg class "$SC_RBD" '.items|=map(if .kind=="Deployment" then .spec.template.spec.containers[0].image=$image elif .kind=="Pod" then .spec.containers[0].image=$image elif .kind=="PersistentVolumeClaim" then .spec.storageClassName=$class else . end)' > "$ATTEMPT/baseline.json"
         apply "$ATTEMPT/baseline.json" "$ns"
@@ -63,6 +69,10 @@ case "$action" in
         endpoint=$(required .backup.s3_endpoint)
         [[ $endpoint == https://* && $endpoint != "$(required .ceph.rgw_endpoint)" ]] || die 'WAL 归档必须使用独立 HTTPS 存储'
         component_manifest barman_plugin "$ns"
+        source "$P03/lib/certificate-approval.sh"
+        approve_certificate "$ns" barman-cloud-client
+        approve_certificate "$ns" barman-cloud-server
+        k -n "$ns" rollout status deployment/barman-cloud --timeout=180s
         backup_secret=$(required .backup.s3_secret)
         k -n "$ns" get secret "$backup_secret" >/dev/null
         ca_secret=$(required .backup.s3_ca_secret); k -n "$ns" get secret "$ca_secret" >/dev/null
@@ -85,13 +95,21 @@ case "$action" in
     pitr-after)
         sql cnpl03-pg-rw -c "INSERT INTO probe(id,payload) VALUES(1002,'after-target') ON CONFLICT DO NOTHING;"
         primary=$(k -n "$ns" get cluster cnpl03-pg -o jsonpath='{.status.currentPrimary}')
+        closed_wal=$(k -n "$ns" exec "$primary" -c postgres -- psql -U postgres -d app -X -qAt -v ON_ERROR_STOP=1 -c 'SELECT pg_walfile_name(pg_current_wal_lsn())')
+        [[ $closed_wal =~ ^[0-9A-F]{24}$ ]] || die '待归档 WAL 段名无效'
         k -n "$ns" exec "$primary" -c postgres -- psql -U postgres -d app -X -qAt -v ON_ERROR_STOP=1 -c 'SELECT pg_switch_wal()' > "$ATTEMPT/wal-switch.txt"
+        end=$((SECONDS+300))
+        until [[ $(k -n "$ns" exec "$primary" -c postgres -- psql -U postgres -d app -X -qAt -v ON_ERROR_STOP=1 -c "SELECT last_archived_wal >= '$closed_wal' FROM pg_stat_archiver") == t ]]; do
+            ((SECONDS<end)) || die '目标后事务所在的 WAL 尚未确认归档'
+            sleep 3
+        done
+        k -n "$ns" exec "$primary" -c postgres -- psql -U postgres -d app -X -qAt -v ON_ERROR_STOP=1 -c 'SELECT row_to_json(a) FROM pg_stat_archiver a' > "$ATTEMPT/archiver.json"
         ;;
     pitr)
         target=$(required .postgres.pitr_time)
         ruby -rtime -e 'Time.parse(ARGV[0]); abort "目标必须带时区" unless ARGV[0].match?(/(?:Z|[+-]\d\d(?::?\d\d)?)\z/)' "$target"
         render_cluster
-        jq --arg target "$target" '.items[0].metadata.name="cnpl03-pitr"|.items[0].spec.bootstrap={recovery:{source:"origin",recoveryTarget:{targetTime:$target}}}|.items[0].spec.externalClusters=[{name:"origin",plugin:{name:"barman-cloud.cloudnative-pg.io",parameters:{barmanObjectName:"independent",serverName:"cnpl03-pg"}}}]' "$ATTEMPT/cluster.json" > "$ATTEMPT/pitr.json"
+        jq --arg target "$target" '.items[0].metadata.name="cnpl03-pitr"|.items[0].spec.bootstrap={recovery:{source:"origin",database:"app",owner:"app",secret:{name:"pg-app"},recoveryTarget:{targetTime:$target}}}|.items[0].spec.externalClusters=[{name:"origin",plugin:{name:"barman-cloud.cloudnative-pg.io",parameters:{barmanObjectName:"independent",serverName:"cnpl03-pg"}}}]' "$ATTEMPT/cluster.json" > "$ATTEMPT/pitr.json"
         apply "$ATTEMPT/pitr.json" "$ns"
         wait_json 1200 '.status.readyInstances==3' k -n "$ns" get cluster cnpl03-pitr -o json
         check_pg cnpl03-pitr-rw
@@ -169,7 +187,7 @@ case "$action" in
         wait_json 900 "[.items[]|select(.metadata.labels[\"cnpg.io/cluster\"]==\"cnpl03-pg\")]|length==3 and all(.[];.spec.containers[0].image==\"$(image postgresql_upgrade)\")" k -n "$ns" get pods -o json
         ha_ready; check_pg cnpl03-pg-rw
         ;;
-    mysql|mysql-test) source "$P03/07/mysql.sh" ;;
+    mysql|mysql-test|mysql-check) source "$P03/07/mysql.sh" ;;
     check)
         check_pg baseline; check_pg cnpl03-pg-rw
         k -n "$ns" get cluster,backup,pvc,pods -o json > "$ATTEMPT/databases.json"

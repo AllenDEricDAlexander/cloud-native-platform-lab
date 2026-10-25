@@ -1,0 +1,91 @@
+[
+  {
+    "apiVersion": "cilium.io/v2",
+    "kind": "CiliumLoadBalancerIPPool",
+    "metadata": {
+      "name": "cnpl-dp-offline-review",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "blocks": [
+        {
+          "start": "192.168.9.211",
+          "stop": "192.168.9.214"
+        }
+      ],
+      "serviceSelector": {
+        "matchLabels": {
+          "cnpl.io/phase-run": "offline-source-review"
+        }
+      }
+    }
+  },
+  {
+    "apiVersion": "cilium.io/v2alpha1",
+    "kind": "CiliumL2AnnouncementPolicy",
+    "metadata": {
+      "name": "cnpl-dp-offline-review",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "serviceSelector": {
+        "matchLabels": {
+          "cnpl.io/phase-run": "offline-source-review",
+          "cnpl.io/lb": "l2"
+        }
+      },
+      "nodeSelector": {
+        "matchExpressions": [
+          {
+            "key": "kubernetes.io/hostname",
+            "operator": "In",
+            "values": [
+              "worker01.k8s.internal.egon.top",
+              "worker02.k8s.internal.egon.top"
+            ]
+          },
+          {
+            "key": "cnpl.io/phase02-l2-exclude",
+            "operator": "DoesNotExist"
+          }
+        ]
+      },
+      "interfaces": [
+        "^ens33$"
+      ],
+      "loadBalancerIPs": true
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "name": "l2",
+      "namespace": "lab-dataplane-vm",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review",
+        "cnpl.io/lb": "l2"
+      }
+    },
+    "spec": {
+      "type": "LoadBalancer",
+      "loadBalancerClass": "io.cilium/l2-announcer",
+      "externalTrafficPolicy": "Cluster",
+      "selector": {
+        "app": "api",
+        "cnpl.io/phase-run": "offline-source-review"
+      },
+      "ports": [
+        {
+          "name": "http",
+          "port": 8080,
+          "targetPort": 8080
+        }
+      ]
+    }
+  }
+]

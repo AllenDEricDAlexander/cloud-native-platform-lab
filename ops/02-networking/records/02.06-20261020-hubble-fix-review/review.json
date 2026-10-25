@@ -1,0 +1,131 @@
+{
+  "stage": "02.06",
+  "scope": "Hubble evidence collection repair; no formal experiment rerun",
+  "original_records": "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261019T225330Z",
+  "original_failure": "denied-api-drop: filters --ip and --pod cannot be combined",
+  "original_cleanup_passed": true,
+  "original_failure_log_sha256": "b88690426c8fd56db613c8e701c0da5edf6895db5bebd24d983b97ff983dfd2f",
+  "original_blocked_probes": 3,
+  "root_causes": [
+    "--pod and --ip are mutually exclusive",
+    "--pod plus --port binds the port to the same endpoint as the Pod"
+  ],
+  "fix": "two explicit JSON FlowFilters correlate client Pod and peer IP/port in both directions; compile during preflight",
+  "regression_tests": {
+    "command": "python -B -m unittest discover -s ops/02-networking/tests/integration/policies -p test_check.py -v",
+    "passed": true,
+    "tests": 13
+  },
+  "go_race_tests": {
+    "command": "go test -race ./...",
+    "passed": true
+  },
+  "source_validation": {
+    "passed": true,
+    "objects": 35,
+    "reference_crd_server_dry_run": true,
+    "objects_persisted": false,
+    "ansible_failed": 0
+  },
+  "hubble_replay": {
+    "passed": true,
+    "hubble_version": "hubble v1.20.2@HEAD-e0dc92bd compiled with go1.26.8 on linux/amd64",
+    "scope": "real CLI stdin replay only; no resource writes or data-plane experiment",
+    "input_flows": 5,
+    "selected_flows": [
+      "forward",
+      "reverse"
+    ],
+    "reverse_http403_matched": true
+  },
+  "hubble_dns_replay": {
+    "passed": true,
+    "scope": "real CLI stdin replay; no resource writes",
+    "cases": [
+      {
+        "protocol": "UDP",
+        "destination": "192.168.20.10",
+        "selected_flows": [
+          "forward",
+          "reverse"
+        ],
+        "dns_refused_matched": true
+      },
+      {
+        "protocol": "UDP",
+        "destination": "10.244.2.3",
+        "selected_flows": [
+          "forward",
+          "reverse"
+        ],
+        "dns_refused_matched": true
+      },
+      {
+        "protocol": "TCP",
+        "destination": "192.168.20.10",
+        "selected_flows": [
+          "forward",
+          "reverse"
+        ],
+        "dns_refused_matched": true
+      },
+      {
+        "protocol": "TCP",
+        "destination": "10.244.2.3",
+        "selected_flows": [
+          "forward",
+          "reverse"
+        ],
+        "dns_refused_matched": true
+      }
+    ]
+  },
+  "live_relay_read": {
+    "passed": true,
+    "matching_flows": 35,
+    "target_ips": [
+      "10.244.8.232",
+      "10.244.9.95",
+      "192.168.20.10"
+    ],
+    "workload_identities": [
+      2248
+    ],
+    "relay_status": "Healthcheck (via 192.168.20.86:80): Ok\nCurrent/Max Flows: 40,950/40,950 (100.00%)\nFlows/s: 53.43\nConnected Nodes: 10/10\n"
+  },
+  "formal_experiment_rerun": false,
+  "next_action": "operator runs policies.sh all with a new records directory; original closed batch does not require recover",
+  "upstream_reference": "https://github.com/cilium/hubble#specifying-raw-flow-filters",
+  "offline_ansible": {
+    "scope": "Ansible orchestration model only",
+    "results": {
+      "success": {
+        "passed": true,
+        "ansible_exit": 0,
+        "namespace_uid_deletes": 3,
+        "cleanup_passed": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=307  changed=111  unreachable=0    failed=0    skipped=1    rescued=0    ignored=0"
+      },
+      "failure": {
+        "passed": true,
+        "ansible_exit": 2,
+        "namespace_uid_deletes": 3,
+        "cleanup_passed": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=271  changed=104  unreachable=0    failed=1    skipped=0    rescued=0    ignored=0"
+      },
+      "recover": {
+        "passed": true,
+        "ansible_exit": 0,
+        "namespace_uid_deletes": 3,
+        "cleanup_passed": true,
+        "recap": "*********************************************************************\nlocalhost                  : ok=13   changed=2    unreachable=0    failed=0    skipped=32   rescued=0    ignored=0"
+      }
+    }
+  },
+  "changed_source_sha256": {
+    "ops/02-networking/tests/integration/policies/check.py": "694cbcc1b368ec2d241b4fdae5bc4768061798a254d38d4afda894dcd304138f",
+    "ops/02-networking/tests/integration/policies/test_check.py": "a97a1063035effd16e6b555fef1a3b8147d41ad50aa1d983bb29f70329216ff8",
+    "ops/02-networking/examples/policies/README.md": "06115bc5e6002766a1f059af11b0ad3047f989ce87481cd2832f817a709f090b"
+  },
+  "review_complete": true
+}

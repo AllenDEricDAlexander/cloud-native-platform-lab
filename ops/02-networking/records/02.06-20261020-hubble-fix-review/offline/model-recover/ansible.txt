@@ -1,0 +1,163 @@
+
+PLAY [完整 02.06 一次前检所有物料、VM、YAML 和前序边界] ************************
+
+TASK [限定模式与证据目录] ******************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建记录目录] ************************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020-hubble-fix-review/offline/model-recover/attempts/20261019T232254Z-05484385-recover)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020-hubble-fix-review/offline/model-recover/state)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020-hubble-fix-review/offline/model-recover/attempts/20261019T232254Z-05484385-recover/observations)
+
+TASK [校验原集群、02.05 内部原始交接和模式边界] ********************************
+ok: [localhost]
+
+TASK [绑定上下文与运行标签] ****************************************************
+ok: [localhost]
+
+TASK [一次核验五台 VM 的安全状态、内网路由及既有代理] **************************
+skipping: [localhost]
+
+TASK [确定性重建 Go 镜像并核对 Harbor 摘要] ************************************
+skipping: [localhost]
+
+TASK [一次渲染全部实际执行 YAML] ***********************************************
+skipping: [localhost] => (item=namespaces) 
+skipping: [localhost] => (item=default-deny) 
+skipping: [localhost] => (item=workloads) 
+skipping: [localhost] => (item=standard) 
+skipping: [localhost] => (item=cilium) 
+skipping: [localhost] => (item=egress) 
+skipping: [localhost] => (item=proxy-unreachable) 
+skipping: [localhost]
+
+TASK [全部清单执行严格服务端预览，包括出口参考但不落地] ************************
+skipping: [localhost]
+
+TASK [记录执行源码与输入摘要] **************************************************
+ok: [localhost]
+
+TASK [保存既有网络、策略、工作负载和主入口基线] ********************************
+skipping: [localhost]
+
+TASK [正式执行绑定不可覆盖的原始基线] ******************************************
+skipping: [localhost] => (item=source) 
+skipping: [localhost] => (item=protected) 
+skipping: [localhost]
+
+TASK [报告前检通过，运行实验由统一入口继续] ************************************
+skipping: [localhost]
+
+PLAY [整组 02.06 网络策略与出站验证，异常时自动回收本批实验] *******************
+
+TASK [创建专用空间] ************************************************************
+skipping: [localhost]
+
+TASK [先建立双向默认拒绝] ******************************************************
+skipping: [localhost]
+
+TASK [再创建八个无凭据诊断 Pod] ************************************************
+skipping: [localhost]
+
+TASK [等待默认拒绝收敛] ********************************************************
+skipping: [localhost]
+
+TASK [记录初始阻断] ************************************************************
+skipping: [localhost]
+
+TASK [放行标准 L3/L4、DNS、入口和监控依赖] *************************************
+skipping: [localhost]
+
+TASK [等待标准策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [完成全部标准策略正反向用例] **********************************************
+skipping: [localhost]
+
+TASK [移除标准放行，保留默认拒绝，避免与 Cilium 策略叠加掩盖限制] **************
+skipping: [localhost]
+
+TASK [应用 Cilium 身份、FQDN 和 HTTP 策略] *************************************
+skipping: [localhost]
+
+TASK [等待 Cilium 策略收敛] ****************************************************
+skipping: [localhost]
+
+TASK [完成相同流量对照及 FQDN/HTTP 拒绝用例] ***********************************
+skipping: [localhost]
+
+TASK [为专用出站 Pod 放行仓库、节点 TCP 和显式代理] ****************************
+skipping: [localhost]
+
+TASK [等待出站策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [一次验证实际 SNAT、存储 VM 回程、内网直连及代理外网] *********************
+skipping: [localhost]
+
+TASK [只对实验 Pod 模拟代理入口不可达] *****************************************
+skipping: [localhost]
+
+TASK [等待故障策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [验证代理停止、直连后路被拒绝、LAN 继续] **********************************
+skipping: [localhost]
+
+TASK [移除本批代理故障策略] ****************************************************
+skipping: [localhost]
+
+TASK [等待恢复策略收敛] ********************************************************
+skipping: [localhost]
+
+TASK [复核代理恢复、LAN 仍可达、直连仍被拒绝] **********************************
+skipping: [localhost]
+
+TASK [记录 02.06.04 的真实模式缺口和未执行项] **********************************
+skipping: [localhost]
+
+TASK [汇总本组完整证据，保留 Ceph/出口能力阻塞] ********************************
+skipping: [localhost]
+
+TASK [成功或失败均回收本批空间] ************************************************
+skipping: [localhost]
+
+TASK [显式恢复或清理] **********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/policies-cleanup.yml for localhost
+
+TASK [核对三空间归属、对象 UID 和外来数据，生成安全删除计划] *******************
+ok: [localhost]
+
+TASK [只删除本批实验空间，API 原子校验 Namespace UID] **************************
+changed: [localhost] => (item=Namespace//lab-policy)
+changed: [localhost] => (item=Namespace//lab-policy-peer)
+changed: [localhost] => (item=Namespace//lab-egress)
+
+TASK [等待本批临时空间完全消失] ************************************************
+ok: [localhost] => (item=lab-policy)
+ok: [localhost] => (item=lab-policy-peer)
+ok: [localhost] => (item=lab-egress)
+
+TASK [复核主入口、网络基线、原有策略和工作负载] ********************************
+ok: [localhost]
+
+TASK [清理结果] ****************************************************************
+ok: [localhost] => {
+    "msg": "02.06 CLEANUP PASS；三个临时 Namespace 和实验策略已回收；原 VM 路由、主入口及既有资源保持。"
+}
+
+TASK [报告实际验证边界] ********************************************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=2    unreachable=0    failed=0    skipped=32   rescued=0    ignored=0   
+

@@ -15,5 +15,5 @@ fi
 if [[ -d /var/lib/ceph ]]; then
     [[ -z $(find /var/lib/ceph -mindepth 1 -maxdepth 1 -type d -name '*-*-*-*-*' -print) ]] || exit 1
 fi
-"$adm" --image "$image" bootstrap --fsid "$fsid" --mon-ip "$mon_ip" --skip-dashboard --skip-monitoring-stack --skip-firewalld --log-to-file
+"$adm" --image "$image" bootstrap --fsid "$fsid" --mon-ip "$mon_ip" --allow-fqdn-hostname --skip-dashboard --skip-monitoring-stack --skip-firewalld --log-to-file
 "$adm" --image "$image" shell --fsid "$fsid" -- ceph fsid | grep -Fx "$fsid"

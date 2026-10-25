@@ -17,3 +17,10 @@ $TTL 300
 {% endfor %}
 ; END CNPL GATEWAY A RECORDS
 {% endif %}
+{% if dns_storage_records | default([]) | length > 0 %}
+; BEGIN CNPL STORAGE A RECORDS
+{% for record in dns_storage_records | sort(attribute='fqdn') %}
+{{ record.fqdn | regex_replace('\\.' ~ (dns_zone | regex_escape) ~ '$', '') }}	30 IN A	{{ record.ip }}
+{% endfor %}
+; END CNPL STORAGE A RECORDS
+{% endif %}

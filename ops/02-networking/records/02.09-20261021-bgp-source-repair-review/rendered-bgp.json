@@ -1,0 +1,180 @@
+[
+  {
+    "apiVersion": "cilium.io/v2",
+    "kind": "CiliumBGPPeerConfig",
+    "metadata": {
+      "name": "cnpl-dp-offline-review",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "timers": {
+        "connectRetryTimeSeconds": 1,
+        "holdTimeSeconds": 9,
+        "keepAliveTimeSeconds": 3
+      },
+      "gracefulRestart": {
+        "enabled": false
+      },
+      "families": [
+        {
+          "afi": "ipv4",
+          "safi": "unicast",
+          "advertisements": {
+            "matchLabels": {
+              "advertise": "cnpl-dp-offline-review"
+            }
+          }
+        }
+      ],
+      "ebgpMultihop": 4
+    }
+  },
+  {
+    "apiVersion": "cilium.io/v2",
+    "kind": "CiliumBGPAdvertisement",
+    "metadata": {
+      "name": "cnpl-dp-offline-review",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review",
+        "advertise": "cnpl-dp-offline-review"
+      }
+    },
+    "spec": {
+      "advertisements": [
+        {
+          "advertisementType": "PodCIDR"
+        },
+        {
+          "advertisementType": "Service",
+          "service": {
+            "addresses": [
+              "LoadBalancerIP"
+            ]
+          },
+          "selector": {
+            "matchLabels": {
+              "cnpl.io/phase-run": "offline-source-review",
+              "cnpl.io/lb": "bgp"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "cilium.io/v2",
+    "kind": "CiliumBGPNodeConfigOverride",
+    "metadata": {
+      "name": "worker01.k8s.internal.egon.top",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "bgpInstances": [
+        {
+          "name": "comparison",
+          "peers": [
+            {
+              "name": "frr",
+              "localAddress": "192.168.9.109"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "cilium.io/v2",
+    "kind": "CiliumBGPNodeConfigOverride",
+    "metadata": {
+      "name": "worker02.k8s.internal.egon.top",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "bgpInstances": [
+        {
+          "name": "comparison",
+          "peers": [
+            {
+              "name": "frr",
+              "localAddress": "192.168.9.110"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "cilium.io/v2",
+    "kind": "CiliumBGPClusterConfig",
+    "metadata": {
+      "name": "cnpl-dp-offline-review",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "nodeSelector": {
+        "matchExpressions": [
+          {
+            "key": "kubernetes.io/hostname",
+            "operator": "In",
+            "values": [
+              "worker01.k8s.internal.egon.top",
+              "worker02.k8s.internal.egon.top"
+            ]
+          }
+        ]
+      },
+      "bgpInstances": [
+        {
+          "name": "comparison",
+          "localASN": 65010,
+          "peers": [
+            {
+              "name": "frr",
+              "peerASN": 65009,
+              "peerAddress": "10.244.8.194",
+              "peerConfigRef": {
+                "name": "cnpl-dp-offline-review"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "name": "bgp",
+      "namespace": "lab-dataplane-vm",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review",
+        "cnpl.io/lb": "bgp"
+      }
+    },
+    "spec": {
+      "type": "LoadBalancer",
+      "loadBalancerClass": "io.cilium/bgp-control-plane",
+      "externalTrafficPolicy": "Cluster",
+      "selector": {
+        "app": "api",
+        "cnpl.io/phase-run": "offline-source-review"
+      },
+      "ports": [
+        {
+          "name": "http",
+          "port": 8080,
+          "targetPort": 8080
+        }
+      ]
+    }
+  }
+]

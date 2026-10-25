@@ -108,10 +108,10 @@ node_security_policy:
   firewall_rules: role_and_source_scoped
 storage:
   original_virtual_disk_target_tb_per_node: 1
-  verified_osd_raw_capacity_gib: null
+  verified_osd_raw_capacity_gib: 3072  # 2026-10-23 三台 VM 各 1 TiB 空白盘；Datastore 余量未验证
   estimated_ceph_usable_capacity_gib: null
   independent_backup_capacity_gib: null
-  osd_initialization_allowed: false
+  osd_initialization_allowed: true  # 2026-10-23 用户授权三块新盘；本轮仅按 VM/host 故障域执行
 node_reservations:
   # 01 起步预算，启动后以 Allocatable 和实际负载复核；storage 的 systemReserved 已包含下面的 Ceph 份额。
   system_reserved:

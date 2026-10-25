@@ -9,6 +9,7 @@ RECOVERY_FUNCTION=''
 PRIVATE_TEMP_ROOT=''
 P03_LOGGER_PID=''
 P03_BACKGROUND_PID=''
+DATA_DOMAIN_LABEL=cnpl.io/esxi
 P03=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 REPO=$(cd "$P03/../.." && pwd)
 INPUTS=${CNPL03_INPUTS:-$P03/inputs.json}
@@ -33,8 +34,9 @@ hex_secret() {
     ruby -e 'abort "口令须为单行 32-128 位十六进制" unless File.read(ARGV[0]).match?(/\A[a-f0-9]{32,128}\n?\z/)' "$1"
 }
 host_value() {
-    ruby -ryaml -e 'h=YAML.load_file(ARGV[0]); n=(h.fetch("kubernetes_nodes")+h.fetch("lab_clients",[])).find{|v|v["id"]==ARGV[1]}; abort "未登记主机" unless n; v=n[ARGV[2]]; abort "台账字段未知" if v.nil?; puts v' "$REPO/ops/inventory/hosts.yaml" "$1" "$2"
+    ruby -ryaml -e 'h=YAML.load_file(ARGV[0]); n=(h.fetch("kubernetes_nodes")+h.fetch("lab_clients",[])+h.fetch("bootstrap_services",[])).find{|v|v["id"]==ARGV[1]}; abort "未登记主机" unless n; v=n[ARGV[2]]; abort "台账字段未知" if v.nil?; puts v' "$REPO/ops/inventory/hosts.yaml" "$1" "$2"
 }
+ceph_host() { host_value "$1" fqdn; }
 run_id() {
     RUN=$(required .run_id)
     [[ $RUN =~ ^[a-z][a-z0-9-]{2,19}$ ]] || die 'run_id 需为 3–20 位小写字母、数字或横线，首位字母'
@@ -44,6 +46,11 @@ run_id() {
     SC_FS=cnpl03-$RUN-cephfs
     ROOK_NS=cnpl03-rook
     EXTERNAL_NS=cnpl03-external
+    case "$(get '.ceph.failure_domain // "rack"')" in
+        rack) CRUSH_RULE=cnpl03-physical; DATA_DOMAIN_LABEL=cnpl.io/esxi ;;
+        host) CRUSH_RULE=cnpl03-host; DATA_DOMAIN_LABEL=kubernetes.io/hostname ;;
+        *) die 'Ceph 故障域只支持 rack 或 host' ;;
+    esac
 }
 start() {
     STAGE=$1 ACTION=$2
@@ -55,9 +62,20 @@ start() {
     mkdir -p "$P03/$STAGE/records/$RUN"
     mv "$ATTEMPT" "$P03/$STAGE/records/$RUN/"
     ATTEMPT="$P03/$STAGE/records/$RUN/$(basename "$ATTEMPT")"
+    # 每次动作固定配置元数据，避免后续阶段补输入时改变正在运行动作的参数。
+    local inputs_source=$INPUTS
+    cp "$INPUTS" "$ATTEMPT/resolved-inputs.json"
+    cp "$MATERIALS" "$ATTEMPT/resolved-materials.json"
+    cp "$DEVICES" "$ATTEMPT/resolved-devices.json"
+    INPUTS=$ATTEMPT/resolved-inputs.json
+    MATERIALS=$ATTEMPT/resolved-materials.json
+    DEVICES=$ATTEMPT/resolved-devices.json
+    export CNPL03_INPUTS=$INPUTS CNPL03_MATERIALS=$MATERIALS CNPL03_DEVICES=$DEVICES
     export P03 REPO INPUTS DEVICES MATERIALS ATTEMPT RUN STAGE ACTION
-    jq -n --arg stage "$STAGE" --arg action "$ACTION" --arg run "$RUN" --arg sha "$(sha "$INPUTS")" --arg time "$(date -u +%FT%TZ)" '{stage:$stage,action:$action,run:$run,inputs_sha256:$sha,started_at:$time,validation_scope:"runtime_invocation"}' > "$ATTEMPT/context.json"
+    jq -n --arg stage "$STAGE" --arg action "$ACTION" --arg run "$RUN" --arg source "$inputs_source" --arg sha "$(sha "$INPUTS")" --arg time "$(date -u +%FT%TZ)" '{stage:$stage,action:$action,run:$run,inputs_source:$source,inputs_sha256:$sha,started_at:$time,validation_scope:"runtime_invocation"}' > "$ATTEMPT/context.json"
     trap finish EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     exec 3>&1 4>&2
     mkfifo "$ATTEMPT/.output.pipe"
     tee "$ATTEMPT/output.txt" < "$ATTEMPT/.output.pipe" &
@@ -77,7 +95,14 @@ finish() {
     fi
     if [[ -n ${CLEANUP_DIRECTORY:-} ]]; then rm -rf -- "$CLEANUP_DIRECTORY" || rc=1; fi
     if [[ -n ${PRIVATE_TEMP_ROOT:-} ]]; then rm -rf -- "$PRIVATE_TEMP_ROOT" || rc=1; fi
-    if [[ -n $P03_LOGGER_PID ]]; then exec 1>&3 2>&4 3>&- 4>&-; wait "$P03_LOGGER_PID" || rc=1; fi
+    if [[ -n $P03_LOGGER_PID ]]; then
+        exec 1>&3 2>&4 3>&- 4>&-
+        # EXIT 可能发生在函数的临时重定向内；Bash 保存的高位 FD 会让 FIFO 永不结束。
+        # 恢复/清理已结束且即将 exit，关闭这些副本，保留 Bash 的脚本读取 FD 255。
+        local saved_fd
+        for ((saved_fd=10; saved_fd<255; saved_fd++)); do eval "exec $saved_fd>&-"; done
+        wait "$P03_LOGGER_PID" || rc=1
+    fi
     jq -n --argjson rc "$rc" --arg action "$ACTION" --arg time "$(date -u +%FT%TZ)" '{exit_code:$rc,action:$action,finished_at:$time,phase_acceptance:false}' > "$ATTEMPT/result.json"
     printf '证据：%s（exit=%s）\n' "$ATTEMPT" "$rc"
     exit "$rc"
@@ -99,14 +124,15 @@ image() {
     printf '%s\n' "$value"
 }
 backup_gate() {
-    [[ $(required .backup.independent) == true ]] || die '独立备份未确认；现有 esxi01 上的 backup VM 不满足本门槛'
+    [[ $(required .backup.independent) == true ]] || die '独立于本套 Ceph 的备份及读回证据未确认'
     verify_file "$(required .backup.evidence_file)" "$(required .backup.evidence_sha256)"
 }
 remote() {
     local host=$1 script=$2 ip command arg quoted
     shift 2
     ip=$(host_value "$host" ip)
-    command='bash -s --'
+    # 先完整读取脚本，再执行；cephadm/Podman 的 stdin 不能消费尚未读取的脚本行。
+    command='bash -c "$(cat)" --'
     for arg in "$@"; do printf -v quoted ' %q' "$arg"; command+=$quoted; done
     ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
         -i "${CNPL03_SSH_IDENTITY:-$HOME/.ssh/cnpl_lab_ed25519}" "root@$ip" "$command" < "$script"
@@ -140,7 +166,7 @@ cluster_gate() {
     cluster_identity_gate
     local nodes expected
     nodes=$(k get nodes -o json)
-    expected=$(ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load_file(ARGV[0]).fetch("kubernetes_nodes").map{|n|[n["id"],n["ip"]]}.sort)' "$REPO/ops/inventory/hosts.yaml")
+    expected=$(ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load_file(ARGV[0]).fetch("kubernetes_nodes").map{|n|[n.fetch("fqdn"),n.fetch("ip")]}.sort)' "$REPO/ops/inventory/hosts.yaml")
     jq -en --argjson live "$nodes" --argjson expected "$expected" '([$live.items[] | [.metadata.name, ([.status.addresses[]|select(.type=="InternalIP")|.address][0])]]|sort)==$expected and all($live.items[]; any(.status.conditions[]; .type=="Ready" and .status=="True"))' >/dev/null || die '十节点身份、地址或 Ready 状态不符'
 }
 namespace() {
@@ -159,7 +185,7 @@ apply() {
     private_temp
     rendered=$(mktemp "$PRIVATE_TEMP_ROOT/manifest.XXXXXX")
     if [[ $file == *.json ]]; then cat "$file"; else yaml_json "$file"; fi |
-        jq --arg ns "$ns" --arg run "$RUN" 'if .kind=="List" then {apiVersion:"v1",kind:"List",items:.items} else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","PersistentVolume","StorageClass","CSIDriver","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding","PriorityClass","MutatingWebhookConfiguration","ValidatingWebhookConfiguration","APIService")) then . else .metadata.namespace=$ns end)' > "$rendered"
+        jq --arg ns "$ns" --arg run "$RUN" --arg domain "$DATA_DOMAIN_LABEL" 'walk(if type=="object" and .topologyKey?=="cnpl.io/esxi" then .topologyKey=$domain else . end) | if .kind=="List" then {apiVersion:"v1",kind:"List",items:.items} else {apiVersion:"v1",kind:"List",items:[.]} end | .items |= map(.metadata.labels["cnpl.io/run"]=$run | .metadata.labels["cnpl.io/phase"]="03" | if (.kind|IN("Namespace","PersistentVolume","StorageClass","CSIDriver","VolumeSnapshotClass","CustomResourceDefinition","ClusterRole","ClusterRoleBinding","PriorityClass","MutatingWebhookConfiguration","ValidatingWebhookConfiguration","APIService")) then . else .metadata.namespace=$ns end)' > "$rendered"
     if ! ruby "$P03/lib/review.rb" images-json "$rendered"; then rm -f "$rendered"; return 1; fi
     while IFS=$'\t' read -r kind name scope; do
         if [[ $scope == '-' ]]; then existing=$(k get "$kind" "$name" --ignore-not-found -o json); else existing=$(k -n "$scope" get "$kind" "$name" --ignore-not-found -o json); fi
@@ -216,14 +242,22 @@ component_manifest() {
 }
 data_domains() {
     local host domain current domains
+    if [[ $DATA_DOMAIN_LABEL == kubernetes.io/hostname ]]; then
+        for host in storage01 storage02 storage03; do
+            current=$(host_value "$host" fqdn)
+            [[ $(k get node "$current" -o jsonpath='{.metadata.labels.kubernetes\.io/hostname}') == "$current" ]] || die 'VM 主机名标签与台账不符'
+            k label node "$current" cnpl.io/phase03-data=true --overwrite
+        done
+        return
+    fi
     domains=$(for host in storage01 storage02 storage03; do host_value "$host" actual_hypervisor; done)
     [[ $(sort -u <<< "$domains" | wc -l | tr -d ' ') == 3 ]] || die '必须先确认三独立物理域'
     for host in storage01 storage02 storage03; do
         domain=$(host_value "$host" actual_hypervisor)
         [[ $domain =~ ^esxi0[1-3]$ ]] || die '实际故障域未确认'
-        current=$(k get node "$host" -o jsonpath='{.metadata.labels.cnpl\.io/esxi}')
+        current=$(k get node "$(host_value "$host" fqdn)" -o jsonpath='{.metadata.labels.cnpl\.io/esxi}')
         [[ -z $current || $current == "$domain" ]] || die '已有物理域标签冲突'
-        k label node "$host" "cnpl.io/esxi=$domain" cnpl.io/phase03-data=true --overwrite
+        k label node "$(host_value "$host" fqdn)" "cnpl.io/esxi=$domain" cnpl.io/phase03-data=true --overwrite
     done
 }
 secret_from_files() {

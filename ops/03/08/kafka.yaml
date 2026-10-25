@@ -1,4 +1,4 @@
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
   name: brokers
@@ -13,14 +13,17 @@ spec:
   template:
     pod:
       affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: cnpl.io/phase03-data, operator: In, values: ['true']}]
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - topologyKey: cnpl.io/esxi
               labelSelector: {matchLabels: {strimzi.io/pool-name: brokers}}
-      nodeSelector: {cnpl.io/phase03-data: 'true'}
       tolerations: [{operator: Exists, effect: NoSchedule}]
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: Kafka
 metadata:
   name: kafka
@@ -41,7 +44,7 @@ spec:
     rack: {topologyKey: cnpl.io/esxi}
   entityOperator: {topicOperator: {}, userOperator: {}}
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaUser
 metadata:
   name: cnpl03-client

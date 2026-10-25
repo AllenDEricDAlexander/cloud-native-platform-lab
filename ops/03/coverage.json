@@ -1,20 +1,22 @@
 {
   "schema_version": 1,
-  "scope": "offline_script_delivery",
+  "scope": "vm_mainline_execution_and_script_delivery",
   "runtime_accepted": false,
   "steps": [
     {
       "id": "03.01.01",
       "title": "复核 OSD 设备与物理故障域",
       "stage": "01",
-      "actions": "inspect budget",
+      "actions": "all inspect budget",
       "files": [
         "01/run.sh",
+        "01/disk-inventory.sh",
         "01/README.md"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.01.02",
@@ -27,7 +29,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.01.03",
@@ -40,20 +43,27 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.01.04",
       "title": "保护宿主机和 Ceph 资源",
       "stage": "01",
-      "actions": "inspect budget",
+      "actions": "all inspect budget",
       "files": [
         "01/run.sh",
+        "01/disk-inventory.sh",
         "01/README.md"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "vm_resource_budget_and_csi_memory_correction_verified",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json",
+      "runtime_additional_evidence": [
+        "ops/03/04/records/ceph03a/records-ceph03a-c64fBS/result.json",
+        "ops/03/09/records/ceph03a/records-ceph03a-51QVb9/csi-budget-stability.json"
+      ]
     },
     {
       "id": "03.02.01",
@@ -66,7 +76,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.02.02",
@@ -79,7 +90,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.02.03",
@@ -92,7 +104,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.02.04",
@@ -105,7 +118,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_vm_scope",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.02.05",
@@ -118,7 +132,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "host_crush_and_replicated_business_pools_verified",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json",
+      "runtime_additional_evidence": [
+        "ops/03/03/records/ceph03a/records-ceph03a-gYZfPM/result.json"
+      ]
     },
     {
       "id": "03.02.06",
@@ -127,11 +145,14 @@
       "actions": "backup",
       "files": [
         "02/run.sh",
+        "02/backup-host.sh",
+        "02/backup-mac.sh",
         "02/README.md"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "management_backup_readback_passed",
+      "runtime_evidence": "ops/03/02/records/ceph03a/acceptance-20261023T074608Z-7ufobl6q/acceptance.json"
     },
     {
       "id": "03.03.01",
@@ -144,7 +165,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_vm_scope",
+      "runtime_evidence": "ops/03/03/records/ceph03a/records-ceph03a-577EaK/result.json"
     },
     {
       "id": "03.03.02",
@@ -157,7 +179,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_vm_scope",
+      "runtime_evidence": "ops/03/03/records/ceph03a/records-ceph03a-XHKNQa/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/03/records/ceph03a/records-ceph03a-LiQTrR/result.json"
+      ]
     },
     {
       "id": "03.03.03",
@@ -166,11 +192,16 @@
       "actions": "rgw s3-test",
       "files": [
         "03/run.sh",
-        "03/README.md"
+        "03/README.md",
+        "03/certificate.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_vm_scope",
+      "runtime_evidence": "ops/03/03/records/ceph03a/records-ceph03a-5Vs8Ep/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/03/records/ceph03a/records-ceph03a-kNANyg/result.json"
+      ]
     },
     {
       "id": "03.03.04",
@@ -179,11 +210,17 @@
       "actions": "independent-copy",
       "files": [
         "03/run.sh",
-        "03/README.md"
+        "03/README.md",
+        "03/s3-backup-mac.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "mac_encrypted_copy_and_independent_vm_s3_readback_passed_physical_domain_unverified",
+      "runtime_evidence": "ops/03/03/records/ceph03a/records-ceph03a-kNANyg/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/07/records/ceph03a/records-ceph03a-RGOKaT/result.json",
+        "ops/03/09/records/ceph03a/records-ceph03a-XQW7In/result.json"
+      ]
     },
     {
       "id": "03.04.01",
@@ -192,11 +229,14 @@
       "actions": "export connect",
       "files": [
         "04/run.sh",
-        "04/README.md"
+        "04/README.md",
+        "04/external-rbac.yaml",
+        "04/import-connection.rb"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_restricted_external_connection",
+      "runtime_evidence": "ops/03/04/records/ceph03a/records-ceph03a-gUPHko/result.json"
     },
     {
       "id": "03.04.02",
@@ -209,7 +249,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_external_csi_userspace_lab_scope",
+      "runtime_evidence": "ops/03/04/records/ceph03a/records-ceph03a-voRi63/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/04/records/ceph03a/records-ceph03a-c64fBS/result.json"
+      ]
     },
     {
       "id": "03.04.03",
@@ -222,7 +266,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_ten_nodes_mon_ports_and_twenty_mount_probes",
+      "runtime_evidence": "ops/03/04/records/ceph03a/records-ceph03a-BJkbI4/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/04/records/ceph03a/records-ceph03a-nYIVDf/result.json"
+      ]
     },
     {
       "id": "03.04.04",
@@ -235,7 +283,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_default_retain_expandable_classes",
+      "runtime_evidence": "ops/03/04/records/ceph03a/records-ceph03a-2tj45v/result.json"
     },
     {
       "id": "03.04.05",
@@ -248,7 +297,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_access_modes",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-78p8v0/result.json"
     },
     {
       "id": "03.05.01",
@@ -261,7 +311,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_static_dynamic_and_mismatch_negative",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-IstNL0/result.json"
     },
     {
       "id": "03.05.02",
@@ -274,7 +325,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_expansion",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-DkTOjW/result.json"
     },
     {
       "id": "03.05.03",
@@ -287,7 +339,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_snapshot_restore_hash",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-DtREPM/result.json"
     },
     {
       "id": "03.05.04",
@@ -296,11 +349,17 @@
       "actions": "clone reclaim snapshot-policy",
       "files": [
         "05/run.sh",
-        "05/README.md"
+        "05/README.md",
+        "05/backend-host.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_clone_and_delete_retain_api_backend",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-bAtpYk/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/05/records/ceph03a/records-ceph03a-pXbGoa/result.json",
+        "ops/03/05/records/ceph03a/records-ceph03a-t1Tlx3/result.json"
+      ]
     },
     {
       "id": "03.05.05",
@@ -309,11 +368,13 @@
       "actions": "recreate migrate",
       "files": [
         "05/run.sh",
-        "05/README.md"
+        "05/README.md",
+        "05/backup-mac.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_normal_migration_and_remount",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-K1Yr04/result.json"
     },
     {
       "id": "03.05.06",
@@ -326,7 +387,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_stateful_ordinal_retention",
+      "runtime_evidence": "ops/03/05/records/ceph03a/records-ceph03a-uspSjp/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/05/records/ceph03a/records-ceph03a-8px7jC/result.json"
+      ]
     },
     {
       "id": "03.06.01",
@@ -335,11 +400,23 @@
       "actions": "osd-stop osd-out vm-observe recover",
       "files": [
         "06/run.sh",
-        "06/README.md"
+        "06/README.md",
+        "06/vm-reboot.sh",
+        "06/reboot-check.sh",
+        "06/stale-nbd.sh",
+        "06/stale-nbd-host.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "partial_osd_passed_vm_reboot_deadline_failed_later_data_recovery_verified",
+      "runtime_evidence": "ops/03/06/records/ceph03a/records-ceph03a-1wxRN6/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/06/records/ceph03a/records-ceph03a-8sFAsK/result.json",
+        "ops/03/06/records/ceph03a/records-ceph03a-RoNwCm/result.json",
+        "ops/03/06/records/ceph03a/records-ceph03a-nRoxlK/result.json",
+        "ops/03/06/records/ceph03a/records-ceph03a-NVdbjv/result.json",
+        "ops/03/06/records/ceph03a/records-ceph03a-h90hpk/result.json"
+      ]
     },
     {
       "id": "03.06.02",
@@ -352,7 +429,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "plan_recorded_formal_drain_and_maintenance_not_run",
+      "runtime_evidence": "ops/03/06/records/ceph03a/records-ceph03a-uuziMW/result.json"
     },
     {
       "id": "03.06.03",
@@ -365,7 +443,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "bounded_pool_quota_passed_real_watermarks_and_throttling_not_tested",
+      "runtime_evidence": "ops/03/06/records/ceph03a/records-ceph03a-HjlCnN/result.json"
     },
     {
       "id": "03.06.04",
@@ -378,7 +457,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "cancelled_by_user",
+      "runtime_evidence": "ops/03/EXECUTION-ceph03a.md"
     },
     {
       "id": "03.06.05",
@@ -391,7 +471,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "cancelled_by_user",
+      "runtime_evidence": "ops/03/EXECUTION-ceph03a.md"
     },
     {
       "id": "03.06.06",
@@ -404,7 +485,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "cancelled_by_user_not_deployed_no_cleanup_needed",
+      "runtime_evidence": "ops/03/EXECUTION-ceph03a.md"
     },
     {
       "id": "03.07.01",
@@ -417,7 +499,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_baseline_1000_transactions_hash_restart",
+      "runtime_evidence": "ops/03/07/records/ceph03a/records-ceph03a-3lkWkq/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/07/records/ceph03a/records-ceph03a-z5eVtM/result.json"
+      ]
     },
     {
       "id": "03.07.02",
@@ -430,7 +516,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_vm_sync_replication",
+      "runtime_evidence": "ops/03/07/records/ceph03a/records-ceph03a-8DGeKx/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/07/records/ceph03a/records-ceph03a-bIZvnz/result.json"
+      ]
     },
     {
       "id": "03.07.03",
@@ -439,11 +529,21 @@
       "actions": "archiving backup pitr-before pitr-after pitr dump restore-dump",
       "files": [
         "07/run.sh",
-        "07/README.md"
+        "07/README.md",
+        "07/backup-s3.sh",
+        "07/backup-s3-playbook.yml",
+        "lib/certificate-approval.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_backup_closed_wal_pitr_and_logical_restore",
+      "runtime_evidence": "ops/03/07/records/ceph03a/records-ceph03a-d35b5J/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/07/records/ceph03a/records-ceph03a-bMt73V/result.json",
+        "ops/03/07/records/ceph03a/records-ceph03a-uw5kiq/result.json",
+        "ops/03/07/records/ceph03a/records-ceph03a-rd6W90/result.json",
+        "ops/03/07/records/ceph03a/records-ceph03a-5Jrwo7/result.json"
+      ]
     },
     {
       "id": "03.07.04",
@@ -452,11 +552,19 @@
       "actions": "failover minor-upgrade major-migrate",
       "files": [
         "07/run.sh",
-        "07/README.md"
+        "07/README.md",
+        "07/network-delay.sh",
+        "07/network-delay-host.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "pod_failover_minor_upgrade_major_migration_passed_vm_deadline_failed",
+      "runtime_evidence": "ops/03/07/records/ceph03a/records-ceph03a-QWClaS/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/07/records/ceph03a/records-ceph03a-ijVoVn/result.json",
+        "ops/03/07/records/ceph03a/records-ceph03a-xUwf6y/result.json",
+        "ops/03/06/records/ceph03a/records-ceph03a-h90hpk/result.json"
+      ]
     },
     {
       "id": "03.07.05",
@@ -465,11 +573,17 @@
       "actions": "mysql mysql-test",
       "files": [
         "07/run.sh",
-        "07/README.md"
+        "07/README.md",
+        "07/mysql-tls.yaml",
+        "07/mysql-probe.sh"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_mysql_instances_router_tls_1000_transactions",
+      "runtime_evidence": "ops/03/07/records/ceph03a/records-ceph03a-3niQio/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/07/records/ceph03a/records-ceph03a-TpoHHb/result.json"
+      ]
     },
     {
       "id": "03.08.01",
@@ -478,11 +592,18 @@
       "actions": "credentials redis redis-test redis-restart redis-eviction",
       "files": [
         "08/run.sh",
-        "08/README.md"
+        "08/README.md",
+        "08/tls.yaml"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_persistence_ttl_restart_and_bounded_eviction",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-CYi8QD/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/08/records/ceph03a/records-ceph03a-elX8pd/result.json",
+        "ops/03/08/records/ceph03a/records-ceph03a-mRZCdU/result.json",
+        "ops/03/08/records/ceph03a/records-ceph03a-vm8hE6/result.json"
+      ]
     },
     {
       "id": "03.08.02",
@@ -495,7 +616,13 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_sentinel_cluster_valkey_and_coordinated_failback",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-49AZcV/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/08/records/ceph03a/records-ceph03a-U1AqWU/result.json",
+        "ops/03/08/records/ceph03a/records-ceph03a-EDGUBL/result.json",
+        "ops/03/08/records/ceph03a/records-ceph03a-MrKFVd/result.json"
+      ]
     },
     {
       "id": "03.08.03",
@@ -508,7 +635,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_three_broker_kraft_mtls_acl",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-OpjzGl/result.json"
     },
     {
       "id": "03.08.04",
@@ -521,7 +649,12 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_unique_ids_broker_recovery_and_lag",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-ZQqO3o/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/08/records/ceph03a/records-ceph03a-LO16wq/result.json",
+        "ops/03/06/records/ceph03a/records-ceph03a-h90hpk/result.json"
+      ]
     },
     {
       "id": "03.08.05",
@@ -530,11 +663,17 @@
       "actions": "rabbitmq rabbitmq-test rabbitmq-confirm",
       "files": [
         "08/run.sh",
-        "08/README.md"
+        "08/README.md",
+        "08/rabbit-confirm.sh",
+        "08/AmqpConfirmProbe.java"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_quorum_tls_and_amqp_confirm",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-kKRfyR/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/08/records/ceph03a/records-ceph03a-h2XEkg/result.json"
+      ]
     },
     {
       "id": "03.08.06",
@@ -547,7 +686,11 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_redelivery_dlq_backlog_and_one_broker_recovery",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-kKRfyR/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/08/records/ceph03a/records-ceph03a-UphHHu/result.json"
+      ]
     },
     {
       "id": "03.08.07",
@@ -560,7 +703,12 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_core_jetstream_nkey_and_leader_recovery",
+      "runtime_evidence": "ops/03/08/records/ceph03a/records-ceph03a-vN5Xnq/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/08/records/ceph03a/records-ceph03a-IFBiG8/result.json",
+        "ops/03/08/records/ceph03a/records-ceph03a-CT7t0m/result.json"
+      ]
     },
     {
       "id": "03.09.01",
@@ -573,7 +721,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_v1alpha1_api_schema",
+      "runtime_evidence": "ops/03/09/records/ceph03a/records-ceph03a-DAzXFD/result.json"
     },
     {
       "id": "03.09.02",
@@ -582,11 +731,17 @@
       "actions": "test exercise delete",
       "files": [
         "09/run.sh",
-        "09/README.md"
+        "09/README.md",
+        "09/demo/main.go",
+        "09/Containerfile.demo"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": false,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_reconcile_http_idempotence_and_finalizer",
+      "runtime_evidence": "ops/03/09/records/ceph03a/records-ceph03a-DAzXFD/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/09/records/ceph03a/records-ceph03a-kr5P4I/result.json"
+      ]
     },
     {
       "id": "03.09.03",
@@ -599,7 +754,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "passed_v1alpha1_rbac_negative_version_conversion_not_tested",
+      "runtime_evidence": "ops/03/09/records/ceph03a/records-ceph03a-DAzXFD/result.json"
     },
     {
       "id": "03.09.04",
@@ -613,7 +769,8 @@
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "runbook_delivered_full_platform_shutdown_not_tested",
+      "runtime_evidence": "ops/03/EXECUTION-ceph03a.md"
     },
     {
       "id": "03.09.05",
@@ -622,11 +779,45 @@
       "actions": "handoff",
       "files": [
         "09/run.sh",
-        "09/README.md"
+        "09/README.md",
+        "09/backup-mac.sh",
+        "EXECUTION-ceph03a.md"
       ],
       "delivery": "script_and_runbook",
       "manual_gate": true,
-      "runtime_status": "not_run"
+      "runtime_status": "mainline_handoff_with_recorded_limits",
+      "runtime_evidence": "ops/03/09/records/ceph03a/records-ceph03a-6NS4hU/result.json",
+      "runtime_additional_evidence": [
+        "ops/03/09/records/ceph03a/records-ceph03a-XQW7In/result.json",
+        "ops/03/09/records/ceph03a/records-ceph03a-51QVb9/result.json"
+      ]
     }
+  ],
+  "run_id": "ceph03a",
+  "mainline_handoff_ready": true,
+  "runtime_report": "ops/03/EXECUTION-ceph03a.md",
+  "runtime_summary": {
+    "01": "vm_scope_passed_physical_domains_unverified",
+    "02": "cephadm_host_domain_and_backup_passed",
+    "03": "services_and_restricted_clients_passed",
+    "04": "external_csi_userspace_lab_scope_passed",
+    "05": "volume_lifecycle_and_hashes_passed",
+    "06": "partial_vm_deadline_failed_later_recovery_verified_independent_rook_cancelled",
+    "07": "databases_backup_pitr_upgrades_passed",
+    "08": "cache_and_messaging_passed_eck_optional_not_run",
+    "09": "operator_and_mainline_handoff_with_limits"
+  },
+  "not_accepted": [
+    "original VM reboot recovery deadline",
+    "formal drain and maintenance",
+    "real nearfull/full and recovery throttling",
+    "physical failure domains and full platform restore",
+    "performance and production readiness",
+    "CRD version conversion"
+  ],
+  "cancelled_by_user": [
+    "03.06.04",
+    "03.06.05",
+    "03.06.06"
   ]
 }

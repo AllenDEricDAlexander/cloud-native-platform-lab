@@ -46,19 +46,24 @@ when "devices"
   ledger = YAML.load_file(File.join(root, "../inventory/hosts.yaml"))
   resources = YAML.load_file(File.join(root, "../inventory/resources.yaml"))
   list = JSON.parse(File.read(ARGV.fetch(0))).fetch("devices")
+  config = JSON.parse(File.read(ENV.fetch("CNPL03_INPUTS", File.join(root, "inputs.json"))))
+  domain = config.fetch("ceph").fetch("failure_domain", "rack")
+  reject("未知故障域") unless %w[rack host].include?(domain)
   reject("必须显式批准设备初始化") unless resources.dig("storage", "osd_initialization_allowed") == true
   reject("需要三台存储主机的独立设备") unless list.map { |d| d["host"] }.uniq.sort == %w[storage01 storage02 storage03]
   hosts = ledger.fetch("kubernetes_nodes").select { |h| h["role"] == "storage" }
   domains = hosts.map { |h| h["actual_hypervisor"] }
-  reject("三物理故障域未核实") unless domains.compact.uniq.size == 3
+  reject("三物理故障域未核实") if domain == "rack" && domains.compact.uniq.size != 3
   list.each do |d|
     host = hosts.find { |h| h["id"] == d["host"] }
     reject("设备主机不在台账") unless host
     reject("设备未批准") unless d["approved"] == true && d["contains_data"] == false
     reject("必须使用稳定的整盘 ID") unless d.fetch("stable_id").match?(%r{\A/dev/disk/by-id/[a-zA-Z0-9_.:+-]+\z}) && !d["stable_id"].match?(/-part\d+\z/)
     reject("设备必须与主台账相同") unless host.fetch("osd_device_ids").include?(d["stable_id"])
-    reject("盘位映射不完整") unless %w[datastore backing_disk raid evidence_file evidence_sha256].all? { |k| d[k].is_a?(String) && !d[k].empty? }
-    reject("物理域不符") unless d["hypervisor"] == host["actual_hypervisor"]
+    fields = %w[evidence_file evidence_sha256]
+    fields += %w[datastore backing_disk raid] if domain == "rack"
+    reject("盘位映射不完整") unless fields.all? { |k| d[k].is_a?(String) && !d[k].empty? }
+    reject("物理域不符") if domain == "rack" && d["hypervisor"] != host["actual_hypervisor"]
     reject("设备字节数无效") unless d["bytes"].is_a?(Integer) && d["bytes"] > 0
     reject("盘位证据缺失或 SHA 不符") unless File.file?(d["evidence_file"]) && Digest::SHA256.file(d["evidence_file"]).hexdigest == d["evidence_sha256"]
   end
@@ -66,7 +71,7 @@ when "devices"
   reject("设备重复") unless pairs.uniq.size == pairs.size
   raw = list.sum { |d| d["bytes"] }
   # 三域损失一个后不能恢复三份独立副本；只报告预算，不作容量承诺。
-  puts JSON.pretty_generate({raw_bytes: raw, theoretical_replica3_bytes: raw / 3, recommended_max_bytes: (raw / 3 * 0.65).floor, full_redundancy_after_domain_loss: false})
+  puts JSON.pretty_generate({failure_domain: domain, physical_failure_domains_verified: domain == "rack", raw_bytes: raw, theoretical_replica3_bytes: raw / 3, recommended_max_bytes: raw / 3 * 65 / 100, full_redundancy_after_domain_loss: false})
 when "source"
   files = Dir.glob(File.join(root, "**", "*")).select { |p| File.file?(p) && !p.include?("/records/") && !p.include?("/private/") && !p.include?("/bin/") }
   files.each do |path|
@@ -79,6 +84,8 @@ when "source"
   config = JSON.parse(File.read(ENV.fetch("CNPL03_INPUTS", File.join(root, "inputs.json"))))
   reject("输入 schema 不匹配") unless config["schema_version"] == 1
   reject("水位阈值无效") unless (1..75).cover?(config.dig("ceph", "max_used_percent"))
+  reject("未知故障域") unless %w[rack host].include?(config.fetch("ceph").fetch("failure_domain", "rack"))
+  reject("未知备份模式") unless %w[remote mac].include?(config.fetch("backup").fetch("mode", "remote"))
   fault = config.fetch("fault")
   reject("故障时限无效") unless (5..60).cover?(fault["duration_seconds"]) && fault["watchdog_seconds"] > fault["duration_seconds"] && fault["watchdog_seconds"] <= 180
   puts "PASS JSON/YAML 解析、重复键、离线配置契约；现场未验证"

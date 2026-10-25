@@ -1,0 +1,299 @@
+
+PLAY [单阶段源码、输入与工具链前检] ********************************************
+
+TASK [校验阶段、模式与受控证据目录] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [创建记录与公共进度目录] **************************************************
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/core-07-10/runs/07-delivery-final)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/core-07-10/runs/07-delivery-final/state)
+ok: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/records/core-07-10/completed)
+
+TASK [查询原上下文和完成断点] **************************************************
+ok: [localhost] => (item=context.json)
+ok: [localhost] => (item=passed.json)
+
+TASK [绑定是否已有执行上下文] **************************************************
+ok: [localhost]
+
+TASK [cleanup 只能处理已有批次] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [读取已有上下文] **********************************************************
+ok: [localhost]
+
+TASK [产生此次执行的独立身份] **************************************************
+ok: [localhost]
+
+TASK [产生执行随机后缀] ********************************************************
+ok: [localhost]
+
+TASK [绑定本批和此次 attempt] **************************************************
+ok: [localhost]
+
+TASK [创建此次独立证据目录] ****************************************************
+changed: [localhost] => (item=manifests)
+changed: [localhost] => (item=observations)
+changed: [localhost] => (item=snapshots)
+changed: [localhost] => (item=artifacts)
+
+TASK [绑定管理端私有材料目录] **************************************************
+ok: [localhost]
+
+TASK [创建私有材料目录，不进入仓库] ********************************************
+ok: [localhost]
+
+TASK [审计实际源码并复核原始执行记录] ******************************************
+ok: [localhost]
+
+TASK [绑定实际源码 SHA] ********************************************************
+ok: [localhost]
+
+TASK [绑定本轮版本锁原字节 SHA] ************************************************
+ok: [localhost]
+
+TASK [源码上下文同时覆盖版本锁] ************************************************
+ok: [localhost]
+
+TASK [同目录不得混用源码或其他阶段] ********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [已有 07 维护状态先恢复，再做健康前检] ************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/node-recover.yml for localhost
+
+TASK [查询本阶段是否有节点恢复待办] ********************************************
+ok: [localhost]
+
+TASK [仅恢复明确绑定的本批节点] ************************************************
+skipping: [localhost]
+
+TASK [独立回退 timer 已完成用途（当前标签已清除，旧 timer 再触发也不能接管）] ***
+skipping: [localhost]
+
+TASK [已恢复的节点索引保留到此次证据] ******************************************
+skipping: [localhost]
+
+TASK [清除已完成的恢复待办] ****************************************************
+skipping: [localhost]
+
+TASK [十节点、角色、安全策略和系统负载只读前检] ********************************
+ok: [localhost]
+
+TASK [绑定原集群] **************************************************************
+ok: [localhost]
+
+TASK [原集群不可改变] **********************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [成功断点必须有同一运行、阶段、集群和恢复结果] ****************************
+skipping: [localhost]
+
+TASK [核对 03–06 的真实完成回执] ***********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [本阶段运行前必须完成上一阶段] ********************************************
+skipping: [localhost]
+
+TASK [镜像及证书准备所需的既有工具前检] ****************************************
+skipping: [localhost]
+
+TASK [沿用已有镜像工具，不隐式升级] ********************************************
+skipping: [localhost]
+
+TASK [检查管理端证书工具] ******************************************************
+skipping: [localhost]
+
+TASK [记录当前上下文（新批次，不覆盖历史）] ************************************
+skipping: [localhost]
+
+TASK [查询本阶段命名空间] ******************************************************
+ok: [localhost]
+
+TASK [绑定空间是否存在] ********************************************************
+ok: [localhost]
+
+TASK [已存在的空间必须归属于原运行；正式重试需明确 resume] *********************
+skipping: [localhost]
+
+TASK [已通过阶段必须仍保持本批空间已清理] **************************************
+skipping: [localhost]
+
+TASK [核对锁定工具链归档 SHA] **************************************************
+skipping: [localhost]
+
+TASK [拒绝非锁定工具链] ********************************************************
+skipping: [localhost]
+
+TASK [有限应用单元测试] ********************************************************
+skipping: [localhost]
+
+TASK [编译静态 linux amd64 测试应用] *******************************************
+skipping: [localhost]
+
+TASK [用现有打包工具生成两个精确版本] ******************************************
+skipping: [localhost]
+
+TASK [绑定不可变镜像引用] ******************************************************
+skipping: [localhost]
+
+TASK [按当前阶段渲染并结构核验全部清单及策略变体] ******************************
+skipping: [localhost]
+
+TASK [本阶段源码和输入前检结果] ************************************************
+skipping: [localhost]
+
+PLAY [在两个 worker 准备本阶段精确镜像，不启动容器] ****************************
+
+TASK [为本阶段创建物料目录] ****************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+TASK [逐个导入两个已核验版本] **************************************************
+skipping: [worker01]
+skipping: [worker02]
+
+PLAY [独立执行、取证、恢复和清理当前专题] **************************************
+
+TASK [已验收阶段保持原断点] ****************************************************
+skipping: [localhost]
+
+TASK [已通过阶段也可修复中断的进度指针发布，不重跑实验] ************************
+skipping: [localhost]
+
+TASK [先撤销上次中断遗留的外部临时凭据] ****************************************
+skipping: [localhost]
+
+TASK [原空间已经消失时也处理遗留的私有镜像别名] ********************************
+skipping: [localhost]
+
+TASK [重试前取证并回收本批未完成空间] ******************************************
+skipping: [localhost]
+
+TASK [创建受限空间及实验运维授权] **********************************************
+skipping: [localhost]
+
+TASK [读取 Namespace 实际 UID] *************************************************
+skipping: [localhost]
+
+TASK [绑定空间 UID，后续恢复和清理拒绝同名重建] ********************************
+skipping: [localhost]
+
+TASK [执行当前专题的显式步骤] **************************************************
+skipping: [localhost]
+
+TASK [保存最终实验现场] ********************************************************
+skipping: [localhost]
+
+TASK [回收本次测试对象与临时授权] **********************************************
+skipping: [localhost]
+
+TASK [全局健康复核] ************************************************************
+skipping: [localhost]
+
+TASK [清理之后指标服务仍须正常] ************************************************
+skipping: [localhost]
+
+TASK [回收本批已经失效的私有测试凭据文件] **************************************
+skipping: [localhost]
+
+TASK [保存实际清理后的 Phase 02 交接索引] **************************************
+skipping: [localhost]
+
+TASK [写入本阶段真实成功回执] **************************************************
+skipping: [localhost]
+
+TASK [发布本阶段完成指针，供下一阶段核验] **************************************
+skipping: [localhost]
+
+TASK [本阶段验收与清理结果] ****************************************************
+skipping: [localhost]
+
+TASK [显式清理已有本批空间] ****************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/tasks/core/cleanup.yml for localhost
+
+TASK [先恢复本次节点试验标签与污点] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/node-recover.yml for localhost
+
+TASK [查询本阶段是否有节点恢复待办] ********************************************
+ok: [localhost]
+
+TASK [仅恢复明确绑定的本批节点] ************************************************
+skipping: [localhost]
+
+TASK [独立回退 timer 已完成用途（当前标签已清除，旧 timer 再触发也不能接管）] ***
+skipping: [localhost]
+
+TASK [已恢复的节点索引保留到此次证据] ******************************************
+skipping: [localhost]
+
+TASK [清除已完成的恢复待办] ****************************************************
+skipping: [localhost]
+
+TASK [检查空间 UID、全部对象归属与 finalizer] **********************************
+ok: [localhost]
+
+TASK [绑定清理清单] ************************************************************
+ok: [localhost]
+
+TASK [删除前保全现场] **********************************************************
+skipping: [localhost]
+
+TASK [Finalizer 模拟外部资源先按本批归属回收] **********************************
+skipping: [localhost]
+
+TASK [删除本批 Namespace，先禁止控制器再创建内容] ******************************
+skipping: [localhost]
+
+TASK [仅解除本实验 finalizer，保留 Kubernetes 自己的标记] **********************
+skipping: [localhost]
+
+TASK [等待整个空间实际消失] ****************************************************
+skipping: [localhost]
+
+TASK [更新当前空间存在状态] ****************************************************
+skipping: [localhost]
+
+TASK [回收仅属于本次的临时集群授权] ********************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/01-kubernetes/ansible/playbooks/../tasks/core/cluster-cleanup.yml for localhost
+
+TASK [查询本批是否存在临时集群级授权索引] **************************************
+ok: [localhost]
+
+TASK [按精确 UID 回收临时授权] *************************************************
+skipping: [localhost]
+
+TASK [已处理的授权索引归档到此次证据] ******************************************
+skipping: [localhost]
+
+TASK [清除已完成的临时授权待办] ************************************************
+skipping: [localhost]
+
+TASK [回收本次 Harbor 凭据与实验项目] ******************************************
+skipping: [localhost]
+
+TASK [只清理本次私有镜像别名] **************************************************
+skipping: [localhost]
+
+TASK [显式放弃 10 时一并删除本批失效的私有测试材料] ****************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=32   changed=1    unreachable=0    failed=0    skipped=54   rescued=0    ignored=0   
+worker01                   : ok=0    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+worker02                   : ok=0    changed=0    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+

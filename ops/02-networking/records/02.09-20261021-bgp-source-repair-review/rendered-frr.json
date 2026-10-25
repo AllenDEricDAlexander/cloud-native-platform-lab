@@ -1,0 +1,92 @@
+[
+  {
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+      "name": "frr",
+      "namespace": "lab-dataplane-vm-admin",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "data": {
+      "frr.conf": "frr defaults traditional\nhostname cnpl-vm-frr\nip nht resolve-via-default\nip prefix-list LAB seq 10 permit 10.244.8.0/24\nip prefix-list LAB seq 20 permit 10.244.9.0/24\nip prefix-list LAB seq 30 permit 192.168.9.211/32\nip prefix-list LAB seq 40 permit 192.168.9.212/32\nip prefix-list LAB seq 50 permit 192.168.9.213/32\nip prefix-list LAB seq 60 permit 192.168.9.214/32\nroute-map ONLY-LAB permit 10\n match ip address prefix-list LAB\nrouter bgp 65009\n bgp router-id 10.255.255.9\n no bgp ebgp-requires-policy\n no bgp default ipv4-unicast\n neighbor 192.168.9.109 remote-as 65010\n neighbor 192.168.9.109 ebgp-multihop 4\n neighbor 192.168.9.109 passive\n neighbor 192.168.9.110 remote-as 65010\n neighbor 192.168.9.110 ebgp-multihop 4\n neighbor 192.168.9.110 passive\n address-family ipv4 unicast\n  neighbor 192.168.9.109 activate\n  neighbor 192.168.9.109 route-map ONLY-LAB in\n  neighbor 192.168.9.110 activate\n  neighbor 192.168.9.110 route-map ONLY-LAB in\n exit-address-family\nexit\n",
+      "daemons": "zebra=yes\nbgpd=yes\nvtysh_enable=yes\nzebra_options=\" -A 127.0.0.1 -s 90000000\"\nbgpd_options=\" -A 127.0.0.1 -n\"\n",
+      "vtysh.conf": "service integrated-vtysh-config\n"
+    }
+  },
+  {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "frr",
+      "namespace": "lab-dataplane-vm-admin",
+      "labels": {
+        "cnpl.io/phase-run": "offline-source-review"
+      }
+    },
+    "spec": {
+      "automountServiceAccountToken": false,
+      "nodeSelector": {
+        "kubernetes.io/hostname": "worker01.k8s.internal.egon.top"
+      },
+      "containers": [
+        {
+          "name": "router",
+          "image": "harbor.k8s.internal.egon.top/bootstrap/phase02-frr@sha256:0ee746488c1da328f6fb14e64b6be070c1fc74633e83a6581af3e446e9ebdb4f",
+          "imagePullPolicy": "IfNotPresent",
+          "readinessProbe": {
+            "exec": {
+              "command": [
+                "vtysh",
+                "-d",
+                "bgpd",
+                "-c",
+                "show bgp ipv4 unicast json"
+              ]
+            },
+            "initialDelaySeconds": 3,
+            "periodSeconds": 3,
+            "timeoutSeconds": 2
+          },
+          "resources": {
+            "requests": {
+              "cpu": "50m",
+              "memory": "64Mi"
+            },
+            "limits": {
+              "cpu": "500m",
+              "memory": "256Mi"
+            }
+          },
+          "securityContext": {
+            "runAsUser": 0,
+            "capabilities": {
+              "add": [
+                "NET_ADMIN",
+                "NET_RAW",
+                "SYS_ADMIN"
+              ]
+            }
+          },
+          "volumeMounts": [
+            {
+              "name": "config",
+              "mountPath": "/etc/frr",
+              "readOnly": true
+            }
+          ]
+        }
+      ],
+      "volumes": [
+        {
+          "name": "config",
+          "configMap": {
+            "name": "frr",
+            "defaultMode": 420
+          }
+        }
+      ]
+    }
+  }
+]

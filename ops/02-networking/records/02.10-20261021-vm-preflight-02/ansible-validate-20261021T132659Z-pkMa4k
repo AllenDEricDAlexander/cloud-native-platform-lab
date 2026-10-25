@@ -1,0 +1,33 @@
+
+PLAY [完整专题前检、执行、故障恢复与回执] **************************************
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定 attempt 和专题] *****************************************************
+ok: [localhost]
+
+TASK [准备原身份、VM、输入摘要、所有模板与安全边界] ****************************
+[ERROR]: Task failed: Module failed: The command exited with a non-zero return code.
+Origin: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:16:7
+
+14     - name: 绑定 attempt 和专题
+15       ansible.builtin.set_fact: {phase_attempt: '{{ phase_records }}/attempts/{{ phase_clock.stdout }}-{{ phase_mo...
+16     - name: 准备原身份、VM、输入摘要、所有模板与安全边界
+         ^ column 7
+
+fatal: [localhost]: FAILED! => {"changed": false, "changed_when_result": false, "cmd": ["/Users/mario/.venvs/cnpl-ansible/bin/python", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/tests/integration/mesh/check.py", "--records", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-02", "--attempt", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-02/attempts/20261021T132700Z-a1b324a0-validate", "--mode", "validate", "prepare", "--output", "/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-02/attempts/20261021T132700Z-a1b324a0-validate/prepare.json"], "delta": "0:00:01.681724", "end": "2026-10-21 21:27:02.616022", "msg": "The command exited with a non-zero return code.", "rc": 1, "start": "2026-10-21 21:27:00.934298", "stderr": "'mesh_vm'", "stderr_lines": ["'mesh_vm'"], "stdout": "", "stdout_lines": []}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=2    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+
+
+执行失败汇总
+退出码：2
+首个失败步骤：准备原身份、VM、输入摘要、所有模板与安全边界
+任务：准备原身份、VM、输入摘要、所有模板与安全边界
+原因：'mesh_vm'
+日志位置：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-02/ansible-validate-20261021T132659Z-pkMa4k:19
+任务来源：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/phase02.yml:16:7
+汇总 JSON：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-02/summary-validate-20261021T132659Z-pkMa4k.json
+完整日志：/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.10-20261021-vm-preflight-02/ansible-validate-20261021T132659Z-pkMa4k

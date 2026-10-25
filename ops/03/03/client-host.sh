@@ -4,13 +4,20 @@ set -euo pipefail
 set +x
 umask 077
 adm=$1 image=$2 fsid=$3 run=$4 pool=$5 fs=$6 action=$7
+rbd_mounter=${8:-krbd} fs_mounter=${9:-kernel}
+[[ $rbd_mounter == krbd || $rbd_mounter == rbd-nbd ]] || exit 1
+[[ $fs_mounter == kernel || $fs_mounter == fuse ]] || exit 1
 [[ $EUID == 0 && $(hostname -s) == storage01 && $(getenforce) == Enforcing ]] || exit 1
 systemctl is-active --quiet firewalld || exit 1
-"$adm" --image "$image" shell --fsid "$fsid" -- bash -s -- "$run" "$pool" "$fs" "$action" <<'CLIENT'
+if [[ $rbd_mounter == rbd-nbd ]]; then modprobe nbd; else modprobe rbd; fi
+if [[ $fs_mounter == fuse ]]; then modprobe fuse; else modprobe ceph; fi
+# NBD 的 sysfs PID 属于宿主机；映射归属检查需要同一个只读 /proc 视图。
+"$adm" --image "$image" shell --fsid "$fsid" --mount /proc:/proc:ro -- bash -s -- "$run" "$pool" "$fs" "$action" "$rbd_mounter" "$fs_mounter" <<'CLIENT'
 set -euo pipefail
 set +x
 umask 077
 run=$1 pool=$2 fs=$3 action=$4
+rbd_mounter=$5 fs_mounter=$6
 [[ $run =~ ^[a-z][a-z0-9-]{2,19}$ && $pool == "cnpl03-$run-rbd" && $fs == "cnpl03-$run-fs" ]] || exit 1
 client=cnpl03-$run-probe
 work=$(mktemp -d)
@@ -19,7 +26,8 @@ cleanup() {
     rc=$?; trap - EXIT
     if mountpoint -q "$work/a"; then umount "$work/a" || rc=1; fi
     if mountpoint -q "$work/b"; then umount "$work/b" || rc=1; fi
-    if [[ -n $mapped ]]; then rbd device unmap "$mapped" || rc=1; fi
+    if [[ $mapped == /dev/rbd[0-9]* && -b $mapped ]]; then rbd device unmap "$mapped" || rc=1; fi
+    if [[ $mapped == /dev/nbd[0-9]* && -b $mapped ]]; then rbd-nbd unmap "$mapped" || rc=1; fi
     if [[ $created == true && $rc == 0 ]]; then rbd rm "$pool/probe-$run" || rc=1; fi
     if [[ $subvolume == true && $rc == 0 ]]; then ceph fs subvolume rm "$fs" "probe-$run" || rc=1; fi
     if [[ $authorized == true && $rc == 0 ]]; then ceph auth del "client.$client" || rc=1; fi
@@ -35,9 +43,16 @@ if [[ $action == rbd-test ]]; then
     authorized=true
     rbd --id "$client" --keyring "$work/client.keyring" create "$pool/probe-$run" --size 32M --image-feature layering
     created=true
-    mapped=$(rbd --id "$client" --keyring "$work/client.keyring" device map "$pool/probe-$run")
-    [[ -b $mapped && $mapped == /dev/rbd* ]] || exit 1
-    rbd device list --format json | jq -e --arg pool "$pool" --arg name "probe-$run" --arg device "$mapped" 'any(.[];.pool==$pool and (.name // .image)==$name and .device==$device)' >/dev/null || exit 1
+    rbd image-meta set "$pool/probe-$run" cnpl.run "$run"
+    if [[ $rbd_mounter == rbd-nbd ]]; then
+        mapped=$(rbd-nbd --id "$client" --keyring "$work/client.keyring" map "$pool/probe-$run")
+        [[ -b $mapped && $mapped == /dev/nbd[0-9]* ]] || exit 1
+        rbd-nbd list-mapped --format json | jq -e --arg pool "$pool" --arg name "probe-$run" --arg device "$mapped" 'any(.[];.pool==$pool and (.name // .image)==$name and .device==$device)' >/dev/null || exit 1
+    else
+        mapped=$(rbd --id "$client" --keyring "$work/client.keyring" device map "$pool/probe-$run")
+        [[ -b $mapped && $mapped == /dev/rbd[0-9]* ]] || exit 1
+        rbd device list --format json | jq -e --arg pool "$pool" --arg name "probe-$run" --arg device "$mapped" 'any(.[];.pool==$pool and (.name // .image)==$name and .device==$device)' >/dev/null || exit 1
+    fi
     mkfs.ext4 -q "$mapped"
     mount "$mapped" "$work/a"
     printf '%s\n' "$run:sequence:000001" > "$work/a/probe"
@@ -56,7 +71,13 @@ else
     authorized=true
     ceph auth get-key "client.$client" > "$work/secret"
     mons=$(ceph mon dump --format json | jq -r '[.mons[].public_addrs.addrvec[]|select(.type=="v2")|.addr|sub("/.*$";"")]|join(",")')
-    for mount_dir in a b; do mount -t ceph "$mons:$path" "$work/$mount_dir" -o "name=$client,secretfile=$work/secret,fs=$fs"; done
+    for mount_dir in a b; do
+        if [[ $fs_mounter == fuse ]]; then
+            ceph-fuse --id "$client" --keyring "$work/client.keyring" --client_fs "$fs" -r "$path" "$work/$mount_dir"
+        else
+            mount -t ceph "$mons:$path" "$work/$mount_dir" -o "name=$client,secretfile=$work/secret,fs=$fs"
+        fi
+    done
     printf '%s\n' "$run:sequence:000001" > "$work/a/probe"
     sync; cmp "$work/a/probe" "$work/b/probe"
     chmod 0600 "$work/a/probe"

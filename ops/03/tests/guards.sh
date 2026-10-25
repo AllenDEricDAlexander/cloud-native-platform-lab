@@ -51,6 +51,13 @@ expect_fail bash -c 'source "$1/lib/common.sh"; P03=$2/runtime; INPUTS=$2/run-in
 receipt=$(find "$work/runtime" -type f -name result.json)
 jq -e '.exit_code==3 and .phase_acceptance==false' "$receipt" >/dev/null
 grep -Fxq fixture-output "$(dirname "$receipt")/output.txt"
+expect_fail ruby -rtimeout -e 'pid=Process.spawn(*ARGV,pgroup:true);begin;_,s=Timeout.timeout(5){Process.wait2(pid)};exit(s.exitstatus || 1);rescue Timeout::Error;Process.kill("KILL",-pid);abort "redirected failure logger hung";end' -- bash -c 'source "$1/lib/common.sh"; P03=$2/runtime; INPUTS=$2/run-inputs.json; start 01 redirected-failure; fail_fixture(){ printf "redirected-output\n"; return 7; }; fail_fixture > "$ATTEMPT/redirected.txt"' -- "$root" "$work"
+redirected_receipt=$(find "$work/runtime" -type f -name result.json -exec sh -c 'jq -e ".action==\"redirected-failure\" and .exit_code==7" "$1" >/dev/null && printf "%s\n" "$1"' -- {} \;)
+[[ -n $redirected_receipt ]]
+grep -Fxq redirected-output "$(dirname "$redirected_receipt")/redirected.txt"
+expect_fail bash -c 'source "$1/lib/common.sh"; P03=$2/runtime; INPUTS=$2/run-inputs.json; start 01 fixture; kill -TERM $$; exit 0' -- "$root" "$work"
+signal_receipt=$(find "$work/runtime" -type f -name result.json -exec sh -c 'jq -e ".exit_code==143" "$1" >/dev/null && printf "%s\n" "$1"' -- {} \;)
+[[ -n $signal_receipt ]]
 bash -c 'source "$1/lib/common.sh"; trap '\''[[ -z $PRIVATE_TEMP_ROOT ]] || rm -rf -- "$PRIVATE_TEMP_ROOT"'\'' EXIT; marker=$2/notfound-seen; sleep(){ :; }; probe(){ if [[ ! -f $marker ]]; then touch "$marker"; printf "Error from server (NotFound)\n" >&2; return 1; fi; printf "{\"ready\":true}\n"; }; wait_json 10 .ready probe' -- "$root" "$work"
 for family in redis redis-sentinel redis-cluster valkey; do
     ruby "$root/08/redis-render.rb" "$family" "harbor.k8s.internal.egon.top/test/cache@sha256:$(printf '%064d' 0)" fixture-rbd fixture-tls fixture > "$work/$family.json"

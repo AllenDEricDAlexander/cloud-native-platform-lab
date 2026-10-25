@@ -1,0 +1,435 @@
+
+PLAY [完整 02.06 一次前检所有物料、VM、YAML 和前序边界] ************************
+
+TASK [限定模式与证据目录] ******************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+
+TASK [生成独立 attempt 标识] ***************************************************
+ok: [localhost]
+
+TASK [绑定本次 attempt] ********************************************************
+ok: [localhost]
+
+TASK [创建记录目录] ************************************************************
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020T000800Z-agent-r1/attempts/20261020T000919Z-c5b05371-all)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020T000800Z-agent-r1/state)
+changed: [localhost] => (item=/Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/records/02.06-20261020T000800Z-agent-r1/attempts/20261020T000919Z-c5b05371-all/observations)
+
+TASK [校验原集群、02.05 内部原始交接和模式边界] ********************************
+ok: [localhost]
+
+TASK [绑定上下文与运行标签] ****************************************************
+ok: [localhost]
+
+TASK [一次核验五台 VM 的安全状态、内网路由及既有代理] **************************
+ok: [localhost]
+
+TASK [确定性重建 Go 镜像并核对 Harbor 摘要] ************************************
+ok: [localhost]
+
+TASK [一次渲染全部实际执行 YAML] ***********************************************
+changed: [localhost] => (item=namespaces)
+changed: [localhost] => (item=default-deny)
+changed: [localhost] => (item=workloads)
+changed: [localhost] => (item=standard)
+changed: [localhost] => (item=cilium)
+changed: [localhost] => (item=egress)
+changed: [localhost] => (item=proxy-unreachable)
+
+TASK [全部清单执行严格服务端预览，包括出口参考但不落地] ************************
+ok: [localhost]
+
+TASK [记录执行源码与输入摘要] **************************************************
+ok: [localhost]
+
+TASK [保存既有网络、策略、工作负载和主入口基线] ********************************
+ok: [localhost]
+
+TASK [正式执行绑定不可覆盖的原始基线] ******************************************
+changed: [localhost] => (item=source)
+changed: [localhost] => (item=protected)
+
+TASK [报告前检通过，运行实验由统一入口继续] ************************************
+ok: [localhost] => {
+    "msg": "02.06 SOURCE VALIDATION PASS；仅 VM；公网入站仍 BLOCKED，Ceph 与 Egress Gateway 前提不足单独记录。"
+}
+
+PLAY [整组 02.06 网络策略与出站验证，异常时自动回收本批实验] *******************
+
+TASK [创建专用空间] ************************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/policies-apply.yml for localhost
+
+TASK [应用整份经核验的策略或工作负载] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Namespace/lab-policy)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Namespace/lab-policy-peer)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Namespace/lab-egress)
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [先建立双向默认拒绝] ******************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/policies-apply.yml for localhost
+
+TASK [应用整份经核验的策略或工作负载] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=NetworkPolicy/default-deny)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=NetworkPolicy/default-deny)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=NetworkPolicy/default-deny)
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [再创建八个无凭据诊断 Pod] ************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/policies-apply.yml for localhost
+
+TASK [应用整份经核验的策略或工作负载] ******************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/client)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/api)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/dependency)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/fqdn)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/ingress)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/monitor)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/outsider)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Pod/egress)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=ConfigMap/policy-root)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=ConfigMap/policy-root)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=ConfigMap/policy-root)
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/playbooks/../tasks/policies-document.yml for localhost => (item=Service/api)
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [保存公开对象输入] ********************************************************
+changed: [localhost]
+
+TASK [应用前验证空间边界与 UID，保存创建意图] **********************************
+ok: [localhost]
+
+TASK [在真实目标空间再次严格服务端预览] ****************************************
+ok: [localhost]
+
+TASK [应用本批对象] ************************************************************
+changed: [localhost]
+
+TASK [保存实际对象] ************************************************************
+changed: [localhost]
+
+TASK [记录原始 UID] ************************************************************
+ok: [localhost]
+
+TASK [等待默认拒绝收敛] ********************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/policies-ready.yml for localhost
+
+TASK [等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛] **********************
+FAILED - RETRYING: [localhost]: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛 (59 retries left).
+FAILED - RETRYING: [localhost]: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛 (58 retries left).
+FAILED - RETRYING: [localhost]: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛 (57 retries left).
+FAILED - RETRYING: [localhost]: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛 (56 retries left).
+FAILED - RETRYING: [localhost]: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛 (55 retries left).
+FAILED - RETRYING: [localhost]: 等待八个原 Pod Ready、镜像匹配、双向策略与身份收敛 (54 retries left).
+ok: [localhost]
+
+TASK [记录初始阻断] ************************************************************
+included: /Users/mario/SelfProject/cloud-native-platform-lab/ops/02-networking/ansible/tasks/policies-observe.yml for localhost
+
+TASK [验证 denied 的连续三次实际行为、Hubble 与身份] ***************************
+[ERROR]: User interrupted execution

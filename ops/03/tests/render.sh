@@ -14,7 +14,7 @@ required() {
     esac
 }
 image() { printf 'harbor.k8s.internal.egon.top/test/%s@sha256:%064d\n' "$1" 0; }
-material() { printf '{"version":"8.4.5","imageRepository":"harbor.k8s.internal.egon.top/test","command":["/perf_test/bin/runjava","com.rabbitmq.perf.PerfTest"]}\n'; }
+material() { jq -n --arg file "$FIXTURE_ROOT/password" --arg sha "$(sha "$FIXTURE_ROOT/password")" --arg source "$(sha "$P03/08/AmqpConfirmProbe.java")" '{version:"8.4.5",imageRepository:"harbor.k8s.internal.egon.top/test",probe_class_file:$file,probe_class_sha256:$sha,probe_source_sha256:$source}'; }
 component_chart() { :; }
 component_manifest() { :; }
 data_domains() { :; }
@@ -23,6 +23,10 @@ secret_from_files() { :; }
 wait_json() { :; }
 k() {
     case " $* " in
+        *' get certificate '*) jq -n --arg run "$RUN" '{metadata:{labels:{"cnpl.io/run":$run,"cnpl.io/phase":"03"},generation:1},status:{conditions:[{type:"Ready",status:"True",observedGeneration:1}]}}' ;;
+        *' get secret '*) printf '{"data":{"tls.crt":"Zml4dHVyZQ==","tls.key":"Zml4dHVyZQ=="}}\n' ;;
+        *' logs job/rabbit-confirm-'*) printf '{"published":20,"confirmed":20,"consumed":20,"acked":20,"duplicates":0,"tls_hostname_verified":true}\n' ;;
+        *' logs job/mysql-probe-'*) printf 'PASS MySQL 1000 committed IDs and checksum through TLS Router\n' ;;
         *' create configmap '*) printf '{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"fixture"},"data":{}}\n' ;;
         *' get pods '*) jq -n --arg digest "sha256:$(printf '%064d' 0)" '{items:[range(3)|{status:{containerStatuses:[{name:"mysql",imageID:$digest}]}}]}' ;;
         *' get elasticsearch '*) printf '{"status":{"health":"green","availableNodes":3}}\n' ;;
@@ -31,12 +35,14 @@ k() {
 }
 count=0
 apply() {
-    jq -e . "$1" >/dev/null
-    ruby "$P03/lib/review.rb" images-json "$1"
+    local file=$1
+    if [[ $file == *.yaml || $file == *.yml ]]; then yaml_json "$file" > "$FIXTURE_ROOT/input.json"; file=$FIXTURE_ROOT/input.json; fi
+    jq -e . "$file" >/dev/null
+    ruby "$P03/lib/review.rb" images-json "$file"
     while IFS= read -r encoded; do
         printf '%s\n' "$encoded" | ruby -rbase64 -e 'print Base64.decode64(STDIN.read)' > "$FIXTURE_ROOT/container-command.sh"
         sh -n "$FIXTURE_ROOT/container-command.sh"
-    done < <(jq -r '..|objects|.command? // empty|select(type=="array" and .[0]=="sh" and (.[1]=="-c" or .[1]=="-ceu"))|.[2]|@base64' "$1")
+    done < <(jq -r '..|objects|.command? // empty|select(type=="array" and .[0]=="sh" and (.[1]=="-c" or .[1]=="-ceu"))|.[2]|@base64' "$file")
     count=$((count+1))
 }
 for action in mysql mysql-test; do ACTION=$action; source "$P03/07/mysql.sh" > "$FIXTURE_ROOT/$action.txt"; done

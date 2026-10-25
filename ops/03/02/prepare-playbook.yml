@@ -7,6 +7,35 @@
     phase03_image: '{{ lookup("env", "CNPL03_CEPH_IMAGE") }}'
     phase03_sources: '{{ groups.k8s_nodes | map("extract", hostvars, "ansible_host") | list + lab_mgmt_sources }}'
   tasks:
+    - name: 安装前核对主机与安全基线
+      tags: [repositories]
+      ansible.builtin.shell: |
+        set -euo pipefail
+        test "$(hostname -s)" = '{{ inventory_hostname }}'
+        test "$(getenforce)" = Enforcing
+        systemctl is-active --quiet firewalld containerd kubelet chronyd
+      args: {executable: /bin/bash}
+      changed_when: false
+    - name: 安装受控内网 RPM 仓库配置
+      tags: [repositories]
+      ansible.builtin.copy:
+        src: '{{ phase03_config.ceph.repository_file }}'
+        dest: /etc/yum.repos.d/cnpl03.repo
+        owner: root
+        group: root
+        mode: '0600'
+        backup: true
+      when: phase03_config.ceph.repository_file | default('') | length > 0
+      no_log: true
+    - name: 安装已核对的 Ceph RPM 签名公钥
+      tags: [repositories]
+      ansible.builtin.copy:
+        src: '{{ phase03_config.ceph.gpg_file }}'
+        dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-cnpl03-ceph
+        owner: root
+        group: root
+        mode: '0644'
+      when: phase03_config.ceph.gpg_file | default('') | length > 0
     - name: 安全基线与明确包版本
       ansible.builtin.assert:
         that:
@@ -14,9 +43,50 @@
           - phase03_config.ceph.private_repositories | length > 0
           - phase03_config.ceph.packages | select('match', '^[a-zA-Z0-9_.+-]+-[0-9][a-zA-Z0-9_.+:-]*$') | list | length == phase03_config.ceph.packages | length
           - phase03_config.ceph.private_repositories | select('match', '^[a-zA-Z0-9_-]+$') | list | length == phase03_config.ceph.private_repositories | length
+    - name: 准备本批 RPM 缓存目录
+      ansible.builtin.file: {path: /var/cache/cnpl/phase03/rpms, state: directory, owner: root, group: root, mode: '0750'}
+      when: phase03_config.ceph.rpm_bundle | default('') | length > 0
+    - name: 传输已固定摘要的 RPM 物料包
+      ansible.builtin.copy: {src: '{{ phase03_config.ceph.rpm_bundle }}', dest: /var/cache/cnpl/phase03/rpms.tar, owner: root, group: root, mode: '0640'}
+      when: phase03_config.ceph.rpm_bundle | default('') | length > 0
+    - name: 读取物料包实际摘要
+      ansible.builtin.stat: {path: /var/cache/cnpl/phase03/rpms.tar, checksum_algorithm: sha256}
+      register: phase03_bundle
+      when: phase03_config.ceph.rpm_bundle | default('') | length > 0
+    - name: 拒绝传输损坏的 RPM 包
+      ansible.builtin.assert: {that: phase03_bundle.stat.checksum == phase03_config.ceph.rpm_bundle_sha256}
+      when: phase03_config.ceph.rpm_bundle | default('') | length > 0
+    - name: 解开本批已核验 RPM
+      ansible.builtin.unarchive: {src: /var/cache/cnpl/phase03/rpms.tar, dest: /var/cache/cnpl/phase03/rpms, remote_src: true, owner: root, group: root}
+      when: phase03_config.ceph.rpm_bundle | default('') | length > 0
+    - name: 核对每个 RPM 的实际摘要
+      ansible.builtin.stat: {path: '/var/cache/cnpl/phase03/rpms/{{ item.key }}', checksum_algorithm: sha256}
+      loop: '{{ phase03_config.ceph.rpms | default({}) | dict2items }}'
+      loop_control: {label: '{{ item.key }}'}
+      register: phase03_rpm_checks
+    - name: 拒绝错误的 RPM 文件
+      ansible.builtin.assert:
+        that:
+          - item.item.key is match('^[a-zA-Z0-9_.+^~:-]+\.rpm$')
+          - item.stat.isreg
+          - not item.stat.islnk
+          - item.stat.checksum == item.item.value
+      loop: '{{ phase03_rpm_checks.results | default([]) }}'
+      loop_control: {label: '{{ item.item.key }}'}
+    - name: 导入已核对的发行签名公钥
+      ansible.builtin.rpm_key: {key: '{{ item }}', state: present}
+      loop: [/etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-10, /etc/pki/rpm-gpg/RPM-GPG-KEY-cnpl03-ceph]
+      when: phase03_config.ceph.rpm_bundle | default('') | length > 0
+    - name: 验证本批 RPM 的发行签名
+      ansible.builtin.command: {argv: [rpmkeys, --checksig, '/var/cache/cnpl/phase03/rpms/{{ item.key }}']}
+      loop: '{{ phase03_config.ceph.rpms | default({}) | dict2items }}'
+      loop_control: {label: '{{ item.key }}'}
+      register: phase03_signature
+      changed_when: false
+      failed_when: phase03_signature.rc != 0 or 'signatures OK' not in phase03_signature.stdout
     - name: 安装明确版本的 Podman、cephadm、LVM、jq 及 Ceph 客户端依赖
       ansible.builtin.command:
-        argv: '{{ ["dnf", "-y", "--disablerepo=*", "--enablerepo=" ~ (phase03_config.ceph.private_repositories | join(",")), "--setopt=install_weak_deps=False", "install"] + phase03_config.ceph.packages }}'
+        argv: '{{ ["dnf", "-y", "--disablerepo=*"] + ([] if phase03_config.ceph.rpm_bundle | default("") | length > 0 else ["--enablerepo=" ~ (phase03_config.ceph.private_repositories | join(","))]) + ["--setopt=install_weak_deps=False", "install"] + phase03_config.ceph.packages + ((phase03_config.ceph.rpms | default({}) | dict2items | map(attribute="key") | map("regex_replace", "^", "/var/cache/cnpl/phase03/rpms/") | list) if phase03_config.ceph.rpm_bundle | default("") | length > 0 else []) }}'
       register: phase03_packages
       changed_when: "'Nothing to do.' not in phase03_packages.stdout"
     - name: 检查 Podman 与 containerd 独立，保留安全与时间基线

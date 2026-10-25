@@ -4,7 +4,7 @@ source "$(dirname "$0")/../lib/common.sh"
 action=${1:-validate}
 case "$action" in
     validate) exec bash "$P03/validate.sh" 05 ;;
-    deploy|static|write|recreate|access|expand|snapshot|snapshot-policy|clone|reclaim|migrate|stateful|check|cleanup) ;;
+    deploy|static|write|backup|recreate|access|expand|snapshot|snapshot-policy|clone|reclaim|migrate|stateful|check|cleanup) ;;
     *) die '用法：05/run.sh validate|deploy|static|write|recreate|access|expand|snapshot|snapshot-policy|clone|reclaim|migrate|stateful|check|cleanup' ;;
 esac
 start 05 "$action"
@@ -12,7 +12,10 @@ cluster_gate; ceph_ok
 ns=cnpl03-05
 namespace "$ns"
 probe=$(image probe)
-yaml_json "$P03/05/workloads.yaml" | jq --arg image "$probe" --arg rbd "$SC_RBD" --arg fs "$SC_FS" '.items|=map(if .kind=="PersistentVolumeClaim" then .spec.storageClassName=(if .metadata.name=="shared" then $fs else $rbd end) elif .kind=="Pod" then .spec.containers[0].image=$image elif .kind=="StatefulSet" then .spec.template.spec.containers[0].image=$image | .spec.volumeClaimTemplates[0].spec.storageClassName=$rbd else . end)' > "$ATTEMPT/workloads.json"
+rbd_mounter=$(get '.ceph.rbd_mounter // "krbd"')
+worker1=$(host_value worker01 fqdn)
+worker2=$(host_value worker02 fqdn)
+yaml_json "$P03/05/workloads.yaml" | jq --arg worker1 "$worker1" --arg worker2 "$worker2" --arg image "$probe" --arg rbd "$SC_RBD" --arg fs "$SC_FS" '.items|=map(if .kind=="PersistentVolumeClaim" then .spec.storageClassName=(if .metadata.name=="shared" then $fs else $rbd end) elif .kind=="Pod" then .spec.containers[0].image=$image elif .kind=="StatefulSet" then .spec.template.spec.containers[0].image=$image | .spec.volumeClaimTemplates[0].spec.storageClassName=$rbd else . end | if .kind=="Pod" then .spec.nodeSelector["kubernetes.io/hostname"]=(if .spec.nodeSelector["kubernetes.io/hostname"]=="worker01" then $worker1 else $worker2 end) else . end)' > "$ATTEMPT/workloads.json"
 subset() { jq --argjson names "$1" '.items|=map(select(.metadata.name as $name|$names|index($name)!=null))' "$ATTEMPT/workloads.json" > "$ATTEMPT/subset.json"; apply "$ATTEMPT/subset.json" "$ns"; }
 ready() { k -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s; }
 owned_delete() {
@@ -41,12 +44,15 @@ case "$action" in
     deploy) subset '["rbd","shared","exclusive","rbd-writer","fs-a","fs-b"]'; ready rbd-writer; ready fs-a; ready fs-b ;;
     static)
         backend static "static-$RUN"
+        backend static "static-$RUN-mismatch"
         pv=cnpl03-$RUN-static
-        jq -n --arg pv "$pv" --arg handle "static-$RUN" --arg driver "$ROOK_NS.rbd.csi.ceph.com" --arg pool "$RBD_POOL" --arg ns "$EXTERNAL_NS" '{apiVersion:"v1",kind:"List",items:[{apiVersion:"v1",kind:"PersistentVolume",metadata:{name:$pv},spec:{capacity:{storage:"1Gi"},accessModes:["ReadWriteOnce"],persistentVolumeReclaimPolicy:"Retain",storageClassName:"",csi:{driver:$driver,volumeHandle:$handle,fsType:"ext4",volumeAttributes:{clusterID:$ns,pool:$pool,staticVolume:"true",imageName:$handle,imageFeatures:"layering"},nodeStageSecretRef:{name:"csi-rbd-node",namespace:$ns}}}},{apiVersion:"v1",kind:"PersistentVolumeClaim",metadata:{name:"static"},spec:{volumeName:$pv,storageClassName:"",accessModes:["ReadWriteOnce"],resources:{requests:{storage:"1Gi"}}}},{apiVersion:"v1",kind:"PersistentVolumeClaim",metadata:{name:"pending-size"},spec:{volumeName:$pv,storageClassName:"",accessModes:["ReadWriteOnce"],resources:{requests:{storage:"100Ti"}}}}]}' > "$ATTEMPT/static.json"
-        apply "$ATTEMPT/static.json" "$ns"
+        jq -n --arg pv "$pv" --arg handle "static-$RUN" --arg driver "$ROOK_NS.rbd.csi.ceph.com" --arg pool "$RBD_POOL" --arg ns "$EXTERNAL_NS" --arg mounter "$rbd_mounter" '{apiVersion:"v1",kind:"List",items:[{apiVersion:"v1",kind:"PersistentVolume",metadata:{name:$pv},spec:{capacity:{storage:"1Gi"},accessModes:["ReadWriteOnce"],persistentVolumeReclaimPolicy:"Retain",storageClassName:"",csi:{driver:$driver,volumeHandle:$handle,fsType:"ext4",volumeAttributes:{clusterID:$ns,pool:$pool,staticVolume:"true",imageName:$handle,imageFeatures:"layering",mounter:$mounter},nodeStageSecretRef:{name:"csi-rbd-node",namespace:$ns}}}},{apiVersion:"v1",kind:"PersistentVolumeClaim",metadata:{name:"static"},spec:{volumeName:$pv,storageClassName:"",accessModes:["ReadWriteOnce"],resources:{requests:{storage:"1Gi"}}}},{apiVersion:"v1",kind:"PersistentVolumeClaim",metadata:{name:"pending-size"},spec:{volumeName:$pv,storageClassName:"",accessModes:["ReadWriteOnce"],resources:{requests:{storage:"100Ti"}}}}]}' > "$ATTEMPT/static.json"
+        jq --arg pv "$pv-mismatch" --arg handle "static-$RUN-mismatch" '.items as $base | .items=[$base[0],($base[0]|.metadata.name=$pv|.spec.csi.volumeHandle=$handle|.spec.csi.volumeAttributes.imageName=$handle),$base[1],($base[2]|.spec.volumeName=$pv)]' "$ATTEMPT/static.json" > "$ATTEMPT/static-binding.json"
+        apply "$ATTEMPT/static-binding.json" "$ns"
         restored_pod static-reader static
         k -n "$ns" exec static-reader -- sh -ceu 'printf static-probe > /data/static; sync; test "$(cat /data/static)" = static-probe'
         [[ $(k -n "$ns" get pvc pending-size -o jsonpath='{.status.phase}') == Pending ]] || die '不匹配 PVC 未保持 Pending'
+        wait_json 120 'any(.items[];(.message // ""|test("too small|capacity|smaller";"i")))' k -n "$ns" get events --field-selector involvedObject.name=pending-size -o json
         k -n "$ns" get events --field-selector involvedObject.name=pending-size -o json > "$ATTEMPT/pending-events.json"
         ;;
     write)
@@ -59,6 +65,7 @@ case "$action" in
         jq -n --arg rbd "$rbd_hash" --arg shared "$fs_hash" '{apiVersion:"v1",kind:"ConfigMap",metadata:{name:"checksums"},data:{rbd:$rbd,shared:$shared}}' > "$ATTEMPT/checksums.json"
         apply "$ATTEMPT/checksums.json" "$ns"; check_data
         ;;
+    backup) source "$P03/05/backup-mac.sh" ;;
     recreate)
         check_data
         for pod in rbd-writer fs-a fs-b; do owned_delete pod "$pod"; done
@@ -67,21 +74,26 @@ case "$action" in
     access)
         check_data
         actual_node=$(k -n "$ns" get pod rbd-writer -o jsonpath='{.spec.nodeName}')
-        jq --arg node "$actual_node" '.items=[.items[]|select(.kind=="Pod" and .metadata.name=="rbd-writer")|.metadata.name="rwo-same-node"|.spec.nodeSelector["kubernetes.io/hostname"]=$node]' "$ATTEMPT/workloads.json" > "$ATTEMPT/same.json"
+        # 同节点共享 RWO 文件系统时使用同一 MCS 级别，避免第二个 Pod 重标记后隔离第一个。
+        level=$(k -n "$ns" exec rbd-writer -- cat /proc/self/attr/current | cut -d: -f4-)
+        [[ $level =~ ^s0(:c[0-9]+(,c[0-9]+)?)?$ ]] || die '无法确认共享卷的 SELinux MCS 级别'
+        jq --arg node "$actual_node" --arg level "$level" '.items=[.items[]|select(.kind=="Pod" and .metadata.name=="rbd-writer")|.metadata.name="rwo-same-node"|.spec.nodeSelector["kubernetes.io/hostname"]=$node|.spec.securityContext.seLinuxOptions.level=$level]' "$ATTEMPT/workloads.json" > "$ATTEMPT/same.json"
         apply "$ATTEMPT/same.json" "$ns"; ready rwo-same-node
         k -n "$ns" exec rwo-same-node -- sha256sum /data/sequence > "$ATTEMPT/rwo-same-node.txt"
-        other=worker01; [[ $actual_node != worker01 ]] || other=worker02
+        [[ $(awk '{print $1}' "$ATTEMPT/rwo-same-node.txt") == "$(k -n "$ns" get cm checksums -o jsonpath='{.data.rbd}')" ]] || die '同节点共享数据哈希不符'
+        other=$worker1; [[ $actual_node != "$worker1" ]] || other=$worker2
         jq --arg node "$other" '.items[0].metadata.name="rwo-other-node"|.items[0].spec.nodeSelector["kubernetes.io/hostname"]=$node' "$ATTEMPT/same.json" > "$ATTEMPT/other.json"
         apply "$ATTEMPT/other.json" "$ns"
-        sleep 20
+        wait_json 120 'any(.items[];.reason=="FailedAttachVolume" and (.message // ""|test("Multi-Attach|already.*attached|exclusive|Waiting for detach.*already used by pod";"i")))' k -n "$ns" get events --field-selector involvedObject.name=rwo-other-node -o json
         [[ $(k -n "$ns" get pod rwo-other-node -o jsonpath='{.status.phase}') == Pending ]] || die 'RWO 跨节点负向用例未保持 Pending'
         k -n "$ns" get events --field-selector involvedObject.name=rwo-other-node -o json > "$ATTEMPT/rwo-events.json"
-        jq -e 'any(.items[]; (.message // ""|test("Multi-Attach|already.*attached|exclusive";"i")))' "$ATTEMPT/rwo-events.json" >/dev/null || die 'Pending 原因不是预期的卷访问限制'
+        jq -e 'any(.items[];.reason=="FailedAttachVolume" and (.message // ""|test("Multi-Attach|already.*attached|exclusive|Waiting for detach.*already used by pod";"i")))' "$ATTEMPT/rwo-events.json" >/dev/null || die 'Pending 原因不是预期的卷访问限制'
         owned_delete pod rwo-other-node; owned_delete pod rwo-same-node
         jq '.items=[.items[]|select(.kind=="Pod" and .metadata.name=="rbd-writer")|.metadata.name="exclusive-a"|.spec.volumes[0].persistentVolumeClaim.claimName="exclusive"]' "$ATTEMPT/workloads.json" > "$ATTEMPT/exclusive.json"
         apply "$ATTEMPT/exclusive.json" "$ns"; ready exclusive-a
         jq '.items[0].metadata.name="exclusive-b"' "$ATTEMPT/exclusive.json" > "$ATTEMPT/exclusive-b.json"
-        apply "$ATTEMPT/exclusive-b.json" "$ns"; sleep 15
+        apply "$ATTEMPT/exclusive-b.json" "$ns"
+        wait_json 120 'any(.items[];(.message // ""|test("ReadWriteOncePod|already in use";"i")))' k -n "$ns" get events --field-selector involvedObject.name=exclusive-b -o json
         k -n "$ns" get events --field-selector involvedObject.name=exclusive-b -o json > "$ATTEMPT/rwop-events.json"
         jq -e 'any(.items[];(.message // ""|test("ReadWriteOncePod|already in use";"i")))' "$ATTEMPT/rwop-events.json" >/dev/null || die '未观察到 RWOP 独占约束'
         owned_delete pod exclusive-b; owned_delete pod exclusive-a
@@ -165,7 +177,7 @@ case "$action" in
     migrate)
         check_data
         old=$(k -n "$ns" get pod rbd-writer -o jsonpath='{.spec.nodeName}')
-        target=worker01; [[ $old != worker01 ]] || target=worker02
+        target=$worker1; [[ $old != "$worker1" ]] || target=$worker2
         owned_delete pod rbd-writer
         pv=$(k -n "$ns" get pvc rbd -o jsonpath='{.spec.volumeName}')
         wait_json 180 "all(.items[]; .spec.source.persistentVolumeName!=\"$pv\" or .status.attached!=true)" k get volumeattachments -o json

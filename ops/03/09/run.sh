@@ -7,8 +7,9 @@ case "$action" in
     test) cd "$P03/09/operator"; exec env GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local "${CNPL03_GO:-$HOME/.cnpl/toolchains/go1.27.2/go/bin/go}" test ./... ;;
     build) exec bash "$P03/09/build.sh" ;;
     handoff) exec ruby "$P03/09/handoff.rb" ;;
+    backup) exec bash "$P03/09/backup-mac.sh" archive ;;
     build-vm|deploy|exercise|delete) ;;
-    *) die '用法：09/run.sh validate|test|build|build-vm|deploy|exercise|delete|handoff' ;;
+    *) die '用法：09/run.sh validate|test|build|build-vm|deploy|exercise|delete|backup|handoff' ;;
 esac
 start 09 "$action"
 if [[ $action == build-vm ]]; then
@@ -39,6 +40,16 @@ case "$action" in
         wait_json 180 ".metadata.uid!=\"$old\" and .status.availableReplicas==2" k -n "$ns" get deployment demo-web -o json
         k -n "$ns" patch demoapp demo-web --type=merge -p '{"spec":{"message":"phase03-updated"}}'
         wait_json 180 '.data.message=="phase03-updated"' k -n "$ns" get cm demo-web -o json
+        name=demo-http-$(date -u +%H%M%S)
+        jq -n --arg name "$name" --arg image "$(image probe)" '{apiVersion:"batch/v1",kind:"Job",metadata:{name:$name},spec:{backoffLimit:0,activeDeadlineSeconds:120,template:{spec:{restartPolicy:"Never",containers:[{name:"http",image:$image,command:["sh","-ceu","i=0; until [ \"$(wget -qO- http://demo-web:8080)\" = phase03-updated ]; do i=$((i+1)); [ $i -lt 30 ]; sleep 3; done; printf \"phase03-updated\\n\""],resources:{requests:{cpu:"10m",memory:"16Mi"},limits:{memory:"64Mi"}}}]}}}}' > "$ATTEMPT/http.json"
+        apply "$ATTEMPT/http.json" "$ns"
+        k -n "$ns" wait --for=condition=Complete "job/$name" --timeout=150s
+        k -n "$ns" logs "job/$name" > "$ATTEMPT/http.txt"
+        grep -Fx phase03-updated "$ATTEMPT/http.txt"
+        for resource in secrets nodes; do
+            if k -n "$ns" auth can-i get "$resource" --as="system:serviceaccount:$ns:demoapp-operator" > "$ATTEMPT/rbac-$resource.txt"; then die "Operator 意外拥有 $resource 权限"; fi
+            grep -Fx no "$ATTEMPT/rbac-$resource.txt"
+        done
         jq '.spec.replicas=0' "$ATTEMPT/demo.json" > "$ATTEMPT/invalid.json"
         if k -n "$ns" apply --dry-run=server -f "$ATTEMPT/invalid.json" > "$ATTEMPT/invalid-output.txt" 2>&1; then die '非法 spec 被接受'; fi
         grep -Eq 'Invalid|greater than or equal to|minimum' "$ATTEMPT/invalid-output.txt" || die '非法 spec 未因 schema 被拒绝'
